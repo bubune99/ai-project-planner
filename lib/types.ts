@@ -113,3 +113,19 @@ export interface DocSection {
   items: DocItem[]
   expanded?: boolean
 }
+
+export interface ProjectSummary {
+  id: string
+  name: string
+  description: string
+  status: "planning" | "in_progress" | "review" | "completed" | "on_hold"
+  phase: string
+  progress: number
+  techStack: string[]
+  startDate: Date
+  lastActivity: Date
+  totalTasks: number
+  completedTasks: number
+  activeAgents: number
+  health: "excellent" | "good" | "attention" | "critical"
+}

@@ -1,93 +1,123 @@
 "use client"
 
 import { useState } from "react"
-import { TopNavigation } from "@/components/shared/TopNavigation"
-import { AIAssistant } from "@/components/shared/AIAssistant"
-import { DocumentBrowser } from "@/components/shared/DocumentBrowser"
-import { ProjectOverview } from "@/components/dashboard/ProjectOverview"
-import { AgentStatus } from "@/components/dashboard/AgentStatus"
-import { ProgressMetrics } from "@/components/dashboard/ProgressMetrics"
-import { QuickActions } from "@/components/dashboard/QuickActions"
-import { RecentActivity } from "@/components/dashboard/RecentActivity"
-import { TreeView } from "@/components/views/TreeView"
-import { GanttView } from "@/components/views/GanttView"
-import { KanbanView } from "@/components/views/KanbanView"
-import { FlowView } from "@/components/views/FlowView"
-import { DocsView } from "@/components/views/DocsView"
-import { mockProject, mockAgents, mockActivities, quickActions } from "@/lib/mock-data"
-import type { Task, KanbanTask, Document } from "@/lib/types"
+import { useRouter } from 'next/navigation'
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { ProjectCard } from "@/components/projects/ProjectCard"
+import { ProjectStats } from "@/components/projects/ProjectStats"
+import { mockProjects } from "@/lib/mock-data"
+import { Search, Plus, LayoutGrid, List } from 'lucide-react'
 
-export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState("dashboard")
-  const [selectedTask, setSelectedTask] = useState<Task | KanbanTask | null>(null)
-  const [docsOpen, setDocsOpen] = useState(false)
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
+export default function ProjectsPage() {
+  const router = useRouter()
+  const [searchQuery, setSearchQuery] = useState("")
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+
+  const filteredProjects = mockProjects.filter((project) => {
+    const matchesSearch =
+      project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      project.description.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesStatus = statusFilter === "all" || project.status === statusFilter
+    return matchesSearch && matchesStatus
+  })
+
+  const handleProjectSelect = (projectId: string) => {
+    router.push(`/project/${projectId}`)
+  }
 
   return (
     <div className="min-h-screen bg-background">
-      <TopNavigation activeTab={activeTab} onTabChange={setActiveTab} onDocsClick={() => setDocsOpen(true)} />
-
-      <div className="flex">
-        <main className="flex-1 p-8 min-w-0">
-          {activeTab === "dashboard" && (
-            <div className="max-w-[1400px] mx-auto space-y-8">
-              {/* Overview Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <ProjectOverview project={mockProject} />
-                <AgentStatus agents={mockAgents} />
-                <ProgressMetrics
-                  progress={mockProject.progress}
-                  tasksCompleted={31}
-                  totalTasks={47}
-                  commitsToday={12}
-                  lastUpdate="2 minutes ago"
-                />
-              </div>
-
-              {/* Quick Actions */}
-              <QuickActions actions={quickActions} />
-
-              {/* Recent Activity */}
-              <RecentActivity activities={mockActivities} />
+      {/* Header */}
+      <div className="border-b border-white/10 bg-black/60 backdrop-blur-sm sticky top-0 z-10">
+        <div className="container mx-auto px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2">Mission Control</h1>
+              <p className="text-muted-foreground">AI-powered project management dashboard</p>
             </div>
-          )}
-
-          {activeTab === "tree" && (
-            <div className="max-w-[1400px] mx-auto h-[calc(100vh-120px)]">
-              <TreeView onTaskSelect={setSelectedTask} />
-            </div>
-          )}
-
-          {activeTab === "gantt" && (
-            <div className="h-[calc(100vh-120px)]">
-              <GanttView onTaskSelect={setSelectedTask} />
-            </div>
-          )}
-
-          {activeTab === "kanban" && (
-            <div className="max-w-[1400px] mx-auto h-[calc(100vh-120px)]">
-              <KanbanView onTaskSelect={setSelectedTask} />
-            </div>
-          )}
-
-          {activeTab === "flow" && (
-            <div className="h-[calc(100vh-120px)]">
-              <FlowView onTaskSelect={setSelectedTask} />
-            </div>
-          )}
-
-          {activeTab === "docs" && (
-            <div className="h-[calc(100vh-120px)]">
-              <DocsView />
-            </div>
-          )}
-        </main>
-
-        {/* AI Assistant Sidebar */}
-        <AIAssistant activeTab={activeTab} selectedTask={selectedTask} selectedDocument={selectedDocument} />
+            <Button className="bg-blue-500 hover:bg-blue-600 text-white gap-2">
+              <Plus className="h-4 w-4" />
+              New Project
+            </Button>
+          </div>
+        </div>
       </div>
 
-      <DocumentBrowser open={docsOpen} onOpenChange={setDocsOpen} onDocumentSelect={setSelectedDocument} />
+      {/* Main Content */}
+      <div className="container mx-auto px-8 py-8 space-y-8">
+        {/* Stats */}
+        <ProjectStats projects={mockProjects} />
+
+        {/* Filters and Search */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1 flex items-center gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search projects..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 bg-black/40 border-white/10"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              {["all", "in_progress", "planning", "review", "completed", "on_hold"].map((status) => (
+                <Button
+                  key={status}
+                  variant={statusFilter === status ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter(status)}
+                  className={
+                    statusFilter === status
+                      ? "bg-blue-500 hover:bg-blue-600"
+                      : "border-white/10 hover:bg-white/5"
+                  }
+                >
+                  {status.replace("_", " ")}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={viewMode === "grid" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode("grid")}
+              className={viewMode === "grid" ? "bg-blue-500" : "border-white/10"}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === "list" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode("list")}
+              className={viewMode === "list" ? "bg-blue-500" : "border-white/10"}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Projects Grid */}
+        <div>
+          <h2 className="text-xl font-semibold text-white mb-4">
+            {filteredProjects.length} Projects
+          </h2>
+          <div
+            className={
+              viewMode === "grid"
+                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                : "space-y-4"
+            }
+          >
+            {filteredProjects.map((project) => (
+              <ProjectCard key={project.id} project={project} onSelect={handleProjectSelect} />
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

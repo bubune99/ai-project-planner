@@ -1,6 +1,6 @@
 "use client"
 
-import { Rocket, Settings, FileText } from "lucide-react"
+import { Rocket, Settings, FileText } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 
 const tabs = [
@@ -9,22 +9,23 @@ const tabs = [
   { id: "gantt", label: "📈 Gantt" },
   { id: "kanban", label: "📋 Kanban" },
   { id: "flow", label: "🔀 Flow" },
-  { id: "docs", label: "📚 Docs" }, // Adding Docs tab
+  { id: "docs", label: "📚 Docs" },
 ]
 
 interface TopNavigationProps {
   activeTab?: string
   onTabChange?: (tabId: string) => void
   onDocsClick?: () => void
+  projectName?: string // Added optional project name prop
 }
 
-export function TopNavigation({ activeTab = "dashboard", onTabChange, onDocsClick }: TopNavigationProps) {
+export function TopNavigation({ activeTab = "dashboard", onTabChange, onDocsClick, projectName }: TopNavigationProps) {
   return (
     <nav className="h-[60px] border-b border-border bg-card flex items-center justify-between px-6">
       <div className="flex items-center gap-8">
         <div className="flex items-center gap-2">
           <Rocket className="w-6 h-6 text-blue-500" />
-          <h1 className="text-xl font-bold text-foreground">Mission Control</h1>
+          <h1 className="text-xl font-bold text-foreground">{projectName || "Mission Control"}</h1>
         </div>
 
         <div className="flex items-center gap-1">
