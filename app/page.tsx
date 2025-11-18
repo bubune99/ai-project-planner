@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProjectCard } from "@/components/projects/ProjectCard"
 import { ProjectStats } from "@/components/projects/ProjectStats"
+import { NewProjectModal } from "@/components/projects/NewProjectModal"
 import { mockProjects } from "@/lib/mock-data"
 import { Search, Plus, LayoutGrid, List } from 'lucide-react'
 
@@ -14,6 +15,7 @@ export default function ProjectsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false)
 
   const filteredProjects = mockProjects.filter((project) => {
     const matchesSearch =
@@ -37,7 +39,10 @@ export default function ProjectsPage() {
               <h1 className="text-3xl font-bold text-white mb-2">Mission Control</h1>
               <p className="text-muted-foreground">AI-powered project management dashboard</p>
             </div>
-            <Button className="bg-blue-500 hover:bg-blue-600 text-white gap-2">
+            <Button 
+              className="bg-blue-500 hover:bg-blue-600 text-white gap-2"
+              onClick={() => setIsNewProjectModalOpen(true)}
+            >
               <Plus className="h-4 w-4" />
               New Project
             </Button>
@@ -118,6 +123,11 @@ export default function ProjectsPage() {
           </div>
         </div>
       </div>
+
+      <NewProjectModal
+        open={isNewProjectModalOpen}
+        onOpenChange={setIsNewProjectModalOpen}
+      />
     </div>
   )
 }
