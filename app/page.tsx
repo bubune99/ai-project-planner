@@ -1,49 +1,133 @@
 "use client"
 
 import { useState } from "react"
-import { DashboardHeader } from "@/components/dashboard/dashboard-header"
-import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar"
-import { ProjectOverview } from "@/components/dashboard/project-overview"
-import { ProjectExecutionView } from "@/components/dashboard/project-execution-view"
-import { TechStackDocumentation } from "@/components/dashboard/tech-stack-documentation"
+import { useRouter } from 'next/navigation'
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { ProjectCard } from "@/components/projects/ProjectCard"
+import { ProjectStats } from "@/components/projects/ProjectStats"
+import { NewProjectModal } from "@/components/projects/NewProjectModal"
+import { mockProjects } from "@/lib/mock-data"
+import { Search, Plus, LayoutGrid, List } from 'lucide-react'
 
-export default function DashboardPage() {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [activeTab, setActiveTab] = useState("overview")
+export default function ProjectsPage() {
+  const router = useRouter()
+  const [searchQuery, setSearchQuery] = useState("")
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false)
 
-  const toggleSidebar = () => {
-    setSidebarCollapsed(!sidebarCollapsed)
-  }
+  const filteredProjects = mockProjects.filter((project) => {
+    const matchesSearch =
+      project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      project.description.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesStatus = statusFilter === "all" || project.status === statusFilter
+    return matchesSearch && matchesStatus
+  })
 
-  const handleTabChange = (tab: string) => {
-    setActiveTab(tab)
+  const handleProjectSelect = (projectId: string) => {
+    router.push(`/project/${projectId}`)
   }
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader />
-      <div className="flex">
-        <DashboardSidebar
-          isCollapsed={sidebarCollapsed}
-          onToggleCollapse={toggleSidebar}
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
-        />
-        <main className={`flex-1 p-4 space-y-4 transition-all duration-300 ${sidebarCollapsed ? "ml-0" : "ml-0"}`}>
-          {activeTab === "overview" && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="lg:col-span-2">
-                <ProjectOverview />
-              </div>
-              <div className="lg:col-span-1">
-                <TechStackDocumentation />
-              </div>
+      {/* Header */}
+      <div className="border-b border-white/10 bg-black/60 backdrop-blur-sm sticky top-0 z-10">
+        <div className="container mx-auto px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2">Mission Control</h1>
+              <p className="text-muted-foreground">AI-powered project management dashboard</p>
             </div>
-          )}
-
-          {activeTab === "execution" && <ProjectExecutionView />}
-        </main>
+            <Button 
+              className="bg-blue-500 hover:bg-blue-600 text-white gap-2"
+              onClick={() => setIsNewProjectModalOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+              New Project
+            </Button>
+          </div>
+        </div>
       </div>
+
+      {/* Main Content */}
+      <div className="container mx-auto px-8 py-8 space-y-8">
+        {/* Stats */}
+        <ProjectStats projects={mockProjects} />
+
+        {/* Filters and Search */}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1 flex items-center gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search projects..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 bg-black/40 border-white/10"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              {["all", "in_progress", "planning", "review", "completed", "on_hold"].map((status) => (
+                <Button
+                  key={status}
+                  variant={statusFilter === status ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter(status)}
+                  className={
+                    statusFilter === status
+                      ? "bg-blue-500 hover:bg-blue-600"
+                      : "border-white/10 hover:bg-white/5"
+                  }
+                >
+                  {status.replace("_", " ")}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={viewMode === "grid" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode("grid")}
+              className={viewMode === "grid" ? "bg-blue-500" : "border-white/10"}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === "list" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setViewMode("list")}
+              className={viewMode === "list" ? "bg-blue-500" : "border-white/10"}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Projects Grid */}
+        <div>
+          <h2 className="text-xl font-semibold text-white mb-4">
+            {filteredProjects.length} Projects
+          </h2>
+          <div
+            className={
+              viewMode === "grid"
+                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                : "space-y-4"
+            }
+          >
+            {filteredProjects.map((project) => (
+              <ProjectCard key={project.id} project={project} onSelect={handleProjectSelect} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <NewProjectModal
+        open={isNewProjectModalOpen}
+        onOpenChange={setIsNewProjectModalOpen}
+      />
     </div>
   )
 }
