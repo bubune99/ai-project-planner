@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "ai-project-planner": {
+      "url": "http://localhost:3000/mcp",
+      "type": "http",
+      "description": "AI Project Planner MCP Server - Provides project context and automation tools"
+    }
+  }
+}
