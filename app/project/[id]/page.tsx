@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useParams, useRouter } from 'next/navigation'
 import { TopNavigation } from "@/components/shared/TopNavigation"
 import { AIAssistant } from "@/components/shared/AIAssistant"
@@ -16,6 +16,7 @@ import { KanbanView } from "@/components/views/KanbanView"
 import { FlowView } from "@/components/views/FlowView"
 import { DocsView } from "@/components/views/DocsView"
 import { mockAgents, quickActions } from "@/lib/mock-data"
+import { transformStepsToPhases } from "@/lib/data-transforms"
 import type { Task, KanbanTask, Document } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Loader2 } from 'lucide-react'
@@ -89,13 +90,16 @@ export default function ProjectDashboardPage() {
 
   const { project, steps, progressNotes } = projectData
 
+  // Transform database steps into hierarchical phase structure
+  const phases = useMemo(() => transformStepsToPhases(steps || []), [steps])
+
   return (
     <div className="min-h-screen bg-background">
       <TopNavigation
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onDocsClick={() => setDocsOpen(true)}
-        projectName={project.name}
+        projectName={project?.name || 'Project'}
       />
 
       {/* Back button */}
@@ -129,7 +133,7 @@ export default function ProjectDashboardPage() {
                 />
               </div>
               <QuickActions actions={quickActions} />
-              <RecentActivity activities={progressNotes.map((note: any) => ({
+              <RecentActivity activities={(progressNotes || []).map((note: any) => ({
                 id: note.id,
                 type: note.note_type,
                 message: note.title || note.content?.substring(0, 50) || 'No message',
@@ -141,7 +145,11 @@ export default function ProjectDashboardPage() {
 
           {activeTab === "tree" && (
             <div className="max-w-[1400px] mx-auto h-[calc(100vh-180px)]">
-              <TreeView onTaskSelect={setSelectedTask} />
+              <TreeView
+                phases={phases}
+                projectName={project?.name}
+                onTaskSelect={setSelectedTask}
+              />
             </div>
           )}
 
