@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, FileText, CheckCircle2 } from "lucide-react"
+import { Plus, FileText, CheckCircle2, AlertCircle, XCircle } from "lucide-react"
 import { format } from "date-fns"
 
 interface ADR {
@@ -34,6 +34,8 @@ export function ADRManagement({ projectId }: ADRManagementProps) {
   const [loading, setLoading] = useState(true)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [selectedADR, setSelectedADR] = useState<ADR | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     title: "",
     context: "",
@@ -49,20 +51,42 @@ export function ADRManagement({ projectId }: ADRManagementProps) {
   const fetchADRs = async () => {
     try {
       setLoading(true)
+      setError(null)
       const response = await fetch(`/api/projects/${projectId}/adrs`)
-      if (response.ok) {
-        const data = await response.json()
-        setAdrs(data.adrs || [])
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch ADRs' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch ADRs`)
       }
+
+      const data = await response.json()
+      setAdrs(data.adrs || [])
     } catch (error) {
       console.error("Failed to fetch ADRs:", error)
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred while fetching ADRs')
     } finally {
       setLoading(false)
     }
   }
 
   const handleCreate = async () => {
+    // Validation
+    if (!formData.title.trim()) {
+      setError('Title is required')
+      return
+    }
+    if (!formData.context.trim()) {
+      setError('Context is required')
+      return
+    }
+    if (!formData.decision.trim()) {
+      setError('Decision is required')
+      return
+    }
+
     try {
+      setIsSubmitting(true)
+      setError(null)
       const response = await fetch(`/api/projects/${projectId}/adrs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -72,28 +96,40 @@ export function ADRManagement({ projectId }: ADRManagementProps) {
         }),
       })
 
-      if (response.ok) {
-        setIsCreateModalOpen(false)
-        setFormData({ title: "", context: "", decision: "", consequences: "", alternatives: "" })
-        fetchADRs()
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to create ADR' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to create ADR`)
       }
+
+      setIsCreateModalOpen(false)
+      setFormData({ title: "", context: "", decision: "", consequences: "", alternatives: "" })
+      await fetchADRs()
     } catch (error) {
       console.error("Failed to create ADR:", error)
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred while creating ADR')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   const handleAccept = async (adrId: string) => {
     try {
+      setError(null)
       const response = await fetch(`/api/projects/${projectId}/adrs/${adrId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "accepted" }),
       })
-      if (response.ok) {
-        fetchADRs()
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to accept ADR' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to accept ADR`)
       }
+
+      await fetchADRs()
     } catch (error) {
       console.error("Failed to accept ADR:", error)
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred while accepting ADR')
     }
   }
 
@@ -115,6 +151,24 @@ export function ADRManagement({ projectId }: ADRManagementProps) {
 
   return (
     <div className="space-y-6">
+      {/* Error Alert */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-red-400 text-sm font-medium">Error</p>
+            <p className="text-red-300 text-sm mt-1">{error}</p>
+          </div>
+          <button
+            onClick={() => setError(null)}
+            className="text-red-400 hover:text-red-300"
+            aria-label="Dismiss error"
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-white">Architecture Decisions</h2>
@@ -182,8 +236,12 @@ export function ADRManagement({ projectId }: ADRManagementProps) {
                   className="bg-black/40 border-white/10 min-h-[80px] font-mono text-sm"
                 />
               </div>
-              <Button onClick={handleCreate} className="w-full bg-blue-500 hover:bg-blue-600">
-                Create ADR
+              <Button
+                onClick={handleCreate}
+                className="w-full bg-blue-500 hover:bg-blue-600"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Creating...' : 'Create ADR'}
               </Button>
             </div>
           </DialogContent>

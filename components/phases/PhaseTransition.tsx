@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { CheckCircle2, Circle, ArrowRight, AlertCircle } from "lucide-react"
+import { CheckCircle2, Circle, ArrowRight, AlertCircle, XCircle } from "lucide-react"
 
 interface Phase {
   id: string
@@ -69,6 +69,8 @@ export function PhaseTransition({ projectId, currentPhase }: PhaseTransitionProp
   const [loading, setLoading] = useState(true)
   const [isTransitionModalOpen, setIsTransitionModalOpen] = useState(false)
   const [transitionNotes, setTransitionNotes] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     fetchPhases()
@@ -77,13 +79,19 @@ export function PhaseTransition({ projectId, currentPhase }: PhaseTransitionProp
   const fetchPhases = async () => {
     try {
       setLoading(true)
+      setError(null)
       const response = await fetch(`/api/projects/${projectId}/phases`)
-      if (response.ok) {
-        const data = await response.json()
-        setPhases(data.phases || [])
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch phases' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch phases`)
       }
+
+      const data = await response.json()
+      setPhases(data.phases || [])
     } catch (error) {
       console.error("Failed to fetch phases:", error)
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred while fetching phases')
     } finally {
       setLoading(false)
     }
@@ -96,6 +104,8 @@ export function PhaseTransition({ projectId, currentPhase }: PhaseTransitionProp
     if (!nextPhase) return
 
     try {
+      setIsSubmitting(true)
+      setError(null)
       const response = await fetch(`/api/projects/${projectId}/phases/transition`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -105,13 +115,19 @@ export function PhaseTransition({ projectId, currentPhase }: PhaseTransitionProp
         }),
       })
 
-      if (response.ok) {
-        setIsTransitionModalOpen(false)
-        setTransitionNotes("")
-        fetchPhases()
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to transition phase' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to transition phase`)
       }
+
+      setIsTransitionModalOpen(false)
+      setTransitionNotes("")
+      await fetchPhases()
     } catch (error) {
       console.error("Failed to transition phase:", error)
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred while transitioning phase')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -120,6 +136,24 @@ export function PhaseTransition({ projectId, currentPhase }: PhaseTransitionProp
 
   return (
     <div className="space-y-6">
+      {/* Error Alert */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-red-400 text-sm font-medium">Error</p>
+            <p className="text-red-300 text-sm mt-1">{error}</p>
+          </div>
+          <button
+            onClick={() => setError(null)}
+            className="text-red-400 hover:text-red-300"
+            aria-label="Dismiss error"
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-white">Project Lifecycle</h2>
@@ -235,8 +269,12 @@ export function PhaseTransition({ projectId, currentPhase }: PhaseTransitionProp
               />
             </div>
 
-            <Button onClick={handleTransition} className="w-full bg-blue-500 hover:bg-blue-600">
-              Confirm Transition
+            <Button
+              onClick={handleTransition}
+              className="w-full bg-blue-500 hover:bg-blue-600"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Transitioning...' : 'Confirm Transition'}
             </Button>
           </div>
         </DialogContent>
