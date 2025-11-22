@@ -3,25 +3,36 @@
 import type React from "react"
 
 import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { FileText, Folder } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface PageFormModalProps {
   projectId: string
-  chapterId: string
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
-  page?: any
+  editPage?: {
+    id: string
+    title: string
+    description?: string
+    parent_id?: string
+    doc_type: "chapter" | "page"
+  }
+  chapters: Array<{ id: string; title: string }>
 }
 
-export function PageFormModal({ projectId, chapterId, isOpen, onClose, onSuccess, page }: PageFormModalProps) {
-  const [title, setTitle] = useState(page?.title || "")
-  const [content, setContent] = useState(page?.content || "")
-  const [icon, setIcon] = useState(page?.icon || "📄")
+export function PageFormModal({ projectId, isOpen, onClose, onSuccess, editPage, chapters }: PageFormModalProps) {
+  const [formData, setFormData] = useState({
+    title: editPage?.title || "",
+    description: editPage?.description || "",
+    parent_id: editPage?.parent_id || "",
+    doc_type: editPage?.doc_type || ("page" as "chapter" | "page"),
+  })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -29,16 +40,20 @@ export function PageFormModal({ projectId, chapterId, isOpen, onClose, onSuccess
     setIsSubmitting(true)
 
     try {
-      const url = page ? `/api/projects/${projectId}/doc-pages/${page.id}` : `/api/projects/${projectId}/doc-pages`
+      const url = editPage ? `/api/documents/${editPage.id}` : `/api/projects/${projectId}/documents`
+
+      const method = editPage ? "PATCH" : "POST"
 
       const response = await fetch(url, {
-        method: page ? "PATCH" : "POST",
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title,
-          content,
-          icon,
-          chapter_id: chapterId,
+          title: formData.title,
+          description: formData.description,
+          parent_id: formData.doc_type === "page" ? formData.parent_id : null,
+          doc_type: formData.doc_type,
+          content: "", // Empty content initially - will be edited later with text editor
+          category: formData.doc_type === "chapter" ? "chapter" : "documentation",
         }),
       })
 
@@ -46,13 +61,16 @@ export function PageFormModal({ projectId, chapterId, isOpen, onClose, onSuccess
 
       onSuccess()
       onClose()
-
       // Reset form
-      setTitle("")
-      setContent("")
-      setIcon("📄")
+      setFormData({
+        title: "",
+        description: "",
+        parent_id: "",
+        doc_type: "page",
+      })
     } catch (error) {
-      console.error("[v0] Failed to save page:", error)
+      console.error("Error saving page:", error)
+      alert("Failed to save page")
     } finally {
       setIsSubmitting(false)
     }
@@ -60,51 +78,94 @@ export function PageFormModal({ projectId, chapterId, isOpen, onClose, onSuccess
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{page ? "Edit" : "Create"} Page</DialogTitle>
+          <DialogTitle>
+            {editPage ? "Edit" : "Create"} {formData.doc_type === "chapter" ? "Chapter" : "Page"}
+          </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
+            <Label htmlFor="doc_type">Type</Label>
+            <Select
+              value={formData.doc_type}
+              onValueChange={(value: "chapter" | "page") =>
+                setFormData({ ...formData, doc_type: value, parent_id: value === "chapter" ? "" : formData.parent_id })
+              }
+              disabled={!!editPage}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="chapter">
+                  <div className="flex items-center gap-2">
+                    <Folder className="w-4 h-4" />
+                    Chapter (Top-level section)
+                  </div>
+                </SelectItem>
+                <SelectItem value="page">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Page (Under a chapter)
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {formData.doc_type === "page" && (
+            <div className="space-y-2">
+              <Label htmlFor="parent_id">Parent Chapter</Label>
+              <Select
+                value={formData.parent_id}
+                onValueChange={(value) => setFormData({ ...formData, parent_id: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a chapter..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {chapters.map((chapter) => (
+                    <SelectItem key={chapter.id} value={chapter.id}>
+                      {chapter.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="space-y-2">
             <Label htmlFor="title">Title</Label>
             <Input
               id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g., System Design"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              placeholder={formData.doc_type === "chapter" ? "e.g., Getting Started" : "e.g., Installation Guide"}
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="icon">Icon (emoji)</Label>
-            <Input id="icon" value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="📄" maxLength={2} />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="content">Content (Markdown)</Label>
+            <Label htmlFor="description">Description (optional)</Label>
             <Textarea
-              id="content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Write your documentation in markdown..."
-              rows={12}
-              className="font-mono text-sm"
+              id="description"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Brief description of this content..."
+              rows={3}
             />
-            <p className="text-xs text-muted-foreground">
-              Supports markdown formatting. A rich text editor will be integrated soon.
-            </p>
           </div>
 
-          <div className="flex justify-end gap-2">
+          <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : page ? "Update" : "Create"}
+              {isSubmitting ? "Saving..." : editPage ? "Update" : "Create"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

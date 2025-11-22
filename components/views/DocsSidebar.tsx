@@ -1,49 +1,42 @@
 "use client"
 
 import { useState } from "react"
-import { Search, ChevronRight, ChevronDown, Plus, Edit, Trash, FolderPlus } from "lucide-react"
+import { Search, ChevronRight, ChevronDown, Sparkles, FileText, Folder, Pencil, Trash2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { ChapterFormModal } from "@/components/docs/ChapterFormModal"
-import { PageFormModal } from "@/components/docs/PageFormModal"
 
-interface DocPage {
+interface Document {
   id: string
   title: string
-  slug: string
-  icon: string
-  order_index: number
-  last_edited_by: string
-  updated_at: string
-}
-
-interface DocChapter {
-  id: string
-  title: string
-  description: string
-  icon: string
-  order_index: number
-  is_expanded: boolean
-  pages: DocPage[]
+  description?: string
+  doc_type: "chapter" | "page"
+  parent_id?: string
 }
 
 interface DocsSidebarProps {
-  chapters: DocChapter[]
-  activePageId: string | null
-  onPageSelect: (pageId: string) => void
-  onRefresh: () => void
-  projectId: string
+  documents: Document[]
+  activeDocId: string
+  onDocSelect: (doc: Document) => void
+  onEditPage: (doc: Document) => void
+  onDeletePage: (docId: string) => void
+  onCreatePage: () => void
 }
 
-export function DocsSidebar({ chapters, activePageId, onPageSelect, onRefresh, projectId }: DocsSidebarProps) {
+export function DocsSidebar({
+  documents,
+  activeDocId,
+  onDocSelect,
+  onEditPage,
+  onDeletePage,
+  onCreatePage,
+}: DocsSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("")
-  const [expandedChapters, setExpandedChapters] = useState<Set<string>>(
-    new Set(chapters.filter((c) => c.is_expanded).map((c) => c.id)),
-  )
-  const [isChapterModalOpen, setIsChapterModalOpen] = useState(false)
-  const [isPageModalOpen, setIsPageModalOpen] = useState(false)
-  const [editingChapter, setEditingChapter] = useState<DocChapter | undefined>()
-  const [selectedChapterId, setSelectedChapterId] = useState<string>("")
+  const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set())
+  const [hoveredDoc, setHoveredDoc] = useState<string | null>(null)
+
+  // Organize documents into chapters and pages
+  const chapters = documents.filter((doc) => doc.doc_type === "chapter")
+  const pages = documents.filter((doc) => doc.doc_type === "page")
 
   const toggleChapter = (chapterId: string) => {
     setExpandedChapters((prev) => {
@@ -57,42 +50,23 @@ export function DocsSidebar({ chapters, activePageId, onPageSelect, onRefresh, p
     })
   }
 
-  const handleDeleteChapter = async (chapterId: string) => {
-    if (!confirm("Delete this chapter and all its pages?")) return
-
-    try {
-      await fetch(`/api/projects/${projectId}/doc-chapters/${chapterId}`, {
-        method: "DELETE",
-      })
-      onRefresh()
-    } catch (error) {
-      console.error("[v0] Error deleting chapter:", error)
-    }
+  const getChapterPages = (chapterId: string) => {
+    return pages.filter((page) => page.parent_id === chapterId)
   }
 
-  const handleDeletePage = async (pageId: string) => {
-    if (!confirm("Delete this page?")) return
+  const orphanPages = pages.filter((page) => !page.parent_id)
 
-    try {
-      await fetch(`/api/projects/${projectId}/doc-pages/${pageId}`, {
-        method: "DELETE",
-      })
-      onRefresh()
-    } catch (error) {
-      console.error("[v0] Error deleting page:", error)
-    }
+  const filterDoc = (doc: Document) => {
+    return doc.title.toLowerCase().includes(searchQuery.toLowerCase())
   }
 
-  const filteredChapters = chapters
-    .map((chapter) => ({
-      ...chapter,
-      pages: chapter.pages.filter((page) => page.title.toLowerCase().includes(searchQuery.toLowerCase())),
-    }))
-    .filter((chapter) => chapter.pages.length > 0 || !searchQuery)
+  const filteredChapters = chapters.filter(filterDoc)
+  const filteredOrphans = orphanPages.filter(filterDoc)
 
   return (
     <div className="w-[280px] h-full border-r border-border/50 bg-card/30 backdrop-blur-md flex flex-col">
-      <div className="p-4 border-b border-border/50 space-y-2">
+      {/* Search */}
+      <div className="p-4 border-b border-border/50">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -102,116 +76,181 @@ export function DocsSidebar({ chapters, activePageId, onPageSelect, onRefresh, p
             className="pl-9 bg-background/50"
           />
         </div>
-        <Button
-          onClick={() => {
-            setEditingChapter(undefined)
-            setIsChapterModalOpen(true)
-          }}
-          variant="outline"
-          size="sm"
-          className="w-full gap-2"
-        >
-          <FolderPlus className="w-4 h-4" />
-          New Chapter
-        </Button>
       </div>
 
+      {/* Navigation */}
       <div className="flex-1 overflow-y-auto p-2">
-        {filteredChapters.map((chapter) => (
-          <div key={chapter.id} className="mb-2">
-            <div className="flex items-center gap-1 group">
-              <button
-                onClick={() => toggleChapter(chapter.id)}
-                className="flex-1 flex items-center gap-2 px-3 py-2 text-sm font-medium text-foreground hover:bg-accent/50 rounded-md transition-colors"
+        {/* Chapters with nested pages */}
+        {filteredChapters.map((chapter) => {
+          const chapterPages = getChapterPages(chapter.id).filter(filterDoc)
+          const isExpanded = expandedChapters.has(chapter.id)
+
+          return (
+            <div key={chapter.id} className="mb-2">
+              <div
+                className="relative group"
+                onMouseEnter={() => setHoveredDoc(chapter.id)}
+                onMouseLeave={() => setHoveredDoc(null)}
               >
-                {expandedChapters.has(chapter.id) ? (
-                  <ChevronDown className="w-4 h-4 flex-shrink-0" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 flex-shrink-0" />
-                )}
-                <span>{chapter.icon}</span>
-                <span className="truncate">{chapter.title}</span>
-              </button>
-
-              <div className="opacity-0 group-hover:opacity-100 flex gap-1">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-7 w-7"
-                  onClick={() => {
-                    setSelectedChapterId(chapter.id)
-                    setIsPageModalOpen(true)
-                  }}
+                <button
+                  onClick={() => toggleChapter(chapter.id)}
+                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    activeDocId === chapter.id ? "bg-accent text-foreground" : "text-foreground hover:bg-accent/50"
+                  }`}
                 >
-                  <Plus className="w-3 h-3" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-7 w-7"
-                  onClick={() => {
-                    setEditingChapter(chapter)
-                    setIsChapterModalOpen(true)
-                  }}
-                >
-                  <Edit className="w-3 h-3" />
-                </Button>
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteChapter(chapter.id)}>
-                  <Trash className="w-3 h-3" />
-                </Button>
-              </div>
-            </div>
+                  {isExpanded ? (
+                    <ChevronDown className="w-4 h-4 flex-shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 flex-shrink-0" />
+                  )}
+                  <Folder className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate flex-1 text-left">{chapter.title}</span>
+                </button>
 
-            {expandedChapters.has(chapter.id) && (
-              <div className="ml-6 mt-1 space-y-1">
-                {chapter.pages.map((page) => (
-                  <div key={page.id} className="flex items-center gap-1 group">
-                    <button
-                      onClick={() => onPageSelect(page.id)}
-                      className={`flex-1 flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${
-                        activePageId === page.id
-                          ? "bg-accent text-foreground font-medium"
-                          : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                      }`}
-                    >
-                      <span className="text-xs">{page.icon}</span>
-                      <span className="truncate">{page.title}</span>
-                    </button>
-
+                {hoveredDoc === chapter.id && (
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
                     <Button
-                      size="icon"
+                      size="sm"
                       variant="ghost"
-                      className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                      onClick={() => handleDeletePage(page.id)}
+                      className="h-6 w-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onEditPage(chapter)
+                      }}
                     >
-                      <Trash className="w-3 h-3" />
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDeletePage(chapter.id)
+                      }}
+                    >
+                      <Trash2 className="w-3 h-3" />
                     </Button>
                   </div>
-                ))}
+                )}
               </div>
-            )}
+
+              {isExpanded && chapterPages.length > 0 && (
+                <div className="ml-6 mt-1 space-y-1">
+                  {chapterPages.map((page) => (
+                    <div
+                      key={page.id}
+                      className="relative group"
+                      onMouseEnter={() => setHoveredDoc(page.id)}
+                      onMouseLeave={() => setHoveredDoc(null)}
+                    >
+                      <button
+                        onClick={() => onDocSelect(page)}
+                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                          activeDocId === page.id
+                            ? "bg-accent text-foreground font-medium"
+                            : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                        }`}
+                      >
+                        <FileText className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate flex-1 text-left">{page.title}</span>
+                      </button>
+
+                      {hoveredDoc === page.id && (
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onEditPage(page)
+                            }}
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onDeletePage(page.id)
+                            }}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
+
+        {/* Orphan pages (pages without a chapter) */}
+        {filteredOrphans.length > 0 && (
+          <div className="space-y-1 mt-2">
+            {filteredOrphans.map((page) => (
+              <div
+                key={page.id}
+                className="relative group"
+                onMouseEnter={() => setHoveredDoc(page.id)}
+                onMouseLeave={() => setHoveredDoc(null)}
+              >
+                <button
+                  onClick={() => onDocSelect(page)}
+                  className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    activeDocId === page.id
+                      ? "bg-accent text-foreground font-medium"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                  }`}
+                >
+                  <FileText className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate flex-1 text-left">{page.title}</span>
+                </button>
+
+                {hoveredDoc === page.id && (
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onEditPage(page)
+                      }}
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDeletePage(page.id)
+                      }}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
 
-      <ChapterFormModal
-        projectId={projectId}
-        isOpen={isChapterModalOpen}
-        onClose={() => {
-          setIsChapterModalOpen(false)
-          setEditingChapter(undefined)
-        }}
-        onSuccess={onRefresh}
-        chapter={editingChapter}
-      />
-
-      <PageFormModal
-        projectId={projectId}
-        chapterId={selectedChapterId}
-        isOpen={isPageModalOpen}
-        onClose={() => setIsPageModalOpen(false)}
-        onSuccess={onRefresh}
-      />
+      {/* Generate Button */}
+      <div className="p-4 border-t border-border/50">
+        <Button variant="outline" className="w-full bg-transparent" size="sm">
+          <Sparkles className="w-4 h-4 mr-2" />
+          Generate from Code
+        </Button>
+      </div>
     </div>
   )
 }

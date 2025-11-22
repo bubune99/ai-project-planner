@@ -6,27 +6,17 @@ import { DocsSidebar } from "./DocsSidebar"
 import { DocsContent } from "./DocsContent"
 import { DocsTOC } from "./DocsTOC"
 import { Button } from "@/components/ui/button"
-import { ChapterFormModal } from "@/components/docs/ChapterFormModal"
+import { PageFormModal } from "@/components/docs/PageFormModal"
 
-interface DocPage {
+interface Document {
   id: string
   title: string
-  slug: string
-  icon: string
+  description?: string
   content?: string
-  order_index: number
-  last_edited_by: string
+  doc_type: "chapter" | "page"
+  parent_id?: string
   updated_at: string
-}
-
-interface DocChapter {
-  id: string
-  title: string
-  description: string
-  icon: string
-  order_index: number
-  is_expanded: boolean
-  pages: DocPage[]
+  last_edited_by?: string
 }
 
 interface DocsViewProps {
@@ -34,75 +24,102 @@ interface DocsViewProps {
 }
 
 export function DocsView({ projectId }: DocsViewProps) {
-  const [chapters, setChapters] = useState<DocChapter[]>([])
-  const [activePageId, setActivePageId] = useState<string | null>(null)
-  const [activePageContent, setActivePageContent] = useState<string>("")
+  const [documents, setDocuments] = useState<Document[]>([])
+  const [chapters, setChapters] = useState<Document[]>([])
+  const [activeDoc, setActiveDoc] = useState<Document | null>(null)
+  const [isPageModalOpen, setIsPageModalOpen] = useState(false)
+  const [editingDoc, setEditingDoc] = useState<Document | undefined>()
   const [isLoading, setIsLoading] = useState(true)
-  const [isChapterModalOpen, setIsChapterModalOpen] = useState(false)
 
-  const loadChapters = async () => {
+  const fetchDocuments = async () => {
     try {
-      const response = await fetch(`/api/projects/${projectId}/doc-chapters`)
-      const data = await response.json()
-      setChapters(data.chapters || [])
+      setIsLoading(true)
+      const response = await fetch(`/api/projects/${projectId}/documents`)
+      if (!response.ok) throw new Error("Failed to fetch documents")
 
-      if (data.chapters?.length > 0 && data.chapters[0].pages?.length > 0) {
-        const firstPage = data.chapters[0].pages[0]
-        setActivePageId(firstPage.id)
-        loadPageContent(firstPage.id)
+      const data = await response.json()
+      setDocuments(data.documents || [])
+
+      // Separate chapters for the parent selector
+      const chapterList = data.documents.filter((doc: Document) => doc.doc_type === "chapter")
+      setChapters(chapterList)
+
+      // Set first document as active if none selected
+      if (!activeDoc && data.documents.length > 0) {
+        setActiveDoc(data.documents[0])
       }
     } catch (error) {
-      console.error("[v0] Error loading chapters:", error)
+      console.error("Error fetching documents:", error)
     } finally {
       setIsLoading(false)
     }
   }
 
-  const loadPageContent = async (pageId: string) => {
+  useEffect(() => {
+    fetchDocuments()
+  }, [projectId])
+
+  const handleDocSelect = (doc: Document) => {
+    setActiveDoc(doc)
+  }
+
+  const handleCreatePage = () => {
+    setEditingDoc(undefined)
+    setIsPageModalOpen(true)
+  }
+
+  const handleEditPage = (doc: Document) => {
+    setEditingDoc(doc)
+    setIsPageModalOpen(true)
+  }
+
+  const handleDeletePage = async (docId: string) => {
+    if (!confirm("Are you sure you want to delete this page?")) return
+
     try {
-      const response = await fetch(`/api/projects/${projectId}/doc-pages/${pageId}`)
-      const data = await response.json()
-      setActivePageContent(data.page?.content || "")
+      const response = await fetch(`/api/documents/${docId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) throw new Error("Failed to delete page")
+
+      // If we deleted the active doc, clear it
+      if (activeDoc?.id === docId) {
+        setActiveDoc(null)
+      }
+
+      fetchDocuments()
     } catch (error) {
-      console.error("[v0] Error loading page content:", error)
+      console.error("Error deleting page:", error)
+      alert("Failed to delete page")
     }
   }
 
-  useEffect(() => {
-    loadChapters()
-  }, [projectId])
-
-  const handlePageSelect = (pageId: string) => {
-    setActivePageId(pageId)
-    loadPageContent(pageId)
+  const handleModalSuccess = () => {
+    fetchDocuments()
   }
 
-  const activePage = chapters.flatMap((c) => c.pages).find((p) => p.id === activePageId)
-
-  if (isLoading) {
-    return <div className="flex h-full items-center justify-center">Loading...</div>
-  }
-
-  if (chapters.length === 0) {
+  // Empty state
+  if (!isLoading && documents.length === 0) {
     return (
       <div className="flex h-full">
         <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
           <FileText className="w-16 h-16 text-muted-foreground mb-4" />
           <h2 className="text-2xl font-semibold text-foreground mb-2">No documentation yet</h2>
-          <p className="text-muted-foreground mb-6 max-w-md">
-            Start by creating your first chapter to organize your project documentation
-          </p>
-          <Button onClick={() => setIsChapterModalOpen(true)} className="gap-2">
+          <p className="text-muted-foreground mb-6 max-w-md">Start by creating your first chapter or page</p>
+          <Button onClick={handleCreatePage} className="gap-2">
             <Plus className="h-4 w-4" />
-            Create Chapter
+            Create Page
           </Button>
         </div>
 
-        <ChapterFormModal
+        <PageFormModal
           projectId={projectId}
-          isOpen={isChapterModalOpen}
-          onClose={() => setIsChapterModalOpen(false)}
-          onSuccess={loadChapters}
+          isOpen={isPageModalOpen}
+          onClose={() => setIsPageModalOpen(false)}
+          onSuccess={handleModalSuccess}
+          editPage={editingDoc}
+          chapters={chapters}
         />
       </div>
     )
@@ -111,28 +128,47 @@ export function DocsView({ projectId }: DocsViewProps) {
   return (
     <div className="flex h-full">
       <DocsSidebar
-        chapters={chapters}
-        activePageId={activePageId}
-        onPageSelect={handlePageSelect}
-        onRefresh={loadChapters}
-        projectId={projectId}
+        documents={documents}
+        activeDocId={activeDoc?.id || ""}
+        onDocSelect={handleDocSelect}
+        onEditPage={handleEditPage}
+        onDeletePage={handleDeletePage}
+        onCreatePage={handleCreatePage}
       />
 
-      <div className="flex-1 overflow-y-auto">
-        {activePage ? (
-          <div className="flex gap-8 max-w-[1400px] mx-auto p-8">
+      <div className="flex-1 overflow-y-auto p-8">
+        <div className="max-w-[1400px] mx-auto mb-6">
+          <Button onClick={handleCreatePage} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Create Page
+          </Button>
+        </div>
+
+        {activeDoc ? (
+          <div className="flex gap-8 max-w-[1400px] mx-auto">
             <DocsContent
-              title={activePage.title}
-              content={activePageContent}
-              lastUpdated={activePage.updated_at}
-              updatedBy={activePage.last_edited_by}
+              title={activeDoc.title}
+              content={activeDoc.content || "No content yet. This will be editable with a text editor."}
+              lastUpdated={activeDoc.updated_at}
+              updatedBy={activeDoc.last_edited_by}
             />
-            <DocsTOC content={activePageContent} />
+            <DocsTOC content={activeDoc.content || ""} />
           </div>
         ) : (
-          <div className="flex items-center justify-center h-full text-muted-foreground">Select a page to view</div>
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            Select a page from the sidebar
+          </div>
         )}
       </div>
+
+      <PageFormModal
+        projectId={projectId}
+        isOpen={isPageModalOpen}
+        onClose={() => setIsPageModalOpen(false)}
+        onSuccess={handleModalSuccess}
+        editPage={editingDoc}
+        chapters={chapters}
+      />
     </div>
   )
 }

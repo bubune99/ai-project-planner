@@ -1,62 +1,42 @@
-import { NextRequest, NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { neon } from "@neondatabase/serverless"
 
 const sql = neon(process.env.DATABASE_URL!)
 
 /**
- * GET /api/projects/[id]/documents?category=xxx
- * Get all documents for a project with optional category filter
+ * GET /api/projects/[id]/documents
+ * Get all documents for a project (chapters and pages)
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const projectId = params.id
-    const { searchParams } = new URL(request.url)
-    const category = searchParams.get('category')
 
-    console.log(`[GET /api/projects/${projectId}/documents] Fetching documents`, { category })
+    console.log(`[GET /api/projects/${projectId}/documents] Fetching documents`)
 
-    // Fetch all documents for this project
-    const documents = category
-      ? await sql`
-          SELECT
-            id,
-            title,
-            description,
-            content,
-            doc_type,
-            category,
-            tags,
-            version,
-            last_edited_by,
-            updated_at,
-            created_at
-          FROM documents
-          WHERE project_id = ${projectId}
-            AND category = ${category}
-            AND deleted_at IS NULL
-          ORDER BY category, created_at ASC
-        `
-      : await sql`
-          SELECT
-            id,
-            title,
-            description,
-            content,
-            doc_type,
-            category,
-            tags,
-            version,
-            last_edited_by,
-            updated_at,
-            created_at
-          FROM documents
-          WHERE project_id = ${projectId}
-            AND deleted_at IS NULL
-          ORDER BY category, created_at ASC
-        `
+    // Fetch all documents for this project, ordered by type then title
+    const documents = await sql`
+      SELECT
+        id,
+        title,
+        description,
+        content,
+        doc_type,
+        parent_id,
+        category,
+        last_edited_by,
+        updated_at,
+        created_at
+      FROM documents
+      WHERE project_id = ${projectId}
+        AND deleted_at IS NULL
+      ORDER BY 
+        CASE doc_type 
+          WHEN 'chapter' THEN 0
+          WHEN 'page' THEN 1
+          ELSE 2
+        END,
+        title ASC
+    `
 
     console.log(`[GET /api/projects/${projectId}/documents] Found ${documents.length} documents`)
 
@@ -66,9 +46,52 @@ export async function GET(
     })
   } catch (error: any) {
     console.error(`[GET /api/projects/${params.id}/documents] Error:`, error)
-    return NextResponse.json(
-      { error: 'Failed to get documents', details: error.message },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Failed to get documents", details: error.message }, { status: 500 })
+  }
+}
+
+/**
+ * POST /api/projects/[id]/documents
+ * Create a new document (chapter or page)
+ */
+export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const projectId = params.id
+    const body = await request.json()
+    const { title, description, content, doc_type, parent_id, category } = body
+
+    console.log(`[POST /api/projects/${projectId}/documents] Creating document`, {
+      title,
+      doc_type,
+      parent_id,
+    })
+
+    const [document] = await sql`
+      INSERT INTO documents (
+        project_id,
+        title,
+        description,
+        content,
+        doc_type,
+        parent_id,
+        category
+      ) VALUES (
+        ${projectId},
+        ${title},
+        ${description || null},
+        ${content || ""},
+        ${doc_type || "page"},
+        ${parent_id || null},
+        ${category || "documentation"}
+      )
+      RETURNING *
+    `
+
+    console.log(`[POST /api/projects/${projectId}/documents] Created document ${document.id}`)
+
+    return NextResponse.json(document, { status: 201 })
+  } catch (error: any) {
+    console.error(`[POST /api/projects/${params.id}/documents] Error:`, error)
+    return NextResponse.json({ error: "Failed to create document", details: error.message }, { status: 500 })
   }
 }
