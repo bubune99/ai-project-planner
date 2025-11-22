@@ -1,55 +1,108 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { FileText, Plus } from "lucide-react"
 import { DocsSidebar } from "./DocsSidebar"
 import { DocsContent } from "./DocsContent"
 import { DocsTOC } from "./DocsTOC"
-import type { DocItem, DocSection } from "@/lib/types"
-import { DocumentUploadModal } from "@/components/documents/DocumentUploadModal"
 import { Button } from "@/components/ui/button"
+import { ChapterFormModal } from "@/components/docs/ChapterFormModal"
 
-interface DocsViewProps {
-  sections?: DocSection[]
-  projectId: string
-  onRefresh?: () => void
+interface DocPage {
+  id: string
+  title: string
+  slug: string
+  icon: string
+  content?: string
+  order_index: number
+  last_edited_by: string
+  updated_at: string
 }
 
-export function DocsView({ sections, projectId, onRefresh }: DocsViewProps) {
-  const docSections = Array.isArray(sections) && sections.length > 0 ? sections : []
-  const firstDoc = docSections[0]?.items[0] || null
-  const [activeDoc, setActiveDoc] = useState<DocItem | null>(firstDoc)
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+interface DocChapter {
+  id: string
+  title: string
+  description: string
+  icon: string
+  order_index: number
+  is_expanded: boolean
+  pages: DocPage[]
+}
 
-  const handleDocSelect = (doc: DocItem) => {
-    setActiveDoc(doc)
-  }
+interface DocsViewProps {
+  projectId: string
+}
 
-  const handleUploadSuccess = () => {
-    if (onRefresh) {
-      onRefresh()
+export function DocsView({ projectId }: DocsViewProps) {
+  const [chapters, setChapters] = useState<DocChapter[]>([])
+  const [activePageId, setActivePageId] = useState<string | null>(null)
+  const [activePageContent, setActivePageContent] = useState<string>("")
+  const [isLoading, setIsLoading] = useState(true)
+  const [isChapterModalOpen, setIsChapterModalOpen] = useState(false)
+
+  const loadChapters = async () => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/doc-chapters`)
+      const data = await response.json()
+      setChapters(data.chapters || [])
+
+      if (data.chapters?.length > 0 && data.chapters[0].pages?.length > 0) {
+        const firstPage = data.chapters[0].pages[0]
+        setActivePageId(firstPage.id)
+        loadPageContent(firstPage.id)
+      }
+    } catch (error) {
+      console.error("[v0] Error loading chapters:", error)
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  // Empty state
-  if (docSections.length === 0 || !activeDoc) {
+  const loadPageContent = async (pageId: string) => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/doc-pages/${pageId}`)
+      const data = await response.json()
+      setActivePageContent(data.page?.content || "")
+    } catch (error) {
+      console.error("[v0] Error loading page content:", error)
+    }
+  }
+
+  useEffect(() => {
+    loadChapters()
+  }, [projectId])
+
+  const handlePageSelect = (pageId: string) => {
+    setActivePageId(pageId)
+    loadPageContent(pageId)
+  }
+
+  const activePage = chapters.flatMap((c) => c.pages).find((p) => p.id === activePageId)
+
+  if (isLoading) {
+    return <div className="flex h-full items-center justify-center">Loading...</div>
+  }
+
+  if (chapters.length === 0) {
     return (
       <div className="flex h-full">
         <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
           <FileText className="w-16 h-16 text-muted-foreground mb-4" />
           <h2 className="text-2xl font-semibold text-foreground mb-2">No documentation yet</h2>
-          <p className="text-muted-foreground mb-6 max-w-md">Start by uploading documentation for your project</p>
-          <Button onClick={() => setIsUploadModalOpen(true)} className="gap-2">
+          <p className="text-muted-foreground mb-6 max-w-md">
+            Start by creating your first chapter to organize your project documentation
+          </p>
+          <Button onClick={() => setIsChapterModalOpen(true)} className="gap-2">
             <Plus className="h-4 w-4" />
-            Upload Document
+            Create Chapter
           </Button>
         </div>
 
-        <DocumentUploadModal
+        <ChapterFormModal
           projectId={projectId}
-          isOpen={isUploadModalOpen}
-          onClose={() => setIsUploadModalOpen(false)}
-          onSuccess={handleUploadSuccess}
+          isOpen={isChapterModalOpen}
+          onClose={() => setIsChapterModalOpen(false)}
+          onSuccess={loadChapters}
         />
       </div>
     )
@@ -57,33 +110,29 @@ export function DocsView({ sections, projectId, onRefresh }: DocsViewProps) {
 
   return (
     <div className="flex h-full">
-      <DocsSidebar sections={docSections} activeDocId={activeDoc.id} onDocSelect={handleDocSelect} />
-
-      <div className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-[1400px] mx-auto mb-6">
-          <Button onClick={() => setIsUploadModalOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Upload Document
-          </Button>
-        </div>
-
-        <div className="flex gap-8 max-w-[1400px] mx-auto">
-          <DocsContent
-            title={activeDoc.name}
-            content={activeDoc.content}
-            lastUpdated={activeDoc.lastUpdated}
-            updatedBy={activeDoc.updatedBy}
-          />
-          <DocsTOC content={activeDoc.content} />
-        </div>
-      </div>
-
-      <DocumentUploadModal
+      <DocsSidebar
+        chapters={chapters}
+        activePageId={activePageId}
+        onPageSelect={handlePageSelect}
+        onRefresh={loadChapters}
         projectId={projectId}
-        isOpen={isUploadModalOpen}
-        onClose={() => setIsUploadModalOpen(false)}
-        onSuccess={handleUploadSuccess}
       />
+
+      <div className="flex-1 overflow-y-auto">
+        {activePage ? (
+          <div className="flex gap-8 max-w-[1400px] mx-auto p-8">
+            <DocsContent
+              title={activePage.title}
+              content={activePageContent}
+              lastUpdated={activePage.updated_at}
+              updatedBy={activePage.last_edited_by}
+            />
+            <DocsTOC content={activePageContent} />
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-full text-muted-foreground">Select a page to view</div>
+        )}
+      </div>
     </div>
   )
 }
