@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Play, Pause, RotateCw, FileText, ChevronRight, ChevronLeft } from "lucide-react"
+import { Play, Pause, RotateCw, FileText, ChevronRight, ChevronLeft, Edit } from "lucide-react"
 import type { Task } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -10,6 +10,7 @@ interface TaskDetailsProps {
   task: Task
   isCollapsed?: boolean
   onToggleCollapse?: () => void
+  onEdit?: () => void
 }
 
 const statusLabels = {
@@ -35,7 +36,7 @@ const agentColors = {
   gpt: "bg-green-500/20 text-green-400 border-green-500/30",
 }
 
-export function TaskDetails({ task, isCollapsed = false, onToggleCollapse }: TaskDetailsProps) {
+export function TaskDetails({ task, isCollapsed = false, onToggleCollapse, onEdit }: TaskDetailsProps) {
   if (isCollapsed) {
     return (
       <div className="w-12 border-l border-border flex items-start justify-center pt-6">
@@ -56,15 +57,22 @@ export function TaskDetails({ task, isCollapsed = false, onToggleCollapse }: Tas
     <div className="w-80 border-l border-border flex flex-col">
       <div className="p-4 border-b border-border flex items-center justify-between bg-card/20">
         <h3 className="text-sm font-semibold text-foreground">Task Details</h3>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onToggleCollapse}
-          className="hover:bg-accent h-8 w-8"
-          title="Collapse Task Details"
-        >
-          <ChevronRight className="w-4 h-4" />
-        </Button>
+        <div className="flex gap-1">
+          {onEdit && (
+            <Button variant="ghost" size="icon" onClick={onEdit} className="hover:bg-accent h-8 w-8" title="Edit Task">
+              <Edit className="w-4 h-4" />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleCollapse}
+            className="hover:bg-accent h-8 w-8"
+            title="Collapse Task Details"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6">

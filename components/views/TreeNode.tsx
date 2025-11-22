@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronRight, ChevronDown, Play, Pause, RotateCw, Eye } from "lucide-react"
+import { ChevronRight, ChevronDown, Play, Pause, RotateCw, Edit } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { Phase, Task } from "@/lib/types"
@@ -11,6 +11,7 @@ interface TreeNodeProps {
   level: number
   selectedTaskId?: string
   onTaskSelect: (task: Task) => void
+  onEdit?: (task: Task) => void
 }
 
 const statusIcons = {
@@ -36,43 +37,62 @@ const agentColors = {
   gpt: "bg-green-500/20 text-green-400 border-green-500/30",
 }
 
-export function TreeNode({ phase, level, selectedTaskId, onTaskSelect }: TreeNodeProps) {
+export function TreeNode({ phase, level, selectedTaskId, onTaskSelect, onEdit }: TreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(level < 2)
   const hasChildren = (phase.subtasks && phase.subtasks.length > 0) || phase.tasks.length > 0
   const indent = level * 24
 
-  const getActionButton = (status: Task["status"]) => {
+  const getActionButton = (task: Task, status: Task["status"]) => {
     switch (status) {
       case "completed":
         return (
-          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
-            <Eye className="w-3 h-3" />
-            View Details
+          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => onEdit?.(task)}>
+            <Edit className="w-3 h-3" />
+            Edit
           </Button>
         )
       case "in_progress":
         return (
-          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
-            <Pause className="w-3 h-3" />
-            Pause
-          </Button>
+          <>
+            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
+              <Pause className="w-3 h-3" />
+              Pause
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => onEdit?.(task)}>
+              <Edit className="w-3 h-3" />
+            </Button>
+          </>
         )
       case "pending":
         return (
-          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
-            <Play className="w-3 h-3" />
-            Start
-          </Button>
+          <>
+            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
+              <Play className="w-3 h-3" />
+              Start
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => onEdit?.(task)}>
+              <Edit className="w-3 h-3" />
+            </Button>
+          </>
         )
       case "failed":
         return (
-          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
-            <RotateCw className="w-3 h-3" />
-            Retry
-          </Button>
+          <>
+            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
+              <RotateCw className="w-3 h-3" />
+              Retry
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => onEdit?.(task)}>
+              <Edit className="w-3 h-3" />
+            </Button>
+          </>
         )
       default:
-        return null
+        return (
+          <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => onEdit?.(task)}>
+            <Edit className="w-3 h-3" />
+          </Button>
+        )
     }
   }
 
@@ -150,6 +170,7 @@ export function TreeNode({ phase, level, selectedTaskId, onTaskSelect }: TreeNod
               level={level + 1}
               selectedTaskId={selectedTaskId}
               onTaskSelect={onTaskSelect}
+              onEdit={onEdit}
             />
           ))}
 
@@ -192,7 +213,9 @@ export function TreeNode({ phase, level, selectedTaskId, onTaskSelect }: TreeNod
               )}
 
               {/* Action Button (visible on hover) */}
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity">{getActionButton(task.status)}</div>
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                {getActionButton(task, task.status)}
+              </div>
             </div>
           ))}
         </div>
