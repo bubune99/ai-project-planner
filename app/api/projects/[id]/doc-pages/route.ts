@@ -7,35 +7,41 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   try {
     const projectId = params.id
     const body = await request.json()
-    const { chapter_id, title, slug, icon, content, order_index, last_edited_by } = body
+    const { title, content = "", icon = "📄", chapter_id } = body
+
+    if (!title || !chapter_id) {
+      return NextResponse.json({ error: "Title and chapter_id are required" }, { status: 400 })
+    }
 
     const [page] = await sql`
-      INSERT INTO doc_pages (
-        project_id, 
-        chapter_id, 
-        title, 
-        slug, 
-        icon, 
-        content, 
-        order_index,
-        last_edited_by
+      INSERT INTO documents (
+        project_id,
+        parent_id,
+        title,
+        content,
+        doc_type,
+        s3_key,
+        file_type,
+        file_size,
+        category
       )
       VALUES (
-        ${projectId}, 
-        ${chapter_id}, 
-        ${title}, 
-        ${slug || title.toLowerCase().replace(/\s+/g, "-")}, 
-        ${icon || "📝"}, 
-        ${content || ""}, 
-        ${order_index || 0},
-        ${last_edited_by || "User"}
+        ${projectId}::uuid,
+        ${chapter_id}::uuid,
+        ${title},
+        ${content || ""},
+        'general',
+        'inline',
+        'text/markdown',
+        ${content?.length || 0},
+        'general'
       )
       RETURNING *
     `
 
     return NextResponse.json({ page }, { status: 201 })
   } catch (error) {
-    console.error("[v0] Error creating doc page:", error)
+    console.error("[v0] Failed to create page:", error)
     return NextResponse.json({ error: "Failed to create page" }, { status: 500 })
   }
 }

@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 
 interface PageFormModalProps {
   projectId: string
@@ -14,19 +15,13 @@ interface PageFormModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
-  page?: {
-    id: string
-    title: string
-    slug: string
-    icon: string
-    order_index: number
-  }
+  page?: any
 }
 
 export function PageFormModal({ projectId, chapterId, isOpen, onClose, onSuccess, page }: PageFormModalProps) {
   const [title, setTitle] = useState(page?.title || "")
-  const [slug, setSlug] = useState(page?.slug || "")
-  const [icon, setIcon] = useState(page?.icon || "📝")
+  const [content, setContent] = useState(page?.content || "")
+  const [icon, setIcon] = useState(page?.icon || "📄")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -36,30 +31,28 @@ export function PageFormModal({ projectId, chapterId, isOpen, onClose, onSuccess
     try {
       const url = page ? `/api/projects/${projectId}/doc-pages/${page.id}` : `/api/projects/${projectId}/doc-pages`
 
-      const method = page ? "PATCH" : "POST"
-
       const response = await fetch(url, {
-        method,
+        method: page ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          chapter_id: chapterId,
           title,
-          slug: slug || title.toLowerCase().replace(/\s+/g, "-"),
+          content,
           icon,
-          order_index: page?.order_index || 0,
-          last_edited_by: "User",
+          chapter_id: chapterId,
         }),
       })
 
-      if (response.ok) {
-        onSuccess()
-        onClose()
-        setTitle("")
-        setSlug("")
-        setIcon("📝")
-      }
+      if (!response.ok) throw new Error("Failed to save page")
+
+      onSuccess()
+      onClose()
+
+      // Reset form
+      setTitle("")
+      setContent("")
+      setIcon("📄")
     } catch (error) {
-      console.error("[v0] Error saving page:", error)
+      console.error("[v0] Failed to save page:", error)
     } finally {
       setIsSubmitting(false)
     }
@@ -67,40 +60,45 @@ export function PageFormModal({ projectId, chapterId, isOpen, onClose, onSuccess
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>{page ? "Edit Page" : "New Page"}</DialogTitle>
+          <DialogTitle>{page ? "Edit" : "Create"} Page</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="icon">Icon</Label>
-            <Input id="icon" value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="📝" maxLength={2} />
-          </div>
-
           <div className="space-y-2">
             <Label htmlFor="title">Title</Label>
             <Input
               id="title"
               value={title}
-              onChange={(e) => {
-                setTitle(e.target.value)
-                if (!page) {
-                  setSlug(e.target.value.toLowerCase().replace(/\s+/g, "-"))
-                }
-              }}
-              placeholder="Installation"
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g., System Design"
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="slug">Slug</Label>
-            <Input id="slug" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="installation" />
+            <Label htmlFor="icon">Icon (emoji)</Label>
+            <Input id="icon" value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="📄" maxLength={2} />
           </div>
 
-          <div className="flex gap-2 justify-end">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+          <div className="space-y-2">
+            <Label htmlFor="content">Content (Markdown)</Label>
+            <Textarea
+              id="content"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="Write your documentation in markdown..."
+              rows={12}
+              className="font-mono text-sm"
+            />
+            <p className="text-xs text-muted-foreground">
+              Supports markdown formatting. A rich text editor will be integrated soon.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>

@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,20 +14,26 @@ interface ChapterFormModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
-  chapter?: {
-    id: string
-    title: string
-    description: string
-    icon: string
-    order_index: number
-  }
+  chapter?: any
 }
 
 export function ChapterFormModal({ projectId, isOpen, onClose, onSuccess, chapter }: ChapterFormModalProps) {
-  const [title, setTitle] = useState(chapter?.title || "")
-  const [description, setDescription] = useState(chapter?.description || "")
-  const [icon, setIcon] = useState(chapter?.icon || "📄")
+  const [title, setTitle] = useState("")
+  const [description, setDescription] = useState("")
+  const [icon, setIcon] = useState("📁")
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (chapter) {
+      setTitle(chapter.title || "")
+      setDescription(chapter.description || "")
+      setIcon(chapter.icon || "📁")
+    } else {
+      setTitle("")
+      setDescription("")
+      setIcon("📁")
+    }
+  }, [chapter, isOpen])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,28 +44,22 @@ export function ChapterFormModal({ projectId, isOpen, onClose, onSuccess, chapte
         ? `/api/projects/${projectId}/doc-chapters/${chapter.id}`
         : `/api/projects/${projectId}/doc-chapters`
 
-      const method = chapter ? "PATCH" : "POST"
-
       const response = await fetch(url, {
-        method,
+        method: chapter ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
           description,
           icon,
-          order_index: chapter?.order_index || 0,
         }),
       })
 
-      if (response.ok) {
-        onSuccess()
-        onClose()
-        setTitle("")
-        setDescription("")
-        setIcon("📄")
-      }
+      if (!response.ok) throw new Error("Failed to save chapter")
+
+      onSuccess()
+      onClose()
     } catch (error) {
-      console.error("[v0] Error saving chapter:", error)
+      console.error("[v0] Failed to save chapter:", error)
     } finally {
       setIsSubmitting(false)
     }
@@ -67,41 +67,41 @@ export function ChapterFormModal({ projectId, isOpen, onClose, onSuccess, chapte
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>{chapter ? "Edit Chapter" : "New Chapter"}</DialogTitle>
+          <DialogTitle>{chapter ? "Edit" : "Create"} Chapter</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="icon">Icon</Label>
-            <Input id="icon" value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="📄" maxLength={2} />
-          </div>
-
           <div className="space-y-2">
             <Label htmlFor="title">Title</Label>
             <Input
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Getting Started"
+              placeholder="e.g., Architecture"
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description (optional)</Label>
+            <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Introduction and setup guide"
+              placeholder="Brief description of this chapter"
               rows={3}
             />
           </div>
 
-          <div className="flex gap-2 justify-end">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+          <div className="space-y-2">
+            <Label htmlFor="icon">Icon (emoji)</Label>
+            <Input id="icon" value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="📁" maxLength={2} />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>

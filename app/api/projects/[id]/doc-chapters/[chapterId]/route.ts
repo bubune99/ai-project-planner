@@ -5,20 +5,18 @@ const sql = neon(process.env.DATABASE_URL!)
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string; chapterId: string } }) {
   try {
-    const { chapterId } = params
     const body = await request.json()
-    const { title, description, icon, order_index, is_expanded } = body
+    const { title, description, icon } = body
 
     const [chapter] = await sql`
-      UPDATE doc_chapters
-      SET 
+      UPDATE documents
+      SET
         title = COALESCE(${title}, title),
         description = COALESCE(${description}, description),
-        icon = COALESCE(${icon}, icon),
-        order_index = COALESCE(${order_index}, order_index),
-        is_expanded = COALESCE(${is_expanded}, is_expanded),
+        content = COALESCE(${icon}, content),
         updated_at = NOW()
-      WHERE id = ${chapterId} AND deleted_at IS NULL
+      WHERE id = ${params.chapterId}::uuid
+        AND deleted_at IS NULL
       RETURNING *
     `
 
@@ -28,24 +26,24 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     return NextResponse.json({ chapter })
   } catch (error) {
-    console.error("[v0] Error updating doc chapter:", error)
+    console.error("[v0] Failed to update chapter:", error)
     return NextResponse.json({ error: "Failed to update chapter" }, { status: 500 })
   }
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string; chapterId: string } }) {
   try {
-    const { chapterId } = params
-
+    // Soft delete chapter and all its pages (cascade via parent_id)
     await sql`
-      UPDATE doc_chapters
+      UPDATE documents
       SET deleted_at = NOW()
-      WHERE id = ${chapterId}
+      WHERE id = ${params.chapterId}::uuid
+         OR parent_id = ${params.chapterId}::uuid
     `
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("[v0] Error deleting doc chapter:", error)
+    console.error("[v0] Failed to delete chapter:", error)
     return NextResponse.json({ error: "Failed to delete chapter" }, { status: 500 })
   }
 }
