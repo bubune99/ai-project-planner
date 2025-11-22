@@ -6,16 +6,16 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { GanttTaskRow } from "./GanttTaskRow"
 import { GanttTimeline } from "./GanttTimeline"
-import { mockGanttTasks } from "@/lib/mock-data"
 import type { GanttTask } from "@/lib/types"
 
 interface GanttViewProps {
+  tasks?: GanttTask[]
   onTaskSelect?: (task: GanttTask | null) => void
 }
 
 type ViewMode = "day" | "week" | "month"
 
-export function GanttView({ onTaskSelect }: GanttViewProps) {
+export function GanttView({ tasks, onTaskSelect }: GanttViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("week")
   const [showDependencies, setShowDependencies] = useState(true)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
@@ -27,6 +27,9 @@ export function GanttView({ onTaskSelect }: GanttViewProps) {
   const taskListRef = useRef<HTMLDivElement>(null)
   const timelineRef = useRef<HTMLDivElement>(null)
   const timelineHeaderRef = useRef<HTMLDivElement>(null)
+
+  // Use provided tasks or show empty state
+  const ganttTasks = Array.isArray(tasks) && tasks.length > 0 ? tasks : []
 
   useEffect(() => {
     const taskList = taskListRef.current
@@ -58,7 +61,7 @@ export function GanttView({ onTaskSelect }: GanttViewProps) {
   }, [])
 
   // Group tasks by phase
-  const tasksByPhase = mockGanttTasks.reduce(
+  const tasksByPhase = ganttTasks.reduce(
     (acc, task) => {
       if (!acc[task.phase]) {
         acc[task.phase] = []
@@ -194,62 +197,73 @@ export function GanttView({ onTaskSelect }: GanttViewProps) {
 
       {/* Gantt Content */}
       <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* Task List */}
-        <div
-          ref={taskListRef}
-          className="w-[300px] flex-shrink-0 border-r border-border overflow-y-auto overflow-x-hidden bg-card"
-        >
-          {Object.entries(tasksByPhase).map(([phase, tasks]) => {
-            const phaseTask: GanttTask = {
-              id: `phase-${phase}`,
-              name: `Phase ${phase}`,
-              agent: tasks[0].agent,
-              startDate: tasks[0].startDate,
-              endDate: tasks[tasks.length - 1].endDate,
-              progress: Math.round(tasks.reduce((sum, t) => sum + t.progress, 0) / tasks.length),
-              dependencies: [],
-              phase: Number(phase),
-              status: tasks.every((t) => t.status === "completed")
-                ? "completed"
-                : tasks.some((t) => t.status === "in_progress")
-                  ? "in_progress"
-                  : "pending",
-            }
+        {ganttTasks.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center text-muted-foreground">
+            <div className="text-center py-12">
+              <p className="text-lg mb-2">No steps defined yet</p>
+              <p className="text-sm">Create your first step to start tracking your project progress!</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Task List */}
+            <div
+              ref={taskListRef}
+              className="w-[300px] flex-shrink-0 border-r border-border overflow-y-auto overflow-x-hidden bg-card"
+            >
+              {Object.entries(tasksByPhase).map(([phase, tasks]) => {
+                const phaseTask: GanttTask = {
+                  id: `phase-${phase}`,
+                  name: `Phase ${phase}`,
+                  agent: tasks[0].agent,
+                  startDate: tasks[0].startDate,
+                  endDate: tasks[tasks.length - 1].endDate,
+                  progress: Math.round(tasks.reduce((sum, t) => sum + t.progress, 0) / tasks.length),
+                  dependencies: [],
+                  phase: Number(phase),
+                  status: tasks.every((t) => t.status === "completed")
+                    ? "completed"
+                    : tasks.some((t) => t.status === "in_progress")
+                      ? "in_progress"
+                      : "pending",
+                }
 
-            return (
-              <GanttTaskRow
-                key={phase}
-                task={phaseTask}
-                isPhaseHeader
-                onTaskClick={handleTaskClick}
-                isSelected={selectedTaskId === phaseTask.id}
-              >
-                {tasks.map((task) => (
+                return (
                   <GanttTaskRow
-                    key={task.id}
-                    task={task}
-                    level={1}
+                    key={phase}
+                    task={phaseTask}
+                    isPhaseHeader
                     onTaskClick={handleTaskClick}
-                    isSelected={selectedTaskId === task.id}
-                  />
-                ))}
-              </GanttTaskRow>
-            )
-          })}
-        </div>
+                    isSelected={selectedTaskId === phaseTask.id}
+                  >
+                    {tasks.map((task) => (
+                      <GanttTaskRow
+                        key={task.id}
+                        task={task}
+                        level={1}
+                        onTaskClick={handleTaskClick}
+                        isSelected={selectedTaskId === task.id}
+                      />
+                    ))}
+                  </GanttTaskRow>
+                )
+              })}
+            </div>
 
-        {/* Timeline */}
-        <div ref={timelineRef} className="flex-1 overflow-auto bg-background/50">
-          <GanttTimeline
-            tasks={mockGanttTasks}
-            startDate={dateRange.start}
-            endDate={dateRange.end}
-            onTaskClick={handleTaskClick}
-            selectedTaskId={selectedTaskId}
-            showDependencies={showDependencies}
-            tasksByPhase={tasksByPhase}
-          />
-        </div>
+            {/* Timeline */}
+            <div ref={timelineRef} className="flex-1 overflow-auto bg-background/50">
+              <GanttTimeline
+                tasks={ganttTasks}
+                startDate={dateRange.start}
+                endDate={dateRange.end}
+                onTaskClick={handleTaskClick}
+                selectedTaskId={selectedTaskId}
+                showDependencies={showDependencies}
+                tasksByPhase={tasksByPhase}
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

@@ -1,4 +1,4 @@
-import type { Phase, Task } from "./types"
+import type { Phase, Task, DocSection, DocItem } from "./types"
 
 /**
  * Transform flat database steps into hierarchical phase structure for TreeView
@@ -95,4 +95,75 @@ export function transformStepsToTasks(steps: any[]): Task[] {
     actualTime: step.actual_duration || '',
     dependencies: Array.isArray(step.dependencies) ? step.dependencies : [],
   }))
+}
+
+/**
+ * Transform database documents into hierarchical DocSection structure for DocsView
+ * Groups documents by category and converts them to the expected format
+ */
+export function transformDocumentsToSections(documents: any[]): DocSection[] {
+  if (!documents || !Array.isArray(documents) || documents.length === 0) {
+    return []
+  }
+
+  try {
+    // Group documents by category
+    const categoryMap = new Map<string, any[]>()
+
+    documents.forEach((doc) => {
+      if (!doc) return
+
+      const category = doc.category || doc.doc_type || 'General'
+      if (!categoryMap.has(category)) {
+        categoryMap.set(category, [])
+      }
+      categoryMap.get(category)!.push(doc)
+    })
+
+    // Category icon mapping
+    const categoryIcons: Record<string, string> = {
+      'Getting Started': '📚',
+      'Architecture': '🏗️',
+      'API Documentation': '🔌',
+      'UI/UX': '🎨',
+      'Testing': '🧪',
+      'Deployment': '🚀',
+      'General': '📄',
+      'requirements': '📋',
+      'api': '🔌',
+      'architecture': '🏗️',
+      'ui_ux': '🎨',
+      'testing': '🧪',
+      'deployment': '🚀',
+      'general': '📄',
+    }
+
+    // Convert to DocSection structure
+    const sections: DocSection[] = []
+
+    categoryMap.forEach((categoryDocs, categoryName) => {
+      const items: DocItem[] = categoryDocs.map((doc) => ({
+        id: doc.id,
+        name: doc.title || 'Untitled Document',
+        icon: '📄',
+        type: 'markdown',
+        content: doc.content || '',
+        lastUpdated: doc.updated_at ? new Date(doc.updated_at).toLocaleDateString() : undefined,
+        updatedBy: doc.last_edited_by || undefined,
+      }))
+
+      sections.push({
+        id: categoryName.toLowerCase().replace(/\s+/g, '-'),
+        name: categoryName,
+        icon: categoryIcons[categoryName] || '📁',
+        expanded: true,
+        items,
+      })
+    })
+
+    return sections
+  } catch (error) {
+    console.error('Error in transformDocumentsToSections:', error)
+    return []
+  }
 }

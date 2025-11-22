@@ -21,8 +21,8 @@ import { Button } from "@/components/ui/button"
 import { Target, Zap } from "lucide-react"
 import { PhaseNode } from "./PhaseNode"
 import { TaskNode } from "./TaskNode"
-import { mockFlowNodes, mockFlowEdges } from "@/lib/mock-data"
 import type { Task } from "@/lib/types"
+import type { Node, Edge } from "@xyflow/react"
 
 const nodeTypes = {
   phaseNode: PhaseNode,
@@ -30,12 +30,17 @@ const nodeTypes = {
 }
 
 interface FlowViewProps {
+  nodes?: Node[]
+  edges?: Edge[]
   onTaskSelect?: (task: Task | null) => void
 }
 
-export function FlowView({ onTaskSelect }: FlowViewProps) {
-  const [nodes, setNodes, onNodesChange] = useNodesState(mockFlowNodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(mockFlowEdges)
+export function FlowView({ nodes: initialNodes, edges: initialEdges, onTaskSelect }: FlowViewProps) {
+  const flowNodes = Array.isArray(initialNodes) && initialNodes.length > 0 ? initialNodes : []
+  const flowEdges = Array.isArray(initialEdges) && initialEdges.length > 0 ? initialEdges : []
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(flowNodes)
+  const [edges, setEdges, onEdgesChange] = useEdgesState(flowEdges)
   const [highlightMode, setHighlightMode] = useState(false)
   const [showCriticalPath, setShowCriticalPath] = useState(false)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
@@ -139,6 +144,18 @@ export function FlowView({ onTaskSelect }: FlowViewProps) {
       } as Edge
     })
   }, [edges, showCriticalPath, highlightMode, highlightedNodes])
+
+  // Empty state
+  if (flowNodes.length === 0) {
+    return (
+      <div className="h-full w-full bg-background rounded-lg border border-border overflow-hidden flex items-center justify-center">
+        <div className="text-center py-12 text-muted-foreground">
+          <p className="text-lg mb-2">No flow data yet</p>
+          <p className="text-sm">Add steps to your project to visualize the workflow!</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="h-full w-full bg-background rounded-lg border border-border overflow-hidden">

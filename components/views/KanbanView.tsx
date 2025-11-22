@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import type { KanbanTask } from "@/lib/types"
-import { mockKanbanTasks } from "@/lib/mock-data"
 import { KanbanColumn } from "./KanbanColumn"
 import { TaskDetailModal } from "./TaskDetailModal"
 import { Input } from "@/components/ui/input"
@@ -13,11 +12,13 @@ import { DragDropContext, type DropResult } from "@hello-pangea/dnd"
 import { useToast } from "@/hooks/use-toast"
 
 interface KanbanViewProps {
+  tasks?: KanbanTask[]
   onTaskSelect?: (task: KanbanTask | null) => void
 }
 
-export function KanbanView({ onTaskSelect }: KanbanViewProps) {
-  const [tasks, setTasks] = useState<KanbanTask[]>(mockKanbanTasks)
+export function KanbanView({ tasks: initialTasks, onTaskSelect }: KanbanViewProps) {
+  const kanbanTasks = Array.isArray(initialTasks) && initialTasks.length > 0 ? initialTasks : []
+  const [tasks, setTasks] = useState<KanbanTask[]>(kanbanTasks)
   const [searchQuery, setSearchQuery] = useState("")
   const [phaseFilter, setPhaseFilter] = useState("all")
   const [agentFilter, setAgentFilter] = useState("all")
@@ -161,46 +162,55 @@ export function KanbanView({ onTaskSelect }: KanbanViewProps) {
       </div>
 
       {/* Kanban Board */}
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          <KanbanColumn
-            title="Backlog"
-            icon="📋"
-            status="backlog"
-            tasks={getTasksByStatus("backlog")}
-            onView={handleView}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-          />
-          <KanbanColumn
-            title="In Progress"
-            icon="🔄"
-            status="in_progress"
-            tasks={getTasksByStatus("in_progress")}
-            onView={handleView}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-          />
-          <KanbanColumn
-            title="Review"
-            icon="👁️"
-            status="review"
-            tasks={getTasksByStatus("review")}
-            onView={handleView}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-          />
-          <KanbanColumn
-            title="Complete"
-            icon="✅"
-            status="complete"
-            tasks={getTasksByStatus("complete")}
-            onView={handleView}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-          />
+      {kanbanTasks.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center text-muted-foreground">
+          <div className="text-center py-12">
+            <p className="text-lg mb-2">No steps defined yet</p>
+            <p className="text-sm">Create your first step to start tracking your project progress!</p>
+          </div>
         </div>
-      </DragDropContext>
+      ) : (
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <div className="flex gap-4 overflow-x-auto pb-4">
+            <KanbanColumn
+              title="Backlog"
+              icon="📋"
+              status="backlog"
+              tasks={getTasksByStatus("backlog")}
+              onView={handleView}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+            <KanbanColumn
+              title="In Progress"
+              icon="🔄"
+              status="in_progress"
+              tasks={getTasksByStatus("in_progress")}
+              onView={handleView}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+            <KanbanColumn
+              title="Review"
+              icon="👁️"
+              status="review"
+              tasks={getTasksByStatus("review")}
+              onView={handleView}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+            <KanbanColumn
+              title="Complete"
+              icon="✅"
+              status="complete"
+              tasks={getTasksByStatus("complete")}
+              onView={handleView}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+            />
+          </div>
+        </DragDropContext>
+      )}
 
       {/* Task Detail Modal */}
       <TaskDetailModal

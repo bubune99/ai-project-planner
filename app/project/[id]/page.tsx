@@ -16,7 +16,7 @@ import { KanbanView } from "@/components/views/KanbanView"
 import { FlowView } from "@/components/views/FlowView"
 import { DocsView } from "@/components/views/DocsView"
 import { mockAgents, quickActions } from "@/lib/mock-data"
-import { transformStepsToPhases } from "@/lib/data-transforms"
+import { transformStepsToPhases, transformDocumentsToSections } from "@/lib/data-transforms"
 import type { Task, KanbanTask, Document } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Loader2 } from 'lucide-react'
@@ -39,6 +39,7 @@ export default function ProjectDashboardPage() {
   const [docsOpen, setDocsOpen] = useState(false)
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
   const [projectData, setProjectData] = useState<ProjectData | null>(null)
+  const [documents, setDocuments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -47,6 +48,7 @@ export default function ProjectDashboardPage() {
   useEffect(() => {
     if (projectId) {
       fetchProjectData()
+      fetchDocuments()
     }
   }, [projectId])
 
@@ -67,6 +69,18 @@ export default function ProjectDashboardPage() {
     }
   }
 
+  const fetchDocuments = async () => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/documents`)
+      if (response.ok) {
+        const data = await response.json()
+        setDocuments(data.documents || [])
+      }
+    } catch (err) {
+      console.error('Error fetching documents:', err)
+    }
+  }
+
   // Transform database steps into hierarchical phase structure (before early returns)
   const phases = useMemo(() => {
     if (!projectData?.steps) return []
@@ -78,6 +92,16 @@ export default function ProjectDashboardPage() {
       return []
     }
   }, [projectData?.steps])
+
+  // Transform documents into sections for DocsView
+  const docSections = useMemo(() => {
+    try {
+      return transformDocumentsToSections(documents)
+    } catch (error) {
+      console.error('Error transforming documents:', error)
+      return []
+    }
+  }, [documents])
 
   if (loading) {
     return (
@@ -182,7 +206,7 @@ export default function ProjectDashboardPage() {
 
           {activeTab === "docs" && (
             <div className="h-[calc(100vh-180px)]">
-              <DocsView />
+              <DocsView sections={docSections} />
             </div>
           )}
         </main>
@@ -190,7 +214,7 @@ export default function ProjectDashboardPage() {
         <AIAssistant activeTab={activeTab} selectedTask={selectedTask} selectedDocument={selectedDocument} />
       </div>
 
-      <DocumentBrowser open={docsOpen} onOpenChange={setDocsOpen} onDocumentSelect={setSelectedDocument} />
+      <DocumentBrowser projectId={projectId} open={docsOpen} onOpenChange={setDocsOpen} onDocumentSelect={setSelectedDocument} />
     </div>
   )
 }

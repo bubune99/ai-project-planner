@@ -1,40 +1,68 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { X, Search, Upload, FolderOpen, FileSearch } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { DocumentCard } from "./DocumentCard"
 import { DocumentPreview } from "./DocumentPreview"
-import { mockDocuments } from "@/lib/mock-data"
 import type { Document } from "@/lib/types"
 
 interface DocumentBrowserProps {
+  projectId?: string
   open: boolean
   onOpenChange: (open: boolean) => void
   onDocumentSelect?: (document: Document) => void
 }
 
-export function DocumentBrowser({ open, onOpenChange, onDocumentSelect }: DocumentBrowserProps) {
+export function DocumentBrowser({ projectId, open, onOpenChange, onDocumentSelect }: DocumentBrowserProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<"recent" | "name">("recent")
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
+  const [documents, setDocuments] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
 
-  const allTags = Array.from(new Set(mockDocuments.flatMap((doc) => doc.tags)))
+  // Fetch documents when the sheet opens and we have a projectId
+  useEffect(() => {
+    if (open && projectId) {
+      fetchDocuments()
+    }
+  }, [open, projectId])
 
-  const filteredDocuments = mockDocuments
+  const fetchDocuments = async () => {
+    if (!projectId) return
+
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/projects/${projectId}/documents`)
+      if (response.ok) {
+        const data = await response.json()
+        setDocuments(data.documents || [])
+      }
+    } catch (error) {
+      console.error('Error fetching documents:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const allTags = Array.from(new Set(documents.flatMap((doc) => doc.tags || [])))
+
+  const filteredDocuments = documents
     .filter((doc) => {
-      const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase())
-      const matchesTag = !selectedTag || doc.tags.includes(selectedTag)
+      const matchesSearch = (doc.title || '').toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesTag = !selectedTag || (doc.tags || []).includes(selectedTag)
       return matchesSearch && matchesTag
     })
     .sort((a, b) => {
       if (sortBy === "recent") {
-        return b.lastModified.getTime() - a.lastModified.getTime()
+        const aTime = a.updated_at ? new Date(a.updated_at).getTime() : 0
+        const bTime = b.updated_at ? new Date(b.updated_at).getTime() : 0
+        return bTime - aTime
       }
-      return a.name.localeCompare(b.name)
+      return (a.title || '').localeCompare(b.title || '')
     })
 
   const handleDocumentClick = (document: Document) => {
@@ -113,7 +141,11 @@ export function DocumentBrowser({ open, onOpenChange, onDocumentSelect }: Docume
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-3">
-          {selectedDocument ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <p className="text-sm text-muted-foreground">Loading documents...</p>
+            </div>
+          ) : selectedDocument ? (
             <div>
               <Button variant="ghost" size="sm" onClick={() => setSelectedDocument(null)} className="mb-4 -ml-2">
                 ← Back to list
@@ -131,7 +163,12 @@ export function DocumentBrowser({ open, onOpenChange, onDocumentSelect }: Docume
               {filteredDocuments.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <FileSearch className="w-12 h-12 text-muted-foreground mb-3" />
-                  <p className="text-sm text-muted-foreground">No documents found</p>
+                  <p className="text-sm text-muted-foreground">
+                    {documents.length === 0 ? 'No documents yet' : 'No documents found'}
+                  </p>
+                  {documents.length === 0 && (
+                    <p className="text-xs text-muted-foreground mt-2">Upload your first document to get started!</p>
+                  )}
                 </div>
               ) : (
                 filteredDocuments.map((doc) => (
