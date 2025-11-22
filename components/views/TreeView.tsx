@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { TreeNode } from "./TreeNode"
 import { TaskDetails } from "./TaskDetails"
-import { mockTreeData } from "@/lib/mock-data"
 import type { Task, Phase } from "@/lib/types"
 
 interface TreeViewProps {
@@ -22,8 +21,8 @@ export function TreeView({ phases, projectName, onTaskSelect }: TreeViewProps) {
     setIsDetailsCollapsed(false)
   }
 
-  // Use provided phases or fall back to mock data
-  const treeData = Array.isArray(phases) && phases.length > 0 ? phases : mockTreeData
+  // Use provided phases or show empty state
+  const treeData = Array.isArray(phases) && phases.length > 0 ? phases : []
   const displayName = projectName || 'Project'
 
   return (
