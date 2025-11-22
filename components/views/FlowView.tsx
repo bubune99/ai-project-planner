@@ -18,7 +18,7 @@ import {
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { Button } from "@/components/ui/button"
-import { Target, Zap, Plus } from "lucide-react"
+import { Target, Zap, Plus, GitBranch, CheckCircle2, Circle } from "lucide-react"
 import { PhaseNode } from "./PhaseNode"
 import { TaskNode } from "./TaskNode"
 import type { Task } from "@/lib/types"
@@ -55,8 +55,27 @@ export function FlowView({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [isStepModalOpen, setIsStepModalOpen] = useState(false)
   const [editingStep, setEditingStep] = useState<any>(null)
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null)
 
-  const onConnect = useCallback((params: Connection) => setEdges((eds) => addEdge(params, eds)), [setEdges])
+  const onConnect = useCallback(
+    async (params: Connection) => {
+      setEdges((eds) => addEdge(params, eds))
+
+      // Save dependency to database
+      if (params.source && params.target) {
+        try {
+          await fetch(`/api/projects/${projectId}/steps/${params.target}/dependencies`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ dependsOnId: params.source }),
+          })
+        } catch (error) {
+          console.error("[v0] Failed to save dependency:", error)
+        }
+      }
+    },
+    [setEdges, projectId],
+  )
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: any) => {
@@ -94,10 +113,21 @@ export function FlowView({
 
   const onPaneClick = useCallback(() => {
     setSelectedNodeId(null)
+    setContextMenuPosition(null)
     if (onTaskSelect) {
       onTaskSelect(null)
     }
   }, [onTaskSelect])
+
+  const onPaneContextMenu = useCallback((event: React.MouseEvent) => {
+    event.preventDefault()
+    setContextMenuPosition({ x: event.clientX, y: event.clientY })
+  }, [])
+
+  const handleAddNodeAtPosition = useCallback(() => {
+    setIsStepModalOpen(true)
+    setContextMenuPosition(null)
+  }, [])
 
   const handleStepSaved = () => {
     setIsStepModalOpen(false)
@@ -175,15 +205,77 @@ export function FlowView({
 
   if (flowNodes.length === 0) {
     return (
-      <div className="h-full w-full bg-background rounded-lg border border-border overflow-hidden flex items-center justify-center">
-        <div className="text-center py-12 text-muted-foreground">
-          <p className="text-lg mb-2">No flow data yet</p>
-          <p className="text-sm mb-4">Add steps to your project to visualize the workflow!</p>
-          <Button onClick={() => setIsStepModalOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Create Step
-          </Button>
-        </div>
+      <div className="h-full w-full bg-background rounded-lg border border-border overflow-hidden relative">
+        <ReactFlow
+          nodes={[]}
+          edges={[]}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onPaneContextMenu={onPaneContextMenu}
+          onPaneClick={onPaneClick}
+          nodeTypes={nodeTypes}
+          fitView
+          className="bg-background"
+        >
+          <Background className="bg-muted" gap={16} size={1} />
+          <Controls className="bg-card border border-border rounded-lg shadow-lg" />
+
+          <Panel position="top-left" className="flex gap-2">
+            <Button onClick={() => setIsStepModalOpen(true)} className="gap-2 shadow-lg">
+              <Plus className="h-4 w-4" />
+              Add First Step
+            </Button>
+          </Panel>
+
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="text-center space-y-4 bg-card/80 backdrop-blur-sm p-8 rounded-lg border border-border pointer-events-auto shadow-xl max-w-md">
+              <GitBranch className="h-12 w-12 mx-auto text-muted-foreground" />
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Empty Canvas</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Start building your project workflow by adding steps
+                </p>
+              </div>
+              <div className="space-y-2 text-xs text-left text-muted-foreground">
+                <div className="flex items-start gap-2">
+                  <Circle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                  <span>Click "Add First Step" to create a task</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Circle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                  <span>Right-click anywhere to add more steps</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Circle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                  <span>Drag from node handles to create dependencies</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Circle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                  <span>Double-click any node to edit it</span>
+                </div>
+              </div>
+              <Button onClick={() => setIsStepModalOpen(true)} className="w-full gap-2">
+                <Plus className="h-4 w-4" />
+                Add First Step
+              </Button>
+            </div>
+          </div>
+        </ReactFlow>
+
+        {contextMenuPosition && (
+          <div className="fixed z-50" style={{ left: contextMenuPosition.x, top: contextMenuPosition.y }}>
+            <div className="bg-card border border-border rounded-lg shadow-lg p-1 min-w-[160px]">
+              <button
+                onClick={handleAddNodeAtPosition}
+                className="w-full px-3 py-2 text-sm text-left hover:bg-accent rounded flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Step Here
+              </button>
+            </div>
+          </div>
+        )}
+
         <StepFormModal
           projectId={projectId}
           isOpen={isStepModalOpen}
@@ -209,6 +301,7 @@ export function FlowView({
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
         onPaneClick={onPaneClick}
+        onPaneContextMenu={onPaneContextMenu}
         nodeTypes={nodeTypes}
         fitView
         className="bg-background"
@@ -232,7 +325,7 @@ export function FlowView({
         <Panel position="top-left" className="flex gap-2">
           <Button size="sm" onClick={() => setIsStepModalOpen(true)} className="bg-card border-border shadow-lg gap-2">
             <Plus className="w-4 h-4" />
-            Create Step
+            Add Step
           </Button>
 
           <Button
@@ -272,7 +365,39 @@ export function FlowView({
             </div>
           </div>
         </Panel>
+
+        <Panel position="bottom-left">
+          <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg shadow-lg p-3 space-y-1 text-xs max-w-xs">
+            <div className="font-medium text-foreground mb-2">Quick Tips:</div>
+            <div className="flex items-start gap-2 text-muted-foreground">
+              <CheckCircle2 className="h-3 w-3 mt-0.5 flex-shrink-0" />
+              <span>Right-click canvas to add steps</span>
+            </div>
+            <div className="flex items-start gap-2 text-muted-foreground">
+              <CheckCircle2 className="h-3 w-3 mt-0.5 flex-shrink-0" />
+              <span>Drag from handles to connect nodes</span>
+            </div>
+            <div className="flex items-start gap-2 text-muted-foreground">
+              <CheckCircle2 className="h-3 w-3 mt-0.5 flex-shrink-0" />
+              <span>Double-click nodes to edit</span>
+            </div>
+          </div>
+        </Panel>
       </ReactFlow>
+
+      {contextMenuPosition && (
+        <div className="fixed z-50" style={{ left: contextMenuPosition.x, top: contextMenuPosition.y }}>
+          <div className="bg-card border border-border rounded-lg shadow-lg p-1 min-w-[160px]">
+            <button
+              onClick={handleAddNodeAtPosition}
+              className="w-full px-3 py-2 text-sm text-left hover:bg-accent rounded flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Step Here
+            </button>
+          </div>
+        </div>
+      )}
 
       <StepFormModal
         projectId={projectId}
