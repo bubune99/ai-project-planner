@@ -67,6 +67,18 @@ export default function ProjectDashboardPage() {
     }
   }
 
+  // Transform database steps into hierarchical phase structure (before early returns)
+  const phases = useMemo(() => {
+    if (!projectData?.steps) return []
+
+    try {
+      return transformStepsToPhases(projectData.steps)
+    } catch (error) {
+      console.error('Error transforming steps to phases:', error)
+      return []
+    }
+  }, [projectData?.steps])
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -89,16 +101,6 @@ export default function ProjectDashboardPage() {
   }
 
   const { project, steps, progressNotes } = projectData
-
-  // Transform database steps into hierarchical phase structure
-  const phases = useMemo(() => {
-    try {
-      return transformStepsToPhases(steps || [])
-    } catch (error) {
-      console.error('Error transforming steps to phases:', error)
-      return []
-    }
-  }, [steps])
 
   return (
     <div className="min-h-screen bg-background">
