@@ -27,19 +27,21 @@ import { X, Plus } from 'lucide-react'
 interface NewProjectModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onProjectCreated?: () => void
 }
 
-export function NewProjectModal({ open, onOpenChange }: NewProjectModalProps) {
+export function NewProjectModal({ open, onOpenChange, onProjectCreated }: NewProjectModalProps) {
   const router = useRouter()
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    status: "planning" as "planning" | "in_progress" | "review" | "completed" | "on_hold",
+    status: "planning" as "planning" | "in-progress" | "review" | "completed" | "on-hold",
     phase: "",
   })
   const [techStack, setTechStack] = useState<string[]>([])
   const [currentTech, setCurrentTech] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleAddTech = () => {
     if (currentTech.trim() && !techStack.includes(currentTech.trim())) {
@@ -55,18 +57,58 @@ export function NewProjectModal({ open, onOpenChange }: NewProjectModalProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
+    setError(null)
 
-    // Generate a unique project ID
-    const projectId = formData.name.toLowerCase().replace(/\s+/g, "-")
+    try {
+      // Call the API to create the project
+      const response = await fetch("/api/projects", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          description: formData.description,
+          status: formData.status,
+          metadata: {
+            phase: formData.phase,
+            techStack,
+          },
+        }),
+      })
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create project")
+      }
 
-    // Navigate to the new project
-    router.push(`/project/${projectId}`)
+      const data = await response.json()
+      const projectId = data.project.id
 
-    setIsSubmitting(false)
-    onOpenChange(false)
+      // Close modal and refresh projects list
+      onOpenChange(false)
+
+      // Call the callback to refresh the projects list
+      if (onProjectCreated) {
+        onProjectCreated()
+      }
+
+      // Reset form
+      setFormData({
+        name: "",
+        description: "",
+        status: "planning",
+        phase: "",
+      })
+      setTechStack([])
+
+      // Navigate to the new project
+      router.push(`/project/${projectId}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const isFormValid = formData.name.trim() && formData.description.trim() && formData.phase.trim()
@@ -82,6 +124,12 @@ export function NewProjectModal({ open, onOpenChange }: NewProjectModalProps) {
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 py-4">
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/20 text-red-500 px-4 py-3 rounded">
+              {error}
+            </div>
+          )}
+
           {/* Project Name */}
           <div className="space-y-2">
             <Label htmlFor="name" className="text-white">
@@ -127,10 +175,10 @@ export function NewProjectModal({ open, onOpenChange }: NewProjectModalProps) {
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-900 border-white/10">
                   <SelectItem value="planning">Planning</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="in-progress">In Progress</SelectItem>
                   <SelectItem value="review">Review</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="on_hold">On Hold</SelectItem>
+                  <SelectItem value="on-hold">On Hold</SelectItem>
                 </SelectContent>
               </Select>
             </div>

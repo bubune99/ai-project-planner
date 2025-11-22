@@ -1,14 +1,29 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ProjectCard } from "@/components/projects/ProjectCard"
 import { ProjectStats } from "@/components/projects/ProjectStats"
 import { NewProjectModal } from "@/components/projects/NewProjectModal"
-import { mockProjects } from "@/lib/mock-data"
-import { Search, Plus, LayoutGrid, List } from 'lucide-react'
+import { Search, Plus, LayoutGrid, List, Loader2 } from 'lucide-react'
+
+interface Project {
+  id: string
+  name: string
+  description: string
+  status: string
+  priority: string
+  progress: number
+  total_tasks: number
+  completed_tasks: number
+  in_progress_tasks: number
+  blocked_tasks: number
+  pending_tasks: number
+  created_at: string
+  updated_at: string
+}
 
 export default function ProjectsPage() {
   const router = useRouter()
@@ -16,8 +31,35 @@ export default function ProjectsPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false)
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const filteredProjects = mockProjects.filter((project) => {
+  useEffect(() => {
+    fetchProjects()
+  }, [statusFilter])
+
+  const fetchProjects = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const url = statusFilter === "all"
+        ? "/api/projects"
+        : `/api/projects?status=${statusFilter}`
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error("Failed to fetch projects")
+      }
+      const data = await response.json()
+      setProjects(data.projects || [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filteredProjects = projects.filter((project) => {
     const matchesSearch =
       project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.description.toLowerCase().includes(searchQuery.toLowerCase())
@@ -53,7 +95,7 @@ export default function ProjectsPage() {
       {/* Main Content */}
       <div className="container mx-auto px-8 py-8 space-y-8">
         {/* Stats */}
-        <ProjectStats projects={mockProjects} />
+        <ProjectStats projects={projects} />
 
         {/* Filters and Search */}
         <div className="flex items-center justify-between gap-4">
@@ -68,7 +110,7 @@ export default function ProjectsPage() {
               />
             </div>
             <div className="flex items-center gap-2">
-              {["all", "in_progress", "planning", "review", "completed", "on_hold"].map((status) => (
+              {["all", "in-progress", "planning", "review", "completed", "on-hold"].map((status) => (
                 <Button
                   key={status}
                   variant={statusFilter === status ? "default" : "outline"}
@@ -80,7 +122,7 @@ export default function ProjectsPage() {
                       : "border-white/10 hover:bg-white/5"
                   }
                 >
-                  {status.replace("_", " ")}
+                  {status.replace("-", " ")}
                 </Button>
               ))}
             </div>
@@ -110,23 +152,42 @@ export default function ProjectsPage() {
           <h2 className="text-xl font-semibold text-white mb-4">
             {filteredProjects.length} Projects
           </h2>
-          <div
-            className={
-              viewMode === "grid"
-                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-                : "space-y-4"
-            }
-          >
-            {filteredProjects.map((project) => (
-              <ProjectCard key={project.id} project={project} onSelect={handleProjectSelect} />
-            ))}
-          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <p className="text-red-500 mb-4">{error}</p>
+              <Button onClick={fetchProjects} variant="outline">
+                Try Again
+              </Button>
+            </div>
+          ) : filteredProjects.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>No projects found. Create your first project to get started!</p>
+            </div>
+          ) : (
+            <div
+              className={
+                viewMode === "grid"
+                  ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                  : "space-y-4"
+              }
+            >
+              {filteredProjects.map((project) => (
+                <ProjectCard key={project.id} project={project} onSelect={handleProjectSelect} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       <NewProjectModal
         open={isNewProjectModalOpen}
         onOpenChange={setIsNewProjectModalOpen}
+        onProjectCreated={fetchProjects}
       />
     </div>
   )
