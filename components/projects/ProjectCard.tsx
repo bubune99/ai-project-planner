@@ -35,8 +35,9 @@ const healthIcons = {
 }
 
 export function ProjectCard({ project, onSelect }: ProjectCardProps) {
-  const HealthIcon = healthIcons[project.health]
-  const timeSinceLastActivity = getTimeSince(project.lastActivity)
+  const health = project.health || 'good'
+  const HealthIcon = healthIcons[health]
+  const timeSinceLastActivity = project.lastActivity ? getTimeSince(project.lastActivity) : 'Never'
 
   return (
     <Card className="group relative overflow-hidden border-white/10 bg-black/40 backdrop-blur-sm hover:bg-black/60 hover:border-white/20 transition-all duration-300">
@@ -48,46 +49,46 @@ export function ProjectCard({ project, onSelect }: ProjectCardProps) {
         <div className="flex items-start justify-between">
           <div className="flex-1 space-y-1">
             <div className="flex items-center gap-2">
-              <h3 className="text-lg font-semibold text-white">{project.name}</h3>
-              <HealthIcon className={`h-4 w-4 ${healthColors[project.health]}`} />
+              <h3 className="text-lg font-semibold text-white">{project.name || 'Untitled Project'}</h3>
+              <HealthIcon className={`h-4 w-4 ${healthColors[health]}`} />
             </div>
-            <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>
+            <p className="text-sm text-muted-foreground line-clamp-2">{project.description || 'No description'}</p>
           </div>
         </div>
 
         {/* Status and Phase */}
         <div className="flex items-center gap-2 flex-wrap">
-          <Badge className={`${statusColors[project.status]} border`}>
-            {project.status.replace("_", " ")}
+          <Badge className={`${statusColors[project.status] || statusColors.planning} border`}>
+            {(project.status || 'planning').replace("_", " ")}
           </Badge>
-          <span className="text-xs text-muted-foreground">{project.phase}</span>
+          {project.phase && <span className="text-xs text-muted-foreground">{project.phase}</span>}
         </div>
 
         {/* Progress */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Progress</span>
-            <span className="text-white font-medium">{project.progress}%</span>
+            <span className="text-white font-medium">{project.progress || 0}%</span>
           </div>
-          <Progress value={project.progress} className="h-2" />
+          <Progress value={project.progress || 0} className="h-2" />
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>
-              {project.completedTasks} / {project.totalTasks} tasks
+              {project.completedTasks || 0} / {project.totalTasks || 0} tasks
             </span>
-            <span>{project.activeAgents} agents active</span>
+            <span>{project.activeAgents || 0} agents active</span>
           </div>
         </div>
 
         {/* Tech Stack */}
         <div className="flex items-center gap-2 flex-wrap">
-          {project.techStack.slice(0, 4).map((tech) => (
+          {(project.techStack || []).slice(0, 4).map((tech) => (
             <Badge key={tech} variant="outline" className="text-xs border-white/10 bg-white/5">
               {tech}
             </Badge>
           ))}
-          {project.techStack.length > 4 && (
+          {(project.techStack || []).length > 4 && (
             <Badge variant="outline" className="text-xs border-white/10 bg-white/5">
-              +{project.techStack.length - 4}
+              +{(project.techStack || []).length - 4}
             </Badge>
           )}
         </div>

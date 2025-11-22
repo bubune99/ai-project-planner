@@ -217,20 +217,33 @@ const handler = createMcpHandler(
   }
 )
 
-// Wrap handler with authentication
-async function authenticatedHandler(request: NextRequest) {
+// Export handler with authentication wrapper
+export const GET = async (request: NextRequest) => {
   if (!authenticateRequest(request)) {
     return new Response(
       JSON.stringify({ error: 'Unauthorized - Invalid or missing API key' }),
-      {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      }
+      { status: 401, headers: { 'Content-Type': 'application/json' } }
     )
   }
-
   return handler(request)
 }
 
-// Export the authenticated handler for GET, POST, and DELETE
-export { authenticatedHandler as GET, authenticatedHandler as POST, authenticatedHandler as DELETE }
+export const POST = async (request: NextRequest) => {
+  if (!authenticateRequest(request)) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized - Invalid or missing API key' }),
+      { status: 401, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+  return handler(request)
+}
+
+export const DELETE = async (request: NextRequest) => {
+  if (!authenticateRequest(request)) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized - Invalid or missing API key' }),
+      { status: 401, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+  return handler(request)
+}
