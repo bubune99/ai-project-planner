@@ -8,6 +8,26 @@
 import { createMcpHandler } from "mcp-handler"
 import { z } from "zod"
 import { sql } from "@/lib/db/client"
+import { NextRequest } from "next/server"
+
+// Simple API key authentication for production
+function authenticateRequest(request: NextRequest): boolean {
+  // In development, allow all requests
+  if (process.env.NODE_ENV === 'development') {
+    return true
+  }
+
+  // In production, require API key
+  const apiKey = request.headers.get('x-api-key')
+  const validKey = process.env.MCP_API_KEY
+
+  if (!validKey) {
+    console.warn('MCP_API_KEY not set in production - MCP server is unprotected!')
+    return true // Allow if no key configured (for initial setup)
+  }
+
+  return apiKey === validKey
+}
 
 // Create MCP handler with tools and resources
 const handler = createMcpHandler(
@@ -197,5 +217,20 @@ const handler = createMcpHandler(
   }
 )
 
-// Export the same handler for GET, POST, and DELETE
-export { handler as GET, handler as POST, handler as DELETE }
+// Wrap handler with authentication
+async function authenticatedHandler(request: NextRequest) {
+  if (!authenticateRequest(request)) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized - Invalid or missing API key' }),
+      {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    )
+  }
+
+  return handler(request)
+}
+
+// Export the authenticated handler for GET, POST, and DELETE
+export { authenticatedHandler as GET, authenticatedHandler as POST, authenticatedHandler as DELETE }
