@@ -38,6 +38,8 @@ export function FeatureBacklog({ projectId }: FeatureBacklogProps) {
   const [loading, setLoading] = useState(true)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [filter, setFilter] = useState<"all" | "proposed" | "approved" | "in-progress">("all")
+  const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -55,73 +57,108 @@ export function FeatureBacklog({ projectId }: FeatureBacklogProps) {
   const fetchRequests = async () => {
     try {
       setLoading(true)
+      setError(null)
       const url =
         filter === "all"
           ? `/api/projects/${projectId}/feature-requests`
           : `/api/projects/${projectId}/feature-requests?status=${filter}`
       const response = await fetch(url)
-      if (response.ok) {
-        const data = await response.json()
-        setRequests(data.requests || [])
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch feature requests' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch feature requests`)
       }
+
+      const data = await response.json()
+      setRequests(data.requests || [])
     } catch (error) {
       console.error("Failed to fetch feature requests:", error)
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred while fetching feature requests')
     } finally {
       setLoading(false)
     }
   }
 
   const handleCreate = async () => {
+    if (!formData.title.trim()) {
+      setError('Title is required')
+      return
+    }
+    if (!formData.description.trim()) {
+      setError('Description is required')
+      return
+    }
+
     try {
+      setIsSubmitting(true)
+      setError(null)
       const response = await fetch(`/api/projects/${projectId}/feature-requests`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       })
 
-      if (response.ok) {
-        setIsCreateModalOpen(false)
-        setFormData({
-          title: "",
-          description: "",
-          type: "feature",
-          priority: "medium",
-          impact_analysis: "",
-          effort_estimate: "medium",
-          requested_by: "user",
-        })
-        fetchRequests()
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to create feature request' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to create feature request`)
       }
+
+      setIsCreateModalOpen(false)
+      setFormData({
+        title: "",
+        description: "",
+        type: "feature",
+        priority: "medium",
+        impact_analysis: "",
+        effort_estimate: "medium",
+        requested_by: "user",
+      })
+      await fetchRequests()
     } catch (error) {
       console.error("Failed to create feature request:", error)
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred while creating feature request')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   const handleApprove = async (requestId: string) => {
     try {
+      setError(null)
       const response = await fetch(`/api/projects/${projectId}/feature-requests/${requestId}/approve`, {
         method: "POST",
       })
-      if (response.ok) {
-        fetchRequests()
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to approve request' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to approve request`)
       }
+
+      await fetchRequests()
     } catch (error) {
       console.error("Failed to approve request:", error)
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred while approving request')
     }
   }
 
   const handleReject = async (requestId: string) => {
     try {
+      setError(null)
       const response = await fetch(`/api/projects/${projectId}/feature-requests/${requestId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "rejected" }),
       })
-      if (response.ok) {
-        fetchRequests()
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to reject request' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to reject request`)
       }
+
+      await fetchRequests()
     } catch (error) {
       console.error("Failed to reject request:", error)
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred while rejecting request')
     }
   }
 
@@ -177,6 +214,24 @@ export function FeatureBacklog({ projectId }: FeatureBacklogProps) {
 
   return (
     <div className="space-y-6">
+      {/* Error Alert */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-red-400 text-sm font-medium">Error</p>
+            <p className="text-red-300 text-sm mt-1">{error}</p>
+          </div>
+          <button
+            onClick={() => setError(null)}
+            className="text-red-400 hover:text-red-300"
+            aria-label="Dismiss error"
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-white">Feature Backlog</h2>
@@ -276,8 +331,12 @@ export function FeatureBacklog({ projectId }: FeatureBacklogProps) {
                   className="bg-black/40 border-white/10 min-h-[80px]"
                 />
               </div>
-              <Button onClick={handleCreate} className="w-full bg-blue-500 hover:bg-blue-600">
-                Create Request
+              <Button
+                onClick={handleCreate}
+                className="w-full bg-blue-500 hover:bg-blue-600"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Creating...' : 'Create Request'}
               </Button>
             </div>
           </DialogContent>
