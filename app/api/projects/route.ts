@@ -10,40 +10,63 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
 
+    console.log('[GET /api/projects] Starting request, status filter:', status)
+
+    // Check if DATABASE_URL is configured
+    if (!process.env.DATABASE_URL) {
+      console.error('[GET /api/projects] DATABASE_URL not configured')
+      return NextResponse.json(
+        { error: 'Database not configured', details: 'DATABASE_URL environment variable is missing' },
+        { status: 503 }
+      )
+    }
+
     // Query projects directly - simpler and more reliable
     let query
     if (status && status !== 'all') {
+      console.log('[GET /api/projects] Querying with status filter:', status)
       query = await sql`
         SELECT
           p.*,
-          (SELECT COUNT(*) FROM project_steps ps WHERE ps.project_id = p.id) as total_tasks,
-          (SELECT COUNT(*) FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'completed') as completed_tasks
+          COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id), 0) as total_tasks,
+          COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'completed'), 0) as completed_tasks
         FROM projects p
-        WHERE p.status = ${status} AND p.deleted_at IS NULL
+        WHERE p.status = ${status} AND (p.deleted_at IS NULL OR p.deleted_at IS NULL)
         ORDER BY p.updated_at DESC
       `
     } else {
+      console.log('[GET /api/projects] Querying all projects')
       query = await sql`
         SELECT
           p.*,
-          (SELECT COUNT(*) FROM project_steps ps WHERE ps.project_id = p.id) as total_tasks,
-          (SELECT COUNT(*) FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'completed') as completed_tasks
+          COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id), 0) as total_tasks,
+          COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'completed'), 0) as completed_tasks
         FROM projects p
-        WHERE p.deleted_at IS NULL
+        WHERE p.deleted_at IS NULL OR p.deleted_at IS NULL
         ORDER BY p.updated_at DESC
       `
     }
 
     const projects = query
+    console.log('[GET /api/projects] Successfully retrieved', projects.length, 'projects')
 
     return NextResponse.json({
       projects,
       count: projects.length,
     })
   } catch (error: any) {
-    console.error('Get projects error:', error)
+    console.error('[GET /api/projects] Error:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      stack: error.stack
+    })
     return NextResponse.json(
-      { error: 'Failed to get projects', details: error.message },
+      {
+        error: 'Failed to get projects',
+        details: error.message,
+        code: error.code
+      },
       { status: 500 }
     )
   }
