@@ -404,9 +404,9 @@ export function FeatureBacklog({ projectId }: FeatureBacklogProps) {
                     </div>
                   </div>
 
-                  <p className="text-muted-foreground text-sm mb-3">{request.description}</p>
+                  <p className="text-muted-foreground text-sm mb-3">{request.description || 'No description provided'}</p>
 
-                  {request.impact_analysis && (
+                  {request.impact_analysis && request.impact_analysis.trim() && (
                     <div className="bg-black/30 rounded p-3 mb-3">
                       <p className="text-xs font-medium text-white mb-1">Impact:</p>
                       <p className="text-sm text-muted-foreground">{request.impact_analysis}</p>
@@ -415,7 +415,7 @@ export function FeatureBacklog({ projectId }: FeatureBacklogProps) {
 
                   <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
                     <span>
-                      Requested by: <span className="text-white">{request.requested_by}</span>
+                      Requested by: <span className="text-white">{request.requested_by || 'Unknown'}</span>
                     </span>
                     {request.effort_estimate && (
                       <span>

@@ -277,10 +277,10 @@ export function ProgressNotesTimeline({ projectId, stepId }: ProgressNotesTimeli
                   {note.title && <h4 className="text-white font-medium">{note.title}</h4>}
 
                   <div className="bg-black/40 border border-white/10 rounded-lg p-4">
-                    <p className="text-gray-300 whitespace-pre-wrap">{note.content}</p>
+                    <p className="text-gray-300 whitespace-pre-wrap">{note.content || 'No content'}</p>
                   </div>
 
-                  {note.metadata && Object.keys(note.metadata).length > 0 && (
+                  {note.metadata && typeof note.metadata === 'object' && Object.keys(note.metadata).length > 0 && (
                     <div className="text-sm text-muted-foreground">
                       <details>
                         <summary className="cursor-pointer hover:text-white">View metadata</summary>

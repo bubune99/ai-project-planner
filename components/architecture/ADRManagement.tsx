@@ -293,10 +293,10 @@ export function ADRManagement({ projectId }: ADRManagementProps) {
                           {adr.status}
                         </Badge>
                       </div>
-                      <p className="text-muted-foreground text-sm line-clamp-2 mb-3">{adr.context}</p>
+                      <p className="text-muted-foreground text-sm line-clamp-2 mb-3">{adr.context || 'No context provided'}</p>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span>{format(new Date(adr.created_at), "MMM dd, yyyy")}</span>
-                        {adr.alternatives_considered && adr.alternatives_considered.length > 0 && (
+                        {adr.alternatives_considered && Array.isArray(adr.alternatives_considered) && adr.alternatives_considered.length > 0 && (
                           <span>{adr.alternatives_considered.length} alternatives considered</span>
                         )}
                       </div>
@@ -368,17 +368,19 @@ export function ADRManagement({ projectId }: ADRManagementProps) {
             <div className="space-y-6 mt-4">
               <div>
                 <h4 className="text-sm font-semibold text-white mb-2">Context</h4>
-                <p className="text-muted-foreground">{selectedADR.context}</p>
+                <p className="text-muted-foreground">{selectedADR.context || 'No context provided'}</p>
               </div>
               <div>
                 <h4 className="text-sm font-semibold text-white mb-2">Decision</h4>
-                <p className="text-muted-foreground">{selectedADR.decision}</p>
+                <p className="text-muted-foreground">{selectedADR.decision || 'No decision recorded'}</p>
               </div>
-              <div>
-                <h4 className="text-sm font-semibold text-white mb-2">Consequences</h4>
-                <p className="text-muted-foreground">{selectedADR.consequences}</p>
-              </div>
-              {selectedADR.alternatives_considered && selectedADR.alternatives_considered.length > 0 && (
+              {selectedADR.consequences && (
+                <div>
+                  <h4 className="text-sm font-semibold text-white mb-2">Consequences</h4>
+                  <p className="text-muted-foreground">{selectedADR.consequences}</p>
+                </div>
+              )}
+              {selectedADR.alternatives_considered && Array.isArray(selectedADR.alternatives_considered) && selectedADR.alternatives_considered.length > 0 && (
                 <div>
                   <h4 className="text-sm font-semibold text-white mb-2">Alternatives Considered</h4>
                   <ul className="list-disc list-inside space-y-1">

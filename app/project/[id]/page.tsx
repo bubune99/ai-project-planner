@@ -132,7 +132,7 @@ export default function ProjectDashboardPage() {
               <RecentActivity activities={progressNotes.map((note: any) => ({
                 id: note.id,
                 type: note.note_type,
-                message: note.title,
+                message: note.title || note.content?.substring(0, 50) || 'No message',
                 timestamp: new Date(note.created_at).toLocaleString(),
                 agent: note.author_type === 'agent' ? note.author : undefined,
               }))} />

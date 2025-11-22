@@ -26,11 +26,19 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const body = await request.json()
     const { title, context, decision, consequences, alternatives_considered } = body
 
+    // Validate required fields
+    if (!title || !context || !decision) {
+      return NextResponse.json(
+        { error: "Missing required fields: title, context, and decision are required" },
+        { status: 400 }
+      )
+    }
+
     const [adr] = await sql`
       INSERT INTO architecture_decisions (
         project_id, title, context, decision, consequences, alternatives_considered, status
       ) VALUES (
-        ${id}, ${title}, ${context}, ${decision}, ${consequences},
+        ${id}, ${title}, ${context}, ${decision}, ${consequences || null},
         ${alternatives_considered ? JSON.stringify(alternatives_considered) : null}, 'proposed'
       )
       RETURNING *

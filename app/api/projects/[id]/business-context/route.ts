@@ -42,16 +42,16 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       // Update existing
       result = await sql`
         UPDATE business_context SET
-          vision = ${vision},
-          target_market = ${target_market},
-          primary_use_case = ${primary_use_case},
-          revenue_model = ${revenue_model},
-          competitive_advantage = ${competitive_advantage},
-          success_metrics = ${JSON.stringify(success_metrics || [])},
-          market_analysis = ${JSON.stringify(market_analysis || {})},
-          risk_assessment = ${JSON.stringify(risk_assessment || [])},
-          stakeholders = ${JSON.stringify(stakeholders || [])},
-          budget_info = ${JSON.stringify(budget_info || {})},
+          vision = ${vision || null},
+          target_market = ${target_market || null},
+          primary_use_case = ${primary_use_case || null},
+          revenue_model = ${revenue_model || null},
+          competitive_advantage = ${competitive_advantage || null},
+          success_metrics = ${success_metrics ? JSON.stringify(success_metrics) : '[]'}::jsonb,
+          market_analysis = ${market_analysis ? JSON.stringify(market_analysis) : '{}'}::jsonb,
+          risk_assessment = ${risk_assessment ? JSON.stringify(risk_assessment) : '[]'}::jsonb,
+          stakeholders = ${stakeholders ? JSON.stringify(stakeholders) : '[]'}::jsonb,
+          budget_info = ${budget_info ? JSON.stringify(budget_info) : '{}'}::jsonb,
           updated_at = NOW()
         WHERE project_id = ${params.id}
         RETURNING *
@@ -73,16 +73,16 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
           budget_info
         ) VALUES (
           ${params.id},
-          ${vision},
-          ${target_market},
-          ${primary_use_case},
-          ${revenue_model},
-          ${competitive_advantage},
-          ${JSON.stringify(success_metrics || [])},
-          ${JSON.stringify(market_analysis || {})},
-          ${JSON.stringify(risk_assessment || [])},
-          ${JSON.stringify(stakeholders || [])},
-          ${JSON.stringify(budget_info || {})}
+          ${vision || null},
+          ${target_market || null},
+          ${primary_use_case || null},
+          ${revenue_model || null},
+          ${competitive_advantage || null},
+          ${success_metrics ? JSON.stringify(success_metrics) : '[]'}::jsonb,
+          ${market_analysis ? JSON.stringify(market_analysis) : '{}'}::jsonb,
+          ${risk_assessment ? JSON.stringify(risk_assessment) : '[]'}::jsonb,
+          ${stakeholders ? JSON.stringify(stakeholders) : '[]'}::jsonb,
+          ${budget_info ? JSON.stringify(budget_info) : '{}'}::jsonb
         )
         RETURNING *
       `
