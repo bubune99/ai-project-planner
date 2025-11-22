@@ -9,6 +9,13 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const body = await request.json()
     const { status } = body
 
+    if (!status) {
+      return NextResponse.json(
+        { error: "Status is required" },
+        { status: 400 }
+      )
+    }
+
     const [adr] = await sql`
       UPDATE architecture_decisions
       SET status = ${status}, updated_at = NOW()

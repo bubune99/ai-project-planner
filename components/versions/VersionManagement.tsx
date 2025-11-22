@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, CheckCircle2, Clock, FileText, Calendar, Target } from "lucide-react"
+import { Plus, CheckCircle2, Clock, FileText, Calendar, Target, AlertCircle, XCircle } from "lucide-react"
 import { format } from "date-fns"
 
 interface Version {
@@ -36,7 +36,9 @@ interface VersionManagementProps {
 export function VersionManagement({ projectId }: VersionManagementProps) {
   const [versions, setVersions] = useState<Version[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [creating, setCreating] = useState(false)
   const [formData, setFormData] = useState({
     version_number: "",
     name: "",
@@ -52,19 +54,32 @@ export function VersionManagement({ projectId }: VersionManagementProps) {
   const fetchVersions = async () => {
     try {
       setLoading(true)
+      setError(null)
       const response = await fetch(`/api/projects/${projectId}/versions`)
-      if (response.ok) {
-        const data = await response.json()
-        setVersions(data.versions || [])
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch versions' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch versions`)
       }
+
+      const data = await response.json()
+      setVersions(data.versions || [])
     } catch (error) {
       console.error("Failed to fetch versions:", error)
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred while fetching versions')
     } finally {
       setLoading(false)
     }
   }
 
   const handleCreate = async () => {
+    if (!formData.version_number.trim() || !formData.name.trim()) {
+      setError('Version number and name are required')
+      return
+    }
+
+    setCreating(true)
+    setError(null)
     try {
       const response = await fetch(`/api/projects/${projectId}/versions`, {
         method: "POST",
@@ -76,13 +91,19 @@ export function VersionManagement({ projectId }: VersionManagementProps) {
         }),
       })
 
-      if (response.ok) {
-        setIsCreateModalOpen(false)
-        setFormData({ version_number: "", name: "", description: "", goals: "", target_date: "" })
-        fetchVersions()
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to create version' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to create version`)
       }
+
+      setIsCreateModalOpen(false)
+      setFormData({ version_number: "", name: "", description: "", goals: "", target_date: "" })
+      await fetchVersions()
     } catch (error) {
       console.error("Failed to create version:", error)
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred while creating version')
+    } finally {
+      setCreating(false)
     }
   }
 
@@ -112,6 +133,24 @@ export function VersionManagement({ projectId }: VersionManagementProps) {
 
   return (
     <div className="space-y-6">
+      {/* Error Alert */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-red-400 text-sm font-medium">Error</p>
+            <p className="text-red-300 text-sm mt-1">{error}</p>
+          </div>
+          <button
+            onClick={() => setError(null)}
+            className="text-red-400 hover:text-red-300"
+            aria-label="Dismiss error"
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-white">Versions & Releases</h2>
@@ -181,8 +220,12 @@ export function VersionManagement({ projectId }: VersionManagementProps) {
                   className="bg-black/40 border-white/10 min-h-[100px] font-mono text-sm"
                 />
               </div>
-              <Button onClick={handleCreate} className="w-full bg-blue-500 hover:bg-blue-600">
-                Create Version
+              <Button
+                onClick={handleCreate}
+                disabled={creating}
+                className="w-full bg-blue-500 hover:bg-blue-600"
+              >
+                {creating ? "Creating..." : "Create Version"}
               </Button>
             </div>
           </DialogContent>
@@ -212,7 +255,11 @@ export function VersionManagement({ projectId }: VersionManagementProps) {
                       </Badge>
                     </div>
 
-                    {version.description && <p className="text-muted-foreground text-sm mb-3">{version.description}</p>}
+                    {version.description ? (
+                      <p className="text-muted-foreground text-sm mb-3">{version.description}</p>
+                    ) : (
+                      <p className="text-muted-foreground/50 text-sm mb-3 italic">No description</p>
+                    )}
 
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       <div className="flex items-center gap-2 text-sm">

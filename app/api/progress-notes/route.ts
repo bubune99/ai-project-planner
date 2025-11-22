@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
         ${note_type},
         ${title || null},
         ${content},
-        ${metadata ? JSON.stringify(metadata) : "{}"}
+        ${metadata ? JSON.stringify(metadata) : '{}'}::jsonb
       )
       RETURNING *
     `

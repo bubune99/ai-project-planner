@@ -9,6 +9,13 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const body = await request.json()
     const { to_phase, notes } = body
 
+    if (!to_phase) {
+      return NextResponse.json(
+        { error: "Target phase (to_phase) is required" },
+        { status: 400 }
+      )
+    }
+
     await sql`
       UPDATE project_phases
       SET status = 'completed', exit_date = NOW(), exit_criteria_met = true

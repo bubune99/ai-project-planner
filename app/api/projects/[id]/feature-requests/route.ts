@@ -51,6 +51,13 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const body = await request.json()
     const { title, description, type, priority, impact_analysis, effort_estimate, requested_by } = body
 
+    if (!title || !description || !type || !priority || !requested_by) {
+      return NextResponse.json(
+        { error: "Missing required fields: title, description, type, priority, and requested_by are required" },
+        { status: 400 }
+      )
+    }
+
     const [featureRequest] = await sql`
       INSERT INTO feature_requests (
         project_id, title, description, type, priority, 

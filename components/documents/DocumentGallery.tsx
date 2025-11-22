@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Upload, FileText, ImageIcon, FileCode, Download, Trash2, Eye, Search } from "lucide-react"
+import { Upload, FileText, ImageIcon, FileCode, Download, Trash2, Eye, Search, AlertCircle, XCircle } from "lucide-react"
 import { format } from "date-fns"
 
 interface Document {
@@ -37,6 +37,7 @@ export function DocumentGallery({ projectId }: DocumentGalleryProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -52,23 +53,33 @@ export function DocumentGallery({ projectId }: DocumentGalleryProps) {
   const fetchDocuments = async () => {
     try {
       setLoading(true)
+      setError(null)
       const response = await fetch(`/api/projects/${projectId}/documents`)
-      if (response.ok) {
-        const data = await response.json()
-        setDocuments(data.documents || [])
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch documents' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch documents`)
       }
+
+      const data = await response.json()
+      setDocuments(data.documents || [])
     } catch (error) {
       console.error("Failed to fetch documents:", error)
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred while fetching documents')
     } finally {
       setLoading(false)
     }
   }
 
   const handleUpload = async () => {
-    if (!selectedFile) return
+    if (!selectedFile) {
+      setError('Please select a file to upload')
+      return
+    }
 
     try {
       setUploading(true)
+      setError(null)
 
       const uploadFormData = new FormData()
       uploadFormData.append("file", selectedFile)
@@ -83,14 +94,18 @@ export function DocumentGallery({ projectId }: DocumentGalleryProps) {
         body: uploadFormData,
       })
 
-      if (response.ok) {
-        setIsUploadModalOpen(false)
-        setFormData({ title: "", description: "", category: "other", tags: "" })
-        setSelectedFile(null)
-        fetchDocuments()
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to upload document' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to upload document`)
       }
+
+      setIsUploadModalOpen(false)
+      setFormData({ title: "", description: "", category: "other", tags: "" })
+      setSelectedFile(null)
+      await fetchDocuments()
     } catch (error) {
       console.error("Failed to upload document:", error)
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred while uploading document')
     } finally {
       setUploading(false)
     }
@@ -100,14 +115,20 @@ export function DocumentGallery({ projectId }: DocumentGalleryProps) {
     if (!confirm("Are you sure you want to delete this document?")) return
 
     try {
+      setError(null)
       const response = await fetch(`/api/documents/${documentId}`, {
         method: "DELETE",
       })
-      if (response.ok) {
-        fetchDocuments()
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to delete document' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to delete document`)
       }
+
+      await fetchDocuments()
     } catch (error) {
       console.error("Failed to delete document:", error)
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred while deleting document')
     }
   }
 
@@ -149,6 +170,24 @@ export function DocumentGallery({ projectId }: DocumentGalleryProps) {
 
   return (
     <div className="space-y-6">
+      {/* Error Alert */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-red-400 text-sm font-medium">Error</p>
+            <p className="text-red-300 text-sm mt-1">{error}</p>
+          </div>
+          <button
+            onClick={() => setError(null)}
+            className="text-red-400 hover:text-red-300"
+            aria-label="Dismiss error"
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-white">Documents & Files</h2>

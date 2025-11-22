@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Target, Users, DollarSign, TrendingUp, AlertTriangle, X, Plus, Save, Sparkles } from "lucide-react"
+import { Target, Users, DollarSign, TrendingUp, AlertTriangle, X, Plus, Save, Sparkles, AlertCircle, XCircle } from "lucide-react"
 
 interface BusinessContextFormProps {
   projectId: string
@@ -36,6 +36,7 @@ interface Stakeholder {
 export function BusinessContextForm({ projectId, onSave }: BusinessContextFormProps) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     vision: "",
     target_market: "",
@@ -58,25 +59,31 @@ export function BusinessContextForm({ projectId, onSave }: BusinessContextFormPr
 
   const fetchBusinessContext = async () => {
     try {
+      setError(null)
       const response = await fetch(`/api/projects/${projectId}/business-context`)
-      if (response.ok) {
-        const data = await response.json()
-        if (data.businessContext) {
-          setFormData({
-            vision: data.businessContext.vision || "",
-            target_market: data.businessContext.target_market || "",
-            primary_use_case: data.businessContext.primary_use_case || "",
-            revenue_model: data.businessContext.revenue_model || "",
-            competitive_advantage: data.businessContext.competitive_advantage || "",
-          })
-          setSuccessMetrics(data.businessContext.success_metrics || [])
-          setRisks(data.businessContext.risk_assessment || [])
-          setStakeholders(data.businessContext.stakeholders || [])
-          setBudgetInfo(data.businessContext.budget_info || { total: 0, allocated: 0, spent: 0 })
-        }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch business context' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to fetch business context`)
+      }
+
+      const data = await response.json()
+      if (data.businessContext) {
+        setFormData({
+          vision: data.businessContext.vision || "",
+          target_market: data.businessContext.target_market || "",
+          primary_use_case: data.businessContext.primary_use_case || "",
+          revenue_model: data.businessContext.revenue_model || "",
+          competitive_advantage: data.businessContext.competitive_advantage || "",
+        })
+        setSuccessMetrics(data.businessContext.success_metrics || [])
+        setRisks(data.businessContext.risk_assessment || [])
+        setStakeholders(data.businessContext.stakeholders || [])
+        setBudgetInfo(data.businessContext.budget_info || { total: 0, allocated: 0, spent: 0 })
       }
     } catch (error) {
-      console.error("[v0] Failed to fetch business context:", error)
+      console.error("Failed to fetch business context:", error)
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred while fetching business context')
     } finally {
       setLoading(false)
     }
@@ -84,6 +91,7 @@ export function BusinessContextForm({ projectId, onSave }: BusinessContextFormPr
 
   const handleSave = async () => {
     setSaving(true)
+    setError(null)
     try {
       const response = await fetch(`/api/projects/${projectId}/business-context`, {
         method: "POST",
@@ -97,11 +105,15 @@ export function BusinessContextForm({ projectId, onSave }: BusinessContextFormPr
         }),
       })
 
-      if (response.ok) {
-        onSave?.()
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to save business context' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to save business context`)
       }
+
+      onSave?.()
     } catch (error) {
-      console.error("[v0] Failed to save business context:", error)
+      console.error("Failed to save business context:", error)
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred while saving business context')
     } finally {
       setSaving(false)
     }
@@ -125,6 +137,24 @@ export function BusinessContextForm({ projectId, onSave }: BusinessContextFormPr
 
   return (
     <div className="space-y-6">
+      {/* Error Alert */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-red-400 text-sm font-medium">Error</p>
+            <p className="text-red-300 text-sm mt-1">{error}</p>
+          </div>
+          <button
+            onClick={() => setError(null)}
+            className="text-red-400 hover:text-red-300"
+            aria-label="Dismiss error"
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -478,7 +508,7 @@ export function BusinessContextForm({ projectId, onSave }: BusinessContextFormPr
                 <div
                   className="bg-blue-500 h-3 rounded-full transition-all"
                   style={{
-                    width: `${Math.min(100, (budgetInfo.spent / budgetInfo.total) * 100)}%`,
+                    width: `${Math.min(100, budgetInfo.total > 0 ? (budgetInfo.spent / budgetInfo.total) * 100 : 0)}%`,
                   }}
                 />
               </div>
