@@ -10,18 +10,27 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
 
-    // Use the project_overview view for optimized data
+    // Query projects directly - simpler and more reliable
     let query
     if (status && status !== 'all') {
       query = await sql`
-        SELECT * FROM project_overview
-        WHERE status = ${status}
-        ORDER BY updated_at DESC
+        SELECT
+          p.*,
+          (SELECT COUNT(*) FROM project_steps ps WHERE ps.project_id = p.id) as total_tasks,
+          (SELECT COUNT(*) FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'completed') as completed_tasks
+        FROM projects p
+        WHERE p.status = ${status} AND p.deleted_at IS NULL
+        ORDER BY p.updated_at DESC
       `
     } else {
       query = await sql`
-        SELECT * FROM project_overview
-        ORDER BY updated_at DESC
+        SELECT
+          p.*,
+          (SELECT COUNT(*) FROM project_steps ps WHERE ps.project_id = p.id) as total_tasks,
+          (SELECT COUNT(*) FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'completed') as completed_tasks
+        FROM projects p
+        WHERE p.deleted_at IS NULL
+        ORDER BY p.updated_at DESC
       `
     }
 

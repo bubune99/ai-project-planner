@@ -9,15 +9,20 @@ interface ProjectStatsProps {
 }
 
 export function ProjectStats({ projects }: ProjectStatsProps) {
+  // Handle null/undefined and ensure we have an array
+  const safeProjects = Array.isArray(projects) ? projects : []
+
   const stats = {
-    total: projects.length,
-    active: projects.filter((p) => p.status === "in_progress").length,
-    totalTasks: projects.reduce((sum, p) => sum + p.totalTasks, 0),
-    completedTasks: projects.reduce((sum, p) => sum + p.completedTasks, 0),
-    activeAgents: projects.reduce((sum, p) => sum + p.activeAgents, 0),
+    total: safeProjects.length,
+    active: safeProjects.filter((p) => p.status === "in_progress").length,
+    totalTasks: safeProjects.reduce((sum, p) => sum + ((p as any).total_tasks || (p as any).totalTasks || 0), 0),
+    completedTasks: safeProjects.reduce((sum, p) => sum + ((p as any).completed_tasks || (p as any).completedTasks || 0), 0),
+    activeAgents: safeProjects.reduce((sum, p) => sum + ((p as any).active_agents || (p as any).activeAgents || 0), 0),
   }
 
-  const completionRate = Math.round((stats.completedTasks / stats.totalTasks) * 100)
+  const completionRate = stats.totalTasks > 0
+    ? Math.round((stats.completedTasks / stats.totalTasks) * 100)
+    : 0
 
   const statCards = [
     {
