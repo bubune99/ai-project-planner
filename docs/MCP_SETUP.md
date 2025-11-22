@@ -13,28 +13,28 @@ The Model Context Protocol (MCP) allows Claude and other AI agents to access you
 
 ### 1. Start Your Development Server
 
-```bash
+\`\`\`bash
 pnpm dev
-```
+\`\`\`
 
 Your MCP server is now running at `http://localhost:3000/mcp`
 
 ### 2. Configure Claude Desktop (Local Development)
 
 **On macOS:**
-```bash
+\`\`\`bash
 # Edit Claude Desktop config
 code ~/Library/Application\ Support/Claude/claude_desktop_config.json
-```
+\`\`\`
 
 **On Windows:**
-```bash
+\`\`\`bash
 # Edit Claude Desktop config
 code %APPDATA%\Claude\claude_desktop_config.json
-```
+\`\`\`
 
 **Add this configuration:**
-```json
+\`\`\`json
 {
   "mcpServers": {
     "ai-project-planner": {
@@ -43,7 +43,7 @@ code %APPDATA%\Claude\claude_desktop_config.json
     }
   }
 }
-```
+\`\`\`
 
 ### 3. Restart Claude Desktop
 
@@ -52,9 +52,9 @@ After updating the config, restart Claude Desktop. You should see the MCP server
 ### 4. Test the Connection
 
 In Claude Desktop, try:
-```
+\`\`\`
 List all my projects
-```
+\`\`\`
 
 Claude will use the `list_projects` tool from your MCP server!
 
@@ -69,9 +69,9 @@ Get full context for a project including business context, tech stack, and curre
 - `projectId` (string): The project ID
 
 **Example:**
-```
+\`\`\`
 Get the full context for project abc-123
-```
+\`\`\`
 
 ### `list_projects`
 List all projects in the system.
@@ -79,9 +79,9 @@ List all projects in the system.
 **No parameters required**
 
 **Example:**
-```
+\`\`\`
 Show me all my projects
-```
+\`\`\`
 
 ### `get_execution_plan`
 Get the execution plan (steps and dependencies) for a project.
@@ -90,9 +90,9 @@ Get the execution plan (steps and dependencies) for a project.
 - `projectId` (string): The project ID
 
 **Example:**
-```
+\`\`\`
 What's the execution plan for my e-commerce project?
-```
+\`\`\`
 
 ### `add_progress_note`
 Add a progress note to track development progress.
@@ -105,16 +105,16 @@ Add a progress note to track development progress.
 - `content` (string): Note content
 
 **Example:**
-```
+\`\`\`
 Add a milestone note to project abc-123: "Completed user authentication"
-```
+\`\`\`
 
 ## For Production (Vercel Deployment)
 
 When deployed to Vercel, your MCP server will be at:
-```
+\`\`\`
 https://your-app.vercel.app/mcp
-```
+\`\`\`
 
 Update the Claude Desktop config URL to point to your production URL.
 
@@ -123,9 +123,9 @@ Update the Claude Desktop config URL to point to your production URL.
 The current setup has no authentication for simplicity. To add auth:
 
 1. Add an API key to your `.env`:
-```bash
+\`\`\`bash
 MCP_API_KEY=your-secret-key-here
-```
+\`\`\`
 
 2. Update `app/mcp/route.ts` to check the key
 3. Configure Claude Desktop with the API key
@@ -150,13 +150,13 @@ MCP_API_KEY=your-secret-key-here
 
 In Claude Code, you can use the MCP tools directly:
 
-```typescript
+\`\`\`typescript
 // In a Claude Code agent script
 const projects = await mcp.callTool("list_projects", {})
 const context = await mcp.callTool("get_project_context", {
   projectId: "your-project-id"
 })
-```
+\`\`\`
 
 ## Next Steps
 

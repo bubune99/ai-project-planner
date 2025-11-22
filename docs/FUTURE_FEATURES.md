@@ -189,7 +189,7 @@ Expand FlowView to support multiple visualization modes that can be toggled base
 
 To support architecture visualization, consider adding these tables:
 
-```sql
+\`\`\`sql
 -- Architecture components
 CREATE TABLE architecture_components (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -223,7 +223,7 @@ CREATE TABLE architecture_versions (
   created_by TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
-```
+\`\`\`
 
 ---
 
@@ -262,7 +262,7 @@ CREATE TABLE architecture_versions (
 
 ### Example: Service Node Component
 
-```typescript
+\`\`\`typescript
 interface ServiceNodeData {
   label: string
   type: 'rest-api' | 'graphql' | 'microservice' | 'edge-function'
@@ -289,7 +289,7 @@ export function ServiceNode({ data }: { data: ServiceNodeData }) {
   // Render service with status indicator, tech stack badges,
   // and interactive health check display
 }
-```
+\`\`\`
 
 ---
 

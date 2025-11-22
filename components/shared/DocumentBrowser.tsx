@@ -81,7 +81,7 @@ export function DocumentBrowser({ projectId, open, onOpenChange, onDocumentSelec
           <div className="flex items-center justify-between">
             <SheetTitle className="text-lg font-semibold">📄 Project Documents</SheetTitle>
             <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
-              <X className="w-5 h-5" />
+              
             </Button>
           </div>
 

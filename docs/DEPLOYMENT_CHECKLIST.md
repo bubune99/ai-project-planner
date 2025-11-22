@@ -10,9 +10,9 @@ Follow these steps to deploy your AI Project Planner with MCP server to Vercel.
 
 ## 🔑 Step 1: Generate MCP API Key
 
-```bash
+\`\`\`bash
 node scripts/generate-mcp-key.js
-```
+\`\`\`
 
 **Copy the generated key** - you'll need it for Step 3!
 
@@ -20,7 +20,7 @@ node scripts/generate-mcp-key.js
 
 ### Option A: Using Vercel CLI (Recommended)
 
-```bash
+\`\`\`bash
 # Install Vercel CLI if needed
 npm i -g vercel
 
@@ -29,7 +29,7 @@ vercel login
 
 # Deploy
 vercel --prod
-```
+\`\`\`
 
 ### Option B: Using GitHub Integration
 
@@ -63,39 +63,39 @@ Add these variables:
 
 After adding environment variables:
 
-```bash
+\`\`\`bash
 vercel --prod
-```
+\`\`\`
 
 Or trigger redeploy from Vercel dashboard.
 
 ## 🔗 Step 5: Get Your App URL
 
 After deployment, Vercel will give you a URL like:
-```
+\`\`\`
 https://ai-project-planner-xxx.vercel.app
-```
+\`\`\`
 
 Your MCP server endpoint is:
-```
+\`\`\`
 https://ai-project-planner-xxx.vercel.app/mcp
-```
+\`\`\`
 
 ## 🤖 Step 6: Connect Claude Desktop
 
 ### macOS:
-```bash
+\`\`\`bash
 code ~/Library/Application\ Support/Claude/claude_desktop_config.json
-```
+\`\`\`
 
 ### Windows:
-```bash
+\`\`\`bash
 code %APPDATA%\Claude\claude_desktop_config.json
-```
+\`\`\`
 
 ### Add Configuration:
 
-```json
+\`\`\`json
 {
   "mcpServers": {
     "ai-project-planner": {
@@ -107,7 +107,7 @@ code %APPDATA%\Claude\claude_desktop_config.json
     }
   }
 }
-```
+\`\`\`
 
 Replace:
 - `your-app-name.vercel.app` with your actual Vercel URL
@@ -116,9 +116,9 @@ Replace:
 ## ✨ Step 7: Test Everything
 
 ### Test the Web App:
-```
+\`\`\`
 https://your-app-name.vercel.app
-```
+\`\`\`
 
 - [ ] Homepage loads
 - [ ] Can create a new project
@@ -129,20 +129,20 @@ https://your-app-name.vercel.app
 1. **Restart Claude Desktop** completely
 2. Look for "ai-project-planner" connection indicator
 3. Ask Claude:
-   ```
+   \`\`\`
    List all my projects
-   ```
+   \`\`\`
 
 Should work! 🎉
 
 ### Test with cURL:
 
-```bash
+\`\`\`bash
 curl -H "x-api-key: YOUR-KEY-HERE" \
      -H "Content-Type: application/json" \
      -d '{"method":"tools/list"}' \
      https://your-app-name.vercel.app/mcp
-```
+\`\`\`
 
 ## 🐛 Troubleshooting
 
@@ -154,13 +154,13 @@ curl -H "x-api-key: YOUR-KEY-HERE" \
 - Node.js version (should be 18+)
 
 **Fix:**
-```bash
+\`\`\`bash
 # Test build locally
 pnpm build
 
 # Check Vercel logs
 vercel logs
-```
+\`\`\`
 
 ### MCP Server Returns 401
 
@@ -170,13 +170,13 @@ vercel logs
 - Redeployed after adding environment variable
 
 **Fix:**
-```bash
+\`\`\`bash
 # Verify environment variables
 vercel env ls
 
 # Redeploy
 vercel --prod
-```
+\`\`\`
 
 ### Database Errors
 
@@ -187,11 +187,11 @@ vercel --prod
 
 **Fix:**
 Run migrations manually via Neon SQL Editor or:
-```bash
+\`\`\`bash
 # Connect to your database and run migrations
 vercel env pull .env.production
 npx dotenv -e .env.production -- pnpm db:migrate
-```
+\`\`\`
 
 ## 🎯 Post-Deployment
 

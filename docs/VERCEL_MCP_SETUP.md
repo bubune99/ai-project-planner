@@ -10,10 +10,10 @@ Your AI Project Planner is deployed on Vercel with an MCP server that allows Cla
 
 For security, your MCP server requires authentication in production.
 
-```bash
+\`\`\`bash
 # Generate a secure random API key
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
+\`\`\`
 
 Copy the generated key (e.g., `a1b2c3d4e5f6...`)
 
@@ -34,29 +34,29 @@ Copy the generated key (e.g., `a1b2c3d4e5f6...`)
 ### Find Your App URL
 
 After deploying to Vercel, your app will be at:
-```
+\`\`\`
 https://your-project-name.vercel.app
-```
+\`\`\`
 
 Your MCP server endpoint is:
-```
+\`\`\`
 https://your-project-name.vercel.app/mcp
-```
+\`\`\`
 
 ### Update Claude Desktop Config
 
 **On macOS:**
-```bash
+\`\`\`bash
 code ~/Library/Application\ Support/Claude/claude_desktop_config.json
-```
+\`\`\`
 
 **On Windows:**
-```bash
+\`\`\`bash
 code %APPDATA%\Claude\claude_desktop_config.json
-```
+\`\`\`
 
 **Add this configuration:**
-```json
+\`\`\`json
 {
   "mcpServers": {
     "ai-project-planner": {
@@ -68,7 +68,7 @@ code %APPDATA%\Claude\claude_desktop_config.json
     }
   }
 }
-```
+\`\`\`
 
 Replace:
 - `your-project-name.vercel.app` with your actual Vercel URL
@@ -80,9 +80,9 @@ Replace:
 2. Look for the MCP server indicator in the bottom-left corner
 3. It should show "ai-project-planner" as connected
 4. Try asking Claude:
-   ```
+   \`\`\`
    List all my projects
-   ```
+   \`\`\`
 
 Claude will query your Vercel-hosted database through the MCP server!
 
@@ -91,24 +91,24 @@ Claude will query your Vercel-hosted database through the MCP server!
 Once connected, Claude can use these tools:
 
 ### `list_projects`
-```
+\`\`\`
 Show me all my projects
-```
+\`\`\`
 
 ### `get_project_context`
-```
+\`\`\`
 Get the full context for project [project-id]
-```
+\`\`\`
 
 ### `get_execution_plan`
-```
+\`\`\`
 What's the execution plan for my e-commerce project?
-```
+\`\`\`
 
 ### `add_progress_note`
-```
+\`\`\`
 Add a milestone note to project abc-123: "Completed user authentication"
-```
+\`\`\`
 
 ## Troubleshooting
 
@@ -121,25 +121,25 @@ Add a milestone note to project abc-123: "Completed user authentication"
 4. URL is correct (https, not http)
 
 **Fix:**
-```bash
+\`\`\`bash
 # Verify environment variable in Vercel
 vercel env ls
 
 # If missing, add it:
 vercel env add MCP_API_KEY
-```
+\`\`\`
 
 ### "Cannot read properties of undefined"
 
 Your database might not be set up. Run migrations:
-```bash
+\`\`\`bash
 git push origin Mission-control
 # Vercel will auto-deploy and run with DATABASE_URL
-```
+\`\`\`
 
 ### Test MCP Server Directly
 
-```bash
+\`\`\`bash
 # Test without auth (should fail in production)
 curl https://your-app.vercel.app/mcp
 
@@ -148,7 +148,7 @@ curl -H "x-api-key: your-key-here" \
      -H "Content-Type: application/json" \
      -d '{"method":"tools/list"}' \
      https://your-app.vercel.app/mcp
-```
+\`\`\`
 
 ## Security Best Practices
 
@@ -161,7 +161,7 @@ curl -H "x-api-key: your-key-here" \
 
 In Claude Code agents, you can use the MCP server:
 
-```typescript
+\`\`\`typescript
 // .claude/agents/sync-project.ts
 const mcp = new MCPClient({
   url: 'https://your-app.vercel.app/mcp',
@@ -172,7 +172,7 @@ const mcp = new MCPClient({
 
 const projects = await mcp.callTool('list_projects', {})
 console.log(projects)
-```
+\`\`\`
 
 ## Next Steps
 
