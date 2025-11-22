@@ -36,8 +36,8 @@ export function TreeView({ phases, projectName, onTaskSelect }: TreeViewProps) {
 
         {treeData.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            <p>No phases or tasks defined yet.</p>
-            <p className="text-sm mt-2">Create your first task to get started!</p>
+            <p className="text-lg mb-2">No steps defined yet</p>
+            <p className="text-sm">Create your first step to start tracking your project progress!</p>
           </div>
         ) : (
           treeData.map((phase) => (
