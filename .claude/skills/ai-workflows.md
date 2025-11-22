@@ -16,7 +16,7 @@ Best practices and patterns for AI agents using the AI Project Planner via MCP.
 
 ### Standard Task Loop
 
-```typescript
+\`\`\`typescript
 async function executeTask(projectId: string) {
   // 1. Get full project context
   const context = await fetchResource(`project://${projectId}/context`)
@@ -134,7 +134,7 @@ ${error.workaround || "None available"}
     return "blocked"
   }
 }
-```
+\`\`\`
 
 ---
 
@@ -142,7 +142,7 @@ ${error.workaround || "None available"}
 
 ### Making Architectural Decisions
 
-```typescript
+\`\`\`typescript
 async function makeArchitectureDecision(
   projectId: string,
   decision: {
@@ -218,11 +218,11 @@ ${recommendedOption.rationale}
 
   return adr
 }
-```
+\`\`\`
 
 ### Pivoting Architecture
 
-```typescript
+\`\`\`typescript
 async function pivotArchitecture(
   projectId: string,
   oldAdrId: string,
@@ -299,7 +299,7 @@ Estimated effort: ${migrationStep.estimatedHours} hours
 
   return { oldAdr, newAdr, migrationStep }
 }
-```
+\`\`\`
 
 ---
 
@@ -307,7 +307,7 @@ Estimated effort: ${migrationStep.estimatedHours} hours
 
 ### Logging Feature Requests During Development
 
-```typescript
+\`\`\`typescript
 async function logFeatureIdea(
   projectId: string,
   idea: {
@@ -365,11 +365,11 @@ Please approve via: \`approve_feature_request\` tool
 
   return request
 }
-```
+\`\`\`
 
 ### Logging Bugs
 
-```typescript
+\`\`\`typescript
 async function reportBug(
   projectId: string,
   bug: {
@@ -430,7 +430,7 @@ This bug should be prioritized based on severity.
 
   return request
 }
-```
+\`\`\`
 
 ---
 
@@ -438,7 +438,7 @@ This bug should be prioritized based on severity.
 
 ### Planning Next Iteration
 
-```typescript
+\`\`\`typescript
 async function planNextVersion(
   projectId: string,
   backlogLimit: number = 20
@@ -501,7 +501,7 @@ Auto-created steps for approved features.
 
   return version
 }
-```
+\`\`\`
 
 ---
 
@@ -509,7 +509,7 @@ Auto-created steps for approved features.
 
 ### Agent Handoff
 
-```typescript
+\`\`\`typescript
 async function handoffToAgent(
   projectId: string,
   stepId: string,
@@ -565,11 +565,11 @@ ${step.tasks.filter(t => !t.completed).map(t => `- ${t}`).join('\n')}
 
   return { success: true, assignedTo: targetAgent }
 }
-```
+\`\`\`
 
 ### Requesting Help
 
-```typescript
+\`\`\`typescript
 async function requestHelp(
   projectId: string,
   stepId: string,
@@ -612,7 +612,7 @@ Guidance on the best approach or architectural decision approval.
 
   return { blocked: true, awaitingResponse: true }
 }
-```
+\`\`\`
 
 ---
 
@@ -620,7 +620,7 @@ Guidance on the best approach or architectural decision approval.
 
 ### Incremental Updates
 
-```typescript
+\`\`\`typescript
 async function provideProgressUpdate(
   projectId: string,
   stepId: string,
@@ -658,7 +658,7 @@ ${upcomingWork.map(w => `- ⏳ ${w}`).join('\n')}
     `
   })
 }
-```
+\`\`\`
 
 ---
 
@@ -666,18 +666,18 @@ ${upcomingWork.map(w => `- ⏳ ${w}`).join('\n')}
 
 ### 1. Always Query Context First
 
-```typescript
+\`\`\`typescript
 // ✅ GOOD
 const context = await fetchResource(`project://${projectId}/context`)
 const decision = makeDecision(context)
 
 // ❌ BAD
 const decision = makeDecisionWithoutContext()
-```
+\`\`\`
 
 ### 2. Document Everything
 
-```typescript
+\`\`\`typescript
 // Every significant action should have a progress note
 await callTool('add_progress_note', {
   projectId,
@@ -687,11 +687,11 @@ await callTool('add_progress_note', {
   noteType: "decision",
   content: "Detailed explanation..."
 })
-```
+\`\`\`
 
 ### 3. Report Blockers Immediately
 
-```typescript
+\`\`\`typescript
 // Don't silently fail
 try {
   await doWork()
@@ -700,21 +700,21 @@ try {
   await callTool('add_progress_note', { noteType: "blocker", ... })
   throw error // or return
 }
-```
+\`\`\`
 
 ### 4. Use Appropriate Note Types
 
-```typescript
+\`\`\`typescript
 // progress - Regular updates
 // blocker - Issues preventing work
 // question - Need human input
 // decision - Architectural/technical decisions
 // completion - Work finished
-```
+\`\`\`
 
 ### 5. Respect Phase Boundaries
 
-```typescript
+\`\`\`typescript
 const { phase } = await callTool('get_current_phase', { projectId })
 
 if (phase.phase_name === 'architecture') {
@@ -725,11 +725,11 @@ if (phase.phase_name === 'architecture') {
 if (phase.phase_name === 'construction') {
   // Now you can code
 }
-```
+\`\`\`
 
 ### 6. Keep Humans in the Loop
 
-```typescript
+\`\`\`typescript
 // For significant decisions, ask first
 await callTool('add_progress_note', {
   noteType: "question",
@@ -739,11 +739,11 @@ await callTool('add_progress_note', {
 await callTool('report_blocker', {
   blockerDescription: "Awaiting decision on architecture approach"
 })
-```
+\`\`\`
 
 ### 7. Update Progress Incrementally
 
-```typescript
+\`\`\`typescript
 // Don't go silent for hours
 await callTool('update_step_progress', {
   stepId,
@@ -756,11 +756,11 @@ await callTool('update_step_progress', {
   progress: 50,
   notes: "API endpoints implemented"
 })
-```
+\`\`\`
 
 ### 8. Clean Up After Yourself
 
-```typescript
+\`\`\`typescript
 // If you create test data, document it
 await callTool('add_progress_note', {
   noteType: "progress",
@@ -772,21 +772,21 @@ await callTool('create_feature_request', {
   requestType: "tech_debt",
   title: "Refactor X for better performance"
 })
-```
+\`\`\`
 
 ---
 
 ## Anti-Patterns to Avoid
 
 ### ❌ Silent Execution
-```typescript
+\`\`\`typescript
 // BAD: No documentation
 await implementFeature()
 await markComplete()
-```
+\`\`\`
 
 ### ❌ Skipping In-Progress Status
-```typescript
+\`\`\`typescript
 // BAD: Jump straight to complete
 const step = await get_next_step()
 await mark_step_complete({ stepId: step.id })
@@ -795,10 +795,10 @@ await mark_step_complete({ stepId: step.id })
 await mark_step_in_progress({ stepId: step.id })
 await doWork()
 await mark_step_complete({ stepId: step.id })
-```
+\`\`\`
 
 ### ❌ Ignoring Blockers
-```typescript
+\`\`\`typescript
 // BAD: Continue despite errors
 try {
   await doWork()
@@ -814,10 +814,10 @@ try {
   await report_blocker({ ... })
   return
 }
-```
+\`\`\`
 
 ### ❌ Making Decisions Without Documentation
-```typescript
+\`\`\`typescript
 // BAD: Just do it
 usePostgreSQL()
 
@@ -828,7 +828,7 @@ await create_adr({
   decision: "PostgreSQL selected",
   alternatives: [...]
 })
-```
+\`\`\`
 
 ---
 

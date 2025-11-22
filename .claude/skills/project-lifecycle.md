@@ -6,14 +6,14 @@ Complete workflow from ideation to deployment and beyond.
 
 The AI Project Planner follows a 6-phase software development lifecycle:
 
-```
+\`\`\`
 1. Ideation       → Initial concept and planning
 2. Architecture   → Technical design and decisions
 3. Construction   → Active development
 4. Testing        → Quality assurance
 5. Deployment     → Production release
 6. Maintenance    → Ongoing support and iteration
-```
+\`\`\`
 
 Each phase has:
 - **Entry criteria** - What must be true to enter this phase
@@ -52,7 +52,7 @@ Each phase has:
 6. Establish budget parameters
 
 **MCP Workflow:**
-```typescript
+\`\`\`typescript
 // 1. Create the project
 create_project({
   name: "SaaS Project Management Platform",
@@ -101,18 +101,18 @@ add_progress_note({
   title: "Vision defined",
   content: "Vision focuses on AI autonomy for development..."
 })
-```
+\`\`\`
 
 **Transition to Architecture:**
 When all ideation exit criteria are met:
-```typescript
+\`\`\`typescript
 transition_to_phase({
   projectId: project.id,
   newPhase: "architecture",
   completedBy: "Human Architect",
   description: "Vision and market validated, moving to technical design"
 })
-```
+\`\`\`
 
 ---
 
@@ -151,7 +151,7 @@ transition_to_phase({
 7. Review and approve architecture
 
 **MCP Workflow:**
-```typescript
+\`\`\`typescript
 // 1. Add tech stack items
 add_tech_stack_item({
   projectId: project.id,
@@ -266,11 +266,11 @@ Implementing MCP server with:
 - Must maintain MCP server alongside REST API
   `
 })
-```
+\`\`\`
 
 **Architecture Pivots:**
 When a key decision changes:
-```typescript
+\`\`\`typescript
 // 1. Create new ADR
 const newAdr = create_adr({
   projectId: project.id,
@@ -296,17 +296,17 @@ create_step({
   description: "Convert all API routes to tRPC procedures",
   estimatedHours: 16
 })
-```
+\`\`\`
 
 **Transition to Construction:**
-```typescript
+\`\`\`typescript
 transition_to_phase({
   projectId: project.id,
   newPhase: "construction",
   completedBy: "Architect Name",
   description: "Architecture approved and documented, ready for development"
 })
-```
+\`\`\`
 
 ---
 
@@ -364,7 +364,7 @@ transition_to_phase({
 
 **MCP Workflow (AI Agent Perspective):**
 
-```typescript
+\`\`\`typescript
 // AI agent workflow for autonomous development
 
 // 1. Get next recommended step
@@ -501,10 +501,10 @@ Implemented ${nextStep.title} with the following outcomes:
 })
 
 // 10. Loop back to step 1 for next task
-```
+\`\`\`
 
 **Human-AI Collaboration:**
-```typescript
+\`\`\`typescript
 // Human adds a feature request during construction
 create_feature_request({
   projectId,
@@ -528,17 +528,17 @@ approve_feature_request({
 
 // This auto-creates a step that AI can pick up
 // AI agent discovers it via get_next_step
-```
+\`\`\`
 
 **Transition to Testing:**
-```typescript
+\`\`\`typescript
 transition_to_phase({
   projectId,
   newPhase: "testing",
   completedBy: "Development Lead",
   description: "Core features complete, ready for QA"
 })
-```
+\`\`\`
 
 ---
 
@@ -576,7 +576,7 @@ transition_to_phase({
 8. Regression testing
 
 **MCP Workflow:**
-```typescript
+\`\`\`typescript
 // AI agent finds bugs during testing
 create_feature_request({
   projectId,
@@ -636,17 +636,17 @@ ALTER TABLE step_dependencies
 - ✅ Regression tests pass
   `
 })
-```
+\`\`\`
 
 **Transition to Deployment:**
-```typescript
+\`\`\`typescript
 transition_to_phase({
   projectId,
   newPhase: "deployment",
   completedBy: "QA Lead",
   description: "All tests passed, ready for production"
 })
-```
+\`\`\`
 
 ---
 
@@ -685,14 +685,14 @@ transition_to_phase({
 7. Write release notes
 
 **Transition to Maintenance:**
-```typescript
+\`\`\`typescript
 transition_to_phase({
   projectId,
   newPhase: "maintenance",
   completedBy: "DevOps Lead",
   description: "Deployed to production, entering maintenance mode"
 })
-```
+\`\`\`
 
 ---
 
@@ -715,7 +715,7 @@ transition_to_phase({
 5. Version releases
 
 **Version Management:**
-```typescript
+\`\`\`typescript
 // Create v1.1 for next iteration
 create_version({
   projectId,
@@ -753,14 +753,14 @@ update_version({
   status: "released",
   releaseNotes: "Added dark mode, CSV export, and collaborative editing"
 })
-```
+\`\`\`
 
 ---
 
 ## Cross-Phase Best Practices
 
 ### 1. Continuous Documentation
-```typescript
+\`\`\`typescript
 // AI agents should document continuously
 add_progress_note({
   projectId,
@@ -770,10 +770,10 @@ add_progress_note({
   title: "...",
   content: "..."
 })
-```
+\`\`\`
 
 ### 2. Architecture Decision Tracking
-```typescript
+\`\`\`typescript
 // Record all significant decisions
 create_adr({
   projectId,
@@ -784,10 +784,10 @@ create_adr({
   alternatives: [...],
   tags: [...]
 })
-```
+\`\`\`
 
 ### 3. Feature Request Workflow
-```typescript
+\`\`\`typescript
 // Log all improvements
 create_feature_request({ ... })
 
@@ -795,10 +795,10 @@ create_feature_request({ ... })
 approve_feature_request({ ... })
 
 // Auto-completes when step is done
-```
+\`\`\`
 
 ### 4. Progress Transparency
-```typescript
+\`\`\`typescript
 // Always mark steps in progress
 mark_step_in_progress({ ... })
 
@@ -807,10 +807,10 @@ update_step_progress({ progress: 50 })
 
 // Add notes explaining what's happening
 add_progress_note({ noteType: "progress", ... })
-```
+\`\`\`
 
 ### 5. Blocker Reporting
-```typescript
+\`\`\`typescript
 // Report blockers immediately
 report_blocker({
   stepId,
@@ -824,7 +824,7 @@ add_progress_note({
   noteType: "blocker",
   content: "Detailed blocker explanation..."
 })
-```
+\`\`\`
 
 ---
 
@@ -832,7 +832,7 @@ add_progress_note({
 
 The ideal AI agent workflow for autonomous development:
 
-```typescript
+\`\`\`typescript
 async function autonomousAgentLoop(projectId: string) {
   while (true) {
     // 1. Get current phase
@@ -918,7 +918,7 @@ async function autonomousAgentLoop(projectId: string) {
     }
   }
 }
-```
+\`\`\`
 
 ---
 

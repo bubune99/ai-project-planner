@@ -10,7 +10,7 @@ AI Project Planner is an intelligent, adaptive project management platform desig
 
 ## Development Commands
 
-```bash
+\`\`\`bash
 # Install dependencies (using pnpm)
 pnpm install
 
@@ -25,7 +25,7 @@ pnpm start
 
 # Lint the codebase
 pnpm lint
-```
+\`\`\`
 
 ## Architecture
 
@@ -42,7 +42,7 @@ pnpm lint
 
 ### Project Structure
 
-```
+\`\`\`
 app/
   layout.tsx          # Root layout with Geist fonts and Analytics
   page.tsx            # Main dashboard page (client component)
@@ -62,7 +62,7 @@ components/
 
 lib/
   utils.ts           # cn() helper for Tailwind class merging
-```
+\`\`\`
 
 ### Key Architectural Patterns
 
@@ -93,10 +93,10 @@ Mock data is defined as const arrays (see projectSteps in project-execution-view
 ### Path Aliases
 
 All imports use the `@/` alias configured in tsconfig.json:
-```typescript
+\`\`\`typescript
 import { Component } from "@/components/ui/component"
 import { cn } from "@/lib/utils"
-```
+\`\`\`
 
 ### Styling Approach
 
@@ -119,7 +119,7 @@ The Next.js config (next.config.mjs) currently has development-friendly settings
 
 ### ResizeObserver Error Handling
 The ProjectExecutionView component includes a workaround for ResizeObserver errors in the Film Roll view:
-```typescript
+\`\`\`typescript
 useEffect(() => {
   const handleResizeObserverError = (e: ErrorEvent) => {
     if (e.message === "ResizeObserver loop completed with undelivered notifications.") {
@@ -129,7 +129,7 @@ useEffect(() => {
   }
   // ...
 }, [])
-```
+\`\`\`
 
 ### ReactFlow Integration
 - Custom node types defined with `nodeTypes` object

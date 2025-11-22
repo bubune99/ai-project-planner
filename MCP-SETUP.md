@@ -22,23 +22,23 @@ Your MCP server is available at:
 AI agents can query these resources:
 
 ### 1. List All Projects
-```
+\`\`\`
 URI: project://list
-```
+\`\`\`
 Returns all projects with basic info (name, status, progress)
 
 ### 2. Project Business Context
-```
+\`\`\`
 URI: project://{projectId}/context
-```
+\`\`\`
 Returns full business context including:
 - Vision, target market, success metrics
 - Project metadata and description
 
 ### 3. Project Execution Plan
-```
+\`\`\`
 URI: project://{projectId}/execution
-```
+\`\`\`
 Returns all steps with:
 - Dependencies between steps
 - Phases and stages
@@ -46,9 +46,9 @@ Returns all steps with:
 - Task lists
 
 ### 4. Project Progress
-```
+\`\`\`
 URI: project://{projectId}/progress
-```
+\`\`\`
 Returns current state:
 - Completed steps
 - In-progress steps
@@ -57,9 +57,9 @@ Returns current state:
 - Recommended next step
 
 ### 5. Technology Stack
-```
+\`\`\`
 URI: project://{projectId}/techstack
-```
+\`\`\`
 Returns tech stack grouped by category with:
 - Rationale for each choice
 - Alternatives considered
@@ -71,63 +71,63 @@ AI agents can perform these actions:
 
 ### 1. `get_next_step`
 Get the next recommended step to work on
-```json
+\`\`\`json
 {
   "projectId": "uuid"
 }
-```
+\`\`\`
 
 ### 2. `mark_step_complete`
 Mark a step as completed
-```json
+\`\`\`json
 {
   "projectId": "uuid",
   "stepId": "uuid",
   "actualHours": 3.5,
   "notes": "Completed with all tests passing"
 }
-```
+\`\`\`
 
 ### 3. `mark_step_in_progress`
 Mark a step as in progress
-```json
+\`\`\`json
 {
   "projectId": "uuid",
   "stepId": "uuid"
 }
-```
+\`\`\`
 
 ### 4. `report_blocker`
 Report a blocker
-```json
+\`\`\`json
 {
   "projectId": "uuid",
   "stepId": "uuid",
   "blocker": "Missing API keys",
   "severity": "high"
 }
-```
+\`\`\`
 
 ### 5. `update_step_progress`
 Update progress percentage
-```json
+\`\`\`json
 {
   "projectId": "uuid",
   "stepId": "uuid",
   "progress": 75
 }
-```
+\`\`\`
 
 ## 🧪 Testing the MCP Server
 
 ### Run the Test Client
-```bash
+\`\`\`bash
 # Make sure your dev server is running
 pnpm dev
 
 # In another terminal, run the test client
 node scripts/test-mcp-client.mjs http://localhost:3000
-```
+\`\`\`
 
 This will test all resources and tools to verify everything works.
 
@@ -135,7 +135,7 @@ This will test all resources and tools to verify everything works.
 
 ### With Claude Code (Desktop)
 1. Add MCP server to your Claude config:
-```json
+\`\`\`json
 {
   "mcpServers": {
     "ai-project-planner": {
@@ -143,24 +143,24 @@ This will test all resources and tools to verify everything works.
     }
   }
 }
-```
+\`\`\`
 
 2. Tell Claude:
-```
+\`\`\`
 Connect to my AI Project Planner MCP server and continue work on project: [project-name]
-```
+\`\`\`
 
 ### With Cursor IDE
 1. Configure MCP in Cursor settings
 2. Point to: `http://localhost:3000/mcp/sse`
 3. Use in prompts:
-```
+\`\`\`
 Query the AI Project Planner MCP for the next step, then implement it
-```
+\`\`\`
 
 ### With Custom AI Agents
 Use the MCP SDK to connect:
-```typescript
+\`\`\`typescript
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 
@@ -179,7 +179,7 @@ const result = await client.request({
     arguments: { projectId: 'your-project-id' }
   }
 })
-```
+\`\`\`
 
 ## 📋 Autonomous Development Workflow
 
@@ -195,7 +195,7 @@ Here's how the full autonomous workflow works:
 Agent queries: `project://your-project-id/progress`
 
 Gets:
-```json
+\`\`\`json
 {
   "recommendedNext": {
     "id": "step-1",
@@ -205,7 +205,7 @@ Gets:
     "techStack": ["PostgreSQL", "Neon"]
   }
 }
-```
+\`\`\`
 
 ### 3. AI Implements the Step
 - Reads requirements
@@ -214,14 +214,14 @@ Gets:
 
 ### 4. AI Updates Progress
 Calls: `mark_step_complete`
-```json
+\`\`\`json
 {
   "projectId": "uuid",
   "stepId": "step-1",
   "actualHours": 2,
   "notes": "Database schema created, migrations run successfully"
 }
-```
+\`\`\`
 
 ### 5. AI Gets Next Step (Automatically)
 Calls: `get_next_step` again

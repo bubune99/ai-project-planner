@@ -26,7 +26,7 @@ Your Mission-control UI was designed for **visualization** and monitoring.
 ## Section 1: Business Context (CRITICAL GAP)
 
 ### What DB Has (`business_context` table):
-```typescript
+\`\`\`typescript
 {
   vision: string                    // What are we building and why?
   target_market: string              // Who is this for?
@@ -64,7 +64,7 @@ Your Mission-control UI was designed for **visualization** and monitoring.
     spent: number
   }
 }
-```
+\`\`\`
 
 ### What UI Has:
 **NewProjectModal**:
@@ -97,14 +97,14 @@ Your Mission-control UI was designed for **visualization** and monitoring.
 
 ### What DB Has:
 **`project_steps.tasks`** (JSONB array):
-```json
+\`\`\`json
 [
   "Setup Supabase auth",
   "Create login endpoint",
   "Add middleware",
   "Write tests"
 ]
-```
+\`\`\`
 
 **`project_steps.description`**: "Implement JWT-based auth with Supabase"
 
@@ -133,7 +133,7 @@ Your Mission-control UI was designed for **visualization** and monitoring.
 
 When you click a task, you should see:
 
-```
+\`\`\`
 ┌─────────────────────────────────────────┐
 │ Task: Implement Authentication          │
 ├─────────────────────────────────────────┤
@@ -179,7 +179,7 @@ When you click a task, you should see:
 │ [🔗 Send to Claude Code]               │
 │ [💾 Save as Document]                  │
 └─────────────────────────────────────────┘
-```
+\`\`\`
 
 ### Required UI Components:
 
@@ -203,7 +203,7 @@ When you click a task, you should see:
 ## Section 3: Tech Stack Documentation
 
 ### What DB Has (`tech_stack_items`):
-```typescript
+\`\`\`typescript
 {
   name: "Next.js 14"
   category: "Frontend"
@@ -219,7 +219,7 @@ When you click a task, you should see:
     reason_not_chosen: "Too opinionated for our use case"
   }]
 }
-```
+\`\`\`
 
 ### What UI Has:
 **Mission-control has NO tech stack editor visible**
@@ -229,7 +229,7 @@ The mock data has tech stack as simple string array: `["Next.js", "PostgreSQL", 
 ### Required UI:
 
 **`components/projects/TechStackEditor.tsx`**
-```
+\`\`\`
 ┌──────────────────────────────────────────┐
 │ Tech Stack Configuration                 │
 ├──────────────────────────────────────────┤
@@ -248,7 +248,7 @@ The mock data has tech stack as simple string array: `["Next.js", "PostgreSQL", 
 │                                          │
 │ [+ Add Technology]                       │
 └──────────────────────────────────────────┘
-```
+\`\`\`
 
 Features:
 - ✅ Category grouping
@@ -263,7 +263,7 @@ Features:
 ## Section 4: Documentation Management
 
 ### What DB Has (`documents` table):
-```typescript
+\`\`\`typescript
 {
   title: string
   description: string
@@ -275,7 +275,7 @@ Features:
   content: string             // NEW: For inline markdown
   uploaded_by: string
 }
-```
+\`\`\`
 
 ### What UI Has:
 **DocumentBrowser**:
@@ -321,7 +321,7 @@ You need to:
 ## Section 5: Execution History & Live Updates
 
 ### What DB Has (`execution_history`):
-```typescript
+\`\`\`typescript
 {
   event_type: 'step_started' | 'step_completed' | 'blocker_identified' |
               'status_changed' | 'ai_agent_action' | 'project_created' |
@@ -334,23 +334,23 @@ You need to:
   metadata: object
   created_at: timestamp
 }
-```
+\`\`\`
 
 ### What UI Has:
 **RecentActivity**:
-```typescript
+\`\`\`typescript
 [
   { icon: "✅", message: "Setup complete", timestamp: "2 min ago" },
   { icon: "🔄", message: "Database migrations running...", timestamp: "5 min ago" }
 ]
-```
+\`\`\`
 
 Just 3 hardcoded items, no connection to database.
 
 ### Required UI:
 
 **`components/activity/ExecutionTimeline.tsx`**
-```
+\`\`\`
 ┌────────────────────────────────────────┐
 │ Live Execution History                 │
 ├────────────────────────────────────────┤
@@ -369,7 +369,7 @@ Just 3 hardcoded items, no connection to database.
 │                                        │
 │ [Load More] [Filter by Agent] [Export]│
 └────────────────────────────────────────┘
-```
+\`\`\`
 
 Real-time updates from `execution_history` table.
 
@@ -390,7 +390,7 @@ When you're in **Tree View** or **Kantt View** looking at a phase, you should be
 
 **Click "Generate Phase Prompt"** →
 
-```markdown
+\`\`\`markdown
 # Phase 2: Core Features - AI Agent Instructions
 
 ## Business Context
@@ -441,7 +441,7 @@ By end of phase:
 Connected to: ai-project-planner MCP server
 Resources: project://[id]/execution
 Tools: mark_step_complete, report_blocker, update_progress
-```
+\`\`\`
 
 ### Required Component:
 **`components/prompts/PhasePromptGenerator.tsx`**
@@ -453,7 +453,7 @@ Tools: mark_step_complete, report_blocker, update_progress
 ### What DB Has (NEW migrations 012-014):
 
 **`progress_notes` table:**
-```typescript
+\`\`\`typescript
 {
   author_type: 'human' | 'agent'
   author_name: string                // AI agent name or human name
@@ -468,10 +468,10 @@ Tools: mark_step_complete, report_blocker, update_progress
   }
   step_id: UUID                     // Can be project-level or step-specific
 }
-```
+\`\`\`
 
 **`project_versions` table:**
-```typescript
+\`\`\`typescript
 {
   version_name: string               // "MVP", "v1.0", "v1.1", "Sprint 1"
   version_number: string             // Semver: "1.0.0", "1.1.0"
@@ -486,10 +486,10 @@ Tools: mark_step_complete, report_blocker, update_progress
   completed_at: Date
   released_at: Date
 }
-```
+\`\`\`
 
 **`feature_requests` table:**
-```typescript
+\`\`\`typescript
 {
   title: string
   description: string
@@ -511,7 +511,7 @@ Tools: mark_step_complete, report_blocker, update_progress
     analytics_data: object
   }
 }
-```
+\`\`\`
 
 ### What UI Has:
 **Currently in Mission-control:**
@@ -543,7 +543,7 @@ This is a **CRITICAL GAP** that prevents:
 **Location:** Add to `TaskDetailModal.tsx` as a new tab
 
 **Design:**
-```
+\`\`\`
 ┌─────────────────────────────────────────┐
 │ Task: Implement Authentication          │
 ├─────────────────────────────────────────┤
@@ -571,7 +571,7 @@ This is a **CRITICAL GAP** that prevents:
 │                                         │
 │ [+ Add Note]                            │
 └─────────────────────────────────────────┘
-```
+\`\`\`
 
 **2. `VersionManagement.tsx`** ⚠️ HIGH PRIORITY
 - Create and manage project versions (MVP → v1.0 → v1.1)
@@ -583,7 +583,7 @@ This is a **CRITICAL GAP** that prevents:
 **Location:** New main tab in dashboard OR section in ProjectOverview
 
 **Design:**
-```
+\`\`\`
 ┌─────────────────────────────────────────┐
 │ Versions & Releases                      │
 ├─────────────────────────────────────────┤
@@ -603,7 +603,7 @@ This is a **CRITICAL GAP** that prevents:
 │                                         │
 │ [+ Create New Version]                  │
 └─────────────────────────────────────────┘
-```
+\`\`\`
 
 **3. `FeatureBacklog.tsx`** ⚠️ HIGH PRIORITY
 - Manage feature requests, bugs, improvements
@@ -616,7 +616,7 @@ This is a **CRITICAL GAP** that prevents:
 **Location:** New main view "Backlog" in dashboard sidebar
 
 **Design:**
-```
+\`\`\`
 ┌─────────────────────────────────────────┐
 │ Feature Backlog                          │
 ├─────────────────────────────────────────┤
@@ -637,7 +637,7 @@ This is a **CRITICAL GAP** that prevents:
 │ [Filter: All | Proposed | Approved]     │
 │ [+ Create Feature Request]              │
 └─────────────────────────────────────────┘
-```
+\`\`\`
 
 **4. `WorkLogDashboard.tsx`** ⚠️ MEDIUM PRIORITY
 - Project-level overview of all progress notes
@@ -656,7 +656,7 @@ This is a **CRITICAL GAP** that prevents:
 ### Use Cases This Solves:
 
 **Scenario 1: AI Agent Self-Documentation**
-```
+\`\`\`
 AI Agent works on "Add Payment Processing"
 → Adds progress note: "Integrated Stripe SDK, tests passing"
 → Hits blocker: "Webhook signature verification failing"
@@ -664,20 +664,20 @@ AI Agent works on "Add Payment Processing"
 → Completion note: "Payment flow complete with 95% test coverage"
 
 You see the entire thought process and can understand decisions!
-```
+\`\`\`
 
 **Scenario 2: Post-MVP Iteration**
-```
+\`\`\`
 MVP launches successfully
 → Create version "v1.0 - Enhancements"
 → Add steps: Analytics dashboard, Email notifications
 → AI agents work on v1.0 while MVP is in production
 → Track progress separately from MVP
 → Release v1.0 when ready
-```
+\`\`\`
 
 **Scenario 3: Bug Reported in Production**
-```
+\`\`\`
 User reports: "Can't upload files larger than 2MB"
 → Create feature request (type: bug, priority: high)
 → Approve request
@@ -686,7 +686,7 @@ User reports: "Can't upload files larger than 2MB"
 → Assign to 'claude' agent
 → Agent implements, documents fix in progress notes
 → Mark complete, auto-generates release notes
-```
+\`\`\`
 
 ---
 
@@ -789,13 +789,13 @@ Once you build these UI components, they should:
 3. **Track execution** by listening to MCP updates (via webhooks or polling)
 
 Example flow:
-```
+\`\`\`
 You → Fill BusinessContextForm → Saves to DB
 You → Click "Generate Prompt" → Reads from DB → Creates comprehensive prompt
 You → Copy prompt → Give to Claude Code
 Claude → Connects to MCP server → Reads context → Executes → Updates DB
 UI → Shows execution history in real-time
-```
+\`\`\`
 
 ---
 

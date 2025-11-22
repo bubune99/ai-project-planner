@@ -89,14 +89,14 @@ If you're an AI agent connecting to this project for the first time:
 - **Production:** (TBD - will be deployed to Vercel)
 
 ### Environment Variables Required
-```bash
+\`\`\`bash
 DATABASE_URL=          # Neon PostgreSQL connection string
 OPENAI_API_KEY=        # For AI features (optional during development)
-```
+\`\`\`
 
 ### MCP Resources Available
 
-```typescript
+\`\`\`typescript
 // Get complete project context
 const context = await fetchResource('project://{projectId}/context')
 
@@ -108,7 +108,7 @@ const plan = await fetchResource('project://{projectId}/execution-plan')
 
 // Get tech stack documentation
 const techStack = await fetchResource('project://{projectId}/tech-stack')
-```
+\`\`\`
 
 ## Quick Reference: Tool Categories
 
@@ -193,7 +193,7 @@ ADR management
 
 ## Core AI Agent Loop
 
-```typescript
+\`\`\`typescript
 async function autonomousAgentLoop(projectId: string) {
   while (true) {
     // 1. Get context
@@ -242,22 +242,22 @@ async function autonomousAgentLoop(projectId: string) {
     }
   }
 }
-```
+\`\`\`
 
 ## Best Practices Summary
 
 ### 1. Always Query Context First
-```typescript
+\`\`\`typescript
 const context = await fetchResource(`project://${projectId}/context`)
-```
+\`\`\`
 
 ### 2. Mark Steps In Progress
-```typescript
+\`\`\`typescript
 await callTool('mark_step_in_progress', { stepId, agentName: "Claude" })
-```
+\`\`\`
 
 ### 3. Document Everything
-```typescript
+\`\`\`typescript
 await callTool('add_progress_note', {
   projectId,
   stepId,
@@ -266,20 +266,20 @@ await callTool('add_progress_note', {
   noteType: "decision",
   content: "Why I made this choice..."
 })
-```
+\`\`\`
 
 ### 4. Report Blockers Immediately
-```typescript
+\`\`\`typescript
 await callTool('report_blocker', {
   stepId,
   blockerDescription: "Missing API key",
   reportedBy: "Claude",
   severity: "high"
 })
-```
+\`\`\`
 
 ### 5. Track Architecture Decisions
-```typescript
+\`\`\`typescript
 await callTool('create_adr', {
   projectId,
   title: "Use PostgreSQL for database",
@@ -287,7 +287,7 @@ await callTool('create_adr', {
   decision: "What we decided...",
   alternatives: [...]
 })
-```
+\`\`\`
 
 ## Vision: Autonomous AI Development
 
@@ -299,7 +299,7 @@ This platform enables:
 
 ### Example Autonomous Session
 
-```
+\`\`\`
 User: "Continue working on the project"
 
 Claude:
@@ -314,7 +314,7 @@ Claude:
 9. Repeats until blocked or complete
 
 User: Reviews progress notes, approves architecture decisions, unblocks issues
-```
+\`\`\`
 
 ## Contributing to Skills Documentation
 

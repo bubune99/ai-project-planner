@@ -4,7 +4,7 @@ Complete schema for the AI Project Planner with all 12 tables and relationships.
 
 ## Entity Relationship Overview
 
-```
+\`\`\`
 projects (1) ──→ (N) project_steps
          (1) ──→ (N) tech_stack_items
          (1) ──→ (1) business_context
@@ -23,7 +23,7 @@ feature_requests (N) ──→ (1) project_versions (optional)
                  (N) ──→ (1) project_steps (optional - auto-created)
 
 architecture_decisions (N) ──→ (N) adr_steps ──→ (N) project_steps
-```
+\`\`\`
 
 ## Core Tables
 
@@ -146,7 +146,7 @@ architecture_decisions (N) ──→ (N) adr_steps ──→ (N) project_steps
 
 **JSONB Structures:**
 
-```json
+\`\`\`json
 success_metrics: [
   {"metric": "Active users", "target": 1000, "current": 0},
   {"metric": "Revenue MRR", "target": "$10k", "current": "$0"}
@@ -165,7 +165,7 @@ budget_info: {
   "allocated": 30000,
   "spent": 10000
 }
-```
+\`\`\`
 
 ---
 
@@ -190,12 +190,12 @@ budget_info: {
 
 **JSONB Structure:**
 
-```json
+\`\`\`json
 alternatives_considered: [
   {"name": "MySQL", "reason_not_chosen": "Lacks JSONB support"},
   {"name": "MongoDB", "reason_not_chosen": "Need relational integrity"}
 ]
-```
+\`\`\`
 
 ---
 
@@ -299,12 +299,12 @@ alternatives_considered: [
 
 **JSONB Structure:**
 
-```json
+\`\`\`json
 goals: [
   {"goal": "User authentication", "completed": true},
   {"goal": "Payment integration", "completed": false}
 ]
-```
+\`\`\`
 
 **Auto-completion:** When all steps for a version are completed, version status → 'completed'
 
@@ -374,7 +374,7 @@ goals: [
 
 **JSONB Structures:**
 
-```json
+\`\`\`json
 exit_criteria: [
   {"criterion": "Architecture document approved", "met": true},
   {"criterion": "Tech stack finalized", "met": true}
@@ -384,7 +384,7 @@ deliverables: [
   {"deliverable": "System architecture diagram", "completed": true, "link": "doc_id_123"},
   {"deliverable": "API specification", "completed": false}
 ]
-```
+\`\`\`
 
 **Phase Flow:**
 ideation → architecture → construction → testing → deployment → maintenance
@@ -419,7 +419,7 @@ ideation → architecture → construction → testing → deployment → mainte
 
 **JSONB Structure:**
 
-```json
+\`\`\`json
 alternatives: [
   {
     "option": "PostgreSQL",
@@ -434,7 +434,7 @@ alternatives: [
     "reason_not_chosen": "Lacks JSONB support for metadata"
   }
 ]
-```
+\`\`\`
 
 **Superseding:** When an architectural decision changes (pivot), use `supersede_adr` to link old → new
 
@@ -465,7 +465,7 @@ alternatives: [
 
 ### Workflow Functions
 
-```sql
+\`\`\`sql
 -- Get next recommended step
 get_next_step(project_id UUID) → project_step
 
@@ -477,29 +477,29 @@ mark_step_complete(step_id UUID, completed_by TEXT, actual_hours DECIMAL, notes 
 
 -- Report blocker
 report_blocker(step_id UUID, description TEXT, reported_by TEXT, severity TEXT) → execution_history
-```
+\`\`\`
 
 ### Phase Functions
 
-```sql
+\`\`\`sql
 -- Get current active phase
 get_current_phase(project_id UUID) → project_phase
 
 -- Transition to next phase
 transition_to_phase(project_id UUID, new_phase TEXT, completed_by TEXT, description TEXT)
   → {success, message, new_phase_id}
-```
+\`\`\`
 
 ### Version Functions
 
-```sql
+\`\`\`sql
 -- Auto-complete version when all steps done
 auto_complete_version() TRIGGER
-```
+\`\`\`
 
 ### Feature Request Functions
 
-```sql
+\`\`\`sql
 -- Approve request and create step
 approve_and_create_step(feature_request_id UUID, approved_by TEXT, version_id UUID, assigned_agent TEXT)
   → {feature_request_id, step_id, success, message}
@@ -509,24 +509,24 @@ get_feature_backlog(project_id UUID, status TEXT, request_type TEXT) → feature
 
 -- Auto-complete request when step done
 auto_complete_feature_request() TRIGGER
-```
+\`\`\`
 
 ### ADR Functions
 
-```sql
+\`\`\`sql
 -- Get all ADRs with supersede relationships
 get_project_adrs(project_id UUID, status TEXT) → architecture_decisions[]
 
 -- Mark ADR as superseded
 supersede_adr(old_adr_id UUID, new_adr_id UUID) → BOOLEAN
-```
+\`\`\`
 
 ### Progress Notes Functions
 
-```sql
+\`\`\`sql
 -- Get recent progress notes
 get_recent_progress(project_id UUID, limit INTEGER) → progress_notes[]
-```
+\`\`\`
 
 ---
 
@@ -535,48 +535,48 @@ get_recent_progress(project_id UUID, limit INTEGER) → progress_notes[]
 ### project_overview
 Optimized view for dashboard UI
 
-```sql
+\`\`\`sql
 SELECT
   id, name, description, status, progress, priority,
   due_date, start_date, github_repo_url,
   total_tasks, completed_tasks, current_phase,
   tech_stack (aggregated), last_activity
 FROM projects + aggregations
-```
+\`\`\`
 
 ### project_execution
 Steps with dependency information
 
-```sql
+\`\`\`sql
 SELECT
   id, project_id, title, description, status, progress,
   phase, stage, estimated_hours, actual_hours,
   can_work, should_work, is_in_progress, is_blocked,
   tasks, order_index, dependencies (array)
 FROM project_steps + dependencies
-```
+\`\`\`
 
 ### tech_stack_documentation
 Tech stack with rationale
 
-```sql
+\`\`\`sql
 SELECT
   id, project_id, name, category, version,
   rationale, documentation_url, alternatives_considered,
   order_index
 FROM tech_stack_items
-```
+\`\`\`
 
 ### project_phase_overview
 Current phase with ADR counts
 
-```sql
+\`\`\`sql
 SELECT
   project_id, project_name, current_phase, phase_name,
   phase_status, started_at, completed_at, days_in_phase,
   active_adrs (count), superseded_adrs (count)
 FROM projects + project_phases + architecture_decisions
-```
+\`\`\`
 
 ---
 

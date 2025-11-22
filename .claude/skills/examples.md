@@ -9,7 +9,7 @@ You want to build a new SaaS project for task management with AI assistance.
 
 ### Complete Workflow
 
-```typescript
+\`\`\`typescript
 // Step 1: Create the project
 const project = await callTool('create_project', {
   name: "AI Task Manager",
@@ -151,7 +151,7 @@ await callTool('transition_to_phase', {
   completedBy: "Product Owner",
   description: "User research complete, moving to technical design"
 })
-```
+\`\`\`
 
 ---
 
@@ -160,7 +160,7 @@ await callTool('transition_to_phase', {
 ### Scenario
 Deciding between PostgreSQL and MongoDB for the task manager database.
 
-```typescript
+\`\`\`typescript
 const projectId = "project-uuid"
 
 // Step 1: Analyze requirements
@@ -319,7 +319,7 @@ After analyzing requirements and options, selected PostgreSQL hosted on Neon.
 - Create migration scripts
   `
 })
-```
+\`\`\`
 
 ---
 
@@ -328,7 +328,7 @@ After analyzing requirements and options, selected PostgreSQL hosted on Neon.
 ### Scenario
 AI agent encounters missing API key during development.
 
-```typescript
+\`\`\`typescript
 const stepId = "step-uuid"
 const projectId = "project-uuid"
 
@@ -445,7 +445,7 @@ Original step progress: 75% (implementation done, testing blocked)
     `
   })
 }
-```
+\`\`\`
 
 ---
 
@@ -454,7 +454,7 @@ Original step progress: 75% (implementation done, testing blocked)
 ### Scenario
 Midway through construction, team decides to switch from REST to tRPC.
 
-```typescript
+\`\`\`typescript
 const projectId = "project-uuid"
 
 // Step 1: Get the old REST API decision
@@ -640,7 +640,7 @@ await callTool('mark_step_in_progress', {
 })
 
 // ... migration work continues ...
-```
+\`\`\`
 
 ---
 
@@ -649,7 +649,7 @@ await callTool('mark_step_in_progress', {
 ### Scenario
 MVP is live. User reports a bug and requests dark mode.
 
-```typescript
+\`\`\`typescript
 const projectId = "project-uuid"
 
 // Step 1: User reports bug via UI or email
@@ -881,7 +881,7 @@ await callTool('add_progress_note', {
 - Plan v1.2 features
   `
 })
-```
+\`\`\`
 
 ---
 
@@ -890,7 +890,7 @@ await callTool('add_progress_note', {
 ### Scenario
 Claude handles backend, v0 handles UI, working on the same feature.
 
-```typescript
+\`\`\`typescript
 const projectId = "project-uuid"
 
 // Step 1: Create feature - "User profile with avatar upload"
@@ -1116,7 +1116,7 @@ await callTool('mark_step_complete', {
   actualHours: 11,
   completionNotes: "Backend and frontend complete, tested end-to-end"
 })
-```
+\`\`\`
 
 ---
 

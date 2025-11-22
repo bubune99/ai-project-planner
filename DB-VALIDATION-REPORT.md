@@ -82,13 +82,13 @@ Generated: 2025-11-21
 ### 5. Missing: Agents Table
 
 **UI Requires:**
-```typescript
+\`\`\`typescript
 interface Agent {
   name: "v0" | "claude" | "gemini" | "gpt"
   status: "active" | "idle" | "working" | "error"
   currentTask?: string  // Task ID they're working on
 }
-```
+\`\`\`
 
 **Database:** ❌ No agents table exists
 
@@ -104,7 +104,7 @@ interface Agent {
 
 ### Migration 007: Add Missing Fields to Projects
 
-```sql
+\`\`\`sql
 -- Add missing project fields
 ALTER TABLE projects
   ADD COLUMN current_phase TEXT,
@@ -117,11 +117,11 @@ ALTER TABLE projects
 ALTER TABLE projects
   ADD CONSTRAINT projects_status_check
   CHECK (status IN ('planning', 'in_progress', 'review', 'completed', 'on-hold'));
-```
+\`\`\`
 
 ### Migration 008: Add Missing Fields to Project Steps
 
-```sql
+\`\`\`sql
 -- Add agent assignment and dates for Gantt view
 ALTER TABLE project_steps
   ADD COLUMN assigned_agent TEXT CHECK (assigned_agent IN ('v0', 'claude', 'gemini', 'gpt')),
@@ -136,11 +136,11 @@ ALTER TABLE project_steps
 ALTER TABLE project_steps
   ADD CONSTRAINT project_steps_status_check
   CHECK (status IN ('pending', 'in_progress', 'completed', 'blocked', 'paused', 'failed'));
-```
+\`\`\`
 
 ### Migration 009: Add Agents Table
 
-```sql
+\`\`\`sql
 -- Create agents table for tracking AI agent status
 CREATE TABLE agents (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -163,11 +163,11 @@ INSERT INTO agents (name, status) VALUES
 -- Create index for quick lookups
 CREATE INDEX idx_agents_status ON agents(status);
 CREATE INDEX idx_agents_current_task ON agents(current_task_id) WHERE current_task_id IS NOT NULL;
-```
+\`\`\`
 
 ### Migration 010: Add Document-Task Linking
 
-```sql
+\`\`\`sql
 -- Create junction table for document-task relationships
 CREATE TABLE document_tasks (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -185,11 +185,11 @@ ALTER TABLE documents
 CREATE INDEX idx_document_tasks_document ON document_tasks(document_id);
 CREATE INDEX idx_document_tasks_task ON document_tasks(task_id);
 CREATE INDEX idx_documents_tags ON documents USING GIN(tags);
-```
+\`\`\`
 
 ### Migration 011: Add Subtasks Support
 
-```sql
+\`\`\`sql
 -- Add parent_task_id for hierarchical tasks (subtasks)
 ALTER TABLE project_steps
   ADD COLUMN parent_task_id UUID REFERENCES project_steps(id) ON DELETE CASCADE;
@@ -198,7 +198,7 @@ CREATE INDEX idx_project_steps_parent ON project_steps(parent_task_id) WHERE par
 
 -- Update completion check on subtasks
 COMMENT ON COLUMN project_steps.parent_task_id IS 'Parent task for subtasks (Kanban cards with subtasks)';
-```
+\`\`\`
 
 ---
 
@@ -206,7 +206,7 @@ COMMENT ON COLUMN project_steps.parent_task_id IS 'Parent task for subtasks (Kan
 
 ### View: Project Summary (for multi-project list)
 
-```sql
+\`\`\`sql
 CREATE OR REPLACE VIEW project_summary AS
 SELECT
   p.id,
@@ -252,7 +252,7 @@ WHERE p.deleted_at IS NULL
 
 GROUP BY p.id, p.name, p.description, p.status, p.current_phase, p.progress,
          p.start_date, p.due_date, p.github_repo_url, p.health, p.created_at, p.updated_at;
-```
+\`\`\`
 
 ---
 

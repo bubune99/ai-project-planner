@@ -34,7 +34,7 @@ The AI Project Planner needs blob storage for:
 ### Current `documents` Table
 Already exists in migration 004, but needs S3 key field clarification:
 
-```sql
+\`\`\`sql
 CREATE TABLE documents (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -48,11 +48,11 @@ CREATE TABLE documents (
   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
   deleted_at TIMESTAMP
 );
-```
+\`\`\`
 
 ### Add New Fields (Migration 016)
 
-```sql
+\`\`\`sql
 -- Add blob storage metadata
 ALTER TABLE documents
   ADD COLUMN blob_url TEXT,              -- Full Vercel Blob URL
@@ -67,13 +67,13 @@ ALTER TABLE documents RENAME COLUMN s3_key TO blob_key;
 -- Add index for quick lookups
 CREATE INDEX idx_documents_blob_key ON documents(blob_key);
 CREATE INDEX idx_documents_content_hash ON documents(content_hash) WHERE content_hash IS NOT NULL;
-```
+\`\`\`
 
 ### New Table: `document_versions` (Optional)
 
 For version control of documents:
 
-```sql
+\`\`\`sql
 CREATE TABLE document_versions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
@@ -88,7 +88,7 @@ CREATE TABLE document_versions (
 );
 
 CREATE INDEX idx_document_versions_document ON document_versions(document_id, version_number DESC);
-```
+\`\`\`
 
 ---
 
@@ -96,16 +96,16 @@ CREATE INDEX idx_document_versions_document ON document_versions(document_id, ve
 
 ### 1. Install Vercel Blob
 
-```bash
+\`\`\`bash
 pnpm add @vercel/blob
-```
+\`\`\`
 
 ### 2. Environment Variables
 
-```bash
+\`\`\`bash
 # .env.local
 BLOB_READ_WRITE_TOKEN=vercel_blob_rw_xxxxx
-```
+\`\`\`
 
 Get token from: https://vercel.com/dashboard/stores
 
@@ -113,7 +113,7 @@ Get token from: https://vercel.com/dashboard/stores
 
 **`app/api/upload/route.ts`**
 
-```typescript
+\`\`\`typescript
 import { put } from '@vercel/blob'
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@vercel/postgres'
@@ -255,13 +255,13 @@ export async function GET(request: NextRequest) {
     pathname
   })
 }
-```
+\`\`\`
 
 ### 4. Download/Delete API Routes
 
 **`app/api/documents/[id]/route.ts`**
 
-```typescript
+\`\`\`typescript
 import { del } from '@vercel/blob'
 import { sql } from '@vercel/postgres'
 import { NextRequest, NextResponse } from 'next/server'
@@ -315,13 +315,13 @@ export async function DELETE(
     return NextResponse.json({ error: 'Delete failed' }, { status: 500 })
   }
 }
-```
+\`\`\`
 
 ### 5. MCP Tools for Documents
 
 Add to `app/mcp/[transport]/route.ts`:
 
-```typescript
+\`\`\`typescript
 case 'upload_document': {
   const { projectId, title, description, category, fileData, fileName, fileType } = args
 
@@ -390,7 +390,7 @@ case 'download_document': {
     }]
   }
 }
-```
+\`\`\`
 
 ---
 
@@ -400,7 +400,7 @@ case 'download_document': {
 
 **`components/FileUpload.tsx`**
 
-```typescript
+\`\`\`typescript
 'use client'
 
 import { useState } from 'react'
@@ -471,13 +471,13 @@ export function FileUpload({ projectId, category, onUploadComplete }) {
     </div>
   )
 }
-```
+\`\`\`
 
 ### 2. DocumentGallery Component
 
 **`components/DocumentGallery.tsx`**
 
-```typescript
+\`\`\`typescript
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -528,7 +528,7 @@ export function DocumentGallery({ projectId }) {
     </div>
   )
 }
-```
+\`\`\`
 
 ---
 
@@ -536,7 +536,7 @@ export function DocumentGallery({ projectId }) {
 
 ### 1. Uploading Architecture Diagrams
 
-```typescript
+\`\`\`typescript
 // AI agent generates diagram, uploads to blob storage
 const diagram = await generateArchitectureDiagram(projectId)
 
@@ -549,11 +549,11 @@ await callTool('upload_document', {
   fileName: "architecture.png",
   fileType: "image/png"
 })
-```
+\`\`\`
 
 ### 2. User Uploads PRD
 
-```typescript
+\`\`\`typescript
 // User uploads PRD via UI
 <FileUpload
   projectId={projectId}
@@ -563,11 +563,11 @@ await callTool('upload_document', {
     linkDocumentToTask({ documentId: doc.id, stepId: currentStep.id })
   }}
 />
-```
+\`\`\`
 
 ### 3. Exporting Project Reports
 
-```typescript
+\`\`\`typescript
 // Generate PDF report and upload
 const report = await generateProjectReport(projectId)
 const pdfBuffer = await report.toPDF()
@@ -580,7 +580,7 @@ await callTool('upload_document', {
   fileName: `report-${Date.now()}.pdf`,
   fileType: "application/pdf"
 })
-```
+\`\`\`
 
 ---
 

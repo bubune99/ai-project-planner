@@ -34,7 +34,7 @@ Before you start, **READ THESE FILES:**
 **Purpose:** Capture comprehensive business context when creating/editing a project
 
 **Database Fields to Populate:**
-```typescript
+\`\`\`typescript
 interface BusinessContext {
   vision: string
   target_market: string
@@ -66,7 +66,7 @@ interface BusinessContext {
     spent: number
   }
 }
-```
+\`\`\`
 
 **UI Design:**
 - **Multi-step wizard** (4-5 steps)
@@ -120,7 +120,7 @@ interface BusinessContext {
 
 **UI Design:**
 
-```
+\`\`\`
 ┌─────────────────────────────────────────┐
 │ Generate AI Agent Instructions          │
 ├─────────────────────────────────────────┤
@@ -161,11 +161,11 @@ interface BusinessContext {
 │ [🔗 Send to Claude Code]                │
 │ [✏️ Edit Prompt]                        │
 └─────────────────────────────────────────┘
-```
+\`\`\`
 
 **Implementation:**
 
-```typescript
+\`\`\`typescript
 import { generateAgentPrompt, formatForTool } from '@/lib/prompt-generator'
 
 // In your component:
@@ -195,7 +195,7 @@ const handleGeneratePrompt = async () => {
 
   setGeneratedPrompt(formatted)
 }
-```
+\`\`\`
 
 **Key Features:**
 - ✅ Options to customize what's included
@@ -220,7 +220,7 @@ const handleGeneratePrompt = async () => {
 **Purpose:** Create and edit documentation inline with markdown support
 
 **Database Fields:**
-```typescript
+\`\`\`typescript
 interface Document {
   title: string
   description: string
@@ -237,11 +237,11 @@ interface DocumentTask {
   task_id: UUID
   relationship_type: 'reference' | 'implementation' | 'specification' | 'testing'
 }
-```
+\`\`\`
 
 **UI Design:**
 
-```
+\`\`\`
 ┌─────────────────────────────────────────┐
 │ Create Documentation                     │
 ├─────────────────────────────────────────┤
@@ -269,7 +269,7 @@ interface DocumentTask {
 │                                         │
 │ [Preview] [Save Draft] [Publish]        │
 └─────────────────────────────────────────┘
-```
+\`\`\`
 
 **Markdown Editor:**
 - Use a library like **TipTap**, **Toast UI Editor**, or **SimpleMDE**
@@ -315,7 +315,7 @@ These don't exist yet - you'll need to create them:
 
 **`app/api/projects/[id]/business-context/route.ts`**
 
-```typescript
+\`\`\`typescript
 // GET - Fetch business context
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   const businessContext = await sql`
@@ -346,13 +346,13 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   `
   return Response.json(result[0])
 }
-```
+\`\`\`
 
 ### **2. Step Dependencies API**
 
 **`app/api/steps/[id]/dependencies/route.ts`**
 
-```typescript
+\`\`\`typescript
 // GET - Fetch dependencies with completion status
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   const dependencies = await sql`
@@ -374,13 +374,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
   `
   return Response.json(dependencies)
 }
-```
+\`\`\`
 
 ### **3. Document Tasks API**
 
 **`app/api/documents/[id]/tasks/route.ts`**
 
-```typescript
+\`\`\`typescript
 // POST - Link document to task
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const { taskId, relationshipType } = await request.json()
@@ -411,7 +411,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   `
   return Response.json(tasks)
 }
-```
+\`\`\`
 
 ---
 
