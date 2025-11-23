@@ -62,6 +62,7 @@
     "mermaid": "latest",
     "next": "14.2.16",
     "next-themes": "latest",
+    "novel": "^1.0.2",
     "path": "latest",
     "react": "^18",
     "react-day-picker": "9.8.0",

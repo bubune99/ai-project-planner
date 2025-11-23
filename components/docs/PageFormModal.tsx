@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { FileText, Folder } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { NovelEditor } from "./NovelEditor"
 
 interface PageFormModalProps {
   projectId: string
@@ -20,6 +21,7 @@ interface PageFormModalProps {
     id: string
     title: string
     description?: string
+    content?: string
     parent_id?: string
     doc_type: "chapter" | "page"
   }
@@ -30,10 +32,24 @@ export function PageFormModal({ projectId, isOpen, onClose, onSuccess, editPage,
   const [formData, setFormData] = useState({
     title: editPage?.title || "",
     description: editPage?.description || "",
+    content: editPage?.content || "",
     parent_id: editPage?.parent_id || "",
     doc_type: editPage?.doc_type || ("page" as "chapter" | "page"),
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Update form data when editPage changes
+  useEffect(() => {
+    if (editPage) {
+      setFormData({
+        title: editPage.title || "",
+        description: editPage.description || "",
+        content: editPage.content || "",
+        parent_id: editPage.parent_id || "",
+        doc_type: editPage.doc_type || "page",
+      })
+    }
+  }, [editPage])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -52,7 +68,7 @@ export function PageFormModal({ projectId, isOpen, onClose, onSuccess, editPage,
           description: formData.description,
           parent_id: formData.doc_type === "page" ? formData.parent_id : null,
           doc_type: formData.doc_type,
-          content: "", // Empty content initially - will be edited later with text editor
+          content: formData.content,
           category: formData.doc_type === "chapter" ? "chapter" : "documentation",
         }),
       })
@@ -65,6 +81,7 @@ export function PageFormModal({ projectId, isOpen, onClose, onSuccess, editPage,
       setFormData({
         title: "",
         description: "",
+        content: "",
         parent_id: "",
         doc_type: "page",
       })
@@ -78,7 +95,7 @@ export function PageFormModal({ projectId, isOpen, onClose, onSuccess, editPage,
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {editPage ? "Edit" : "Create"} {formData.doc_type === "chapter" ? "Chapter" : "Page"}
@@ -155,6 +172,14 @@ export function PageFormModal({ projectId, isOpen, onClose, onSuccess, editPage,
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Brief description of this content..."
               rows={3}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="content">Content</Label>
+            <NovelEditor
+              initialContent={formData.content}
+              onChange={(content) => setFormData({ ...formData, content })}
             />
           </div>
 

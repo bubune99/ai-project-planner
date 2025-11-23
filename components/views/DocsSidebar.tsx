@@ -244,8 +244,12 @@ export function DocsSidebar({
         )}
       </div>
 
-      {/* Generate Button */}
-      <div className="p-4 border-t border-border/50">
+      {/* Action Buttons */}
+      <div className="p-4 border-t border-border/50 space-y-2">
+        <Button onClick={onCreatePage} className="w-full" size="sm">
+          <FileText className="w-4 h-4 mr-2" />
+          Create Page
+        </Button>
         <Button variant="outline" className="w-full bg-transparent" size="sm">
           <Sparkles className="w-4 h-4 mr-2" />
           Generate from Code

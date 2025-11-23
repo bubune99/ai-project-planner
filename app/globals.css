@@ -139,3 +139,20 @@ body::before {
   pointer-events: none;
   z-index: -1;
 }
+
+/* Novel Editor Styles */
+.novel-editor {
+  @apply prose-headings:font-semibold prose-headings:text-foreground;
+  @apply prose-p:text-muted-foreground prose-p:leading-relaxed;
+  @apply prose-a:text-primary prose-a:underline prose-a:decoration-primary/30;
+  @apply prose-strong:text-foreground prose-strong:font-semibold;
+  @apply prose-code:text-foreground prose-code:bg-accent prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded;
+  @apply prose-pre:bg-accent prose-pre:border prose-pre:border-border;
+  @apply prose-blockquote:border-l-primary prose-blockquote:bg-accent/30;
+  @apply prose-ul:text-muted-foreground prose-ol:text-muted-foreground;
+  @apply prose-li:text-muted-foreground;
+}
+
+.novel-editor .ProseMirror {
+  @apply focus:outline-none;
+}
