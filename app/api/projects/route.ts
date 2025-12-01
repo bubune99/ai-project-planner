@@ -32,7 +32,10 @@ export async function GET(request: NextRequest) {
         SELECT
           p.*,
           COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id), 0) as total_tasks,
-          COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'completed'), 0) as completed_tasks
+          COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'completed'), 0) as completed_tasks,
+          COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'in-progress'), 0) as in_progress_tasks,
+          COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'blocked'), 0) as blocked_tasks,
+          COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'pending'), 0) as pending_tasks
         FROM projects p
         WHERE p.status = ${status} AND (p.deleted_at IS NULL)
         ORDER BY p.updated_at DESC
@@ -43,7 +46,10 @@ export async function GET(request: NextRequest) {
         SELECT
           p.*,
           COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id), 0) as total_tasks,
-          COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'completed'), 0) as completed_tasks
+          COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'completed'), 0) as completed_tasks,
+          COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'in-progress'), 0) as in_progress_tasks,
+          COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'blocked'), 0) as blocked_tasks,
+          COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'pending'), 0) as pending_tasks
         FROM projects p
         WHERE p.deleted_at IS NULL
         ORDER BY p.updated_at DESC
