@@ -11,11 +11,15 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
 
-    console.log('[GET /api/projects] Starting request, status filter:', status)
+    console.log('='.repeat(80))
+    console.log('[API GET /api/projects] Starting request')
+    console.log('[API] Status filter:', status)
+    console.log('[API] Request URL:', request.url)
+    console.log('[API] DATABASE_URL configured:', !!process.env.DATABASE_URL)
 
     // Check if DATABASE_URL is configured
     if (!process.env.DATABASE_URL) {
-      console.error('[GET /api/projects] DATABASE_URL not configured')
+      console.error('[API] DATABASE_URL not configured')
       return errorResponse(
         ErrorCodes.INTERNAL_ERROR,
         'Database not configured',
@@ -27,7 +31,7 @@ export async function GET(request: NextRequest) {
     // Query projects directly
     let query
     if (status && status !== 'all') {
-      console.log('[GET /api/projects] Querying with status filter:', status)
+      console.log('[API] Querying with status filter:', status)
       query = await sql`
         SELECT
           p.*,
@@ -41,7 +45,7 @@ export async function GET(request: NextRequest) {
         ORDER BY p.updated_at DESC
       `
     } else {
-      console.log('[GET /api/projects] Querying all projects')
+      console.log('[API] Querying all projects')
       query = await sql`
         SELECT
           p.*,
@@ -57,18 +61,39 @@ export async function GET(request: NextRequest) {
     }
 
     const projects = query
-    console.log('[GET /api/projects] Successfully retrieved', projects.length, 'projects')
+    console.log('[API] Database query completed successfully')
+    console.log('[API] Retrieved', projects.length, 'projects')
 
-    return successResponse(projects, {
+    if (projects.length > 0) {
+      console.log('[API] First project sample:', JSON.stringify(projects[0], null, 2))
+      console.log('[API] First project fields:', Object.keys(projects[0]))
+    } else {
+      console.log('[API] No projects found in database')
+    }
+
+    const response = successResponse(projects, {
       total: projects.length
     })
-  } catch (error: any) {
-    console.error('[GET /api/projects] Error:', {
-      message: error.message,
-      code: error.code,
-      detail: error.detail,
-      stack: error.stack
+
+    console.log('[API] Response structure:', {
+      hasSuccess: 'success' in response,
+      hasData: 'data' in response,
+      dataIsArray: Array.isArray(response.data),
+      dataLength: response.data?.length
     })
+    console.log('[API] Returning response')
+    console.log('='.repeat(80))
+
+    return response
+  } catch (error: any) {
+    console.error('='.repeat(80))
+    console.error('[API ERROR] Exception caught in GET /api/projects')
+    console.error('[API ERROR] Error type:', error.constructor.name)
+    console.error('[API ERROR] Error message:', error.message)
+    console.error('[API ERROR] Error code:', error.code)
+    console.error('[API ERROR] Error detail:', error.detail)
+    console.error('[API ERROR] Error stack:', error.stack)
+    console.error('='.repeat(80))
     return errorResponse(
       ErrorCodes.DATABASE_ERROR,
       'Failed to get projects',

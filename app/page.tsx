@@ -46,13 +46,33 @@ export default function ProjectsPage() {
       const url = statusFilter === "all"
         ? "/api/projects"
         : `/api/projects?status=${statusFilter}`
+
+      console.log('[Frontend] Fetching projects from:', url)
+
       const response = await fetch(url)
+
+      console.log('[Frontend] Response status:', response.status, response.statusText)
+      console.log('[Frontend] Response headers:', Object.fromEntries(response.headers.entries()))
+
       if (!response.ok) {
-        throw new Error("Failed to fetch projects")
+        const errorText = await response.text()
+        console.error('[Frontend] Error response body:', errorText)
+        throw new Error(`Failed to fetch projects: ${response.status} ${response.statusText}`)
       }
+
       const data = await response.json()
+      console.log('[Frontend] Response data:', data)
+      console.log('[Frontend] Projects array:', data.data)
+      console.log('[Frontend] Number of projects:', data.data?.length || 0)
+
+      if (data.data && data.data.length > 0) {
+        console.log('[Frontend] First project sample:', data.data[0])
+      }
+
       setProjects(data.data || [])
+      console.log('[Frontend] State updated with projects')
     } catch (err) {
+      console.error('[Frontend] Fetch error:', err)
       setError(err instanceof Error ? err.message : "An error occurred")
     } finally {
       setLoading(false)
