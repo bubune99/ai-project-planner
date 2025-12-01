@@ -81,7 +81,7 @@ export async function GET(
       ORDER BY created_at DESC
     `
 
-    return NextResponse.json(successResponse({
+    return successResponse({
       project,
       steps,
       techStack,
@@ -89,13 +89,10 @@ export async function GET(
       currentPhase: currentPhase[0] || null,
       progressNotes,
       versions,
-    }))
+    })
   } catch (error: any) {
     console.error('Get project error:', error)
-    return NextResponse.json(
-      errorResponse('INTERNAL_ERROR', 'Failed to get project', 500, error.message),
-      { status: 500 }
-    )
+    return errorResponse('INTERNAL_ERROR', 'Failed to get project', 500, error.message)
   }
 }
 
