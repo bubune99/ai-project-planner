@@ -15,10 +15,13 @@ export async function GET(
 
     // Get project overview (querying table directly to bypass view issues)
     const projectResult = await sql`
-      SELECT 
+      SELECT
         p.*,
         (SELECT count(*) FROM project_steps ps WHERE ps.project_id = p.id AND ps.deleted_at IS NULL) as total_tasks,
         (SELECT count(*) FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'completed' AND ps.deleted_at IS NULL) as completed_tasks,
+        (SELECT count(*) FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'in-progress' AND ps.deleted_at IS NULL) as in_progress_tasks,
+        (SELECT count(*) FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'blocked' AND ps.deleted_at IS NULL) as blocked_tasks,
+        (SELECT count(*) FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'pending' AND ps.deleted_at IS NULL) as pending_tasks,
         (SELECT phase FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'in-progress' AND ps.deleted_at IS NULL ORDER BY order_index LIMIT 1) as current_phase_name,
         (SELECT jsonb_agg(ts.name ORDER BY ts.order_index) FROM tech_stack_items ts WHERE ts.project_id = p.id AND ts.deleted_at IS NULL) as tech_stack_names,
         (SELECT created_at FROM execution_history eh WHERE eh.project_id = p.id ORDER BY created_at DESC LIMIT 1) as last_activity
