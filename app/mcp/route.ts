@@ -458,7 +458,7 @@ const handler = createMcpHandler(
             title: doc.title,
             type: doc.s3_key ? 'file' : 'page',
             content: doc.content, // Will be null for files
-            url: doc.s3_key ?\`/api/documents/\${doc.id}/download\` : null,
+            url: doc.s3_key ? `/api/documents/${doc.id}/download` : null,
             metadata: doc.metadata
           }
 
