@@ -32,27 +32,6 @@ export function DocsView({ projectId }: DocsViewProps) {
   const [isLoading, setIsLoading] = useState(true)
 
   const fetchDocuments = async () => {
-    try {
-      setIsLoading(true)
-      const response = await fetch(`/api/projects/${projectId}/documents`)
-      if (!response.ok) throw new Error("Failed to fetch documents")
-
-      const data = await response.json()
-      setDocuments(data.documents || [])
-
-      // Separate chapters for the parent selector
-      const chapterList = data.documents.filter((doc: Document) => doc.doc_type === "chapter")
-      setChapters(chapterList)
-
-      // Set first document as active if none selected
-      if (!activeDoc && data.documents.length > 0) {
-        setActiveDoc(data.documents[0])
-      }
-    } catch (error) {
-      console.error("Error fetching documents:", error)
-    } finally {
-      setIsLoading(false)
-    }
   }
 
   useEffect(() => {

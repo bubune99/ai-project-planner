@@ -56,10 +56,17 @@ export default function ProjectDashboardPage() {
       setError(null)
       const response = await fetch(`/api/projects/${projectId}`)
       if (!response.ok) {
-        throw new Error("Failed to fetch project data")
+        const errorData = await response.json().catch(() => ({}))
+        console.error("API Error:", errorData)
+        const debugInfo = errorData.receivedId ? ` (ID: ${errorData.receivedId}, DB: ${errorData.dbUrl})` : ''
+        throw new Error((errorData.error || `Failed to fetch project data: ${response.status}`) + debugInfo)
       }
-      const data = await response.json()
-      setProjectData(data)
+      const json = await response.json()
+      if (json.success && json.data) {
+        setProjectData(json.data)
+      } else {
+        throw new Error(json.error?.message || "Failed to fetch project data")
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred")
     } finally {

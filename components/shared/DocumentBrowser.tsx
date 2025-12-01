@@ -39,7 +39,7 @@ export function DocumentBrowser({ projectId, open, onOpenChange, onDocumentSelec
       const response = await fetch(`/api/projects/${projectId}/documents`)
       if (response.ok) {
         const data = await response.json()
-        setDocuments(data.documents || [])
+        setDocuments(data.data || [])
       }
     } catch (error) {
       console.error('Error fetching documents:', error)
@@ -81,7 +81,7 @@ export function DocumentBrowser({ projectId, open, onOpenChange, onDocumentSelec
           <div className="flex items-center justify-between">
             <SheetTitle className="text-lg font-semibold">📄 Project Documents</SheetTitle>
             <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
-              
+
             </Button>
           </div>
 
@@ -98,9 +98,8 @@ export function DocumentBrowser({ projectId, open, onOpenChange, onDocumentSelec
 
             <div className="flex items-center gap-2 flex-wrap">
               <button
-                className={`px-3 py-1 text-xs rounded-full transition-colors ${
-                  !selectedTag ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"
-                }`}
+                className={`px-3 py-1 text-xs rounded-full transition-colors ${!selectedTag ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-accent"
+                  }`}
                 onClick={() => setSelectedTag(null)}
               >
                 All
@@ -108,11 +107,10 @@ export function DocumentBrowser({ projectId, open, onOpenChange, onDocumentSelec
               {allTags.slice(0, 5).map((tag) => (
                 <button
                   key={tag}
-                  className={`px-3 py-1 text-xs rounded-full transition-colors ${
-                    selectedTag === tag
+                  className={`px-3 py-1 text-xs rounded-full transition-colors ${selectedTag === tag
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted text-muted-foreground hover:bg-accent"
-                  }`}
+                    }`}
                   onClick={() => handleTagClick(tag)}
                 >
                   {tag}

@@ -62,7 +62,7 @@ export function DocumentGallery({ projectId }: DocumentGalleryProps) {
       }
 
       const data = await response.json()
-      setDocuments(data.documents || [])
+      setDocuments(data.data || [])
     } catch (error) {
       console.error("Failed to fetch documents:", error)
       setError(error instanceof Error ? error.message : 'An unexpected error occurred while fetching documents')

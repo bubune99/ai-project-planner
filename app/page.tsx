@@ -51,7 +51,7 @@ export default function ProjectsPage() {
         throw new Error("Failed to fetch projects")
       }
       const data = await response.json()
-      setProjects(data.projects || [])
+      setProjects(data.data || [])
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred")
     } finally {
@@ -81,7 +81,7 @@ export default function ProjectsPage() {
               <h1 className="text-3xl font-bold text-white mb-2">Mission Control</h1>
               <p className="text-muted-foreground">AI-powered project management dashboard</p>
             </div>
-            <Button 
+            <Button
               className="bg-blue-500 hover:bg-blue-600 text-white gap-2"
               onClick={() => setIsNewProjectModalOpen(true)}
             >

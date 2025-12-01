@@ -1,0 +1,30 @@
+ SELECT id,
+    name,
+    description,
+    status,
+    progress,
+    priority,
+    due_date,
+    start_date,
+    github_repo_url,
+    ( SELECT count(*) AS count
+           FROM project_steps ps
+          WHERE ((ps.project_id = p.id) AND (ps.deleted_at IS NULL))) AS total_tasks,
+    ( SELECT count(*) AS count
+           FROM project_steps ps
+          WHERE ((ps.project_id = p.id) AND (ps.status = 'completed'::text) AND (ps.deleted_at IS NULL))) AS completed_tasks,
+    ( SELECT ps.phase
+           FROM project_steps ps
+          WHERE ((ps.project_id = p.id) AND (ps.status = 'in-progress'::text) AND (ps.deleted_at IS NULL))
+          ORDER BY ps.order_index
+         LIMIT 1) AS current_phase,
+    ( SELECT jsonb_agg(ts.name ORDER BY ts.order_index) AS jsonb_agg
+           FROM tech_stack_items ts
+          WHERE ((ts.project_id = p.id) AND (ts.deleted_at IS NULL))) AS tech_stack,
+    ( SELECT eh.created_at
+           FROM execution_history eh
+          WHERE (eh.project_id = p.id)
+          ORDER BY eh.created_at DESC
+         LIMIT 1) AS last_activity
+   FROM projects p
+  WHERE (deleted_at IS NULL);

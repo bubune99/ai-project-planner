@@ -1,12 +1,16 @@
 #!/usr/bin/env tsx
 
-import { readdir, readFile } from 'fs/promises'
-import { join } from 'path'
-import { sql, pool } from '../lib/db/client'
 import dotenv from 'dotenv'
+import { join } from 'path'
+import { readdir, readFile } from 'fs/promises'
+import { createRequire } from 'module'
 
-// Load environment variables
+// Load environment variables before importing db client
 dotenv.config({ path: '.env.local' })
+dotenv.config({ path: '.env' })
+
+const require = createRequire(import.meta.url)
+const { sql, pool } = require('../lib/db/client')
 
 const MIGRATIONS_DIR = join(process.cwd(), 'lib', 'db', 'migrations')
 

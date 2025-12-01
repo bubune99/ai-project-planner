@@ -83,7 +83,7 @@ export function NewProjectModal({ open, onOpenChange, onProjectCreated }: NewPro
       }
 
       const data = await response.json()
-      const projectId = data.project.id
+      const projectId = data.data.id
 
       // Close modal and refresh projects list
       onOpenChange(false)

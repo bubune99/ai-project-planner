@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Editor } from "novel"
+// import { Editor } from "novel"
 
 interface NovelEditorProps {
   initialContent?: string
@@ -9,6 +9,7 @@ interface NovelEditorProps {
 }
 
 export function NovelEditor({ initialContent = "", onChange }: NovelEditorProps) {
+  /*
   const [content, setContent] = useState(initialContent)
 
   useEffect(() => {
@@ -37,4 +38,6 @@ export function NovelEditor({ initialContent = "", onChange }: NovelEditorProps)
       />
     </div>
   )
+  */
+  return <div className="p-4 border rounded">Editor temporarily disabled</div>
 }
