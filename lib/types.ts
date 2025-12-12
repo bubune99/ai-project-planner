@@ -6,6 +6,10 @@ export interface Project {
   priority: "low" | "medium" | "high" | "critical"
   progress: number
   current_phase?: string
+  phase?: string
+  techStack?: string[]
+  completed_tasks?: number
+  total_tasks?: number
   start_date?: string
   due_date?: string
   completed_date?: string

@@ -151,10 +151,11 @@ export default function ProjectDashboardPage() {
               <QuickActions actions={quickActions} />
               <RecentActivity activities={(progressNotes || []).map((note: any) => ({
                 id: note.id,
-                type: note.note_type,
-                message: note.title || note.content?.substring(0, 50) || 'No message',
-                timestamp: new Date(note.created_at).toLocaleString(),
+                type: note.note_type || 'update',
+                message: note.title || (note.content ? note.content.substring(0, 50) : '') || 'No message',
+                timestamp: note.created_at ? new Date(note.created_at).toLocaleString() : 'Unknown',
                 agent: note.author_type === 'agent' ? note.author : undefined,
+                icon: '📝',
               }))} />
             </div>
           )}

@@ -15,8 +15,8 @@ export function ProjectOverview({ project }: ProjectOverviewProps) {
     completed: "bg-purple-500/10 text-purple-500 border-purple-500/20",
   }
 
-  const status = project.status || 'planning'
-  const techStack = project.techStack || []
+  const status = (project?.status || 'planning') as keyof typeof statusColors
+  const techStack = project?.techStack || []
 
   return (
     <Card className="p-6 bg-card/50 backdrop-blur-sm border-border hover:shadow-lg transition-all duration-300">
@@ -24,9 +24,9 @@ export function ProjectOverview({ project }: ProjectOverviewProps) {
 
       <div className="space-y-4">
         <div>
-          <h4 className="text-2xl font-bold text-foreground mb-2">{project.name || 'Untitled Project'}</h4>
+          <h4 className="text-2xl font-bold text-foreground mb-2">{project?.name || 'Untitled Project'}</h4>
           <Badge className={`${statusColors[status] || statusColors.planning} border`}>
-            {status.replace("_", " ").toUpperCase()}
+            {(status || 'planning').replace("_", " ").toUpperCase()}
           </Badge>
         </div>
 
@@ -49,7 +49,7 @@ export function ProjectOverview({ project }: ProjectOverviewProps) {
           <div>
             <p className="text-sm text-muted-foreground mb-2">Tech Stack</p>
             <div className="flex flex-wrap gap-2">
-              {techStack.map((tech) => (
+              {techStack.map((tech: string) => (
                 <Badge key={tech} variant="secondary" className="text-xs">
                   {tech}
                 </Badge>
