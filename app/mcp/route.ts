@@ -256,8 +256,9 @@ const handler = createMcpHandler(
             FROM project_steps ps
             LEFT JOIN step_dependencies sd ON ps.id = sd.step_id
             WHERE ps.project_id = ${projectId}
+              AND ps.deleted_at IS NULL
             GROUP BY ps.id
-            ORDER BY ps.step_order
+            ORDER BY ps.order_index
           `
 
           return {
@@ -401,25 +402,43 @@ const handler = createMcpHandler(
       "List documents for a project, optionally filtered by type",
       {
         projectId: z.string().describe("The project ID"),
-        type: z.enum(['file', 'page']).optional().describe("Filter by document type (file=S3, page=Knowledge Base)"),
+        type: z.enum(['file', 'page']).optional().describe("Filter by document type (file=Blob storage, page=Knowledge Base)"),
       },
       async ({ projectId, type }) => {
         try {
-          let query = sql`
-            SELECT id, title, doc_type, category, created_at, updated_at,
-                   CASE WHEN s3_key IS NOT NULL THEN 'file' ELSE 'page' END as type
-            FROM documents
-            WHERE project_id = ${projectId}
-              AND deleted_at IS NULL
-          `
-
+          // Build query based on type filter
+          // Note: Using blob_key (Vercel Blob) instead of s3_key
+          let documents
           if (type === 'file') {
-            query = sql`${query} AND s3_key IS NOT NULL`
+            documents = await sql`
+              SELECT id, title, doc_type, category, created_at, updated_at,
+                     'file' as type
+              FROM documents
+              WHERE project_id = ${projectId}
+                AND deleted_at IS NULL
+                AND blob_key IS NOT NULL
+              ORDER BY created_at DESC
+            `
           } else if (type === 'page') {
-            query = sql`${query} AND s3_key IS NULL`
+            documents = await sql`
+              SELECT id, title, doc_type, category, created_at, updated_at,
+                     'page' as type
+              FROM documents
+              WHERE project_id = ${projectId}
+                AND deleted_at IS NULL
+                AND blob_key IS NULL
+              ORDER BY created_at DESC
+            `
+          } else {
+            documents = await sql`
+              SELECT id, title, doc_type, category, created_at, updated_at,
+                     CASE WHEN blob_key IS NOT NULL THEN 'file' ELSE 'page' END as type
+              FROM documents
+              WHERE project_id = ${projectId}
+                AND deleted_at IS NULL
+              ORDER BY created_at DESC
+            `
           }
-
-          const documents = await query
 
           return {
             content: [{
@@ -453,12 +472,13 @@ const handler = createMcpHandler(
 
           if (!doc) throw new Error('Document not found')
 
+          // Using blob_key/blob_url (Vercel Blob) instead of s3_key
           const result = {
             id: doc.id,
             title: doc.title,
-            type: doc.s3_key ? 'file' : 'page',
+            type: doc.blob_key ? 'file' : 'page',
             content: doc.content, // Will be null for files
-            url: doc.s3_key ? `/api/documents/${doc.id}/download` : null,
+            url: doc.blob_url || (doc.blob_key ? `/api/documents/${doc.id}/download` : null),
             metadata: doc.metadata
           }
 
@@ -491,16 +511,17 @@ const handler = createMcpHandler(
       },
       async ({ projectId, title, content, category }) => {
         try {
+          // Note: Using blob_key (Vercel Blob) instead of s3_key
           const [doc] = await sql`
             INSERT INTO documents(
               project_id, title, content, category,
-              doc_type, s3_key, file_type, file_size
+              doc_type, blob_key, file_type, file_size
             ) VALUES(
-              ${ projectId }, ${ title }, ${ content }, ${ category || 'general'},
-        'page', NULL, NULL, NULL
+              ${projectId}, ${title}, ${content}, ${category || 'general'},
+              'page', NULL, NULL, NULL
             )
-    RETURNING *
-      `
+            RETURNING *
+          `
 
           return {
             content: [{

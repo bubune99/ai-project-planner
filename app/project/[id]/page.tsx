@@ -194,7 +194,17 @@ export default function ProjectDashboardPage() {
           )}
         </main>
 
-        <AIAssistant activeTab={activeTab} selectedTask={selectedTask} selectedDocument={selectedDocument} />
+        <AIAssistant
+          activeTab={activeTab}
+          selectedTask={selectedTask}
+          selectedDocument={selectedDocument}
+          projectId={projectId}
+          onNavigateView={setActiveTab}
+          onOpenDocumentBrowser={() => setDocsOpen(true)}
+          onCloseDocumentBrowser={() => setDocsOpen(false)}
+          onSelectTask={setSelectedTask}
+          onSelectDocument={setSelectedDocument}
+        />
       </div>
 
       <DocumentBrowser projectId={projectId} open={docsOpen} onOpenChange={setDocsOpen} onDocumentSelect={setSelectedDocument} />
