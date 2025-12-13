@@ -75,13 +75,13 @@ const PurePreviewMessage = ({
         <div
           className={cn("flex flex-col", {
             "gap-2 md:gap-4": message.parts?.some(
-              (p) => p.type === "text" && p.text?.trim()
+              (p) => p.type === "text" && p.text && p.text.length > 0
             ),
             "min-h-96": message.role === "assistant" && requiresScrollPadding,
             "w-full":
               (message.role === "assistant" &&
                 message.parts?.some(
-                  (p) => p.type === "text" && p.text?.trim()
+                  (p) => p.type === "text" && p.text && p.text.length > 0
                 )) ||
               mode === "edit",
             "max-w-[calc(100%-2.5rem)] sm:max-w-[min(fit-content,80%)]":
@@ -110,7 +110,7 @@ const PurePreviewMessage = ({
             const { type } = part;
             const key = `message-${message.id}-part-${index}`;
 
-            if (type === "reasoning" && part.text?.trim().length > 0) {
+            if (type === "reasoning" && part.text && part.text.length > 0) {
               return (
                 <MessageReasoning
                   isLoading={isLoading}

@@ -28,11 +28,10 @@ export function PureMessageActions({
     return null;
   }
 
-  const textFromParts = message.parts
-    ?.filter((part) => part.type === "text" && part.text)
-    .map((part) => part.text)
-    .join("\n")
-    .trim() || '';
+  const textFromParts = (message.parts || [])
+    .filter((part) => part.type === "text" && part.text)
+    .map((part) => part.text || '')
+    .join("\n") || '';
 
   const handleCopy = async () => {
     if (!textFromParts) {
