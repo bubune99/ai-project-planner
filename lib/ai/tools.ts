@@ -434,7 +434,7 @@ export const updateTaskStatus = tool({
   description: "Update the status of a task",
   parameters: z.object({
     taskId: z.string().describe("The task ID"),
-    status: z.enum(["pending", "in-progress", "completed", "blocked"])
+    status: z.enum(["pending", "in-progress", "completed", "blocked", "paused", "failed"])
       .describe("New status"),
     progress: z.number().min(0).max(100).optional()
       .describe("Progress percentage (0-100)"),
@@ -654,12 +654,15 @@ export const createDocument = tool({
     title: z.string().describe("Document title"),
     content: z.string().describe("Document content (markdown)"),
     category: z.string().default("general").describe("Document category"),
+    docType: z.enum(["architecture", "api", "ui_ux", "requirements", "testing", "deployment", "general"])
+      .default("general")
+      .describe("Type of document"),
   }),
-  execute: async ({ projectId, title, content, category }) => {
+  execute: async ({ projectId, title, content, category, docType }) => {
     try {
       const [doc] = await sql`
-        INSERT INTO documents (project_id, title, content, category, doc_type)
-        VALUES (${projectId}, ${title}, ${content}, ${category}, 'page')
+        INSERT INTO documents (project_id, title, content, category, doc_type, file_type, file_size)
+        VALUES (${projectId}, ${title}, ${content}, ${category}, ${docType}, 'text/markdown', ${content.length})
         RETURNING *
       `;
 
@@ -683,8 +686,8 @@ export const addProgressNote = tool({
   parameters: z.object({
     projectId: z.string().describe("The project ID"),
     stepId: z.string().optional().describe("Associated step ID"),
-    noteType: z.enum(["milestone", "blocker", "decision", "update"])
-      .describe("Type of note"),
+    noteType: z.enum(["progress", "blocker", "question", "decision", "completion"])
+      .describe("Type of note: progress update, blocker, question, decision, or completion summary"),
     title: z.string().optional().describe("Note title"),
     content: z.string().describe("Note content"),
   }),
