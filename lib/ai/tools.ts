@@ -52,7 +52,9 @@ export const openDocumentBrowser = tool({
 
 export const closeDocumentBrowser = tool({
   description: "Close the document browser sidebar",
-  parameters: z.object({}),
+  parameters: z.object({
+    confirm: z.boolean().default(false).describe("Confirmation flag"),
+  }),
   execute: async () => {
     return {
       action: "close_document_browser",
@@ -206,7 +208,9 @@ export const showToast = tool({
 
 export const getCurrentContext = tool({
   description: "Get the current UI context including active view, selected items, and recent user interactions. Use this to understand what the user is looking at before responding.",
-  parameters: z.object({}),
+  parameters: z.object({
+    includeHistory: z.boolean().default(false).describe("Include recent interaction history"),
+  }),
   execute: async () => {
     // This returns a marker that the frontend will intercept and fill with actual context
     return {
@@ -721,7 +725,9 @@ export const addProgressNote = tool({
 
 export const listAgents = tool({
   description: "List all AI agents and their current status",
-  parameters: z.object({}),
+  parameters: z.object({
+    onlyActive: z.boolean().default(false).describe("Only show active agents"),
+  }),
   execute: async () => {
     try {
       const agents = await sql`

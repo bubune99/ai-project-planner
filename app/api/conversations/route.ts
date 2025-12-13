@@ -14,7 +14,9 @@ import {
   updateConversationTitle,
 } from "@/lib/ai/conversation-queries";
 
-const DEFAULT_USER_ID = "local-user";
+// Default user ID for local development (no auth)
+// Using a consistent UUID for the local development user
+const DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000001";
 
 /**
  * GET /api/conversations
