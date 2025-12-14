@@ -28,7 +28,7 @@ const PureSpreadsheetEditor = ({ content, saveContent }: SheetEditorProps) => {
     }
     const result = parse<string[]>(content, { skipEmptyLines: true });
 
-    const paddedData = result.data.map((row) => {
+    const paddedData = (result?.data ?? []).map((row) => {
       const paddedRow = [...row];
       while (paddedRow.length < MIN_COLS) {
         paddedRow.push("");

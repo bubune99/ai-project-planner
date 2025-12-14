@@ -8,22 +8,7 @@ import { ProjectCard } from "@/components/projects/ProjectCard"
 import { ProjectStats } from "@/components/projects/ProjectStats"
 import { NewProjectModal } from "@/components/projects/NewProjectModal"
 import { Search, Plus, LayoutGrid, List, Loader2 } from 'lucide-react'
-
-interface Project {
-  id: string
-  name: string
-  description: string
-  status: string
-  priority: string
-  progress: number
-  total_tasks: number
-  completed_tasks: number
-  in_progress_tasks: number
-  blocked_tasks: number
-  pending_tasks: number
-  created_at: string
-  updated_at: string
-}
+import type { ProjectSummary } from "@/lib/types"
 
 export default function ProjectsPage() {
   const router = useRouter()
@@ -31,7 +16,7 @@ export default function ProjectsPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false)
-  const [projects, setProjects] = useState<Project[]>([])
+  const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 

@@ -11,10 +11,11 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    const { id } = await Promise.resolve(params)
     const phases = await sql`
       SELECT *
       FROM project_phases
-      WHERE project_id = ${params.id}
+      WHERE project_id = ${id}
       ORDER BY started_at ASC
     `
 
@@ -41,6 +42,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    const { id } = await Promise.resolve(params)
     const body = await request.json()
     const { newPhase, completedBy, description } = body
 
@@ -55,7 +57,7 @@ export async function POST(
     // Use the database function to handle the transition logic safely
     const result = await sql`
       SELECT * FROM transition_to_phase(
-        ${params.id},
+        ${id},
         ${newPhase},
         ${completedBy},
         ${description || null}

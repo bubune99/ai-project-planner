@@ -1,6 +1,43 @@
 import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
+import type { ProjectSummary } from '@/lib/types'
+
+/**
+ * Transform database row to ProjectSummary format
+ * Converts snake_case to camelCase and adds computed fields
+ */
+function transformToProjectSummary(row: any): ProjectSummary {
+  const totalTasks = row.total_tasks || 0
+  const completedTasks = row.completed_tasks || 0
+  const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : (row.progress || 0)
+
+  // Compute health based on progress and blocked tasks
+  let health: 'excellent' | 'good' | 'attention' | 'critical' = 'good'
+  if (row.blocked_tasks > 2) {
+    health = 'critical'
+  } else if (row.blocked_tasks > 0) {
+    health = 'attention'
+  } else if (progress > 80) {
+    health = 'excellent'
+  }
+
+  return {
+    id: row.id,
+    name: row.name || 'Untitled Project',
+    description: row.description,
+    status: row.status?.replace('-', '_') || 'planning', // Convert 'in-progress' to 'in_progress'
+    phase: row.current_phase || row.phase,
+    progress,
+    techStack: row.metadata?.techStack || row.tech_stack || [],
+    startDate: row.start_date ? new Date(row.start_date) : undefined,
+    lastActivity: row.updated_at ? new Date(row.updated_at) : undefined,
+    totalTasks,
+    completedTasks,
+    activeAgents: row.in_progress_tasks || 0, // Use in-progress tasks as proxy for active agents
+    health,
+  }
+}
 
 /**
  * GET /api/projects
@@ -31,7 +68,9 @@ export async function GET(request: NextRequest) {
     // Query projects directly
     let query
     if (status && status !== 'all') {
-      console.log('[API] Querying with status filter:', status)
+      // Convert filter status from 'in-progress' format to DB format
+      const dbStatus = status.replace('_', '-')
+      console.log('[API] Querying with status filter:', dbStatus)
       query = await sql`
         SELECT
           p.*,
@@ -41,7 +80,7 @@ export async function GET(request: NextRequest) {
           COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'blocked'), 0) as blocked_tasks,
           COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'pending'), 0) as pending_tasks
         FROM projects p
-        WHERE p.status = ${status} AND (p.deleted_at IS NULL)
+        WHERE p.status = ${dbStatus} AND (p.deleted_at IS NULL)
         ORDER BY p.updated_at DESC
       `
     } else {
@@ -60,31 +99,30 @@ export async function GET(request: NextRequest) {
       `
     }
 
-    const projects = query
+    const rawProjects = query
     console.log('[API] Database query completed successfully')
-    console.log('[API] Retrieved', projects.length, 'projects')
+    console.log('[API] Retrieved', rawProjects.length, 'projects')
+
+    // Transform to ProjectSummary format for frontend
+    const projects = rawProjects.map(transformToProjectSummary)
 
     if (projects.length > 0) {
-      console.log('[API] First project sample:', JSON.stringify(projects[0], null, 2))
+      console.log('[API] First project sample (transformed):', JSON.stringify(projects[0], null, 2))
       console.log('[API] First project fields:', Object.keys(projects[0]))
     } else {
       console.log('[API] No projects found in database')
     }
 
-    const response = successResponse(projects, {
-      total: projects.length
-    })
-
     console.log('[API] Response structure:', {
-      hasSuccess: 'success' in response,
-      hasData: 'data' in response,
-      dataIsArray: Array.isArray(response.data),
-      dataLength: response.data?.length
+      projectCount: projects.length,
+      dataIsArray: Array.isArray(projects),
     })
     console.log('[API] Returning response')
     console.log('='.repeat(80))
 
-    return response
+    return successResponse(projects, {
+      total: projects.length
+    })
   } catch (error: any) {
     console.error('='.repeat(80))
     console.error('[API ERROR] Exception caught in GET /api/projects')

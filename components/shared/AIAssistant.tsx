@@ -407,7 +407,7 @@ export function AIAssistant({
           <Button
             type="submit"
             size="icon"
-            disabled={isLoading || !input.trim()}
+            disabled={isLoading || !input?.trim()}
             className="bg-blue-600 hover:bg-blue-700"
           >
             {isLoading ? (

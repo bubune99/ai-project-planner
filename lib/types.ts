@@ -19,6 +19,26 @@ export interface Project {
   updated_at: string
 }
 
+/**
+ * ProjectSummary - Used by dashboard UI components for project cards
+ * Uses camelCase field names for frontend consistency
+ */
+export interface ProjectSummary {
+  id: string
+  name: string
+  description?: string
+  status: "planning" | "in_progress" | "review" | "completed" | "on_hold"
+  phase?: string
+  progress: number
+  techStack?: string[]
+  startDate?: Date
+  lastActivity?: Date
+  totalTasks: number
+  completedTasks: number
+  activeAgents: number
+  health: "excellent" | "good" | "attention" | "critical"
+}
+
 export interface ProjectStep {
   id: string
   project_id: string
