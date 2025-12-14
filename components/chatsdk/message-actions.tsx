@@ -29,8 +29,8 @@ export function PureMessageActions({
   }
 
   const textFromParts = (message.parts || [])
-    .filter((part) => part.type === "text" && part.text)
-    .map((part) => part.text || '')
+    .filter((part): part is { type: "text"; text: string } => part.type === "text" && "text" in part && !!part.text)
+    .map((part) => part.text)
     .join("\n") || '';
 
   const handleCopy = async () => {

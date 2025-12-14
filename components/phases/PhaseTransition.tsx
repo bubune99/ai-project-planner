@@ -95,8 +95,9 @@ export function PhaseTransition({ projectId, currentPhase }: PhaseTransitionProp
     } finally {
       setLoading(false)
     }
+  }
 
-    const handleTransition = async () => {
+  const handleTransition = async () => {
       const currentIndex = PHASE_ORDER.indexOf(currentPhase as any)
       const nextPhase = PHASE_ORDER[currentIndex + 1]
 

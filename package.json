@@ -14,8 +14,9 @@
     "test:server": "curl -s http://localhost:3005/api/health | json_pp"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^2.0.54",
+    "@ai-sdk/anthropic": "^2.0.56",
     "@ai-sdk/react": "^2.0.112",
+    "@anthropic-ai/sdk": "^0.71.2",
     "@cfworker/json-schema": "latest",
     "@codemirror/lang-javascript": "^6.2.4",
     "@codemirror/lang-python": "^6.2.1",
@@ -60,7 +61,7 @@
     "@vercel/blob": "latest",
     "@vercel/postgres": "latest",
     "@xyflow/react": "latest",
-    "ai": "^5.0.110",
+    "ai": "^5.0.113",
     "autoprefixer": "^10.4.22",
     "class-variance-authority": "^0.7.1",
     "classnames": "^2.5.1",
@@ -108,7 +109,7 @@
     "tailwindcss-animate": "^1.0.7",
     "use-stick-to-bottom": "^1.1.1",
     "vaul": "^0.9.9",
-    "zod": "3.25.67"
+    "zod": "3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22",

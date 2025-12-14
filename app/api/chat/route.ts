@@ -15,7 +15,7 @@
  */
 
 import { anthropic } from "@ai-sdk/anthropic";
-import { streamText, type UIMessage } from "ai";
+import { streamText, stepCountIs, type UIMessage } from "ai";
 import { allTools } from "@/lib/ai/tools";
 import {
   getOrCreateConversation,
@@ -32,17 +32,30 @@ export const maxDuration = 60;
 const DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000001";
 
 /**
- * Extract text content from UIMessage parts
+ * Extract text content from UIMessage
+ * Supports BOTH formats for backward compatibility:
+ * - Chat SDK v3: parts: [{ type: 'text', text: '...' }]
+ * - Legacy: content: '...'
  */
 function getTextFromMessage(message: UIMessage): string {
-  if (!message.parts || message.parts.length === 0) {
-    return "";
+  if (!message) return "";
+
+  // Try Chat SDK v3 format first (parts array)
+  if (message.parts && message.parts.length > 0) {
+    const text = message.parts
+      .filter((part): part is { type: "text"; text: string } => part.type === "text" && !!part.text)
+      .map((part) => part.text || "")
+      .join("\n");
+    if (text) return text;
   }
-  return message.parts
-    .filter((part): part is { type: "text"; text: string } => part.type === "text")
-    .map((part) => part.text)
-    .join("\n")
-    .trim();
+
+  // Fall back to legacy content string format
+  const legacyMessage = message as UIMessage & { content?: string };
+  if (typeof legacyMessage.content === "string" && legacyMessage.content) {
+    return legacyMessage.content;
+  }
+
+  return "";
 }
 
 const systemPrompt = `You are an AI project planning assistant integrated into a project management dashboard.
@@ -162,7 +175,7 @@ export async function POST(request: Request) {
       system: enhancedSystemPrompt,
       messages: fullHistory,
       tools: allTools,
-      maxSteps: 5, // Allow multi-step tool execution
+      stopWhen: stepCountIs(10), // Allow up to 10 steps for multi-step tool execution (AI SDK v5 pattern)
       onFinish: async ({ text, toolCalls, toolResults }) => {
         // Step 7: Save assistant response after streaming
         try {
@@ -214,10 +227,11 @@ export async function POST(request: Request) {
 /**
  * Generate a conversation title from the first exchange
  */
-function generateTitle(userMessage: string, assistantResponse: string): string {
+function generateTitle(userMessage: string | undefined | null, assistantResponse: string): string {
   // Use the user's first message, truncated
   const maxLength = 50;
-  let title = userMessage.trim();
+  if (!userMessage) return "New Chat";
+  let title = userMessage;
 
   // Remove common prefixes
   title = title.replace(/^(hi|hello|hey|can you|please|i want to|i need to)\s+/i, "");

@@ -6,11 +6,17 @@
  * 2. Manage projects, tasks, phases, and documents
  * 3. Provide contextual feedback via highlights and focus
  * 4. Track user interactions via telemetry
+ *
+ * NOTE: Using inputSchema (not parameters) with explicit JSON schema due to
+ * AI SDK v5 bug where prepareToolsAndToolChoice expects inputSchema but tool()
+ * examples use parameters. Also using explicit JSON schema instead of Zod.
  */
 
-import { tool } from "ai";
-import { z } from "zod";
+import { tool, jsonSchema } from "ai";
 import { sql } from "@/lib/db/client";
+
+// Helper to create typed JSON schemas
+type JSONSchema = Parameters<typeof jsonSchema>[0];
 
 // =============================================================================
 // UI NAVIGATION TOOLS
@@ -19,11 +25,20 @@ import { sql } from "@/lib/db/client";
 
 export const navigateToView = tool({
   description: "Navigate the user to a specific view/tab in the project dashboard. Use this when the user asks to see a different view or when showing relevant information.",
-  parameters: z.object({
-    view: z.enum(["dashboard", "tree", "gantt", "kanban", "flow", "docs"])
-      .describe("The view to navigate to"),
-    reason: z.string().optional()
-      .describe("Brief explanation of why navigating (shown to user)"),
+  inputSchema: jsonSchema<{ view: string; reason?: string }>({
+    type: "object",
+    properties: {
+      view: {
+        type: "string",
+        enum: ["dashboard", "tree", "gantt", "kanban", "flow", "docs"],
+        description: "The view to navigate to"
+      },
+      reason: {
+        type: "string",
+        description: "Brief explanation of why navigating (shown to user)"
+      }
+    },
+    required: ["view"]
   }),
   execute: async ({ view, reason }) => {
     return {
@@ -37,9 +52,15 @@ export const navigateToView = tool({
 
 export const openDocumentBrowser = tool({
   description: "Open the document browser sidebar to show project documents",
-  parameters: z.object({
-    filter: z.string().optional()
-      .describe("Optional filter/search term for documents"),
+  inputSchema: jsonSchema<{ filter?: string }>({
+    type: "object",
+    properties: {
+      filter: {
+        type: "string",
+        description: "Optional filter/search term for documents",
+        default: ""
+      }
+    }
   }),
   execute: async ({ filter }) => {
     return {
@@ -52,8 +73,15 @@ export const openDocumentBrowser = tool({
 
 export const closeDocumentBrowser = tool({
   description: "Close the document browser sidebar",
-  parameters: z.object({
-    confirm: z.boolean().default(false).describe("Confirmation flag"),
+  inputSchema: jsonSchema<{ confirm?: boolean }>({
+    type: "object",
+    properties: {
+      confirm: {
+        type: "boolean",
+        description: "Confirmation flag",
+        default: false
+      }
+    }
   }),
   execute: async () => {
     return {
@@ -70,13 +98,15 @@ export const closeDocumentBrowser = tool({
 
 export const selectTask = tool({
   description: "Select and highlight a specific task in the current view. The task will be highlighted and its details shown.",
-  parameters: z.object({
-    taskId: z.string().describe("The ID of the task to select"),
-    scrollTo: z.boolean().default(true)
-      .describe("Whether to scroll the view to show the task"),
+  inputSchema: jsonSchema<{ taskId: string; scrollTo?: boolean }>({
+    type: "object",
+    properties: {
+      taskId: { type: "string", description: "The ID of the task to select" },
+      scrollTo: { type: "boolean", description: "Whether to scroll the view to show the task", default: true }
+    },
+    required: ["taskId"]
   }),
-  execute: async ({ taskId, scrollTo }) => {
-    // Fetch task details from database
+  execute: async ({ taskId, scrollTo = true }) => {
     try {
       const [task] = await sql`
         SELECT id, title, status, phase, assigned_agent
@@ -108,8 +138,12 @@ export const selectTask = tool({
 
 export const selectDocument = tool({
   description: "Select and highlight a specific document. Opens the document viewer with this document.",
-  parameters: z.object({
-    documentId: z.string().describe("The ID of the document to select"),
+  inputSchema: jsonSchema<{ documentId: string }>({
+    type: "object",
+    properties: {
+      documentId: { type: "string", description: "The ID of the document to select" }
+    },
+    required: ["documentId"]
   }),
   execute: async ({ documentId }) => {
     try {
@@ -137,19 +171,35 @@ export const selectDocument = tool({
 
 export const highlightElements = tool({
   description: "Highlight multiple elements in the UI to draw attention. Use for showing related items, dependencies, or search results.",
-  parameters: z.object({
-    elementIds: z.array(z.string())
-      .describe("Array of element IDs to highlight"),
-    highlightType: z.enum(["pulse", "glow", "border", "shake"])
-      .default("glow")
-      .describe("Type of highlight animation"),
-    duration: z.number().default(3000)
-      .describe("Duration of highlight in milliseconds"),
-    color: z.enum(["blue", "green", "yellow", "red", "purple"])
-      .default("blue")
-      .describe("Color of the highlight"),
+  inputSchema: jsonSchema<{ elementIds: string[]; highlightType?: string; duration?: number; color?: string }>({
+    type: "object",
+    properties: {
+      elementIds: {
+        type: "array",
+        items: { type: "string" },
+        description: "Array of element IDs to highlight"
+      },
+      highlightType: {
+        type: "string",
+        enum: ["pulse", "glow", "border", "shake"],
+        description: "Type of highlight animation",
+        default: "glow"
+      },
+      duration: {
+        type: "number",
+        description: "Duration of highlight in milliseconds",
+        default: 3000
+      },
+      color: {
+        type: "string",
+        enum: ["blue", "green", "yellow", "red", "purple"],
+        description: "Color of the highlight",
+        default: "blue"
+      }
+    },
+    required: ["elementIds"]
   }),
-  execute: async ({ elementIds, highlightType, duration, color }) => {
+  execute: async ({ elementIds, highlightType = "glow", duration = 3000, color = "blue" }) => {
     return {
       action: "highlight_elements",
       elementIds,
@@ -163,12 +213,20 @@ export const highlightElements = tool({
 
 export const scrollToElement = tool({
   description: "Scroll the view to bring a specific element into view",
-  parameters: z.object({
-    elementId: z.string().describe("ID of the element to scroll to"),
-    position: z.enum(["start", "center", "end"]).default("center")
-      .describe("Where to position the element after scrolling"),
+  inputSchema: jsonSchema<{ elementId: string; position?: string }>({
+    type: "object",
+    properties: {
+      elementId: { type: "string", description: "ID of the element to scroll to" },
+      position: {
+        type: "string",
+        enum: ["start", "center", "end"],
+        description: "Where to position the element after scrolling",
+        default: "center"
+      }
+    },
+    required: ["elementId"]
   }),
-  execute: async ({ elementId, position }) => {
+  execute: async ({ elementId, position = "center" }) => {
     return {
       action: "scroll_to_element",
       elementId,
@@ -180,16 +238,26 @@ export const scrollToElement = tool({
 
 export const showToast = tool({
   description: "Show a toast notification to the user",
-  parameters: z.object({
-    title: z.string().describe("Toast title"),
-    description: z.string().optional().describe("Toast description"),
-    type: z.enum(["default", "success", "error", "warning", "info"])
-      .default("default")
-      .describe("Type of toast notification"),
-    duration: z.number().default(5000)
-      .describe("Duration in milliseconds"),
+  inputSchema: jsonSchema<{ title: string; description?: string; type?: string; duration?: number }>({
+    type: "object",
+    properties: {
+      title: { type: "string", description: "Toast title" },
+      description: { type: "string", description: "Toast description" },
+      type: {
+        type: "string",
+        enum: ["default", "success", "error", "warning", "info"],
+        description: "Type of toast notification",
+        default: "default"
+      },
+      duration: {
+        type: "number",
+        description: "Duration in milliseconds",
+        default: 5000
+      }
+    },
+    required: ["title"]
   }),
-  execute: async ({ title, description, type, duration }) => {
+  execute: async ({ title, description, type = "default", duration = 5000 }) => {
     return {
       action: "show_toast",
       title,
@@ -208,11 +276,17 @@ export const showToast = tool({
 
 export const getCurrentContext = tool({
   description: "Get the current UI context including active view, selected items, and recent user interactions. Use this to understand what the user is looking at before responding.",
-  parameters: z.object({
-    includeHistory: z.boolean().default(false).describe("Include recent interaction history"),
+  inputSchema: jsonSchema<{ includeHistory?: boolean }>({
+    type: "object",
+    properties: {
+      includeHistory: {
+        type: "boolean",
+        description: "Include recent interaction history",
+        default: false
+      }
+    }
   }),
   execute: async () => {
-    // This returns a marker that the frontend will intercept and fill with actual context
     return {
       action: "get_context",
       message: "Fetching current UI context",
@@ -222,11 +296,20 @@ export const getCurrentContext = tool({
 
 export const trackUserFocus = tool({
   description: "Record where the user's attention is currently focused for context-aware responses",
-  parameters: z.object({
-    focusArea: z.enum(["task", "document", "phase", "timeline", "board", "flow"])
-      .describe("The area where user is focused"),
-    itemId: z.string().optional()
-      .describe("ID of the specific item being focused on"),
+  inputSchema: jsonSchema<{ focusArea: string; itemId?: string }>({
+    type: "object",
+    properties: {
+      focusArea: {
+        type: "string",
+        enum: ["task", "document", "phase", "timeline", "board", "flow"],
+        description: "The area where user is focused"
+      },
+      itemId: {
+        type: "string",
+        description: "ID of the specific item being focused on"
+      }
+    },
+    required: ["focusArea"]
   }),
   execute: async ({ focusArea, itemId }) => {
     return {
@@ -245,12 +328,18 @@ export const trackUserFocus = tool({
 
 export const listProjects = tool({
   description: "List all projects in the system",
-  parameters: z.object({
-    status: z.enum(["all", "planning", "in-progress", "completed", "on-hold"])
-      .default("all")
-      .describe("Filter by project status"),
+  inputSchema: jsonSchema<{ status?: string }>({
+    type: "object",
+    properties: {
+      status: {
+        type: "string",
+        enum: ["all", "planning", "in-progress", "completed", "on-hold"],
+        description: "Filter by project status",
+        default: "all"
+      }
+    }
   }),
-  execute: async ({ status }) => {
+  execute: async ({ status = "all" }) => {
     try {
       const projects = status === "all"
         ? await sql`SELECT id, name, description, status, current_phase, progress FROM projects ORDER BY created_at DESC`
@@ -270,8 +359,12 @@ export const listProjects = tool({
 
 export const getProjectContext = tool({
   description: "Get full context for a specific project including business context, current phase, and statistics",
-  parameters: z.object({
-    projectId: z.string().describe("The project ID"),
+  inputSchema: jsonSchema<{ projectId: string }>({
+    type: "object",
+    properties: {
+      projectId: { type: "string", description: "The project ID" }
+    },
+    required: ["projectId"]
   }),
   execute: async ({ projectId }) => {
     try {
@@ -301,11 +394,15 @@ export const getProjectContext = tool({
 
 export const createProject = tool({
   description: "Create a new project",
-  parameters: z.object({
-    name: z.string().describe("Project name"),
-    description: z.string().describe("Project description"),
-    vision: z.string().optional().describe("Project vision"),
-    targetMarket: z.string().optional().describe("Target market"),
+  inputSchema: jsonSchema<{ name: string; description: string; vision?: string; targetMarket?: string }>({
+    type: "object",
+    properties: {
+      name: { type: "string", description: "Project name" },
+      description: { type: "string", description: "Project description" },
+      vision: { type: "string", description: "Project vision" },
+      targetMarket: { type: "string", description: "Target market" }
+    },
+    required: ["name", "description"]
   }),
   execute: async ({ name, description, vision, targetMarket }) => {
     try {
@@ -344,15 +441,21 @@ export const createProject = tool({
 
 export const getProjectTasks = tool({
   description: "Get all tasks for a project with status and assignment info",
-  parameters: z.object({
-    projectId: z.string().describe("The project ID"),
-    status: z.enum(["all", "pending", "in-progress", "completed", "blocked"])
-      .default("all")
-      .describe("Filter by task status"),
-    phase: z.string().optional()
-      .describe("Filter by phase"),
+  inputSchema: jsonSchema<{ projectId: string; status?: string; phase?: string }>({
+    type: "object",
+    properties: {
+      projectId: { type: "string", description: "The project ID" },
+      status: {
+        type: "string",
+        enum: ["all", "pending", "in-progress", "completed", "blocked"],
+        description: "Filter by task status",
+        default: "all"
+      },
+      phase: { type: "string", description: "Filter by phase" }
+    },
+    required: ["projectId"]
   }),
-  execute: async ({ projectId, status, phase }) => {
+  execute: async ({ projectId, status = "all", phase }) => {
     try {
       let tasks;
       if (status === "all" && !phase) {
@@ -394,18 +497,24 @@ export const getProjectTasks = tool({
 
 export const createTask = tool({
   description: "Create a new task/step in a project",
-  parameters: z.object({
-    projectId: z.string().describe("The project ID"),
-    title: z.string().describe("Task title"),
-    description: z.string().describe("Task description"),
-    phase: z.string().describe("Phase this task belongs to"),
-    estimatedHours: z.number().optional().describe("Estimated hours"),
-    assignedAgent: z.enum(["v0", "claude", "gemini", "gpt"]).optional()
-      .describe("Agent to assign"),
+  inputSchema: jsonSchema<{ projectId: string; title: string; description: string; phase: string; estimatedHours?: number; assignedAgent?: string }>({
+    type: "object",
+    properties: {
+      projectId: { type: "string", description: "The project ID" },
+      title: { type: "string", description: "Task title" },
+      description: { type: "string", description: "Task description" },
+      phase: { type: "string", description: "Phase this task belongs to" },
+      estimatedHours: { type: "number", description: "Estimated hours" },
+      assignedAgent: {
+        type: "string",
+        enum: ["v0", "claude", "gemini", "gpt"],
+        description: "Agent to assign"
+      }
+    },
+    required: ["projectId", "title", "description", "phase"]
   }),
   execute: async ({ projectId, title, description, phase, estimatedHours, assignedAgent }) => {
     try {
-      // Get max order_index for the phase
       const [maxOrder] = await sql`
         SELECT COALESCE(MAX(order_index), 0) as max_order
         FROM project_steps
@@ -436,12 +545,23 @@ export const createTask = tool({
 
 export const updateTaskStatus = tool({
   description: "Update the status of a task",
-  parameters: z.object({
-    taskId: z.string().describe("The task ID"),
-    status: z.enum(["pending", "in-progress", "completed", "blocked", "paused", "failed"])
-      .describe("New status"),
-    progress: z.number().min(0).max(100).optional()
-      .describe("Progress percentage (0-100)"),
+  inputSchema: jsonSchema<{ taskId: string; status: string; progress?: number }>({
+    type: "object",
+    properties: {
+      taskId: { type: "string", description: "The task ID" },
+      status: {
+        type: "string",
+        enum: ["pending", "in-progress", "completed", "blocked", "paused", "failed"],
+        description: "New status"
+      },
+      progress: {
+        type: "number",
+        minimum: 0,
+        maximum: 100,
+        description: "Progress percentage (0-100)"
+      }
+    },
+    required: ["taskId", "status"]
   }),
   execute: async ({ taskId, status, progress }) => {
     try {
@@ -471,10 +591,17 @@ export const updateTaskStatus = tool({
 
 export const assignTask = tool({
   description: "Assign a task to an AI agent",
-  parameters: z.object({
-    taskId: z.string().describe("The task ID"),
-    agentName: z.enum(["v0", "claude", "gemini", "gpt"])
-      .describe("Agent to assign"),
+  inputSchema: jsonSchema<{ taskId: string; agentName: string }>({
+    type: "object",
+    properties: {
+      taskId: { type: "string", description: "The task ID" },
+      agentName: {
+        type: "string",
+        enum: ["v0", "claude", "gemini", "gpt"],
+        description: "Agent to assign"
+      }
+    },
+    required: ["taskId", "agentName"]
   }),
   execute: async ({ taskId, agentName }) => {
     try {
@@ -491,7 +618,6 @@ export const assignTask = tool({
         return { error: "Task not found" };
       }
 
-      // Update agent status
       await sql`
         UPDATE agents
         SET status = 'working', current_task_id = ${taskId}, last_active_at = NOW()
@@ -516,8 +642,12 @@ export const assignTask = tool({
 
 export const listPhases = tool({
   description: "List all phases for a project",
-  parameters: z.object({
-    projectId: z.string().describe("The project ID"),
+  inputSchema: jsonSchema<{ projectId: string }>({
+    type: "object",
+    properties: {
+      projectId: { type: "string", description: "The project ID" }
+    },
+    required: ["projectId"]
   }),
   execute: async ({ projectId }) => {
     try {
@@ -541,29 +671,33 @@ export const listPhases = tool({
 
 export const transitionPhase = tool({
   description: "Transition a project to a new phase",
-  parameters: z.object({
-    projectId: z.string().describe("The project ID"),
-    newPhase: z.enum(["ideation", "architecture", "construction", "testing", "deployment", "maintenance"])
-      .describe("The new phase"),
-    reason: z.string().describe("Reason for the transition"),
+  inputSchema: jsonSchema<{ projectId: string; newPhase: string; reason: string }>({
+    type: "object",
+    properties: {
+      projectId: { type: "string", description: "The project ID" },
+      newPhase: {
+        type: "string",
+        enum: ["ideation", "architecture", "construction", "testing", "deployment", "maintenance"],
+        description: "The new phase"
+      },
+      reason: { type: "string", description: "Reason for the transition" }
+    },
+    required: ["projectId", "newPhase", "reason"]
   }),
   execute: async ({ projectId, newPhase, reason }) => {
     try {
-      // Complete current phase
       await sql`
         UPDATE project_phases
         SET status = 'completed', completed_at = NOW()
         WHERE project_id = ${projectId} AND status = 'active'
       `;
 
-      // Create new phase
       const [phase] = await sql`
         INSERT INTO project_phases (project_id, phase_name, status, description)
         VALUES (${projectId}, ${newPhase}, 'active', ${reason})
         RETURNING *
       `;
 
-      // Update project current phase
       await sql`
         UPDATE projects
         SET current_phase = ${newPhase}, updated_at = NOW()
@@ -587,9 +721,13 @@ export const transitionPhase = tool({
 
 export const listDocuments = tool({
   description: "List documents for a project",
-  parameters: z.object({
-    projectId: z.string().describe("The project ID"),
-    category: z.string().optional().describe("Filter by category"),
+  inputSchema: jsonSchema<{ projectId: string; category?: string }>({
+    type: "object",
+    properties: {
+      projectId: { type: "string", description: "The project ID" },
+      category: { type: "string", description: "Filter by category" }
+    },
+    required: ["projectId"]
   }),
   execute: async ({ projectId, category }) => {
     try {
@@ -621,8 +759,12 @@ export const listDocuments = tool({
 
 export const readDocument = tool({
   description: "Read the content of a document",
-  parameters: z.object({
-    documentId: z.string().describe("The document ID"),
+  inputSchema: jsonSchema<{ documentId: string }>({
+    type: "object",
+    properties: {
+      documentId: { type: "string", description: "The document ID" }
+    },
+    required: ["documentId"]
   }),
   execute: async ({ documentId }) => {
     try {
@@ -653,16 +795,23 @@ export const readDocument = tool({
 
 export const createDocument = tool({
   description: "Create a new knowledge base document",
-  parameters: z.object({
-    projectId: z.string().describe("The project ID"),
-    title: z.string().describe("Document title"),
-    content: z.string().describe("Document content (markdown)"),
-    category: z.string().default("general").describe("Document category"),
-    docType: z.enum(["architecture", "api", "ui_ux", "requirements", "testing", "deployment", "general"])
-      .default("general")
-      .describe("Type of document"),
+  inputSchema: jsonSchema<{ projectId: string; title: string; content: string; category?: string; docType?: string }>({
+    type: "object",
+    properties: {
+      projectId: { type: "string", description: "The project ID" },
+      title: { type: "string", description: "Document title" },
+      content: { type: "string", description: "Document content (markdown)" },
+      category: { type: "string", description: "Document category", default: "general" },
+      docType: {
+        type: "string",
+        enum: ["architecture", "api", "ui_ux", "requirements", "testing", "deployment", "general"],
+        description: "Type of document",
+        default: "general"
+      }
+    },
+    required: ["projectId", "title", "content"]
   }),
-  execute: async ({ projectId, title, content, category, docType }) => {
+  execute: async ({ projectId, title, content, category = "general", docType = "general" }) => {
     try {
       const [doc] = await sql`
         INSERT INTO documents (project_id, title, content, category, doc_type, file_type, file_size)
@@ -687,13 +836,20 @@ export const createDocument = tool({
 
 export const addProgressNote = tool({
   description: "Add a progress note to track development progress",
-  parameters: z.object({
-    projectId: z.string().describe("The project ID"),
-    stepId: z.string().optional().describe("Associated step ID"),
-    noteType: z.enum(["progress", "blocker", "question", "decision", "completion"])
-      .describe("Type of note: progress update, blocker, question, decision, or completion summary"),
-    title: z.string().optional().describe("Note title"),
-    content: z.string().describe("Note content"),
+  inputSchema: jsonSchema<{ projectId: string; noteType: string; content: string; stepId?: string; title?: string }>({
+    type: "object",
+    properties: {
+      projectId: { type: "string", description: "The project ID" },
+      stepId: { type: "string", description: "Associated step ID" },
+      noteType: {
+        type: "string",
+        enum: ["progress", "blocker", "question", "decision", "completion"],
+        description: "Type of note: progress update, blocker, question, decision, or completion summary"
+      },
+      title: { type: "string", description: "Note title" },
+      content: { type: "string", description: "Note content" }
+    },
+    required: ["projectId", "noteType", "content"]
   }),
   execute: async ({ projectId, stepId, noteType, title, content }) => {
     try {
@@ -725,8 +881,15 @@ export const addProgressNote = tool({
 
 export const listAgents = tool({
   description: "List all AI agents and their current status",
-  parameters: z.object({
-    onlyActive: z.boolean().default(false).describe("Only show active agents"),
+  inputSchema: jsonSchema<{ onlyActive?: boolean }>({
+    type: "object",
+    properties: {
+      onlyActive: {
+        type: "boolean",
+        description: "Only show active agents",
+        default: false
+      }
+    }
   }),
   execute: async () => {
     try {

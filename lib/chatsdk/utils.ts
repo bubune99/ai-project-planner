@@ -99,10 +99,11 @@ export function sanitizeText(text: string | undefined | null): string {
 }
 
 export function convertToUIMessages(messages: DBMessage[]): ChatMessage[] {
+  if (!messages) return [];
   return messages.map((message) => ({
     id: message.id,
     role: message.role as 'user' | 'assistant' | 'system',
-    parts: message.parts as UIMessagePart<CustomUIDataTypes, ChatTools>[],
+    parts: (message.parts || []) as UIMessagePart<CustomUIDataTypes, ChatTools>[],
     metadata: {
       createdAt: formatISO(message.createdAt),
     },
@@ -110,8 +111,9 @@ export function convertToUIMessages(messages: DBMessage[]): ChatMessage[] {
 }
 
 export function getTextFromMessage(message: ChatMessage): string {
-  return message.parts
-    .filter((part) => part.type === 'text')
-    .map((part) => part.text)
+  if (!message || !message.parts) return '';
+  return (message.parts || [])
+    .filter((part) => part.type === 'text' && part.text)
+    .map((part) => part.text || '')
     .join('');
 }
