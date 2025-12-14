@@ -112,9 +112,10 @@ export function ProjectCard({ project, onSelect }: ProjectCardProps) {
   )
 }
 
-function getTimeSince(date: Date): string {
+function getTimeSince(date: Date | string): string {
   const now = new Date()
-  const diff = now.getTime() - date.getTime()
+  const dateObj = typeof date === 'string' ? new Date(date) : date
+  const diff = now.getTime() - dateObj.getTime()
   const minutes = Math.floor(diff / 60000)
   const hours = Math.floor(minutes / 60)
   const days = Math.floor(hours / 24)
