@@ -2,7 +2,7 @@
 
 import type { Session } from "@/lib/chatsdk/auth-types";
 import { startTransition, useMemo, useOptimistic, useState } from "react";
-import { saveChatModelAsCookie } from "@/app/(chat)/actions";
+import { saveChatModelAsCookie } from "@/app/chat/actions";
 import { Button } from "@/components/chatsdk/ui/button";
 import {
   DropdownMenu,
@@ -27,11 +27,11 @@ export function ModelSelector({
   const [optimisticModelId, setOptimisticModelId] =
     useOptimistic(selectedModelId);
 
-  const userType = session.user.type;
-  const { availableChatModelIds } = entitlementsByUserType[userType];
+  const userType = session.user.type ?? "regular";
+  const { allowedModels } = entitlementsByUserType[userType];
 
   const availableChatModels = chatModels.filter((chatModel) =>
-    availableChatModelIds.includes(chatModel.id)
+    allowedModels.includes(chatModel.id)
   );
 
   const selectedChatModel = useMemo(

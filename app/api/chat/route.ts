@@ -22,6 +22,8 @@ import {
   saveMessage,
   getRecentMessages,
   updateConversationTitle,
+  deleteConversation,
+  getConversation,
 } from "@/lib/ai/conversation-queries";
 import { sessionCache } from "@/lib/ai/session-cache";
 
@@ -245,4 +247,48 @@ function generateTitle(userMessage: string | undefined | null, assistantResponse
   }
 
   return title || "New Chat";
+}
+
+/**
+ * DELETE /api/chat?id={conversationId}
+ * Deletes a specific conversation
+ */
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const conversationId = searchParams.get("id");
+
+    if (!conversationId) {
+      return new Response(
+        JSON.stringify({ error: "Conversation ID required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Verify conversation exists
+    const conversation = await getConversation(conversationId);
+    if (!conversation) {
+      return new Response(
+        JSON.stringify({ error: "Conversation not found" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Delete the conversation
+    await deleteConversation(conversationId);
+
+    return new Response(
+      JSON.stringify({ success: true, deletedId: conversationId }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("[Chat] DELETE error:", error);
+    return new Response(
+      JSON.stringify({
+        error: "Failed to delete conversation",
+        details: error instanceof Error ? error.message : "Unknown error",
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
 }

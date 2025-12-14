@@ -31,6 +31,13 @@ interface AIAssistantProps {
   onSelectDocument?: (doc: any) => void
 }
 
+const WELCOME_MESSAGE: Message = {
+  id: "welcome",
+  role: "assistant",
+  content:
+    "Hello! I'm your AI project planning assistant. I can help you navigate views, manage tasks, track progress, and more. What would you like to do?",
+}
+
 export function AIAssistant({
   activeTab = "dashboard",
   selectedTask,
@@ -44,8 +51,12 @@ export function AIAssistant({
 }: AIAssistantProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [suggestions, setSuggestions] = useState<string[]>([])
+  const [loadedMessages, setLoadedMessages] = useState<Message[]>([WELCOME_MESSAGE])
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const [conversationId, setConversationId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const processedToolCallsRef = useRef<Set<string>>(new Set())
+  const hasLoadedHistory = useRef(false)
 
   // Build context object to send with each message
   const context = {
@@ -55,18 +66,85 @@ export function AIAssistant({
     projectId,
   }
 
-  const { messages, input, setInput, handleSubmit, isLoading, append } = useChat({
+  // Load conversation history when projectId changes
+  useEffect(() => {
+    if (!projectId || hasLoadedHistory.current) return
+
+    const loadConversationHistory = async () => {
+      setIsLoadingHistory(true)
+      try {
+        // Find existing conversation for this project
+        const response = await fetch(
+          `/api/conversations?contextType=project&contextId=${projectId}&includeMessages=false`
+        )
+
+        if (response.ok) {
+          const data = await response.json()
+          const conversations = data.conversations || []
+
+          if (conversations.length > 0) {
+            // Load messages from the most recent conversation
+            const conv = conversations[0]
+            setConversationId(conv.id)
+
+            const messagesResponse = await fetch(
+              `/api/conversations/${conv.id}/messages`
+            )
+
+            if (messagesResponse.ok) {
+              const messagesData = await messagesResponse.json()
+              const fetchedMessages = messagesData.messages || []
+
+              if (fetchedMessages.length > 0) {
+                // Transform messages to the format expected by useChat
+                const transformedMessages: Message[] = fetchedMessages.map((msg: any) => {
+                  const baseMsg: Message = {
+                    id: msg.id,
+                    role: msg.role as "user" | "assistant" | "system",
+                    content: msg.content || "",
+                  }
+
+                  // Include toolInvocations if present
+                  if (msg.toolInvocations && msg.toolInvocations.length > 0) {
+                    (baseMsg as any).toolInvocations = msg.toolInvocations
+                  }
+
+                  // Include parts if present (for AI SDK v5 compatibility)
+                  if (msg.parts && msg.parts.length > 0) {
+                    (baseMsg as any).parts = msg.parts
+                  }
+
+                  return baseMsg
+                })
+                setLoadedMessages(transformedMessages)
+                console.log(`[AIAssistant] Loaded ${transformedMessages.length} messages from conversation ${conv.id}`)
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error("[AIAssistant] Failed to load conversation history:", error)
+      } finally {
+        setIsLoadingHistory(false)
+        hasLoadedHistory.current = true
+      }
+    }
+
+    loadConversationHistory()
+  }, [projectId])
+
+  const { messages, input, setInput, handleSubmit, isLoading, append, setMessages } = useChat({
     api: "/api/chat",
-    body: { context }, // Send context with each request
-    initialMessages: [
-      {
-        id: "welcome",
-        role: "assistant",
-        content:
-          "Hello! I'm your AI project planning assistant. I can help you navigate views, manage tasks, track progress, and more. What would you like to do?",
-      },
-    ],
+    body: { context, conversationId }, // Send context and conversationId with each request
+    initialMessages: loadedMessages,
   })
+
+  // Update messages when loadedMessages changes (after loading history)
+  useEffect(() => {
+    if (loadedMessages.length > 1 || loadedMessages[0]?.id !== "welcome") {
+      setMessages(loadedMessages)
+    }
+  }, [loadedMessages, setMessages])
 
   // UI Action handlers to process tool results
   const uiActionHandlers: UIActionHandlers = {
@@ -330,6 +408,12 @@ export function AIAssistant({
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {isLoadingHistory && (
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-accent/50 border border-border/30">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-sm text-muted-foreground">Loading conversation history...</span>
+          </div>
+        )}
         {messages.map((message) => (
           <div key={message.id}>
             <div

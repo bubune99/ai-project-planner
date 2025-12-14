@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useParams, useRouter } from 'next/navigation'
 import { TopNavigation } from "@/components/shared/TopNavigation"
-import { AIAssistant } from "@/components/shared/AIAssistant"
 import { DocumentBrowser } from "@/components/shared/DocumentBrowser"
+import Link from "next/link"
+import { MessageSquare } from "lucide-react"
 import { ProjectOverview } from "@/components/dashboard/ProjectOverview"
 import { AgentStatus } from "@/components/dashboard/AgentStatus"
 import { ProgressMetrics } from "@/components/dashboard/ProgressMetrics"
@@ -16,10 +17,10 @@ import { KanbanView } from "@/components/views/KanbanView"
 import { FlowView } from "@/components/views/FlowView"
 import { DocsView } from "@/components/views/DocsView"
 import { mockAgents, quickActions } from "@/lib/mock-data"
-import { transformStepsToPhases } from "@/lib/data-transforms"
+import { transformStepsToPhases, transformStepsToFlow } from "@/lib/data-transforms"
 import type { Task, KanbanTask, Document } from "@/lib/types"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2, RefreshCw } from 'lucide-react'
 
 interface ProjectData {
   project: any
@@ -41,18 +42,21 @@ export default function ProjectDashboardPage() {
   const [projectData, setProjectData] = useState<ProjectData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [autoRefresh, setAutoRefresh] = useState(false)
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
+  const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const projectId = params.id as string
 
-  useEffect(() => {
-    if (projectId) {
-      fetchProjectData()
-    }
-  }, [projectId])
-
-  const fetchProjectData = async () => {
+  // Fetch project data (with optional silent mode for background refresh)
+  const fetchProjectData = useCallback(async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) {
+        setLoading(true)
+      } else {
+        setIsRefreshing(true)
+      }
       setError(null)
       const response = await fetch(`/api/projects/${projectId}`)
       if (!response.ok) {
@@ -64,15 +68,47 @@ export default function ProjectDashboardPage() {
       const json = await response.json()
       if (json.success && json.data) {
         setProjectData(json.data)
+        setLastRefresh(new Date())
       } else {
         throw new Error(json.error?.message || "Failed to fetch project data")
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      if (!silent) {
+        setError(err instanceof Error ? err.message : "An error occurred")
+      }
+      console.error("Fetch error:", err)
     } finally {
       setLoading(false)
+      setIsRefreshing(false)
     }
-  }
+  }, [projectId])
+
+  // Initial fetch
+  useEffect(() => {
+    if (projectId) {
+      fetchProjectData()
+    }
+  }, [projectId, fetchProjectData])
+
+  // Auto-refresh every 5 seconds when enabled
+  useEffect(() => {
+    if (autoRefresh && projectId) {
+      refreshIntervalRef.current = setInterval(() => {
+        fetchProjectData(true) // Silent refresh
+      }, 5000)
+    }
+
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current)
+      }
+    }
+  }, [autoRefresh, projectId, fetchProjectData])
+
+  // Manual refresh handler
+  const handleRefresh = useCallback(() => {
+    fetchProjectData(true)
+  }, [fetchProjectData])
 
   // Transform database steps into hierarchical phase structure (before early returns)
   const phases = useMemo(() => {
@@ -83,6 +119,18 @@ export default function ProjectDashboardPage() {
     } catch (error) {
       console.error('Error transforming steps to phases:', error)
       return []
+    }
+  }, [projectData?.steps])
+
+  // Transform steps to React Flow nodes and edges
+  const { nodes: flowNodes, edges: flowEdges } = useMemo(() => {
+    if (!projectData?.steps) return { nodes: [], edges: [] }
+
+    try {
+      return transformStepsToFlow(projectData.steps)
+    } catch (error) {
+      console.error('Error transforming steps to flow:', error)
+      return { nodes: [], edges: [] }
     }
   }, [projectData?.steps])
 
@@ -118,9 +166,9 @@ export default function ProjectDashboardPage() {
         projectName={project?.name || 'Project'}
       />
 
-      {/* Back button */}
+      {/* Back button and refresh controls */}
       <div className="border-b border-white/10 bg-black/40 backdrop-blur-sm">
-        <div className="px-8 py-3">
+        <div className="px-8 py-3 flex items-center justify-between">
           <Button
             variant="ghost"
             size="sm"
@@ -130,6 +178,37 @@ export default function ProjectDashboardPage() {
             <ArrowLeft className="h-4 w-4" />
             Back to Projects
           </Button>
+
+          <div className="flex items-center gap-4">
+            {/* Last refresh indicator */}
+            {lastRefresh && (
+              <span className="text-xs text-muted-foreground">
+                Last updated: {lastRefresh.toLocaleTimeString()}
+              </span>
+            )}
+
+            {/* Refresh button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            </Button>
+
+            {/* Auto-refresh toggle */}
+            <Button
+              variant={autoRefresh ? "default" : "outline"}
+              size="sm"
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              className={autoRefresh ? "bg-green-600 hover:bg-green-700" : ""}
+            >
+              {autoRefresh ? '⚡ Auto-refresh ON' : 'Auto-refresh'}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -164,6 +243,7 @@ export default function ProjectDashboardPage() {
             <div className="max-w-[1400px] mx-auto h-[calc(100vh-180px)]">
               <TreeView
                 phases={phases}
+                projectId={projectId}
                 projectName={project?.name}
                 onTaskSelect={setSelectedTask}
               />
@@ -172,19 +252,25 @@ export default function ProjectDashboardPage() {
 
           {activeTab === "gantt" && (
             <div className="h-[calc(100vh-180px)]">
-              <GanttView onTaskSelect={setSelectedTask} />
+              <GanttView projectId={projectId} onTaskSelect={setSelectedTask} />
             </div>
           )}
 
           {activeTab === "kanban" && (
             <div className="max-w-[1400px] mx-auto h-[calc(100vh-180px)]">
-              <KanbanView onTaskSelect={setSelectedTask} />
+              <KanbanView projectId={projectId} onTaskSelect={setSelectedTask} />
             </div>
           )}
 
           {activeTab === "flow" && (
             <div className="h-[calc(100vh-180px)]">
-              <FlowView onTaskSelect={setSelectedTask} />
+              <FlowView
+                nodes={flowNodes}
+                edges={flowEdges}
+                projectId={projectId}
+                onTaskSelect={setSelectedTask}
+                onRefresh={handleRefresh}
+              />
             </div>
           )}
 
@@ -195,17 +281,14 @@ export default function ProjectDashboardPage() {
           )}
         </main>
 
-        <AIAssistant
-          activeTab={activeTab}
-          selectedTask={selectedTask}
-          selectedDocument={selectedDocument}
-          projectId={projectId}
-          onNavigateView={setActiveTab}
-          onOpenDocumentBrowser={() => setDocsOpen(true)}
-          onCloseDocumentBrowser={() => setDocsOpen(false)}
-          onSelectTask={setSelectedTask}
-          onSelectDocument={setSelectedDocument}
-        />
+{/* AI Chat Button - Links to Chat SDK */}
+        <Link
+          href="/chat"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-full shadow-lg transition-colors"
+        >
+          <MessageSquare className="w-5 h-5" />
+          <span className="font-medium">AI Chat</span>
+        </Link>
       </div>
 
       <DocumentBrowser projectId={projectId} open={docsOpen} onOpenChange={setDocsOpen} onDocumentSelect={setSelectedDocument} />

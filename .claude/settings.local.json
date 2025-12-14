@@ -63,7 +63,9 @@
       "Bash(timeout 60 pnpm build:*)",
       "WebFetch(domain:developers.googleblog.com)",
       "mcp__agent-com__list_channels",
-      "mcp__agent-com__list_agents"
+      "mcp__agent-com__list_agents",
+      "Bash(find:*)",
+      "Bash(timeout 30 pnpm dev:*)"
     ]
   },
   "enabledMcpjsonServers": [

@@ -3,7 +3,19 @@
 import { useTheme } from "next-themes";
 import { parse, unparse } from "papaparse";
 import { memo, useEffect, useMemo, useState } from "react";
-import DataGrid, { textEditor } from "react-data-grid";
+import { DataGrid } from "react-data-grid";
+
+// Stub textEditor since it may not be exported in newer versions
+const textEditor = ({ row, column, onRowChange, onClose }: any) => {
+  return (
+    <input
+      autoFocus
+      value={row[column.key]}
+      onChange={(e) => onRowChange({ ...row, [column.key]: e.target.value })}
+      onBlur={() => onClose(true)}
+    />
+  );
+};
 import { cn } from "@/lib/chatsdk/utils";
 
 import "react-data-grid/lib/styles.css";
