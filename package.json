@@ -82,7 +82,7 @@
     "mcp-handler": "latest",
     "mermaid": "latest",
     "nanoid": "^5.1.6",
-    "next": "14.2.16",
+    "next": "14.2.35",
     "next-themes": "latest",
     "orderedmap": "^2.1.1",
     "papaparse": "^5.5.3",
