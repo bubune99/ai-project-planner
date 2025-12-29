@@ -3,7 +3,7 @@
 import { useTheme } from "next-themes";
 import { parse, unparse } from "papaparse";
 import { memo, useEffect, useMemo, useState } from "react";
-import { DataGrid } from "react-data-grid";
+import DataGrid from "react-data-grid";
 
 // Stub textEditor since it may not be exported in newer versions
 const textEditor = ({ row, column, onRowChange, onClose }: any) => {

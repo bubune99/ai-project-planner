@@ -3,6 +3,8 @@ import { Chat } from "@/components/chatsdk/chat";
 import { DEFAULT_CHAT_MODEL } from "@/lib/chatsdk/ai/models";
 import type { ChatMessage } from "@/lib/chatsdk/types";
 
+export const dynamic = "force-dynamic";
+
 export default async function ChatPage() {
   const id = generateUUID();
 
