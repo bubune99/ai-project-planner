@@ -11,6 +11,10 @@ interface TaskDetailsProps {
   isCollapsed?: boolean
   onToggleCollapse?: () => void
   onEdit?: () => void
+  onStart?: () => void
+  onPause?: () => void
+  onRetry?: () => void
+  onDocClick?: (docName: string) => void
 }
 
 const statusLabels = {
@@ -36,7 +40,7 @@ const agentColors = {
   gpt: "bg-green-500/20 text-green-400 border-green-500/30",
 }
 
-export function TaskDetails({ task, isCollapsed = false, onToggleCollapse, onEdit }: TaskDetailsProps) {
+export function TaskDetails({ task, isCollapsed = false, onToggleCollapse, onEdit, onStart, onPause, onRetry, onDocClick }: TaskDetailsProps) {
   if (isCollapsed) {
     return (
       <div className="w-12 border-l border-border flex items-start justify-center pt-6">
@@ -125,6 +129,7 @@ export function TaskDetails({ task, isCollapsed = false, onToggleCollapse, onEdi
                 <button
                   key={doc}
                   className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                  onClick={() => onDocClick?.(doc)}
                 >
                   <FileText className="w-4 h-4" />
                   {doc}
@@ -137,19 +142,19 @@ export function TaskDetails({ task, isCollapsed = false, onToggleCollapse, onEdi
         {/* Actions */}
         <div className="pt-4 border-t border-border space-y-2">
           {task.status === "pending" && (
-            <Button className="w-full gap-2">
+            <Button className="w-full gap-2" onClick={onStart}>
               <Play className="w-4 h-4" />
               Start Task
             </Button>
           )}
           {task.status === "in_progress" && (
-            <Button variant="outline" className="w-full gap-2 bg-transparent">
+            <Button variant="outline" className="w-full gap-2 bg-transparent" onClick={onPause}>
               <Pause className="w-4 h-4" />
               Pause Task
             </Button>
           )}
           {task.status === "failed" && (
-            <Button className="w-full gap-2">
+            <Button className="w-full gap-2" onClick={onRetry}>
               <RotateCw className="w-4 h-4" />
               Retry Task
             </Button>

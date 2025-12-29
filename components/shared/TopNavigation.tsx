@@ -16,10 +16,11 @@ interface TopNavigationProps {
   activeTab?: string
   onTabChange?: (tabId: string) => void
   onDocsClick?: () => void
+  onSettingsClick?: () => void
   projectName?: string // Added optional project name prop
 }
 
-export function TopNavigation({ activeTab = "dashboard", onTabChange, onDocsClick, projectName }: TopNavigationProps) {
+export function TopNavigation({ activeTab = "dashboard", onTabChange, onDocsClick, onSettingsClick, projectName }: TopNavigationProps) {
   return (
     <nav className="h-[60px] border-b border-border bg-card flex items-center justify-between px-6">
       <div className="flex items-center gap-8">
@@ -57,7 +58,7 @@ export function TopNavigation({ activeTab = "dashboard", onTabChange, onDocsClic
           <span className="text-yellow-500">⚡</span>
         </div>
 
-        <Button variant="ghost" size="icon">
+        <Button variant="ghost" size="icon" onClick={onSettingsClick}>
           <Settings className="w-5 h-5" />
         </Button>
       </div>

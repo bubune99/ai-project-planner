@@ -20,6 +20,7 @@ interface DocsSidebarProps {
   onEditPage: (doc: Document) => void
   onDeletePage: (docId: string) => void
   onCreatePage: () => void
+  onGenerateFromCode?: () => void
 }
 
 export function DocsSidebar({
@@ -29,6 +30,7 @@ export function DocsSidebar({
   onEditPage,
   onDeletePage,
   onCreatePage,
+  onGenerateFromCode,
 }: DocsSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set())
@@ -250,7 +252,7 @@ export function DocsSidebar({
           <FileText className="w-4 h-4 mr-2" />
           Create Page
         </Button>
-        <Button variant="outline" className="w-full bg-transparent" size="sm">
+        <Button variant="outline" className="w-full bg-transparent" size="sm" onClick={onGenerateFromCode}>
           <Sparkles className="w-4 h-4 mr-2" />
           Generate from Code
         </Button>

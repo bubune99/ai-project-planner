@@ -12,6 +12,9 @@ interface TreeNodeProps {
   selectedTaskId?: string
   onTaskSelect: (task: Task) => void
   onEdit?: (task: Task) => void
+  onPause?: (task: Task) => void
+  onStart?: (task: Task) => void
+  onRetry?: (task: Task) => void
 }
 
 const statusIcons = {
@@ -37,7 +40,7 @@ const agentColors = {
   gpt: "bg-green-500/20 text-green-400 border-green-500/30",
 }
 
-export function TreeNode({ phase, level, selectedTaskId, onTaskSelect, onEdit }: TreeNodeProps) {
+export function TreeNode({ phase, level, selectedTaskId, onTaskSelect, onEdit, onPause, onStart, onRetry }: TreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(level < 2)
   const hasChildren = (phase.subtasks && phase.subtasks.length > 0) || phase.tasks.length > 0
   const indent = level * 24
@@ -54,7 +57,7 @@ export function TreeNode({ phase, level, selectedTaskId, onTaskSelect, onEdit }:
       case "in_progress":
         return (
           <>
-            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
+            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => onPause?.(task)}>
               <Pause className="w-3 h-3" />
               Pause
             </Button>
@@ -66,7 +69,7 @@ export function TreeNode({ phase, level, selectedTaskId, onTaskSelect, onEdit }:
       case "pending":
         return (
           <>
-            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
+            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => onStart?.(task)}>
               <Play className="w-3 h-3" />
               Start
             </Button>
@@ -78,7 +81,7 @@ export function TreeNode({ phase, level, selectedTaskId, onTaskSelect, onEdit }:
       case "failed":
         return (
           <>
-            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1">
+            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => onRetry?.(task)}>
               <RotateCw className="w-3 h-3" />
               Retry
             </Button>
@@ -171,6 +174,9 @@ export function TreeNode({ phase, level, selectedTaskId, onTaskSelect, onEdit }:
               selectedTaskId={selectedTaskId}
               onTaskSelect={onTaskSelect}
               onEdit={onEdit}
+              onPause={onPause}
+              onStart={onStart}
+              onRetry={onRetry}
             />
           ))}
 

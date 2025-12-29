@@ -14,11 +14,14 @@ interface GanttViewProps {
   projectId: string
   onTaskSelect?: (task: GanttTask | null) => void
   onRefresh?: () => void
+  onFilterAgents?: () => void
+  onExportPng?: () => void
+  onPrint?: () => void
 }
 
 type ViewMode = "day" | "week" | "month"
 
-export function GanttView({ tasks, projectId, onTaskSelect, onRefresh }: GanttViewProps) {
+export function GanttView({ tasks, projectId, onTaskSelect, onRefresh, onFilterAgents, onExportPng, onPrint }: GanttViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("week")
   const [showDependencies, setShowDependencies] = useState(true)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
@@ -180,15 +183,15 @@ export function GanttView({ tasks, projectId, onTaskSelect, onRefresh }: GanttVi
               <Plus className="w-4 h-4 mr-2" />
               Create Step
             </Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={onFilterAgents}>
               <Filter className="w-4 h-4 mr-2" />
               All Agents
             </Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={onExportPng}>
               <Download className="w-4 h-4 mr-2" />
               Export PNG
             </Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={onPrint}>
               <Printer className="w-4 h-4 mr-2" />
               Print
             </Button>

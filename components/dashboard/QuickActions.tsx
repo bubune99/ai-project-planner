@@ -3,9 +3,10 @@ import type { QuickAction } from "@/lib/types"
 
 interface QuickActionsProps {
   actions: QuickAction[]
+  onAction?: (action: QuickAction) => void
 }
 
-export function QuickActions({ actions }: QuickActionsProps) {
+export function QuickActions({ actions, onAction }: QuickActionsProps) {
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-foreground">Quick Actions</h3>
@@ -20,6 +21,7 @@ export function QuickActions({ actions }: QuickActionsProps) {
                 ? "bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0"
                 : "bg-card/50 backdrop-blur-sm hover:bg-accent"
             }`}
+            onClick={() => onAction?.(action)}
           >
             <span className="text-2xl">{action.icon}</span>
             <span className="text-sm font-medium">{action.label}</span>

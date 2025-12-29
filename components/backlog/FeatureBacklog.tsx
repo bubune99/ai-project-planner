@@ -162,6 +162,27 @@ export function FeatureBacklog({ projectId }: FeatureBacklogProps) {
     }
   }
 
+  const handleDefer = async (requestId: string) => {
+    try {
+      setError(null)
+      const response = await fetch(`/api/projects/${projectId}/feature-requests/${requestId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "deferred" }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to defer request' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to defer request`)
+      }
+
+      await fetchRequests()
+    } catch (error) {
+      console.error("Failed to defer request:", error)
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred while deferring request')
+    }
+  }
+
   const getTypeIcon = (type: FeatureRequest["type"]) => {
     switch (type) {
       case "bug":
@@ -453,6 +474,7 @@ export function FeatureBacklog({ projectId }: FeatureBacklogProps) {
                         size="sm"
                         variant="outline"
                         className="border-white/10 hover:bg-white/5 gap-1 bg-transparent"
+                        onClick={() => handleDefer(request.id)}
                       >
                         <Clock className="h-3 w-3" />
                         Defer

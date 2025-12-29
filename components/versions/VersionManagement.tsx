@@ -31,9 +31,10 @@ interface Version {
 
 interface VersionManagementProps {
   projectId: string
+  onViewVersionDetails?: (version: Version) => void
 }
 
-export function VersionManagement({ projectId }: VersionManagementProps) {
+export function VersionManagement({ projectId, onViewVersionDetails }: VersionManagementProps) {
   const [versions, setVersions] = useState<Version[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -317,7 +318,7 @@ export function VersionManagement({ projectId }: VersionManagementProps) {
                     </div>
                   </div>
                 </div>
-                <Button variant="outline" size="sm" className="border-white/10 hover:bg-white/5 bg-transparent">
+                <Button variant="outline" size="sm" className="border-white/10 hover:bg-white/5 bg-transparent" onClick={() => onViewVersionDetails?.(version)}>
                   View Details
                 </Button>
               </div>

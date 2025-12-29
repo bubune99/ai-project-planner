@@ -12,9 +12,12 @@ interface DocsContentProps {
   content: string
   lastUpdated?: string
   updatedBy?: string
+  onEditInVSCode?: () => void
+  onCopyLink?: () => void
+  onViewHistory?: () => void
 }
 
-export function DocsContent({ title, content, lastUpdated = "2 days ago", updatedBy = "@claude" }: DocsContentProps) {
+export function DocsContent({ title, content, lastUpdated = "2 days ago", updatedBy = "@claude", onEditInVSCode, onCopyLink, onViewHistory }: DocsContentProps) {
   const mermaidRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -41,15 +44,15 @@ export function DocsContent({ title, content, lastUpdated = "2 days ago", update
           Last updated: {lastUpdated} by {updatedBy}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={onEditInVSCode}>
             <ExternalLink className="w-4 h-4 mr-2" />
             Edit in VS Code
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={onCopyLink}>
             <Copy className="w-4 h-4 mr-2" />
             Copy Link
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={onViewHistory}>
             <History className="w-4 h-4 mr-2" />
             View History
           </Button>

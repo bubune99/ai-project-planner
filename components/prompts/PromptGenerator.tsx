@@ -11,9 +11,10 @@ interface PromptGeneratorProps {
   projectId: string
   stepId?: string
   type?: "task" | "phase" | "project"
+  onSendToClaudeCode?: (prompt: string) => void
 }
 
-export function PromptGenerator({ projectId, stepId, type = "task" }: PromptGeneratorProps) {
+export function PromptGenerator({ projectId, stepId, type = "task", onSendToClaudeCode }: PromptGeneratorProps) {
   const [prompt, setPrompt] = useState<string>("")
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -129,7 +130,7 @@ export function PromptGenerator({ projectId, stepId, type = "task" }: PromptGene
               <Download className="h-4 w-4 mr-2" />
               Download
             </Button>
-            <Button variant="outline" className="border-white/10 hover:bg-white/5 bg-transparent">
+            <Button variant="outline" className="border-white/10 hover:bg-white/5 bg-transparent" onClick={() => onSendToClaudeCode?.(prompt)}>
               <Send className="h-4 w-4 mr-2" />
               Send to Claude Code
             </Button>

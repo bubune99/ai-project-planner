@@ -65,7 +65,9 @@
       "mcp__agent-com__list_channels",
       "mcp__agent-com__list_agents",
       "Bash(find:*)",
-      "Bash(timeout 30 pnpm dev:*)"
+      "Bash(timeout 30 pnpm dev:*)",
+      "mcp__internal-code__pre_deploy_audit",
+      "mcp__ui-validation__validate_event_handlers"
     ]
   },
   "enabledMcpjsonServers": [

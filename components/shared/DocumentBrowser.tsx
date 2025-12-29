@@ -14,9 +14,12 @@ interface DocumentBrowserProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onDocumentSelect?: (document: Document) => void
+  onUpload?: () => void
+  onFileManager?: () => void
+  onFindReferences?: () => void
 }
 
-export function DocumentBrowser({ projectId, open, onOpenChange, onDocumentSelect }: DocumentBrowserProps) {
+export function DocumentBrowser({ projectId, open, onOpenChange, onDocumentSelect, onUpload, onFileManager, onFindReferences }: DocumentBrowserProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<"recent" | "name">("recent")
@@ -129,7 +132,7 @@ export function DocumentBrowser({ projectId, open, onOpenChange, onDocumentSelec
               </select>
 
               <div className="flex gap-1">
-                <Button variant="ghost" size="sm" className="h-7 text-xs">
+                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onUpload}>
                   <Upload className="w-3 h-3 mr-1" />
                   Upload
                 </Button>
@@ -184,11 +187,11 @@ export function DocumentBrowser({ projectId, open, onOpenChange, onDocumentSelec
 
         <div className="p-4 border-t border-border bg-card">
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="flex-1 bg-transparent">
+            <Button variant="outline" size="sm" className="flex-1 bg-transparent" onClick={onFileManager}>
               <FolderOpen className="w-4 h-4 mr-2" />
               File Manager
             </Button>
-            <Button variant="outline" size="sm" className="flex-1 bg-transparent">
+            <Button variant="outline" size="sm" className="flex-1 bg-transparent" onClick={onFindReferences}>
               <FileSearch className="w-4 h-4 mr-2" />
               Find References
             </Button>
