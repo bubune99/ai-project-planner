@@ -6,6 +6,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+
+export const dynamic = "force-dynamic";
 import { getUserConversations, deleteConversation } from "@/lib/ai/conversation-queries";
 
 // Default user ID for local development (no auth)

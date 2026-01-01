@@ -28,6 +28,7 @@ import {
 import { sessionCache } from "@/lib/ai/session-cache";
 
 export const maxDuration = 60;
+export const dynamic = "force-dynamic";
 
 // Default user ID for local development (no auth)
 // Using a consistent UUID for the local development user
