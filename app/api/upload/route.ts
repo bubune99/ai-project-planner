@@ -1,59 +1,82 @@
-import { put } from '@vercel/blob'
-import { NextRequest, NextResponse } from 'next/server'
-import { sql } from '@vercel/postgres'
-import crypto from 'crypto'
+import { NextRequest, NextResponse } from "next/server";
+import { sql } from "@/lib/db/client";
+import crypto from "crypto";
+import {
+  uploadToR2,
+  generateStorageKey,
+  getSignedUploadUrl,
+  isR2Configured,
+  getPublicUrl,
+} from "@/lib/storage/r2-client";
+
+// Default user ID for development (will be replaced with auth)
+const DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000001";
 
 /**
  * POST /api/upload
- * Upload file to Vercel Blob and create document record
+ * Upload file to Cloudflare R2 and create document record
  */
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData()
-    const file = formData.get('file') as File
-    const projectId = formData.get('projectId') as string
-    const category = formData.get('category') as string || 'other'
-    const title = formData.get('title') as string
-    const description = formData.get('description') as string
+    // Check R2 configuration
+    if (!isR2Configured()) {
+      return NextResponse.json(
+        { error: "Storage not configured. Please set R2 environment variables." },
+        { status: 500 }
+      );
+    }
+
+    const formData = await request.formData();
+    const file = formData.get("file") as File;
+    const projectId = formData.get("projectId") as string;
+    const category = (formData.get("category") as string) || "other";
+    const title = formData.get("title") as string;
+    const description = formData.get("description") as string;
+
+    // Get user ID from header (set by auth middleware) or use default
+    const userId = request.headers.get("x-user-id") || DEFAULT_USER_ID;
 
     // Validation
     if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
     if (!projectId) {
-      return NextResponse.json({ error: 'Project ID required' }, { status: 400 })
+      return NextResponse.json(
+        { error: "Project ID required" },
+        { status: 400 }
+      );
     }
 
     // Validate file size (max 50MB)
-    const maxSize = 50 * 1024 * 1024
+    const maxSize = 50 * 1024 * 1024;
     if (file.size > maxSize) {
       return NextResponse.json(
-        { error: 'File too large. Maximum size is 50MB.' },
+        { error: "File too large. Maximum size is 50MB." },
         { status: 400 }
-      )
+      );
     }
 
     // Validate file type
     const allowedTypes = [
       // Images
-      'image/jpeg',
-      'image/png',
-      'image/webp',
-      'image/svg+xml',
-      'image/gif',
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/svg+xml",
+      "image/gif",
       // Documents
-      'application/pdf',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/csv',
-      'text/plain',
-      'application/json',
+      "application/pdf",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "text/csv",
+      "text/plain",
+      "application/json",
       // Design files
-      'application/x-sketch',
-      'application/vnd.figma',
-    ]
+      "application/x-sketch",
+      "application/vnd.figma",
+    ];
 
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
@@ -61,13 +84,13 @@ export async function POST(request: NextRequest) {
           error: `Invalid file type: ${file.type}. Allowed types: images, PDFs, spreadsheets, documents.`,
         },
         { status: 400 }
-      )
+      );
     }
 
     // Calculate content hash for deduplication
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    const hash = crypto.createHash('sha256').update(buffer).digest('hex')
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const hash = crypto.createHash("sha256").update(buffer).digest("hex");
 
     // Check for existing file with same hash in this project
     const existingDocs = await sql`
@@ -75,45 +98,49 @@ export async function POST(request: NextRequest) {
       WHERE project_id = ${projectId}
         AND content_hash = ${hash}
         AND deleted_at IS NULL
-    `
+    `;
 
-    if (existingDocs.rows.length > 0) {
-      const existing = existingDocs.rows[0]
+    if (existingDocs.length > 0) {
+      const existing = existingDocs[0];
       return NextResponse.json({
-        message: 'File already exists in this project',
+        message: "File already exists in this project",
         documentId: existing.id,
         blobUrl: existing.blob_url,
         duplicate: true,
         existingTitle: existing.title,
-      })
+      });
     }
 
-    // Upload to Vercel Blob
-    const pathname = `projects/${projectId}/${Date.now()}-${file.name}`
-    const blob = await put(pathname, buffer, {
-      access: 'public',
-      addRandomSuffix: true,
-      contentType: file.type,
-    })
+    // Generate storage key with user isolation
+    const storageKey = generateStorageKey(userId, projectId, file.name);
 
-    // Generate thumbnail for images (placeholder - would use Sharp or Vercel Image Optimization)
-    let thumbnailUrl = null
-    const metadata: any = {
+    // Upload to Cloudflare R2
+    const uploadResult = await uploadToR2(storageKey, buffer, file.type, {
+      originalName: file.name,
+      projectId,
+      userId,
+      uploadedAt: new Date().toISOString(),
+    });
+
+    // Generate thumbnail for images (placeholder - would use Sharp or image processing)
+    let thumbnailUrl = null;
+    const metadata: Record<string, unknown> = {
       originalName: file.name,
       uploadedAt: new Date().toISOString(),
-    }
+    };
 
-    if (file.type.startsWith('image/')) {
+    if (file.type.startsWith("image/")) {
       // For now, use the original image as thumbnail
       // TODO: Implement actual thumbnail generation with Sharp
-      thumbnailUrl = blob.url
-      metadata.isImage = true
+      thumbnailUrl = uploadResult.url;
+      metadata.isImage = true;
     }
 
     // Create document record
     const documentResult = await sql`
       INSERT INTO documents (
         project_id,
+        user_id,
         title,
         description,
         blob_key,
@@ -127,32 +154,35 @@ export async function POST(request: NextRequest) {
         metadata
       ) VALUES (
         ${projectId},
+        ${userId},
         ${title || file.name},
         ${description || null},
-        ${blob.pathname},
-        ${blob.url},
+        ${storageKey},
+        ${uploadResult.url},
         ${thumbnailUrl},
         ${file.type},
         ${file.size},
         ${category},
         ${hash},
-        ${request.headers.get('x-user-id') || 'anonymous'},
+        ${userId},
         ${JSON.stringify(metadata)}
       )
       RETURNING *
-    `
+    `;
 
-    const document = documentResult.rows[0]
+    const document = documentResult[0];
 
     // Log to execution history
     await sql`
       INSERT INTO execution_history (
         project_id,
+        user_id,
         event_type,
         description,
         new_value
       ) VALUES (
         ${projectId},
+        ${userId},
         'document_uploaded',
         ${`Document uploaded: ${document.title}`},
         ${JSON.stringify({
@@ -162,46 +192,75 @@ export async function POST(request: NextRequest) {
           category,
         })}
       )
-    `
+    `;
 
     return NextResponse.json({
       success: true,
       document,
-      blobUrl: blob.url,
-      downloadUrl: blob.downloadUrl,
-    })
-  } catch (error: any) {
-    console.error('Upload error:', error)
+      blobUrl: uploadResult.url,
+      downloadUrl: uploadResult.url,
+    });
+  } catch (error: unknown) {
+    console.error("Upload error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: 'Upload failed', details: error.message },
+      { error: "Upload failed", details: message },
       { status: 500 }
-    )
+    );
   }
 }
 
 /**
- * GET /api/upload?filename=xxx&projectId=yyy
- * Get presigned upload URL (for large files via client-side upload)
+ * GET /api/upload?filename=xxx&projectId=yyy&contentType=zzz
+ * Get presigned upload URL for client-side direct upload to R2
  */
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const filename = searchParams.get('filename')
-  const projectId = searchParams.get('projectId')
+  try {
+    // Check R2 configuration
+    if (!isR2Configured()) {
+      return NextResponse.json(
+        { error: "Storage not configured. Please set R2 environment variables." },
+        { status: 500 }
+      );
+    }
 
-  if (!filename || !projectId) {
+    const { searchParams } = new URL(request.url);
+    const filename = searchParams.get("filename");
+    const projectId = searchParams.get("projectId");
+    const contentType = searchParams.get("contentType") || "application/octet-stream";
+
+    if (!filename || !projectId) {
+      return NextResponse.json(
+        { error: "Missing filename or projectId parameter" },
+        { status: 400 }
+      );
+    }
+
+    // Get user ID from header (set by auth middleware) or use default
+    const userId = request.headers.get("x-user-id") || DEFAULT_USER_ID;
+
+    // Generate storage key
+    const storageKey = generateStorageKey(userId, projectId, filename);
+
+    // Get presigned URL for direct upload
+    const uploadUrl = await getSignedUploadUrl(storageKey, contentType, 3600);
+
+    return NextResponse.json({
+      uploadUrl,
+      storageKey,
+      publicUrl: getPublicUrl(storageKey),
+      maxSize: 50 * 1024 * 1024, // 50MB
+      expiresIn: 3600, // 1 hour
+    });
+  } catch (error: unknown) {
+    console.error("Get upload URL error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: 'Missing filename or projectId parameter' },
-      { status: 400 }
-    )
+      { error: "Failed to generate upload URL", details: message },
+      { status: 500 }
+    );
   }
-
-  // For Vercel Blob, we don't need presigned URLs for client-side upload
-  // Just return the pathname pattern
-  const pathname = `projects/${projectId}/${Date.now()}-${filename}`
-
-  return NextResponse.json({
-    uploadUrl: '/api/upload',
-    pathname,
-    maxSize: 50 * 1024 * 1024, // 50MB
-  })
 }
+
+// Mark as dynamic to prevent static generation
+export const dynamic = "force-dynamic";

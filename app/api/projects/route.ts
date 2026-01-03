@@ -2,6 +2,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import type { ProjectSummary } from '@/lib/types'
+import { getAuthContext } from '@/lib/auth/auth-utils'
 
 /**
  * Transform database row to ProjectSummary format
@@ -41,18 +42,24 @@ function transformToProjectSummary(row: any): ProjectSummary {
 
 /**
  * GET /api/projects
- * Get all projects with stats
+ * Get all projects with stats for the authenticated user
  */
 export async function GET(request: NextRequest) {
   try {
+    // Get authenticated user
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    }
+
+    const { userId } = authContext
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
 
     console.log('='.repeat(80))
     console.log('[API GET /api/projects] Starting request')
+    console.log('[API] User ID:', userId)
     console.log('[API] Status filter:', status)
-    console.log('[API] Request URL:', request.url)
-    console.log('[API] DATABASE_URL configured:', !!process.env.DATABASE_URL)
 
     // Check if DATABASE_URL is configured
     if (!process.env.DATABASE_URL) {
@@ -65,7 +72,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Query projects directly
+    // Query projects for this user
     let query
     if (status && status !== 'all') {
       // Convert filter status from 'in-progress' format to DB format
@@ -80,7 +87,9 @@ export async function GET(request: NextRequest) {
           COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'blocked'), 0) as blocked_tasks,
           COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'pending'), 0) as pending_tasks
         FROM projects p
-        WHERE p.status = ${dbStatus} AND (p.deleted_at IS NULL)
+        WHERE p.user_id = ${userId}
+          AND p.status = ${dbStatus}
+          AND p.deleted_at IS NULL
         ORDER BY p.updated_at DESC
       `
     } else {
@@ -94,7 +103,8 @@ export async function GET(request: NextRequest) {
           COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'blocked'), 0) as blocked_tasks,
           COALESCE((SELECT COUNT(*)::int FROM project_steps ps WHERE ps.project_id = p.id AND ps.status = 'pending'), 0) as pending_tasks
         FROM projects p
-        WHERE p.deleted_at IS NULL
+        WHERE p.user_id = ${userId}
+          AND p.deleted_at IS NULL
         ORDER BY p.updated_at DESC
       `
     }
@@ -143,10 +153,17 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/projects
- * Create a new project
+ * Create a new project for the authenticated user
  */
 export async function POST(request: NextRequest) {
   try {
+    // Get authenticated user
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    }
+
+    const { userId } = authContext
     const body = await request.json()
     const { name, description, priority, start_date, due_date, github_repo_url, metadata } = body
 
@@ -156,6 +173,7 @@ export async function POST(request: NextRequest) {
 
     const result = await sql`
       INSERT INTO projects (
+        user_id,
         name,
         description,
         priority,
@@ -165,6 +183,7 @@ export async function POST(request: NextRequest) {
         github_repo_url,
         metadata
       ) VALUES (
+        ${userId},
         ${name},
         ${description || null},
         ${priority || 'medium'},

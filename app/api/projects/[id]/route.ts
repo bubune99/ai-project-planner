@@ -1,6 +1,7 @@
 import { sql } from '@/lib/db/client'
 import { NextRequest, NextResponse } from 'next/server'
 import { successResponse, errorResponse } from '@/lib/api-utils'
+import { getAuthContext, verifyProjectOwnership } from '@/lib/auth/auth-utils'
 
 /**
  * GET /api/projects/[id]
@@ -8,10 +9,23 @@ import { successResponse, errorResponse } from '@/lib/api-utils'
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await Promise.resolve(params) // Handle both object and Promise
+    // Get authenticated user
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return errorResponse('UNAUTHORIZED', 'Authentication required', 401)
+    }
+
+    const { userId } = authContext
+    const { id } = await params
+
+    // Verify ownership
+    const hasAccess = await verifyProjectOwnership(id, userId)
+    if (!hasAccess) {
+      return errorResponse('NOT_FOUND', 'Project not found', 404)
+    }
 
     // Get project overview (querying table directly to bypass view issues)
     const projectResult = await sql`
@@ -26,15 +40,16 @@ export async function GET(
         (SELECT jsonb_agg(ts.name ORDER BY ts.order_index) FROM tech_stack_items ts WHERE ts.project_id = p.id AND ts.deleted_at IS NULL) as tech_stack_names,
         (SELECT created_at FROM execution_history eh WHERE eh.project_id = p.id ORDER BY created_at DESC LIMIT 1) as last_activity
       FROM projects p
-      WHERE p.id = ${id} AND p.deleted_at IS NULL
+      WHERE p.id = ${id}
+        AND p.user_id = ${userId}
+        AND p.deleted_at IS NULL
     `
-    console.log('Project ID:', id)
+    console.log('Project ID:', id, 'User ID:', userId)
 
     if (!projectResult || projectResult.length === 0) {
       return NextResponse.json({
         error: 'Project not found',
-        receivedId: id,
-        dbUrl: process.env.DATABASE_URL ? 'Set' : 'Not Set'
+        receivedId: id
       }, { status: 404 })
     }
 
@@ -102,10 +117,24 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await Promise.resolve(params)
+    // Get authenticated user
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return errorResponse('UNAUTHORIZED', 'Authentication required', 401)
+    }
+
+    const { userId } = authContext
+    const { id } = await params
+
+    // Verify ownership
+    const hasAccess = await verifyProjectOwnership(id, userId)
+    if (!hasAccess) {
+      return errorResponse('NOT_FOUND', 'Project not found', 404)
+    }
+
     const body = await request.json()
     const { name, description, status, priority, due_date, github_repo_url, metadata } = body
 
@@ -121,6 +150,7 @@ export async function PATCH(
         metadata = COALESCE(${metadata ? JSON.stringify(metadata) : null}::jsonb, metadata),
         updated_at = NOW()
       WHERE id = ${id}
+        AND user_id = ${userId}
       RETURNING *
     `
 
@@ -132,10 +162,11 @@ export async function PATCH(
       success: true,
       project: result[0],
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Update project error:', error)
+    const message = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json(
-      { error: 'Failed to update project', details: error.message },
+      { error: 'Failed to update project', details: message },
       { status: 500 }
     )
   }
@@ -147,14 +178,29 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await Promise.resolve(params)
+    // Get authenticated user
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return errorResponse('UNAUTHORIZED', 'Authentication required', 401)
+    }
+
+    const { userId } = authContext
+    const { id } = await params
+
+    // Verify ownership
+    const hasAccess = await verifyProjectOwnership(id, userId)
+    if (!hasAccess) {
+      return errorResponse('NOT_FOUND', 'Project not found', 404)
+    }
+
     const result = await sql`
       UPDATE projects
       SET deleted_at = NOW()
       WHERE id = ${id}
+        AND user_id = ${userId}
         AND deleted_at IS NULL
       RETURNING id
     `
@@ -167,10 +213,11 @@ export async function DELETE(
       success: true,
       message: 'Project deleted successfully',
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Delete project error:', error)
+    const message = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json(
-      { error: 'Failed to delete project', details: error.message },
+      { error: 'Failed to delete project', details: message },
       { status: 500 }
     )
   }

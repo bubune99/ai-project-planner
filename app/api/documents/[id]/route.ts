@@ -1,6 +1,9 @@
-import { del } from '@vercel/blob'
-import { sql } from '@vercel/postgres'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from "next/server";
+import { sql } from "@/lib/db/client";
+import { deleteFromR2 } from "@/lib/storage/r2-client";
+
+// Default user ID for development (will be replaced with auth)
+const DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000001";
 
 /**
  * GET /api/documents/[id]
@@ -8,96 +11,128 @@ import { NextRequest, NextResponse } from 'next/server'
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const result = await sql`
-      SELECT * FROM get_document_with_versions(${params.id}::UUID)
-    `
+    const { id } = await params;
+    const userId = request.headers.get("x-user-id") || DEFAULT_USER_ID;
 
-    if (result.rows.length === 0) {
-      return NextResponse.json({ error: 'Document not found' }, { status: 404 })
+    // Get document with version history
+    // First try the function, if it doesn't exist fall back to simple query
+    let document;
+    try {
+      const result = await sql`
+        SELECT * FROM get_document_with_versions(${id}::UUID)
+      `;
+      document = result[0];
+    } catch {
+      // Function may not exist, fall back to simple query
+      const result = await sql`
+        SELECT d.*,
+          (SELECT json_agg(dv ORDER BY dv.version_number DESC)
+           FROM document_versions dv
+           WHERE dv.document_id = d.id) as versions
+        FROM documents d
+        WHERE d.id = ${id}
+          AND d.user_id = ${userId}
+          AND d.deleted_at IS NULL
+      `;
+      document = result[0];
     }
 
-    const document = result.rows[0]
+    if (!document) {
+      return NextResponse.json({ error: "Document not found" }, { status: 404 });
+    }
 
-    return NextResponse.json({ document })
-  } catch (error: any) {
-    console.error('Get document error:', error)
+    return NextResponse.json({ document });
+  } catch (error: unknown) {
+    console.error("Get document error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: 'Failed to get document', details: error.message },
+      { error: "Failed to get document", details: message },
       { status: 500 }
-    )
+    );
   }
 }
 
 /**
  * DELETE /api/documents/[id]
- * Delete document from blob storage and database (soft delete)
+ * Delete document from R2 storage and database (soft delete)
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Get document details
+    const { id } = await params;
+    const userId = request.headers.get("x-user-id") || DEFAULT_USER_ID;
+
+    // Get document details (with ownership check)
     const docResult = await sql`
       SELECT
         d.id,
         d.project_id,
+        d.blob_key,
         d.blob_url,
-        d.title
+        d.title,
+        d.user_id
       FROM documents d
-      WHERE d.id = ${params.id}
+      WHERE d.id = ${id}
+        AND d.user_id = ${userId}
         AND d.deleted_at IS NULL
-    `
+    `;
 
-    if (docResult.rows.length === 0) {
-      return NextResponse.json({ error: 'Document not found' }, { status: 404 })
+    if (docResult.length === 0) {
+      return NextResponse.json({ error: "Document not found" }, { status: 404 });
     }
 
-    const document = docResult.rows[0]
+    const document = docResult[0];
 
-    // Delete from Vercel Blob
-    try {
-      await del(document.blob_url)
-    } catch (blobError) {
-      console.error('Blob deletion error:', blobError)
-      // Continue with database deletion even if blob deletion fails
+    // Delete from Cloudflare R2
+    if (document.blob_key) {
+      try {
+        await deleteFromR2(document.blob_key);
+      } catch (r2Error) {
+        console.error("R2 deletion error:", r2Error);
+        // Continue with database deletion even if R2 deletion fails
+      }
     }
 
     // Soft delete in database
     await sql`
       UPDATE documents
       SET deleted_at = NOW()
-      WHERE id = ${params.id}
-    `
+      WHERE id = ${id}
+    `;
 
     // Log to execution history
     await sql`
       INSERT INTO execution_history (
         project_id,
+        user_id,
         event_type,
         description,
         old_value
       ) VALUES (
         ${document.project_id},
+        ${userId},
         'document_deleted',
         ${`Document deleted: ${document.title}`},
         ${JSON.stringify({ documentId: document.id, title: document.title })}
       )
-    `
+    `;
 
     return NextResponse.json({
       success: true,
-      message: 'Document deleted successfully',
-    })
-  } catch (error: any) {
-    console.error('Delete error:', error)
+      message: "Document deleted successfully",
+    });
+  } catch (error: unknown) {
+    console.error("Delete error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: 'Delete failed', details: error.message },
+      { error: "Delete failed", details: message },
       { status: 500 }
-    )
+    );
   }
 }
 
@@ -107,38 +142,46 @@ export async function DELETE(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const body = await request.json()
-    const { title, description, category } = body
+    const { id } = await params;
+    const userId = request.headers.get("x-user-id") || DEFAULT_USER_ID;
+    const body = await request.json();
+    const { title, description, category } = body;
 
     const result = await sql`
       UPDATE documents
       SET
         title = COALESCE(${title || null}, title),
         description = COALESCE(${description || null}, description),
-        category = COALESCE(${category || null}, category)
-      WHERE id = ${params.id}
+        category = COALESCE(${category || null}, category),
+        updated_at = NOW()
+      WHERE id = ${id}
+        AND user_id = ${userId}
         AND deleted_at IS NULL
       RETURNING *
-    `
+    `;
 
-    if (result.rows.length === 0) {
-      return NextResponse.json({ error: 'Document not found' }, { status: 404 })
+    if (result.length === 0) {
+      return NextResponse.json({ error: "Document not found" }, { status: 404 });
     }
 
-    const document = result.rows[0]
+    const document = result[0];
 
     return NextResponse.json({
       success: true,
       document,
-    })
-  } catch (error: any) {
-    console.error('Update error:', error)
+    });
+  } catch (error: unknown) {
+    console.error("Update error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: 'Update failed', details: error.message },
+      { error: "Update failed", details: message },
       { status: 500 }
-    )
+    );
   }
 }
+
+// Mark as dynamic to prevent static generation
+export const dynamic = "force-dynamic";

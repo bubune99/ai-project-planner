@@ -1,11 +1,20 @@
 "use server";
 
+import { stackServerApp } from "@/lib/auth/stack-auth";
+import { redirect } from "next/navigation";
+
 /**
- * Stub auth actions for chatsdk components
- * No actual auth in ai-project-planner
+ * Auth actions using Stack Auth
  */
 
 export async function signOut(): Promise<void> {
-  // Stub - no actual auth
-  console.log("signOut called");
+  const user = await stackServerApp.getUser();
+  if (user) {
+    await user.signOut();
+  }
+  redirect("/sign-in");
+}
+
+export async function getCurrentUser() {
+  return await stackServerApp.getUser();
 }
