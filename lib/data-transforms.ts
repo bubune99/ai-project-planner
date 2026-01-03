@@ -2,6 +2,17 @@ import type { Phase, Task, DocSection, DocItem } from "./types"
 import type { Node, Edge } from "@xyflow/react"
 
 /**
+ * Normalize status values from database (hyphenated) to UI format (underscored)
+ */
+function normalizeStatus(status: string): string {
+  const statusMap: Record<string, string> = {
+    'in-progress': 'in_progress',
+    'on-hold': 'on_hold',
+  }
+  return statusMap[status] || status
+}
+
+/**
  * Agent colors for consistent styling
  */
 const agentColors: Record<string, string> = {
@@ -91,7 +102,7 @@ export function transformStepsToFlow(steps: any[]): { nodes: Node[], edges: Edge
           data: {
             label: step.title || step.name || 'Untitled Task',
             description: step.description || '',
-            status: step.status || 'pending',
+            status: normalizeStatus(step.status || 'pending'),
             priority: step.priority || 'medium',
             agent: { name: agent, color: agentColor },
             estimatedTime: step.estimated_hours ? `${step.estimated_hours}h` : '',

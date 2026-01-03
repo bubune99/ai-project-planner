@@ -181,3 +181,33 @@ export interface DocSection {
   expanded: boolean
   items: DocItem[]
 }
+
+/**
+ * FlowNodeData - Data structure for React Flow nodes
+ * Used by TaskNode and PhaseNode components
+ */
+export interface FlowNodeData {
+  label: string
+  description?: string
+  status?: "completed" | "in_progress" | "pending" | "paused" | "failed"
+  priority?: "low" | "medium" | "high"
+  agent?: {
+    name: string
+    color?: string
+  }
+  estimatedTime?: string
+  type?: "task" | "phase"
+  // Phase-specific fields
+  phase?: number
+  progress?: number
+  taskCount?: number
+  completedCount?: number
+}
+
+/**
+ * FlowEdgeData - Data structure for React Flow edges
+ */
+export interface FlowEdgeData {
+  type?: "required" | "optional"
+  isCriticalPath?: boolean
+}

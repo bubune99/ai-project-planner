@@ -21,17 +21,20 @@ const statusColors = {
   failed: "border-red-500/50 bg-red-500/10",
 }
 
-const agentColors = {
+const agentColors: Record<string, string> = {
   v0: "bg-blue-500",
   claude: "bg-orange-500",
   gemini: "bg-purple-500",
   gpt: "bg-green-500",
+  human: "bg-gray-500",
 }
 
 export const TaskNode = memo(({ data, selected }: NodeProps<FlowNodeData>) => {
-  const StatusIcon = statusIcons[data.status || "pending"]
-  const statusColor = statusColors[data.status || "pending"]
-  const agentColor = agentColors[data.agent?.name || "v0"]
+  const status = data.status || "pending"
+  const StatusIcon = statusIcons[status as keyof typeof statusIcons] || Clock
+  const statusColor = statusColors[status as keyof typeof statusColors] || statusColors.pending
+  const agentName = data.agent?.name || "human"
+  const agentColor = agentColors[agentName] || agentColors.human
 
   return (
     <div

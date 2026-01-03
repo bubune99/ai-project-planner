@@ -51,11 +51,11 @@ export const PhaseNode = memo(({ data, selected }: NodeProps<FlowNodeData>) => {
               />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-xs font-bold text-foreground">{data.progress}%</span>
+              <span className="text-xs font-bold text-foreground">{data.progress ?? 0}%</span>
             </div>
           </div>
 
-          <div className="text-xs text-muted-foreground">{data.taskCount} tasks</div>
+          <div className="text-xs text-muted-foreground">{data.taskCount ?? 0} tasks</div>
         </div>
       </div>
 
