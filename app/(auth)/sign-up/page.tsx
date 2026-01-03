@@ -1,9 +1,30 @@
 "use client";
 
-import { SignUp } from "@stackframe/stack";
+import { SignUp, useUser } from "@stackframe/stack";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function SignUpPage() {
+  const user = useUser();
+  const router = useRouter();
+
+  // Redirect to dashboard if already signed in
+  useEffect(() => {
+    if (user) {
+      router.replace("/dashboard");
+    }
+  }, [user, router]);
+
+  // Show loading while checking auth or redirecting
+  if (user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+        <div className="text-white">Redirecting to dashboard...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       <div className="w-full max-w-md p-8">
