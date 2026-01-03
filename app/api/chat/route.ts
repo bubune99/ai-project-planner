@@ -26,13 +26,10 @@ import {
   getConversation,
 } from "@/lib/ai/conversation-queries";
 import { sessionCache } from "@/lib/ai/session-cache";
+import { getAuthContext } from "@/lib/auth/auth-utils";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
-
-// Default user ID for local development (no auth)
-// Using a consistent UUID for the local development user
-const DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000001";
 
 /**
  * Extract text content from UIMessage
@@ -79,20 +76,29 @@ interface ChatRequestBody {
     projectId?: string;
   };
   conversationId?: string;
-  userId?: string;
   contextType?: string;
   contextId?: string;
 }
 
 export async function POST(request: Request) {
   try {
+    // Get authenticated user
+    const authContext = await getAuthContext();
+    if (!authContext) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized", code: "AUTH_REQUIRED" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const { userId } = authContext;
+
     // Step 1: Extract request data
     const body: ChatRequestBody = await request.json();
     const {
       messages,
       context,
       conversationId: requestConversationId,
-      userId = DEFAULT_USER_ID,
       contextType = context?.projectId ? "project" : "general",
       contextId = context?.projectId,
     } = body;
@@ -256,6 +262,16 @@ function generateTitle(userMessage: string | undefined | null, assistantResponse
  */
 export async function DELETE(request: Request) {
   try {
+    // Get authenticated user
+    const authContext = await getAuthContext();
+    if (!authContext) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized", code: "AUTH_REQUIRED" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const { userId } = authContext;
     const { searchParams } = new URL(request.url);
     const conversationId = searchParams.get("id");
 
@@ -266,12 +282,20 @@ export async function DELETE(request: Request) {
       );
     }
 
-    // Verify conversation exists
+    // Verify conversation exists and belongs to user
     const conversation = await getConversation(conversationId);
     if (!conversation) {
       return new Response(
         JSON.stringify({ error: "Conversation not found" }),
         { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Verify ownership
+    if (conversation.user_id !== userId) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden", code: "NOT_OWNER" }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
       );
     }
 

@@ -8,9 +8,7 @@ import {
   isR2Configured,
   getPublicUrl,
 } from "@/lib/storage/r2-client";
-
-// Default user ID for development (will be replaced with auth)
-const DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000001";
+import { getAuthContext } from "@/lib/auth/auth-utils";
 
 /**
  * POST /api/upload
@@ -18,6 +16,17 @@ const DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000001";
  */
 export async function POST(request: NextRequest) {
   try {
+    // Get authenticated user
+    const authContext = await getAuthContext();
+    if (!authContext) {
+      return NextResponse.json(
+        { error: "Unauthorized", code: "AUTH_REQUIRED" },
+        { status: 401 }
+      );
+    }
+
+    const { userId } = authContext;
+
     // Check R2 configuration
     if (!isR2Configured()) {
       return NextResponse.json(
@@ -32,9 +41,6 @@ export async function POST(request: NextRequest) {
     const category = (formData.get("category") as string) || "other";
     const title = formData.get("title") as string;
     const description = formData.get("description") as string;
-
-    // Get user ID from header (set by auth middleware) or use default
-    const userId = request.headers.get("x-user-id") || DEFAULT_USER_ID;
 
     // Validation
     if (!file) {
@@ -216,6 +222,17 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
+    // Get authenticated user
+    const authContext = await getAuthContext();
+    if (!authContext) {
+      return NextResponse.json(
+        { error: "Unauthorized", code: "AUTH_REQUIRED" },
+        { status: 401 }
+      );
+    }
+
+    const { userId } = authContext;
+
     // Check R2 configuration
     if (!isR2Configured()) {
       return NextResponse.json(
@@ -235,9 +252,6 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Get user ID from header (set by auth middleware) or use default
-    const userId = request.headers.get("x-user-id") || DEFAULT_USER_ID;
 
     // Generate storage key
     const storageKey = generateStorageKey(userId, projectId, filename);

@@ -6,12 +6,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { getUserConversations, deleteConversation } from "@/lib/ai/conversation-queries";
+import { getAuthContext } from "@/lib/auth/auth-utils";
 
 export const dynamic = "force-dynamic";
-import { getUserConversations, deleteConversation } from "@/lib/ai/conversation-queries";
-
-// Default user ID for local development (no auth)
-const DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000001";
 
 /**
  * GET /api/history
@@ -23,12 +21,19 @@ const DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000001";
  */
 export async function GET(request: NextRequest) {
   try {
+    // Get authenticated user
+    const authContext = await getAuthContext();
+    if (!authContext) {
+      return NextResponse.json(
+        { error: "Unauthorized", code: "AUTH_REQUIRED" },
+        { status: 401 }
+      );
+    }
+
+    const { userId } = authContext;
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get("limit") || "20", 10);
     const endingBefore = searchParams.get("ending_before");
-
-    // For now, we use the default user ID (no auth implemented)
-    const userId = DEFAULT_USER_ID;
 
     // Fetch conversations from our database
     const conversations = await getUserConversations(userId, {
@@ -79,7 +84,16 @@ export async function GET(request: NextRequest) {
  */
 export async function DELETE() {
   try {
-    const userId = DEFAULT_USER_ID;
+    // Get authenticated user
+    const authContext = await getAuthContext();
+    if (!authContext) {
+      return NextResponse.json(
+        { error: "Unauthorized", code: "AUTH_REQUIRED" },
+        { status: 401 }
+      );
+    }
+
+    const { userId } = authContext;
 
     // Get all conversations for the user
     const conversations = await getUserConversations(userId, {

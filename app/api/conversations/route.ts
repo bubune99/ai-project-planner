@@ -5,6 +5,7 @@
  */
 
 import { type NextRequest, NextResponse } from "next/server";
+import { getAuthContext } from "@/lib/auth/auth-utils";
 
 export const dynamic = "force-dynamic";
 import {
@@ -16,19 +17,24 @@ import {
   updateConversationTitle,
 } from "@/lib/ai/conversation-queries";
 
-// Default user ID for local development (no auth)
-// Using a consistent UUID for the local development user
-const DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000001";
-
 /**
  * GET /api/conversations
  * List user's conversations with optional filters
  */
 export async function GET(request: NextRequest) {
   try {
+    // Get authenticated user
+    const authContext = await getAuthContext();
+    if (!authContext) {
+      return NextResponse.json(
+        { error: "Unauthorized", code: "AUTH_REQUIRED" },
+        { status: 401 }
+      );
+    }
+
+    const { userId } = authContext;
     const { searchParams } = new URL(request.url);
     const conversationId = searchParams.get("id");
-    const userId = searchParams.get("userId") || DEFAULT_USER_ID;
     const contextType = searchParams.get("contextType") || undefined;
     const contextId = searchParams.get("contextId") || undefined;
     const status = (searchParams.get("status") as "active" | "archived") || "active";

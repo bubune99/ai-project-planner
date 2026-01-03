@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
 import { deleteFromR2 } from "@/lib/storage/r2-client";
+import { getAuthContext } from "@/lib/auth/auth-utils";
 
-// Default user ID for development (will be replaced with auth)
-const DEFAULT_USER_ID = "00000000-0000-0000-0000-000000000001";
+export const dynamic = "force-dynamic";
 
 /**
  * GET /api/documents/[id]
@@ -14,8 +14,17 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Get authenticated user
+    const authContext = await getAuthContext();
+    if (!authContext) {
+      return NextResponse.json(
+        { error: "Unauthorized", code: "AUTH_REQUIRED" },
+        { status: 401 }
+      );
+    }
+
+    const { userId } = authContext;
     const { id } = await params;
-    const userId = request.headers.get("x-user-id") || DEFAULT_USER_ID;
 
     // Get document with version history
     // First try the function, if it doesn't exist fall back to simple query
@@ -64,8 +73,17 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Get authenticated user
+    const authContext = await getAuthContext();
+    if (!authContext) {
+      return NextResponse.json(
+        { error: "Unauthorized", code: "AUTH_REQUIRED" },
+        { status: 401 }
+      );
+    }
+
+    const { userId } = authContext;
     const { id } = await params;
-    const userId = request.headers.get("x-user-id") || DEFAULT_USER_ID;
 
     // Get document details (with ownership check)
     const docResult = await sql`
@@ -145,8 +163,17 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Get authenticated user
+    const authContext = await getAuthContext();
+    if (!authContext) {
+      return NextResponse.json(
+        { error: "Unauthorized", code: "AUTH_REQUIRED" },
+        { status: 401 }
+      );
+    }
+
+    const { userId } = authContext;
     const { id } = await params;
-    const userId = request.headers.get("x-user-id") || DEFAULT_USER_ID;
     const body = await request.json();
     const { title, description, category } = body;
 
@@ -182,6 +209,3 @@ export async function PATCH(
     );
   }
 }
-
-// Mark as dynamic to prevent static generation
-export const dynamic = "force-dynamic";
