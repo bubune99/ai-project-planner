@@ -292,7 +292,7 @@ export async function DELETE(request: Request) {
     }
 
     // Verify ownership
-    if (conversation.user_id !== userId) {
+    if (conversation.userId !== userId) {
       return new Response(
         JSON.stringify({ error: "Forbidden", code: "NOT_OWNER" }),
         { status: 403, headers: { "Content-Type": "application/json" } }
