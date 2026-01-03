@@ -1,7 +1,7 @@
 "use client"
 
 import { Card } from "@/components/ui/card"
-import { FolderKanban, TrendingUp, Users, Zap } from 'lucide-react'
+import { FolderKanban, TrendingUp, Activity, Heart } from 'lucide-react'
 import type { ProjectSummary } from "@/lib/types"
 
 interface ProjectStatsProps {
@@ -15,14 +15,38 @@ export function ProjectStats({ projects }: ProjectStatsProps) {
   const stats = {
     total: safeProjects.length,
     active: safeProjects.filter((p) => p.status === "in_progress").length,
-    totalTasks: safeProjects.reduce((sum, p) => sum + ((p as any).total_tasks || (p as any).totalTasks || 0), 0),
-    completedTasks: safeProjects.reduce((sum, p) => sum + ((p as any).completed_tasks || (p as any).completedTasks || 0), 0),
-    activeAgents: safeProjects.reduce((sum, p) => sum + ((p as any).active_agents || (p as any).activeAgents || 0), 0),
+    totalTasks: safeProjects.reduce((sum, p) => sum + (p.totalTasks || 0), 0),
+    completedTasks: safeProjects.reduce((sum, p) => sum + (p.completedTasks || 0), 0),
+    activeAgents: safeProjects.reduce((sum, p) => sum + (p.activeAgents || 0), 0),
   }
+
+  // Calculate health score based on project health distribution
+  const healthScores = { excellent: 100, good: 80, attention: 50, critical: 20 }
+  const healthScore = safeProjects.length > 0
+    ? Math.round(
+        safeProjects.reduce((sum, p) => sum + (healthScores[p.health] || 80), 0) / safeProjects.length
+      )
+    : 0
 
   const completionRate = stats.totalTasks > 0
     ? Math.round((stats.completedTasks / stats.totalTasks) * 100)
     : 0
+
+  // Count projects by health status
+  const healthCounts = {
+    excellent: safeProjects.filter(p => p.health === 'excellent').length,
+    good: safeProjects.filter(p => p.health === 'good').length,
+    attention: safeProjects.filter(p => p.health === 'attention').length,
+    critical: safeProjects.filter(p => p.health === 'critical').length,
+  }
+
+  const healthSubtext = safeProjects.length > 0
+    ? healthCounts.critical > 0
+      ? `${healthCounts.critical} need attention`
+      : healthCounts.excellent > 0
+        ? `${healthCounts.excellent} excellent`
+        : `${safeProjects.length} projects`
+    : "No projects"
 
   const statCards = [
     {
@@ -40,17 +64,17 @@ export function ProjectStats({ projects }: ProjectStatsProps) {
       color: "text-green-400",
     },
     {
-      icon: Zap,
-      label: "Active Agents",
+      icon: Activity,
+      label: "In Progress",
       value: stats.activeAgents,
-      subtext: "Working now",
+      subtext: "Active tasks",
       color: "text-yellow-400",
     },
     {
-      icon: Users,
+      icon: Heart,
       label: "Health Score",
-      value: "85%",
-      subtext: "All projects",
+      value: safeProjects.length > 0 ? `${healthScore}%` : "—",
+      subtext: healthSubtext,
       color: "text-purple-400",
     },
   ]
