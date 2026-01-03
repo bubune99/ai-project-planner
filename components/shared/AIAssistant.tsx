@@ -1,6 +1,8 @@
 "use client"
 
-import { useChat, Message } from "@ai-sdk/react"
+import { useChat } from "@ai-sdk/react"
+import { DefaultChatTransport } from "ai"
+import type { UIMessage } from "ai"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -31,11 +33,15 @@ interface AIAssistantProps {
   onSelectDocument?: (doc: any) => void
 }
 
-const WELCOME_MESSAGE: Message = {
+const WELCOME_MESSAGE: UIMessage = {
   id: "welcome",
   role: "assistant",
-  content:
-    "Hello! I'm your AI project planning assistant. I can help you navigate views, manage tasks, track progress, and more. What would you like to do?",
+  parts: [
+    {
+      type: "text",
+      text: "Hello! I'm your AI project planning assistant. I can help you navigate views, manage tasks, track progress, and more. What would you like to do?",
+    },
+  ],
 }
 
 export function AIAssistant({
@@ -51,9 +57,10 @@ export function AIAssistant({
 }: AIAssistantProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [suggestions, setSuggestions] = useState<string[]>([])
-  const [loadedMessages, setLoadedMessages] = useState<Message[]>([WELCOME_MESSAGE])
+  const [loadedMessages, setLoadedMessages] = useState<UIMessage[]>([WELCOME_MESSAGE])
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
+  const [input, setInput] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const processedToolCallsRef = useRef<Set<string>>(new Set())
   const hasLoadedHistory = useRef(false)
@@ -97,21 +104,33 @@ export function AIAssistant({
 
               if (fetchedMessages.length > 0) {
                 // Transform messages to the format expected by useChat
-                const transformedMessages: Message[] = fetchedMessages.map((msg: any) => {
-                  const baseMsg: Message = {
-                    id: msg.id,
-                    role: msg.role as "user" | "assistant" | "system",
-                    content: msg.content || "",
-                  }
+                const transformedMessages: UIMessage[] = fetchedMessages.map((msg: any) => {
+                  const parts: any[] = []
 
-                  // Include toolInvocations if present
-                  if (msg.toolInvocations && msg.toolInvocations.length > 0) {
-                    (baseMsg as any).toolInvocations = msg.toolInvocations
+                  // Add text content as a part
+                  if (msg.content) {
+                    parts.push({ type: "text", text: msg.content })
                   }
 
                   // Include parts if present (for AI SDK v5 compatibility)
                   if (msg.parts && msg.parts.length > 0) {
-                    (baseMsg as any).parts = msg.parts
+                    parts.push(...msg.parts)
+                  }
+
+                  // Include toolInvocations as tool-result parts if present
+                  if (msg.toolInvocations && msg.toolInvocations.length > 0) {
+                    for (const invocation of msg.toolInvocations) {
+                      parts.push({
+                        type: "tool-invocation",
+                        toolInvocation: invocation,
+                      })
+                    }
+                  }
+
+                  const baseMsg: UIMessage = {
+                    id: msg.id,
+                    role: msg.role as "user" | "assistant" | "system",
+                    parts: parts.length > 0 ? parts : [{ type: "text", text: "" }],
                   }
 
                   return baseMsg
@@ -133,11 +152,40 @@ export function AIAssistant({
     loadConversationHistory()
   }, [projectId])
 
-  const { messages, input, setInput, handleSubmit, isLoading, append, setMessages } = useChat({
-    api: "/api/chat",
-    body: { context, conversationId }, // Send context and conversationId with each request
-    initialMessages: loadedMessages,
+  const { messages, sendMessage, setMessages, status } = useChat({
+    messages: loadedMessages,
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+      prepareSendMessagesRequest(request: any) {
+        return {
+          body: {
+            ...request.body,
+            context,
+            conversationId,
+          },
+        }
+      },
+    }),
   })
+
+  const isLoading = status === "streaming" || status === "submitted"
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!input.trim()) return
+    sendMessage({
+      role: "user",
+      parts: [{ type: "text", text: input }],
+    })
+    setInput("")
+  }
+
+  const append = (message: { role: "user" | "assistant"; content: string }) => {
+    sendMessage({
+      role: message.role,
+      parts: [{ type: "text", text: message.content }],
+    })
+  }
 
   // Update messages when loadedMessages changes (after loading history)
   useEffect(() => {
@@ -192,11 +240,29 @@ export function AIAssistant({
     onGetContext: () => context,
   }
 
+  // Helper to extract text content from message parts
+  const getMessageContent = (message: UIMessage) => {
+    if (!message.parts) return ""
+    const textParts = message.parts
+      .filter((part: any) => part.type === "text")
+      .map((part: any) => part.text)
+    return textParts.join("")
+  }
+
+  // Helper to extract tool invocations from message parts
+  const getToolInvocations = (message: UIMessage) => {
+    if (!message.parts) return []
+    return message.parts
+      .filter((part: any) => part.type === "tool-invocation")
+      .map((part: any) => part.toolInvocation)
+  }
+
   // Process tool invocations when messages change
   useEffect(() => {
     const latestMessage = messages[messages.length - 1]
-    if (latestMessage?.role === "assistant" && latestMessage.toolInvocations) {
-      for (const invocation of latestMessage.toolInvocations) {
+    const toolInvocations = latestMessage ? getToolInvocations(latestMessage) : []
+    if (latestMessage?.role === "assistant" && toolInvocations.length > 0) {
+      for (const invocation of toolInvocations) {
         // Only process each tool call once
         const callId = `${latestMessage.id}-${invocation.toolCallId}`
         if (invocation.state === "result" && !processedToolCallsRef.current.has(callId)) {
@@ -282,7 +348,7 @@ export function AIAssistant({
   const handleSuggestionClick = (suggestion: string) => {
     let contextPrompt = suggestion
     if (selectedDocument) {
-      contextPrompt = `Regarding the document "${selectedDocument.name}": ${suggestion}`
+      contextPrompt = `Regarding the document "${selectedDocument.title}": ${suggestion}`
     } else if (selectedTask) {
       const taskName = "title" in selectedTask ? selectedTask.title : selectedTask.name
       contextPrompt = `Regarding the task "${taskName}": ${suggestion}`
@@ -291,7 +357,7 @@ export function AIAssistant({
   }
 
   const getContextLabel = () => {
-    if (selectedDocument) return `Document - ${selectedDocument.name}`
+    if (selectedDocument) return `Document - ${selectedDocument.title}`
     if (selectedTask) {
       const taskName = "title" in selectedTask ? selectedTask.title : selectedTask.name
       return `Task - ${taskName}`
@@ -308,7 +374,7 @@ export function AIAssistant({
   }
 
   const getPlaceholder = () => {
-    if (selectedDocument) return `Ask about ${selectedDocument.name}...`
+    if (selectedDocument) return `Ask about ${selectedDocument.title}...`
     if (selectedTask) {
       const taskName = "title" in selectedTask ? selectedTask.title : selectedTask.name
       return `Ask about ${taskName}...`
@@ -424,12 +490,12 @@ export function AIAssistant({
                   : "bg-accent/50 border border-border/30 text-foreground mr-4"
               )}
             >
-              {message.content}
+              {getMessageContent(message)}
             </div>
             {/* Show tool invocations */}
-            {message.toolInvocations && message.toolInvocations.length > 0 && (
+            {getToolInvocations(message).length > 0 && (
               <div className="flex flex-wrap gap-1 mt-1 mr-4">
-                {message.toolInvocations.map(renderToolInvocation)}
+                {getToolInvocations(message).map(renderToolInvocation)}
               </div>
             )}
           </div>
@@ -457,7 +523,7 @@ export function AIAssistant({
         {selectedDocument && (
           <div className="text-xs space-y-1 p-2 bg-accent/30 rounded">
             <p className="text-muted-foreground">Selected Document:</p>
-            <p className="text-foreground font-medium">{selectedDocument.name}</p>
+            <p className="text-foreground font-medium">{selectedDocument.title}</p>
           </div>
         )}
 
