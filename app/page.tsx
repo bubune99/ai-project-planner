@@ -5,9 +5,14 @@ import { redirect } from "next/navigation";
 
 export default async function LandingPage() {
   // Check if user is already logged in
-  const user = await stackServerApp.getUser();
-  if (user) {
-    redirect("/dashboard");
+  try {
+    const user = await stackServerApp.getUser();
+    if (user) {
+      redirect("/dashboard");
+    }
+  } catch {
+    // If auth check fails, just show the landing page
+    console.warn("Auth check failed on landing page, showing public view");
   }
 
   return (

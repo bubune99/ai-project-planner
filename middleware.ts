@@ -102,63 +102,62 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/sign-in", request.url));
     }
 
-    // User is authenticated via session
-    // Get or sync user to our database
-    const { sql } = await import("@/lib/db/client");
-
-    // Try to get existing user
-    let dbUser = await sql`
-      SELECT id FROM users WHERE stack_auth_id = ${user.id}
-    `;
-
-    // If user doesn't exist in our DB, create them
-    if (dbUser.length === 0) {
-      dbUser = await sql`
-        INSERT INTO users (
-          stack_auth_id,
-          email,
-          name,
-          avatar_url,
-          email_verified
-        ) VALUES (
-          ${user.id},
-          ${user.primaryEmail || `${user.id}@unknown.local`},
-          ${user.displayName || user.primaryEmail?.split("@")[0] || "User"},
-          ${user.profileImageUrl || null},
-          ${user.primaryEmailVerified || false}
-        )
-        ON CONFLICT (stack_auth_id) DO UPDATE SET
-          email = EXCLUDED.email,
-          name = EXCLUDED.name,
-          avatar_url = EXCLUDED.avatar_url,
-          email_verified = EXCLUDED.email_verified,
-          updated_at = NOW()
-        RETURNING id
-      `;
-    }
-
-    const internalUserId = dbUser[0]?.id;
-
-    if (!internalUserId) {
-      console.error("Failed to get or create internal user ID");
-      return NextResponse.json(
-        { error: "Internal error", code: "USER_SYNC_FAILED" },
-        { status: 500 }
-      );
-    }
-
-    // Set auth headers for downstream routes
+    // User is authenticated via Stack Auth
+    // Set basic auth headers - user ID will be set by route handlers via getAuthContext
     const response = NextResponse.next();
     response.headers.set("x-auth-type", "session");
-    response.headers.set("x-user-id", internalUserId);
     response.headers.set("x-user-stack-id", user.id);
+
+    // Try to sync user to database, but don't block on failure
+    try {
+      const { sql } = await import("@/lib/db/client");
+
+      // Try to get existing user
+      let dbUser = await sql`
+        SELECT id FROM users WHERE stack_auth_id = ${user.id}
+      `;
+
+      // If user doesn't exist in our DB, create them
+      if (dbUser.length === 0) {
+        dbUser = await sql`
+          INSERT INTO users (
+            stack_auth_id,
+            email,
+            name,
+            avatar_url,
+            email_verified
+          ) VALUES (
+            ${user.id},
+            ${user.primaryEmail || `${user.id}@unknown.local`},
+            ${user.displayName || user.primaryEmail?.split("@")[0] || "User"},
+            ${user.profileImageUrl || null},
+            ${user.primaryEmailVerified || false}
+          )
+          ON CONFLICT (stack_auth_id) DO UPDATE SET
+            email = EXCLUDED.email,
+            name = EXCLUDED.name,
+            avatar_url = EXCLUDED.avatar_url,
+            email_verified = EXCLUDED.email_verified,
+            updated_at = NOW()
+          RETURNING id
+        `;
+      }
+
+      const internalUserId = dbUser[0]?.id;
+      if (internalUserId) {
+        response.headers.set("x-user-id", internalUserId);
+      }
+    } catch (dbError) {
+      // Log but don't fail - user is still authenticated via Stack Auth
+      console.warn("DB sync in middleware failed (non-blocking):", dbError);
+    }
 
     return response;
   } catch (error) {
     console.error("Auth middleware error:", error);
 
-    // On error, allow request to proceed but without auth headers
-    // Individual routes will handle unauthorized access
+    // On Stack Auth error, allow request to proceed for pages (let client-side handle)
+    // For API routes, return error
     if (pathname.startsWith("/api/")) {
       return NextResponse.json(
         { error: "Authentication failed", code: "AUTH_ERROR" },
@@ -166,7 +165,8 @@ export async function middleware(request: NextRequest) {
       );
     }
 
-    return NextResponse.redirect(new URL("/sign-in", request.url));
+    // For pages, let them load - they can handle auth state client-side
+    return NextResponse.next();
   }
 }
 
