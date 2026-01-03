@@ -92,7 +92,34 @@ export async function getAuthContext(): Promise<AuthContext | null> {
 
   // Session authentication (set by middleware)
   if (authType === "session") {
-    const userId = headersList.get("x-user-id");
+    let userId = headersList.get("x-user-id");
+    const stackAuthId = headersList.get("x-user-stack-id");
+
+    // If middleware couldn't sync user to DB, try to do it here
+    if (!userId && stackAuthId) {
+      try {
+        // Try to get or create user
+        let dbUser = await sql`
+          SELECT id FROM users WHERE stack_auth_id = ${stackAuthId}
+        `;
+
+        if (dbUser.length === 0) {
+          // Create user with minimal info (middleware would have had more)
+          dbUser = await sql`
+            INSERT INTO users (stack_auth_id, email, name)
+            VALUES (${stackAuthId}, ${stackAuthId + '@unknown.local'}, 'User')
+            ON CONFLICT (stack_auth_id) DO UPDATE SET updated_at = NOW()
+            RETURNING id
+          `;
+        }
+
+        userId = dbUser[0]?.id;
+      } catch (error) {
+        console.error("Failed to sync user in getAuthContext:", error);
+        return null;
+      }
+    }
+
     if (!userId) return null;
 
     return {
