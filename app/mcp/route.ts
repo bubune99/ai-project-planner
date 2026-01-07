@@ -949,8 +949,8 @@ const handler = createMcpHandler(
   },
   {},
   {
-    basePath: "/mcp",
-    verboseLogs: process.env.NODE_ENV === "development",
+    basePath: "",
+    verboseLogs: true,
     maxDuration: 60,
     disableSse: true, // Use simple HTTP polling instead of SSE
   }
