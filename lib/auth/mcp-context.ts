@@ -22,6 +22,8 @@ export interface McpContext {
   scopes: string[];
   /** User's email (for logging) */
   email?: string;
+  /** Active project ID (like gh repo set-default) */
+  activeProjectId?: string;
 }
 
 // AsyncLocalStorage for request-scoped context
@@ -58,6 +60,7 @@ export async function validateMcpApiKey(
         ak.id as key_id,
         ak.user_id,
         ak.scopes,
+        ak.active_project_id,
         u.email
       FROM api_keys ak
       JOIN users u ON ak.user_id = u.id
@@ -82,6 +85,7 @@ export async function validateMcpApiKey(
       apiKeyId: keyRecord.key_id,
       scopes: keyRecord.scopes || ["read", "write"],
       email: keyRecord.email,
+      activeProjectId: keyRecord.active_project_id || undefined,
     };
   } catch (error) {
     console.error("MCP API key validation error:", error);
@@ -213,4 +217,157 @@ export async function verifyMcpDocumentOwnership(documentId: string): Promise<bo
     console.error("MCP document ownership verification error:", error);
     return false;
   }
+}
+
+/**
+ * Get the active project ID for the current API key
+ * Returns null if no active project is set
+ */
+export function getActiveProjectId(): string | null {
+  const context = getMcpContextOrNull();
+  return context?.activeProjectId ?? null;
+}
+
+/**
+ * Set the active project for the current API key
+ * Persists across sessions until changed
+ */
+export async function setActiveProject(projectId: string | null): Promise<boolean> {
+  const context = getMcpContextOrNull();
+  if (!context) return false;
+
+  try {
+    // If setting a project, verify ownership first
+    if (projectId) {
+      const owns = await verifyMcpProjectOwnership(projectId);
+      if (!owns) return false;
+    }
+
+    await sql`
+      UPDATE api_keys
+      SET active_project_id = ${projectId}
+      WHERE id = ${context.apiKeyId}
+    `;
+
+    // Update local context (for subsequent calls in this request)
+    context.activeProjectId = projectId ?? undefined;
+
+    return true;
+  } catch (error) {
+    console.error("Failed to set active project:", error);
+    return false;
+  }
+}
+
+/**
+ * Find a project by git remote URL
+ */
+export async function findProjectByGitRemote(gitRemote: string): Promise<string | null> {
+  const context = getMcpContextOrNull();
+  if (!context) return null;
+
+  try {
+    // Normalize git remote URL (handle various formats)
+    const normalized = normalizeGitRemote(gitRemote);
+
+    const result = await sql`
+      SELECT id FROM projects
+      WHERE user_id = ${context.userId}
+        AND github_repo_url IS NOT NULL
+        AND (
+          github_repo_url = ${gitRemote}
+          OR github_repo_url = ${normalized}
+          OR github_repo_url ILIKE ${"%" + extractRepoPath(gitRemote)}
+        )
+        AND deleted_at IS NULL
+      LIMIT 1
+    `;
+
+    return result.length > 0 ? result[0].id : null;
+  } catch (error) {
+    console.error("Failed to find project by git remote:", error);
+    return null;
+  }
+}
+
+/**
+ * Find a project by workspace path
+ */
+export async function findProjectByWorkspacePath(workspacePath: string): Promise<string | null> {
+  const context = getMcpContextOrNull();
+  if (!context) return null;
+
+  try {
+    const result = await sql`
+      SELECT id FROM projects
+      WHERE user_id = ${context.userId}
+        AND workspace_path = ${workspacePath}
+        AND deleted_at IS NULL
+      LIMIT 1
+    `;
+
+    return result.length > 0 ? result[0].id : null;
+  } catch (error) {
+    console.error("Failed to find project by workspace path:", error);
+    return null;
+  }
+}
+
+/**
+ * Update project workspace identifiers
+ */
+export async function updateProjectWorkspace(
+  projectId: string,
+  updates: { gitRemote?: string; workspacePath?: string }
+): Promise<boolean> {
+  const context = getMcpContextOrNull();
+  if (!context) return false;
+
+  try {
+    const owns = await verifyMcpProjectOwnership(projectId);
+    if (!owns) return false;
+
+    if (updates.gitRemote !== undefined) {
+      await sql`
+        UPDATE projects
+        SET github_repo_url = ${updates.gitRemote}
+        WHERE id = ${projectId}
+      `;
+    }
+
+    if (updates.workspacePath !== undefined) {
+      await sql`
+        UPDATE projects
+        SET workspace_path = ${updates.workspacePath}
+        WHERE id = ${projectId}
+      `;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Failed to update project workspace:", error);
+    return false;
+  }
+}
+
+// Helper: Normalize git remote URL formats
+function normalizeGitRemote(remote: string): string {
+  // Convert SSH to HTTPS format for matching
+  // git@github.com:user/repo.git -> https://github.com/user/repo
+  if (remote.startsWith("git@")) {
+    return remote
+      .replace("git@", "https://")
+      .replace(":", "/")
+      .replace(/\.git$/, "");
+  }
+  // Remove .git suffix from HTTPS URLs
+  return remote.replace(/\.git$/, "");
+}
+
+// Helper: Extract repo path (user/repo) from various formats
+function extractRepoPath(remote: string): string {
+  // git@github.com:user/repo.git -> user/repo
+  // https://github.com/user/repo -> user/repo
+  const match = remote.match(/[:/]([^/:]+\/[^/.]+)(?:\.git)?$/);
+  return match ? match[1] : remote;
 }

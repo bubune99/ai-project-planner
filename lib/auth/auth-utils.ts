@@ -251,9 +251,51 @@ export async function verifyOwnership(
 }
 
 /**
- * Verify user owns a project (common use case)
+ * Verify user can access a project (owner OR active collaborator)
+ *
+ * This is the primary function for checking project access.
+ * It returns true if the user is either the owner or an accepted collaborator.
+ *
+ * For owner-only operations (like deleting a project), use verifyProjectOwnerOnly instead.
  */
 export async function verifyProjectOwnership(
+  projectId: string,
+  userId: string
+): Promise<boolean> {
+  try {
+    // Check ownership first (fast path)
+    const ownerResult = await sql`
+      SELECT 1 FROM projects
+      WHERE id = ${projectId} AND user_id = ${userId} AND deleted_at IS NULL
+    `;
+
+    if (ownerResult.length > 0) return true;
+
+    // Check collaborator access (must be accepted, not removed)
+    const collaboratorResult = await sql`
+      SELECT 1 FROM project_collaborators
+      WHERE project_id = ${projectId}
+        AND user_id = ${userId}
+        AND removed_at IS NULL
+        AND accepted_at IS NOT NULL
+    `;
+
+    return collaboratorResult.length > 0;
+  } catch (error) {
+    console.error("Project access verification error:", error);
+    return false;
+  }
+}
+
+/**
+ * Verify user is the actual owner of a project (not just a collaborator)
+ *
+ * Use this for sensitive operations like:
+ * - Deleting the project
+ * - Transferring ownership
+ * - Changing billing settings
+ */
+export async function verifyProjectOwnerOnly(
   projectId: string,
   userId: string
 ): Promise<boolean> {
@@ -277,19 +319,33 @@ export async function getProjectOwnerId(projectId: string): Promise<string | nul
 
 /**
  * Verify user can access a project step
- * (User must own the parent project)
+ * (User must own or be a collaborator on the parent project)
  */
 export async function verifyStepAccess(
   stepId: string,
   userId: string
 ): Promise<boolean> {
   try {
-    const result = await sql`
+    // Check if user owns the parent project
+    const ownerResult = await sql`
       SELECT 1 FROM project_steps ps
       JOIN projects p ON ps.project_id = p.id
-      WHERE ps.id = ${stepId} AND p.user_id = ${userId}
+      WHERE ps.id = ${stepId} AND p.user_id = ${userId} AND p.deleted_at IS NULL
     `;
-    return result.length > 0;
+
+    if (ownerResult.length > 0) return true;
+
+    // Check if user is a collaborator on the parent project
+    const collaboratorResult = await sql`
+      SELECT 1 FROM project_steps ps
+      JOIN project_collaborators pc ON ps.project_id = pc.project_id
+      WHERE ps.id = ${stepId}
+        AND pc.user_id = ${userId}
+        AND pc.removed_at IS NULL
+        AND pc.accepted_at IS NOT NULL
+    `;
+
+    return collaboratorResult.length > 0;
   } catch (error) {
     console.error("Step access verification error:", error);
     return false;

@@ -71,6 +71,8 @@
     ]
   },
   "enabledMcpjsonServers": [
-    "postgresql"
-  ]
+    "postgresql",
+    "stack-auth"
+  ],
+  "enableAllProjectMcpServers": true
 }

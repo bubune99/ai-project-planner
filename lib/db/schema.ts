@@ -409,3 +409,153 @@ export type UpdateMap = {
   project_phases: Partial<Omit<ProjectPhase, 'id' | 'created_at'>>
   architecture_decisions: Partial<Omit<ArchitectureDecision, 'id' | 'created_at'>>
 }
+
+// ============================================================================
+// Collaboration Types
+// ============================================================================
+
+// Collaboration role enum
+export type CollaboratorRole = 'viewer' | 'editor' | 'admin'
+
+// Invitation types
+export type InvitationType = 'email' | 'link'
+export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked'
+
+// Activity action types
+export type CollaborationActionType =
+  // Collaboration management actions
+  | 'collaborator_invited'
+  | 'collaborator_joined'
+  | 'collaborator_removed'
+  | 'collaborator_left'
+  | 'role_changed'
+  | 'invitation_created'
+  | 'invitation_revoked'
+  | 'invitation_expired'
+  | 'link_generated'
+  // Project actions by collaborators
+  | 'project_viewed'
+  | 'project_updated'
+  | 'step_created'
+  | 'step_updated'
+  | 'step_deleted'
+  | 'step_status_changed'
+  | 'document_created'
+  | 'document_updated'
+  | 'document_deleted'
+  | 'note_created'
+  | 'note_updated'
+  | 'comment_added'
+  | 'adr_created'
+  | 'adr_updated'
+
+// Core collaboration interfaces
+export interface ProjectCollaborator {
+  id: string
+  project_id: string
+  user_id: string
+  role: CollaboratorRole
+  invited_by: string | null
+  invited_at: Date
+  accepted_at: Date | null
+  removed_at: Date | null
+  removed_by: string | null
+  metadata: Record<string, any>
+  created_at: Date
+  updated_at: Date
+}
+
+export interface ProjectInvitation {
+  id: string
+  project_id: string
+  invitation_type: InvitationType
+  invitee_email: string | null
+  token: string
+  token_hash: string
+  role: CollaboratorRole
+  max_uses: number
+  current_uses: number
+  expires_at: Date
+  invited_by: string
+  status: InvitationStatus
+  message: string | null
+  metadata: Record<string, any>
+  created_at: Date
+  updated_at: Date
+}
+
+export interface CollaborationActivityLog {
+  id: string
+  project_id: string
+  actor_id: string
+  actor_role: string
+  action_type: CollaborationActionType
+  target_type: 'user' | 'invitation' | 'step' | 'document' | 'project' | 'note' | 'adr' | null
+  target_id: string | null
+  description: string
+  old_value: Record<string, any> | null
+  new_value: Record<string, any> | null
+  metadata: Record<string, any>
+  ip_address: string | null
+  user_agent: string | null
+  created_at: Date
+}
+
+// Extended types with joined data (for API responses)
+export interface CollaboratorWithUser extends ProjectCollaborator {
+  user: {
+    id: string
+    name: string | null
+    email: string
+    avatar_url: string | null
+  }
+}
+
+export interface InvitationWithDetails extends ProjectInvitation {
+  inviter: {
+    id: string
+    name: string | null
+    email: string
+  }
+  project: {
+    id: string
+    name: string
+  }
+}
+
+export interface ActivityLogWithActor extends CollaborationActivityLog {
+  actor: {
+    id: string
+    name: string | null
+    email: string
+    avatar_url: string | null
+  }
+}
+
+// Insert types for collaboration
+export type ProjectCollaboratorInsert = Omit<
+  ProjectCollaborator,
+  'id' | 'created_at' | 'updated_at' | 'accepted_at' | 'removed_at' | 'removed_by'
+>
+
+export type ProjectInvitationInsert = Omit<
+  ProjectInvitation,
+  'id' | 'created_at' | 'updated_at' | 'current_uses' | 'status'
+> & {
+  current_uses?: number
+  status?: InvitationStatus
+}
+
+export type CollaborationActivityLogInsert = Omit<
+  CollaborationActivityLog,
+  'id' | 'created_at'
+>
+
+// Update types for collaboration
+export type ProjectCollaboratorUpdate = Partial<
+  Pick<ProjectCollaborator, 'role' | 'metadata' | 'accepted_at' | 'removed_at' | 'removed_by'>
+>
+
+export type ProjectInvitationUpdate = Partial<
+  Pick<ProjectInvitation, 'status' | 'current_uses' | 'metadata'>
+>

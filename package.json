@@ -87,6 +87,7 @@
     "nanoid": "^5.1.6",
     "next": "14.2.35",
     "next-themes": "latest",
+    "nodemailer": "^7.0.12",
     "orderedmap": "^2.1.1",
     "papaparse": "^5.5.3",
     "path": "latest",
