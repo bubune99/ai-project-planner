@@ -194,13 +194,13 @@ export function TodoQuickAdd({ onAdd, projects = [], isLoading }: TodoQuickAddPr
 
           {/* Project Link */}
           {projects.length > 0 && (
-            <Select value={projectId} onValueChange={setProjectId}>
+            <Select value={projectId || "__none__"} onValueChange={(v) => setProjectId(v === "__none__" ? "" : v)}>
               <SelectTrigger className="w-[150px] h-8">
                 <Link2 className="w-3 h-3 mr-1" />
                 <SelectValue placeholder="Link project" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No project</SelectItem>
+                <SelectItem value="__none__">No project</SelectItem>
                 {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.name}

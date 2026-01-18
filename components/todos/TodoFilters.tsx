@@ -118,12 +118,12 @@ export function TodoFilters({
         </div>
 
         {/* Priority Filter */}
-        <Select value={priorityFilter} onValueChange={onPriorityChange}>
+        <Select value={priorityFilter || "__all__"} onValueChange={(v) => onPriorityChange(v === "__all__" ? "" : v)}>
           <SelectTrigger className="w-[130px]">
             <SelectValue placeholder="Priority" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All priorities</SelectItem>
+            <SelectItem value="__all__">All priorities</SelectItem>
             <SelectItem value="urgent">
               <span className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-purple-500" />
@@ -153,12 +153,12 @@ export function TodoFilters({
 
         {/* Project Filter */}
         {projects.length > 0 && (
-          <Select value={projectFilter} onValueChange={onProjectChange}>
+          <Select value={projectFilter || "__all__"} onValueChange={(v) => onProjectChange(v === "__all__" ? "" : v)}>
             <SelectTrigger className="w-[150px]">
               <SelectValue placeholder="Project" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All projects</SelectItem>
+              <SelectItem value="__all__">All projects</SelectItem>
               <SelectItem value="unlinked">No project</SelectItem>
               {projects.map((project) => (
                 <SelectItem key={project.id} value={project.id}>

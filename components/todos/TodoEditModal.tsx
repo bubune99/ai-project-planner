@@ -215,12 +215,12 @@ export function TodoEditModal({
           {projects.length > 0 && (
             <div className="grid gap-2">
               <Label>Link to Project</Label>
-              <Select value={projectId} onValueChange={setProjectId}>
+              <Select value={projectId || "__none__"} onValueChange={(v) => setProjectId(v === "__none__" ? "" : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="No project linked" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No project</SelectItem>
+                  <SelectItem value="__none__">No project</SelectItem>
                   {projects.map((project) => (
                     <SelectItem key={project.id} value={project.id}>
                       {project.name}
