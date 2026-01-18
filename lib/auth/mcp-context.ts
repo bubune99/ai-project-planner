@@ -9,6 +9,7 @@
 import { AsyncLocalStorage } from "async_hooks";
 import { sql } from "@/lib/db/client";
 import { hashApiKey, type AuthContext } from "./auth-utils";
+import type { CollaboratorRole } from "@/lib/db/schema";
 
 /**
  * MCP-specific context including user info and permissions
@@ -162,7 +163,8 @@ export function requireMcpScope(scope: string): void {
 }
 
 /**
- * Verify the current user owns a project
+ * Verify the current user owns or has access to a project
+ * Now includes collaborator access check
  */
 export async function verifyMcpProjectOwnership(projectId: string): Promise<boolean> {
   const context = getMcpContextOrNull();
@@ -170,8 +172,17 @@ export async function verifyMcpProjectOwnership(projectId: string): Promise<bool
 
   try {
     const result = await sql`
-      SELECT 1 FROM projects
-      WHERE id = ${projectId} AND user_id = ${context.userId}
+      SELECT 1 FROM projects p
+      WHERE p.id = ${projectId}
+        AND p.deleted_at IS NULL
+        AND (
+          p.user_id = ${context.userId}
+          OR EXISTS (
+            SELECT 1 FROM project_collaborators pc
+            WHERE pc.project_id = p.id
+              AND pc.user_id = ${context.userId}
+          )
+        )
     `;
     return result.length > 0;
   } catch (error) {
@@ -181,7 +192,78 @@ export async function verifyMcpProjectOwnership(projectId: string): Promise<bool
 }
 
 /**
- * Verify the current user can access a step (via project ownership)
+ * Project access result with role information
+ */
+export interface ProjectAccessResult {
+  hasAccess: boolean;
+  role: "owner" | CollaboratorRole | null;
+  canWrite: boolean;
+  canAdmin: boolean;
+}
+
+/**
+ * Verify project access and return role information
+ * Use this when you need to know the user's role for permission checks
+ */
+export async function verifyMcpProjectAccess(projectId: string): Promise<ProjectAccessResult> {
+  const context = getMcpContextOrNull();
+  if (!context) {
+    return { hasAccess: false, role: null, canWrite: false, canAdmin: false };
+  }
+
+  try {
+    // Check if owner first
+    const ownerResult = await sql`
+      SELECT 1 FROM projects
+      WHERE id = ${projectId}
+        AND user_id = ${context.userId}
+        AND deleted_at IS NULL
+    `;
+
+    if (ownerResult.length > 0) {
+      return { hasAccess: true, role: "owner", canWrite: true, canAdmin: true };
+    }
+
+    // Check collaborator access
+    const collabResult = await sql`
+      SELECT role FROM project_collaborators
+      WHERE project_id = ${projectId}
+        AND user_id = ${context.userId}
+    `;
+
+    if (collabResult.length > 0) {
+      const role = collabResult[0].role as CollaboratorRole;
+      return {
+        hasAccess: true,
+        role,
+        canWrite: role === "editor" || role === "admin",
+        canAdmin: role === "admin",
+      };
+    }
+
+    return { hasAccess: false, role: null, canWrite: false, canAdmin: false };
+  } catch (error) {
+    console.error("MCP project access verification error:", error);
+    return { hasAccess: false, role: null, canWrite: false, canAdmin: false };
+  }
+}
+
+/**
+ * Require write access to a project
+ * @throws Error if user doesn't have write access
+ */
+export async function requireMcpProjectWriteAccess(projectId: string): Promise<void> {
+  const access = await verifyMcpProjectAccess(projectId);
+  if (!access.hasAccess) {
+    throw new Error("Project not found or access denied");
+  }
+  if (!access.canWrite) {
+    throw new Error("You have view-only access to this project");
+  }
+}
+
+/**
+ * Verify the current user can access a step (via project ownership or collaboration)
  */
 export async function verifyMcpStepAccess(stepId: string): Promise<boolean> {
   const context = getMcpContextOrNull();
@@ -191,7 +273,15 @@ export async function verifyMcpStepAccess(stepId: string): Promise<boolean> {
     const result = await sql`
       SELECT 1 FROM project_steps ps
       JOIN projects p ON ps.project_id = p.id
-      WHERE ps.id = ${stepId} AND p.user_id = ${context.userId}
+      WHERE ps.id = ${stepId}
+        AND (
+          p.user_id = ${context.userId}
+          OR EXISTS (
+            SELECT 1 FROM project_collaborators pc
+            WHERE pc.project_id = p.id
+              AND pc.user_id = ${context.userId}
+          )
+        )
     `;
     return result.length > 0;
   } catch (error) {
@@ -201,7 +291,7 @@ export async function verifyMcpStepAccess(stepId: string): Promise<boolean> {
 }
 
 /**
- * Verify the current user owns a document
+ * Verify the current user can access a document (via ownership or project collaboration)
  */
 export async function verifyMcpDocumentOwnership(documentId: string): Promise<boolean> {
   const context = getMcpContextOrNull();
@@ -209,8 +299,22 @@ export async function verifyMcpDocumentOwnership(documentId: string): Promise<bo
 
   try {
     const result = await sql`
-      SELECT 1 FROM documents
-      WHERE id = ${documentId} AND user_id = ${context.userId}
+      SELECT 1 FROM documents d
+      LEFT JOIN projects p ON d.project_id = p.id
+      WHERE d.id = ${documentId}
+        AND (
+          d.user_id = ${context.userId}
+          OR (
+            p.id IS NOT NULL AND (
+              p.user_id = ${context.userId}
+              OR EXISTS (
+                SELECT 1 FROM project_collaborators pc
+                WHERE pc.project_id = p.id
+                  AND pc.user_id = ${context.userId}
+              )
+            )
+          )
+        )
     `;
     return result.length > 0;
   } catch (error) {
@@ -231,16 +335,17 @@ export function getActiveProjectId(): string | null {
 /**
  * Set the active project for the current API key
  * Persists across sessions until changed
+ * Now supports collaborator projects
  */
 export async function setActiveProject(projectId: string | null): Promise<boolean> {
   const context = getMcpContextOrNull();
   if (!context) return false;
 
   try {
-    // If setting a project, verify ownership first
+    // If setting a project, verify access (owner or collaborator)
     if (projectId) {
-      const owns = await verifyMcpProjectOwnership(projectId);
-      if (!owns) return false;
+      const hasAccess = await verifyMcpProjectOwnership(projectId);
+      if (!hasAccess) return false;
     }
 
     await sql`
@@ -260,7 +365,7 @@ export async function setActiveProject(projectId: string | null): Promise<boolea
 }
 
 /**
- * Find a project by git remote URL
+ * Find a project by git remote URL (includes collaborator projects)
  */
 export async function findProjectByGitRemote(gitRemote: string): Promise<string | null> {
   const context = getMcpContextOrNull();
@@ -271,15 +376,16 @@ export async function findProjectByGitRemote(gitRemote: string): Promise<string 
     const normalized = normalizeGitRemote(gitRemote);
 
     const result = await sql`
-      SELECT id FROM projects
-      WHERE user_id = ${context.userId}
-        AND github_repo_url IS NOT NULL
+      SELECT p.id FROM projects p
+      LEFT JOIN project_collaborators pc ON p.id = pc.project_id AND pc.user_id = ${context.userId}
+      WHERE (p.user_id = ${context.userId} OR pc.id IS NOT NULL)
+        AND p.github_repo_url IS NOT NULL
         AND (
-          github_repo_url = ${gitRemote}
-          OR github_repo_url = ${normalized}
-          OR github_repo_url ILIKE ${"%" + extractRepoPath(gitRemote)}
+          p.github_repo_url = ${gitRemote}
+          OR p.github_repo_url = ${normalized}
+          OR p.github_repo_url ILIKE ${"%" + extractRepoPath(gitRemote)}
         )
-        AND deleted_at IS NULL
+        AND p.deleted_at IS NULL
       LIMIT 1
     `;
 
@@ -291,7 +397,7 @@ export async function findProjectByGitRemote(gitRemote: string): Promise<string 
 }
 
 /**
- * Find a project by workspace path
+ * Find a project by workspace path (includes collaborator projects)
  */
 export async function findProjectByWorkspacePath(workspacePath: string): Promise<string | null> {
   const context = getMcpContextOrNull();
@@ -299,10 +405,11 @@ export async function findProjectByWorkspacePath(workspacePath: string): Promise
 
   try {
     const result = await sql`
-      SELECT id FROM projects
-      WHERE user_id = ${context.userId}
-        AND workspace_path = ${workspacePath}
-        AND deleted_at IS NULL
+      SELECT p.id FROM projects p
+      LEFT JOIN project_collaborators pc ON p.id = pc.project_id AND pc.user_id = ${context.userId}
+      WHERE (p.user_id = ${context.userId} OR pc.id IS NOT NULL)
+        AND p.workspace_path = ${workspacePath}
+        AND p.deleted_at IS NULL
       LIMIT 1
     `;
 

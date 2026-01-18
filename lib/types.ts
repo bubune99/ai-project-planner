@@ -211,3 +211,37 @@ export interface FlowEdgeData {
   type?: "required" | "optional"
   isCriticalPath?: boolean
 }
+
+// ============================================================================
+// Todo Types (Frontend)
+// ============================================================================
+
+export type TodoStatus = "pending" | "in_progress" | "completed"
+export type TodoPriority = "low" | "medium" | "high" | "urgent"
+
+export interface Todo {
+  id: string
+  userId: string
+  projectId: string | null
+  title: string
+  description: string | null
+  status: TodoStatus
+  priority: TodoPriority
+  dueDate: string | null
+  completedAt: string | null
+  orderIndex: number
+  metadata: Record<string, any>
+  createdAt: string
+  updatedAt: string
+  project?: {
+    id: string
+    name: string
+  } | null
+}
+
+export interface TodoFilters {
+  view: "today" | "upcoming" | "all" | "completed"
+  priority?: TodoPriority
+  projectId?: string
+  search?: string
+}

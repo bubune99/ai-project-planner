@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input"
 import { ProjectCard } from "@/components/projects/ProjectCard"
 import { ProjectStats } from "@/components/projects/ProjectStats"
 import { NewProjectModal } from "@/components/projects/NewProjectModal"
-import { Search, Plus, LayoutGrid, List, Loader2, LogOut, User } from 'lucide-react'
+import { Search, Plus, LayoutGrid, List, Loader2, LogOut, User, CheckSquare } from 'lucide-react'
+import Link from 'next/link'
 import type { ProjectSummary } from "@/lib/types"
 
 export default function ProjectsPage() {
@@ -89,6 +90,15 @@ export default function ProjectsPage() {
               <p className="text-muted-foreground">AI-powered project management dashboard</p>
             </div>
             <div className="flex items-center gap-4">
+              <Link href="/todos">
+                <Button
+                  variant="outline"
+                  className="border-white/10 hover:bg-white/5 gap-2"
+                >
+                  <CheckSquare className="h-4 w-4" />
+                  Todos
+                </Button>
+              </Link>
               <Button
                 className="bg-blue-500 hover:bg-blue-600 text-white gap-2"
                 onClick={() => setIsNewProjectModalOpen(true)}

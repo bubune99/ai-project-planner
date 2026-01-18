@@ -18,6 +18,8 @@ import {
   getMcpUserId,
   getMcpContext,
   verifyMcpProjectOwnership,
+  verifyMcpProjectAccess,
+  requireMcpProjectWriteAccess,
   verifyMcpStepAccess,
   verifyMcpDocumentOwnership,
   requireMcpScope,
@@ -27,6 +29,7 @@ import {
   findProjectByWorkspacePath,
   updateProjectWorkspace,
   type McpContext,
+  type ProjectAccessResult,
 } from "@/lib/auth/mcp-context"
 
 // ==========================================
@@ -198,15 +201,15 @@ const handler = createMcpHandler(
           const [resolvedId, error] = resolveProjectId(projectId)
           if (!resolvedId) return mcpError(error!)
 
-          const isOwner = await verifyMcpProjectOwnership(resolvedId)
-          if (!isOwner) return mcpError("Project not found or access denied")
+          const access = await verifyMcpProjectAccess(resolvedId)
+          if (!access.hasAccess) return mcpError("Project not found or access denied")
 
           const [project] = await sql`
             SELECT p.id, p.name, p.description, p.current_phase, p.status,
                    bc.vision, bc.target_market, bc.primary_use_case
             FROM projects p
             LEFT JOIN business_context bc ON p.id = bc.project_id
-            WHERE p.id = ${resolvedId} AND p.user_id = ${userId}
+            WHERE p.id = ${resolvedId}
           `
 
           if (!project) return mcpError("Project not found")
@@ -230,7 +233,10 @@ const handler = createMcpHandler(
             }
           }
 
-          return mcpResponse({ project: result })
+          return mcpResponse({
+            project: result,
+            access: { role: access.role, canWrite: access.canWrite }
+          })
         } catch (error: unknown) {
           return mcpError(error instanceof Error ? error.message : "Unknown error")
         }
@@ -287,40 +293,69 @@ const handler = createMcpHandler(
     )
 
     // ==========================================
-    // Tool: List all projects (user's projects only)
+    // Tool: List all projects (owned + shared)
     // ==========================================
     server.tool(
       "list_projects",
-      "List your projects. Use brief=true for minimal response (saves tokens). Supports pagination.",
+      "List your projects (owned and shared). Use brief=true for minimal response. Use includeShared=false for owned only.",
       {
         brief: z.boolean().optional().describe("Return only id, name, phase, status (saves ~70% tokens)"),
+        includeShared: z.boolean().optional().describe("Include projects shared with you (default: true)"),
         limit: z.number().optional().describe(`Max results (default ${DEFAULT_LIMIT}, max ${MAX_LIMIT})`),
         offset: z.number().optional().describe("Skip N results for pagination"),
       },
-      async ({ brief, limit, offset }) => {
+      async ({ brief, includeShared = true, limit, offset }) => {
         try {
           const userId = getMcpUserId()
           const actualLimit = Math.min(limit || DEFAULT_LIMIT, MAX_LIMIT)
           const actualOffset = offset || 0
 
-          const projects = await sql`
-            SELECT id, name, description, current_phase, status, created_at
-            FROM projects
-            WHERE user_id = ${userId}
-            ORDER BY created_at DESC
-            LIMIT ${actualLimit} OFFSET ${actualOffset}
-          `
+          // Query includes both owned and shared projects
+          const projects = includeShared
+            ? await sql`
+                SELECT DISTINCT p.id, p.name, p.description, p.current_phase, p.status, p.created_at,
+                       CASE WHEN p.user_id = ${userId} THEN 'owner' ELSE pc.role END as my_role
+                FROM projects p
+                LEFT JOIN project_collaborators pc ON p.id = pc.project_id AND pc.user_id = ${userId}
+                WHERE p.deleted_at IS NULL
+                  AND (p.user_id = ${userId} OR pc.id IS NOT NULL)
+                ORDER BY p.created_at DESC
+                LIMIT ${actualLimit} OFFSET ${actualOffset}
+              `
+            : await sql`
+                SELECT p.id, p.name, p.description, p.current_phase, p.status, p.created_at,
+                       'owner' as my_role
+                FROM projects p
+                WHERE p.user_id = ${userId} AND p.deleted_at IS NULL
+                ORDER BY p.created_at DESC
+                LIMIT ${actualLimit} OFFSET ${actualOffset}
+              `
 
           // Get total count for pagination info
-          const [{ count }] = await sql`
-            SELECT COUNT(*)::int as count FROM projects WHERE user_id = ${userId}
-          `
+          const [{ count }] = includeShared
+            ? await sql`
+                SELECT COUNT(DISTINCT p.id)::int as count
+                FROM projects p
+                LEFT JOIN project_collaborators pc ON p.id = pc.project_id AND pc.user_id = ${userId}
+                WHERE p.deleted_at IS NULL AND (p.user_id = ${userId} OR pc.id IS NOT NULL)
+              `
+            : await sql`
+                SELECT COUNT(*)::int as count FROM projects WHERE user_id = ${userId} AND deleted_at IS NULL
+              `
 
           const data = brief
-            ? projects.map(projectBrief)
-            : projects.map(p => ({
-                ...p,
-                description: truncate(p.description as string, 100)
+            ? projects.map((p: Record<string, unknown>) => ({
+                ...projectBrief(p),
+                role: p.my_role
+              }))
+            : projects.map((p: Record<string, unknown>) => ({
+                id: p.id,
+                name: p.name,
+                description: truncate(p.description as string, 100),
+                phase: p.current_phase,
+                status: p.status,
+                role: p.my_role,
+                created_at: p.created_at
               }))
 
           return mcpResponse({
@@ -345,18 +380,16 @@ const handler = createMcpHandler(
       },
       async ({ projectId, brief }) => {
         try {
-          const userId = getMcpUserId()
           const [resolvedId, error] = resolveProjectId(projectId)
           if (!resolvedId) return mcpError(error!)
 
-          const isOwner = await verifyMcpProjectOwnership(resolvedId)
-          if (!isOwner) return mcpError("Project not found or access denied")
+          const hasAccess = await verifyMcpProjectOwnership(resolvedId)
+          if (!hasAccess) return mcpError("Project not found or access denied")
 
           const phases = await sql`
             SELECT pp.id, pp.phase_name, pp.status, pp.started_at, pp.completed_at
             FROM project_phases pp
-            JOIN projects p ON pp.project_id = p.id
-            WHERE pp.project_id = ${resolvedId} AND p.user_id = ${userId}
+            WHERE pp.project_id = ${resolvedId}
             ORDER BY pp.started_at ASC
           `
 
@@ -376,7 +409,7 @@ const handler = createMcpHandler(
     // ==========================================
     server.tool(
       "transition_phase",
-      "Transition a project to the next phase. Uses active project if projectId not specified.",
+      "Transition a project to the next phase. Requires write access. Uses active project if projectId not specified.",
       {
         projectId: z.string().optional().describe("Project ID (uses active project if not specified)"),
         newPhase: z.enum(["ideation", "architecture", "construction", "testing", "deployment", "maintenance"]).describe("The new phase"),
@@ -388,8 +421,8 @@ const handler = createMcpHandler(
           const [resolvedId, error] = resolveProjectId(projectId)
           if (!resolvedId) return mcpError(error!)
 
-          const isOwner = await verifyMcpProjectOwnership(resolvedId)
-          if (!isOwner) return mcpError("Project not found or access denied")
+          // Check write access (editors and admins can transition)
+          await requireMcpProjectWriteAccess(resolvedId)
 
           const [result] = await sql`
             SELECT * FROM transition_to_phase(${resolvedId}, ${newPhase}, 'mcp-agent', ${reason})
@@ -418,20 +451,17 @@ const handler = createMcpHandler(
           const [resolvedId, error] = resolveProjectId(projectId)
           if (!resolvedId) return mcpError(error!)
 
-          const isOwner = await verifyMcpProjectOwnership(resolvedId)
-          if (!isOwner) return mcpError("Project not found or access denied")
+          const hasAccess = await verifyMcpProjectOwnership(resolvedId)
+          if (!hasAccess) return mcpError("Project not found or access denied")
 
-          const userId = getMcpUserId()
           const actualLimit = limit || 50
 
           const steps = await sql`
             SELECT ps.id, ps.title, ps.status, ps.assigned_agent, ps.order_index,
                    array_agg(DISTINCT sd.depends_on_step_id) FILTER (WHERE sd.depends_on_step_id IS NOT NULL) as deps
             FROM project_steps ps
-            JOIN projects p ON ps.project_id = p.id
             LEFT JOIN step_dependencies sd ON ps.id = sd.step_id
             WHERE ps.project_id = ${resolvedId}
-              AND p.user_id = ${userId}
               AND ps.deleted_at IS NULL
             GROUP BY ps.id
             ORDER BY ps.order_index
@@ -454,7 +484,7 @@ const handler = createMcpHandler(
     // ==========================================
     server.tool(
       "add_progress_note",
-      "Add a progress note to track development progress. Uses active project if projectId not specified.",
+      "Add a progress note to track development progress. Requires write access. Uses active project if projectId not specified.",
       {
         projectId: z.string().optional().describe("Project ID (uses active project if not specified)"),
         stepId: z.string().optional().describe("The step ID (optional)"),
@@ -469,8 +499,8 @@ const handler = createMcpHandler(
           const [resolvedId, error] = resolveProjectId(projectId)
           if (!resolvedId) return mcpError(error!)
 
-          const isOwner = await verifyMcpProjectOwnership(resolvedId)
-          if (!isOwner) return mcpError("Project not found or access denied")
+          // Check write access
+          await requireMcpProjectWriteAccess(resolvedId)
 
           if (stepId) {
             const hasAccess = await verifyMcpStepAccess(stepId)
@@ -507,10 +537,9 @@ const handler = createMcpHandler(
           const [resolvedId, error] = resolveProjectId(projectId)
           if (!resolvedId) return mcpError(error!)
 
-          const isOwner = await verifyMcpProjectOwnership(resolvedId)
-          if (!isOwner) return mcpError("Project not found or access denied")
+          const hasAccess = await verifyMcpProjectOwnership(resolvedId)
+          if (!hasAccess) return mcpError("Project not found or access denied")
 
-          const userId = getMcpUserId()
           const actualLimit = limit || 30
 
           // Build dynamic query based on status filter
@@ -518,19 +547,17 @@ const handler = createMcpHandler(
             ? await sql`
                 SELECT ps.id, ps.title, ps.status, ps.assigned_agent, ps.order_index
                 FROM project_steps ps
-                JOIN projects p ON ps.project_id = p.id
                 WHERE ps.project_id = ${resolvedId}
-                  AND p.user_id = ${userId}
                   AND ps.status = ${status}
+                  AND ps.deleted_at IS NULL
                 ORDER BY ps.order_index ASC
                 LIMIT ${actualLimit}
               `
             : await sql`
                 SELECT ps.id, ps.title, ps.status, ps.assigned_agent, ps.order_index
                 FROM project_steps ps
-                JOIN projects p ON ps.project_id = p.id
                 WHERE ps.project_id = ${resolvedId}
-                  AND p.user_id = ${userId}
+                  AND ps.deleted_at IS NULL
                 ORDER BY ps.order_index ASC
                 LIMIT ${actualLimit}
               `
@@ -551,7 +578,7 @@ const handler = createMcpHandler(
     // ==========================================
     server.tool(
       "assign_task",
-      "Assign a task to an AI agent",
+      "Assign a task to an AI agent. Requires write access.",
       {
         taskId: z.string().describe("The task ID"),
         agentName: z.enum(["v0", "claude", "gemini", "gpt"]).describe("The agent name"),
@@ -560,8 +587,14 @@ const handler = createMcpHandler(
         try {
           requireMcpScope("write")
 
-          const hasAccess = await verifyMcpStepAccess(taskId)
-          if (!hasAccess) return mcpError("Task not found or access denied")
+          // Get the step's project to check write access
+          const [step] = await sql`
+            SELECT project_id FROM project_steps WHERE id = ${taskId}
+          `
+          if (!step) return mcpError("Task not found")
+
+          // Check write access on the project
+          await requireMcpProjectWriteAccess(step.project_id)
 
           await sql`SELECT * FROM assign_task_to_agent(${taskId}, ${agentName})`
 
@@ -589,32 +622,31 @@ const handler = createMcpHandler(
           const [resolvedId, error] = resolveProjectId(projectId)
           if (!resolvedId) return mcpError(error!)
 
-          const isOwner = await verifyMcpProjectOwnership(resolvedId)
-          if (!isOwner) return mcpError("Project not found or access denied")
+          const hasAccess = await verifyMcpProjectOwnership(resolvedId)
+          if (!hasAccess) return mcpError("Project not found or access denied")
 
-          const userId = getMcpUserId()
           const actualLimit = limit || 30
 
           let documents
           if (type === "file") {
             documents = await sql`
               SELECT d.id, d.title, d.category, 'file' as type
-              FROM documents d JOIN projects p ON d.project_id = p.id
-              WHERE d.project_id = ${resolvedId} AND d.deleted_at IS NULL AND d.blob_key IS NOT NULL AND p.user_id = ${userId}
+              FROM documents d
+              WHERE d.project_id = ${resolvedId} AND d.deleted_at IS NULL AND d.blob_key IS NOT NULL
               ORDER BY d.created_at DESC LIMIT ${actualLimit}
             `
           } else if (type === "page") {
             documents = await sql`
               SELECT d.id, d.title, d.category, 'page' as type
-              FROM documents d JOIN projects p ON d.project_id = p.id
-              WHERE d.project_id = ${resolvedId} AND d.deleted_at IS NULL AND d.blob_key IS NULL AND p.user_id = ${userId}
+              FROM documents d
+              WHERE d.project_id = ${resolvedId} AND d.deleted_at IS NULL AND d.blob_key IS NULL
               ORDER BY d.created_at DESC LIMIT ${actualLimit}
             `
           } else {
             documents = await sql`
               SELECT d.id, d.title, d.category, CASE WHEN d.blob_key IS NOT NULL THEN 'file' ELSE 'page' END as type
-              FROM documents d JOIN projects p ON d.project_id = p.id
-              WHERE d.project_id = ${resolvedId} AND d.deleted_at IS NULL AND p.user_id = ${userId}
+              FROM documents d
+              WHERE d.project_id = ${resolvedId} AND d.deleted_at IS NULL
               ORDER BY d.created_at DESC LIMIT ${actualLimit}
             `
           }
@@ -640,15 +672,15 @@ const handler = createMcpHandler(
       },
       async ({ documentId, maxLength }) => {
         try {
-          const isOwner = await verifyMcpDocumentOwnership(documentId)
-          if (!isOwner) return mcpError("Document not found or access denied")
+          // verifyMcpDocumentOwnership now includes collaborator access
+          const hasAccess = await verifyMcpDocumentOwnership(documentId)
+          if (!hasAccess) return mcpError("Document not found or access denied")
 
-          const userId = getMcpUserId()
           const contentLimit = maxLength || 2000
 
           const [doc] = await sql`
             SELECT d.id, d.title, d.content, d.blob_key, d.blob_url FROM documents d
-            WHERE d.id = ${documentId} AND d.user_id = ${userId}
+            WHERE d.id = ${documentId}
           `
 
           if (!doc) return mcpError("Document not found")
@@ -673,7 +705,7 @@ const handler = createMcpHandler(
     // ==========================================
     server.tool(
       "create_document",
-      "Create a new knowledge base page. Uses active project if projectId not specified.",
+      "Create a new knowledge base page. Requires write access. Uses active project if projectId not specified.",
       {
         projectId: z.string().optional().describe("Project ID (uses active project if not specified)"),
         title: z.string().describe("Document title"),
@@ -687,12 +719,15 @@ const handler = createMcpHandler(
           const [resolvedId, error] = resolveProjectId(projectId)
           if (!resolvedId) return mcpError(error!)
 
-          const isOwner = await verifyMcpProjectOwnership(resolvedId)
-          if (!isOwner) return mcpError("Project not found or access denied")
+          // Check write access
+          await requireMcpProjectWriteAccess(resolvedId)
+
+          // Calculate content size in bytes
+          const contentSize = Buffer.byteLength(content, 'utf8')
 
           const [doc] = await sql`
             INSERT INTO documents(project_id, title, content, category, doc_type, blob_key, file_type, file_size, user_id)
-            VALUES(${resolvedId}, ${title}, ${content}, ${category || "general"}, 'page', NULL, NULL, NULL, ${userId})
+            VALUES(${resolvedId}, ${title}, ${content}, ${category || "general"}, 'page', NULL, 'text/markdown', ${contentSize}, ${userId})
             RETURNING id, title
           `
 
@@ -744,6 +779,75 @@ const handler = createMcpHandler(
     )
 
     // ==========================================
+    // Tool: List collaborators
+    // ==========================================
+    server.tool(
+      "list_collaborators",
+      "List all collaborators for a project. Uses active project if projectId not specified.",
+      {
+        projectId: z.string().optional().describe("Project ID (uses active project if not specified)"),
+        brief: z.boolean().optional().describe("Return only id, email, role"),
+      },
+      async ({ projectId, brief }) => {
+        try {
+          const [resolvedId, error] = resolveProjectId(projectId)
+          if (!resolvedId) return mcpError(error!)
+
+          const hasAccess = await verifyMcpProjectOwnership(resolvedId)
+          if (!hasAccess) return mcpError("Project not found or access denied")
+
+          // Get project owner
+          const [project] = await sql`
+            SELECT p.user_id, u.email as owner_email, u.display_name as owner_name
+            FROM projects p
+            JOIN users u ON p.user_id = u.id
+            WHERE p.id = ${resolvedId}
+          `
+
+          // Get collaborators
+          const collaborators = await sql`
+            SELECT pc.id, pc.role, pc.added_at, u.email, u.display_name as name
+            FROM project_collaborators pc
+            JOIN users u ON pc.user_id = u.id
+            WHERE pc.project_id = ${resolvedId}
+            ORDER BY pc.added_at ASC
+          `
+
+          const data = brief
+            ? {
+                owner: { email: project.owner_email, role: "owner" },
+                collaborators: collaborators.map((c: Record<string, unknown>) => ({
+                  id: c.id,
+                  email: c.email,
+                  role: c.role
+                }))
+              }
+            : {
+                owner: {
+                  email: project.owner_email,
+                  name: project.owner_name,
+                  role: "owner"
+                },
+                collaborators: collaborators.map((c: Record<string, unknown>) => ({
+                  id: c.id,
+                  email: c.email,
+                  name: c.name,
+                  role: c.role,
+                  added_at: c.added_at
+                }))
+              }
+
+          return mcpResponse({
+            ...data,
+            count: collaborators.length + 1 // +1 for owner
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ==========================================
     // WORKSPACE BINDING TOOLS
     // ==========================================
 
@@ -752,7 +856,7 @@ const handler = createMcpHandler(
     // ==========================================
     server.tool(
       "set_active_project",
-      "Set the active project for this API key. All subsequent calls will use this project if projectId not specified. Like 'gh repo set-default'.",
+      "Set the active project for this API key. Includes owned and shared projects. Like 'gh repo set-default'.",
       {
         projectId: z.string().optional().describe("Project ID to set as active"),
         name: z.string().optional().describe("Project name to search (partial match)"),
@@ -771,12 +875,15 @@ const handler = createMcpHandler(
           // Resolve project by ID or name
           let resolvedId = projectId
           if (!resolvedId && name) {
-            // Search by name (partial match)
+            // Search by name (partial match) - includes shared projects
             const results = await sql`
-              SELECT id, name FROM projects
-              WHERE user_id = ${userId}
-                AND name ILIKE ${"%" + name + "%"}
-                AND deleted_at IS NULL
+              SELECT DISTINCT p.id, p.name,
+                     CASE WHEN p.user_id = ${userId} THEN 'owner' ELSE pc.role END as role
+              FROM projects p
+              LEFT JOIN project_collaborators pc ON p.id = pc.project_id AND pc.user_id = ${userId}
+              WHERE (p.user_id = ${userId} OR pc.id IS NOT NULL)
+                AND p.name ILIKE ${"%" + name + "%"}
+                AND p.deleted_at IS NULL
               LIMIT 5
             `
             if (results.length === 0) {
@@ -785,20 +892,20 @@ const handler = createMcpHandler(
             if (results.length > 1) {
               return mcpResponse({
                 error: "Multiple matches",
-                matches: results.map(p => ({ id: p.id, name: p.name })),
+                matches: results.map((p: Record<string, unknown>) => ({ id: p.id, name: p.name, role: p.role })),
                 hint: "Use projectId to specify exact project"
               })
             }
-            resolvedId = results[0].id
+            resolvedId = results[0].id as string
           }
 
           if (!resolvedId) {
             return mcpError("Provide projectId or name to set active project")
           }
 
-          // Verify ownership and set active
-          const isOwner = await verifyMcpProjectOwnership(resolvedId)
-          if (!isOwner) return mcpError("Project not found or access denied")
+          // Verify access (owner or collaborator) and set active
+          const access = await verifyMcpProjectAccess(resolvedId)
+          if (!access.hasAccess) return mcpError("Project not found or access denied")
 
           const success = await setActiveProject(resolvedId)
           if (!success) return mcpError("Failed to set active project")
@@ -810,7 +917,8 @@ const handler = createMcpHandler(
 
           return mcpResponse({
             active: true,
-            project: { id: project.id, name: project.name, phase: project.current_phase }
+            project: { id: project.id, name: project.name, phase: project.current_phase },
+            access: { role: access.role, canWrite: access.canWrite }
           })
         } catch (error: unknown) {
           return mcpError(error instanceof Error ? error.message : "Unknown error")
@@ -827,21 +935,26 @@ const handler = createMcpHandler(
       {},
       async () => {
         try {
-          const userId = getMcpUserId()
           const activeId = getActiveProjectId()
 
           if (!activeId) {
             return mcpResponse({ active: null, hint: "Use set_active_project to set one" })
           }
 
+          // Verify access and get role
+          const access = await verifyMcpProjectAccess(activeId)
+          if (!access.hasAccess) {
+            return mcpResponse({ active: null, hint: "Active project was deleted or access revoked" })
+          }
+
           const [project] = await sql`
             SELECT id, name, current_phase, status, github_repo_url, workspace_path
             FROM projects
-            WHERE id = ${activeId} AND user_id = ${userId}
+            WHERE id = ${activeId}
           `
 
           if (!project) {
-            return mcpResponse({ active: null, hint: "Active project was deleted or transferred" })
+            return mcpResponse({ active: null, hint: "Active project was deleted" })
           }
 
           return mcpResponse({
@@ -852,7 +965,8 @@ const handler = createMcpHandler(
               status: project.status,
               git_remote: project.github_repo_url,
               workspace_path: project.workspace_path
-            }
+            },
+            access: { role: access.role, canWrite: access.canWrite }
           })
         } catch (error: unknown) {
           return mcpError(error instanceof Error ? error.message : "Unknown error")
@@ -996,6 +1110,361 @@ const handler = createMcpHandler(
               git_remote: project.github_repo_url,
               workspace_path: project.workspace_path
             }
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ==========================================
+    // TODO LIST TOOLS
+    // ==========================================
+
+    // ==========================================
+    // Tool: List todos
+    // ==========================================
+    server.tool(
+      "list_todos",
+      "List your personal todos with optional filters. Supports view modes: today, upcoming, all, completed.",
+      {
+        view: z.enum(["today", "upcoming", "all", "completed"]).optional().describe("View filter (default: all)"),
+        projectId: z.string().optional().describe("Filter by linked project"),
+        priority: z.enum(["low", "medium", "high", "urgent"]).optional().describe("Filter by priority"),
+        search: z.string().optional().describe("Search in title/description"),
+        brief: z.boolean().optional().describe("Return minimal fields only"),
+        limit: z.number().optional().describe(`Max results (default ${DEFAULT_LIMIT}, max ${MAX_LIMIT})`),
+        offset: z.number().optional().describe("Skip N results for pagination"),
+      },
+      async ({ view = "all", projectId, priority, search, brief, limit, offset }) => {
+        try {
+          const userId = getMcpUserId()
+          const actualLimit = Math.min(limit || DEFAULT_LIMIT, MAX_LIMIT)
+          const actualOffset = offset || 0
+
+          // Build WHERE conditions based on filters
+          let viewCondition = ""
+          switch (view) {
+            case "today":
+              viewCondition = "AND due_date::date = CURRENT_DATE"
+              break
+            case "upcoming":
+              viewCondition = "AND due_date > CURRENT_DATE AND due_date <= CURRENT_DATE + INTERVAL '7 days'"
+              break
+            case "completed":
+              viewCondition = "AND status = 'completed'"
+              break
+            // 'all' has no additional condition
+          }
+
+          // Query todos with dynamic conditions
+          const todos = await sql`
+            SELECT t.id, t.title, t.description, t.status, t.priority,
+                   t.due_date, t.completed_at, t.order_index, t.created_at,
+                   t.project_id, p.name as project_name
+            FROM todos t
+            LEFT JOIN projects p ON t.project_id = p.id
+            WHERE t.user_id = ${userId}
+              AND t.deleted_at IS NULL
+              ${view === "today" ? sql`AND t.due_date::date = CURRENT_DATE` : sql``}
+              ${view === "upcoming" ? sql`AND t.due_date > CURRENT_DATE AND t.due_date <= CURRENT_DATE + INTERVAL '7 days'` : sql``}
+              ${view === "completed" ? sql`AND t.status = 'completed'` : sql``}
+              ${projectId ? sql`AND t.project_id = ${projectId}` : sql``}
+              ${priority ? sql`AND t.priority = ${priority}` : sql``}
+              ${search ? sql`AND (t.title ILIKE ${"%" + search + "%"} OR t.description ILIKE ${"%" + search + "%"})` : sql``}
+            ORDER BY
+              CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END,
+              t.order_index ASC,
+              t.created_at DESC
+            LIMIT ${actualLimit} OFFSET ${actualOffset}
+          `
+
+          // Get total count
+          const [{ count }] = await sql`
+            SELECT COUNT(*)::int as count
+            FROM todos t
+            WHERE t.user_id = ${userId}
+              AND t.deleted_at IS NULL
+              ${view === "today" ? sql`AND t.due_date::date = CURRENT_DATE` : sql``}
+              ${view === "upcoming" ? sql`AND t.due_date > CURRENT_DATE AND t.due_date <= CURRENT_DATE + INTERVAL '7 days'` : sql``}
+              ${view === "completed" ? sql`AND t.status = 'completed'` : sql``}
+              ${projectId ? sql`AND t.project_id = ${projectId}` : sql``}
+              ${priority ? sql`AND t.priority = ${priority}` : sql``}
+              ${search ? sql`AND (t.title ILIKE ${"%" + search + "%"} OR t.description ILIKE ${"%" + search + "%"})` : sql``}
+          `
+
+          const data = brief
+            ? todos.map((t: Record<string, unknown>) => ({
+                id: t.id,
+                title: truncate(t.title as string, 60),
+                status: t.status,
+                priority: t.priority,
+                due: t.due_date,
+                project: t.project_name || null
+              }))
+            : todos.map((t: Record<string, unknown>) => ({
+                id: t.id,
+                title: t.title,
+                description: truncate(t.description as string, 150),
+                status: t.status,
+                priority: t.priority,
+                due_date: t.due_date,
+                completed_at: t.completed_at,
+                project: t.project_id ? { id: t.project_id, name: t.project_name } : null,
+                created_at: t.created_at
+              }))
+
+          return mcpResponse({
+            todos: data,
+            view,
+            pagination: { total: count, limit: actualLimit, offset: actualOffset }
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ==========================================
+    // Tool: Create todo
+    // ==========================================
+    server.tool(
+      "create_todo",
+      "Create a new personal todo. Can optionally be linked to a project.",
+      {
+        title: z.string().describe("Todo title"),
+        description: z.string().optional().describe("Todo description"),
+        priority: z.enum(["low", "medium", "high", "urgent"]).optional().describe("Priority level (default: medium)"),
+        dueDate: z.string().optional().describe("Due date (ISO 8601 format)"),
+        projectId: z.string().optional().describe("Link to a project"),
+      },
+      async ({ title, description, priority = "medium", dueDate, projectId }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          // If linking to project, verify access
+          if (projectId) {
+            const access = await verifyMcpProjectAccess(projectId)
+            if (!access.hasAccess) return mcpError("Project not found or access denied")
+          }
+
+          // Get max order_index for user's todos
+          const [{ maxOrder }] = await sql`
+            SELECT COALESCE(MAX(order_index), -1)::int as "maxOrder"
+            FROM todos
+            WHERE user_id = ${userId} AND deleted_at IS NULL
+          `
+
+          const [todo] = await sql`
+            INSERT INTO todos (user_id, project_id, title, description, priority, due_date, order_index)
+            VALUES (${userId}, ${projectId || null}, ${title}, ${description || null}, ${priority}, ${dueDate || null}, ${maxOrder + 1})
+            RETURNING id, title, status, priority, due_date
+          `
+
+          return mcpResponse({
+            created: true,
+            id: todo.id,
+            title: todo.title,
+            priority: todo.priority,
+            due: todo.due_date
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ==========================================
+    // Tool: Update todo
+    // ==========================================
+    server.tool(
+      "update_todo",
+      "Update an existing todo.",
+      {
+        todoId: z.string().describe("Todo ID to update"),
+        title: z.string().optional().describe("New title"),
+        description: z.string().optional().describe("New description"),
+        status: z.enum(["pending", "in_progress", "completed"]).optional().describe("New status"),
+        priority: z.enum(["low", "medium", "high", "urgent"]).optional().describe("New priority"),
+        dueDate: z.string().nullable().optional().describe("New due date (null to clear)"),
+        projectId: z.string().nullable().optional().describe("Link to project (null to unlink)"),
+      },
+      async ({ todoId, title, description, status, priority, dueDate, projectId }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          // Verify ownership
+          const [existing] = await sql`
+            SELECT id FROM todos WHERE id = ${todoId} AND user_id = ${userId} AND deleted_at IS NULL
+          `
+          if (!existing) return mcpError("Todo not found or access denied")
+
+          // If linking to project, verify access
+          if (projectId !== undefined && projectId !== null) {
+            const access = await verifyMcpProjectAccess(projectId)
+            if (!access.hasAccess) return mcpError("Project not found or access denied")
+          }
+
+          // Build update fields
+          const updates: Record<string, unknown> = {}
+          if (title !== undefined) updates.title = title
+          if (description !== undefined) updates.description = description
+          if (status !== undefined) updates.status = status
+          if (priority !== undefined) updates.priority = priority
+          if (dueDate !== undefined) updates.due_date = dueDate
+          if (projectId !== undefined) updates.project_id = projectId
+
+          if (Object.keys(updates).length === 0) {
+            return mcpError("No fields to update")
+          }
+
+          // Perform update (manual query building for dynamic fields)
+          const [updated] = await sql`
+            UPDATE todos
+            SET
+              title = COALESCE(${title ?? null}, title),
+              description = CASE WHEN ${description !== undefined} THEN ${description ?? null} ELSE description END,
+              status = COALESCE(${status ?? null}, status),
+              priority = COALESCE(${priority ?? null}, priority),
+              due_date = CASE WHEN ${dueDate !== undefined} THEN ${dueDate ?? null} ELSE due_date END,
+              project_id = CASE WHEN ${projectId !== undefined} THEN ${projectId ?? null} ELSE project_id END,
+              updated_at = NOW()
+            WHERE id = ${todoId}
+            RETURNING id, title, status, priority, due_date
+          `
+
+          return mcpResponse({
+            updated: true,
+            id: updated.id,
+            title: updated.title,
+            status: updated.status,
+            priority: updated.priority,
+            due: updated.due_date
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ==========================================
+    // Tool: Toggle todo
+    // ==========================================
+    server.tool(
+      "toggle_todo",
+      "Quick toggle a todo between pending and completed status.",
+      {
+        todoId: z.string().describe("Todo ID to toggle"),
+      },
+      async ({ todoId }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          // Verify ownership and get current status
+          const [existing] = await sql`
+            SELECT id, status FROM todos WHERE id = ${todoId} AND user_id = ${userId} AND deleted_at IS NULL
+          `
+          if (!existing) return mcpError("Todo not found or access denied")
+
+          const newStatus = existing.status === "completed" ? "pending" : "completed"
+
+          const [updated] = await sql`
+            UPDATE todos
+            SET status = ${newStatus}, updated_at = NOW()
+            WHERE id = ${todoId}
+            RETURNING id, title, status
+          `
+
+          return mcpResponse({
+            toggled: true,
+            id: updated.id,
+            title: truncate(updated.title as string, 60),
+            status: updated.status
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ==========================================
+    // Tool: Delete todo
+    // ==========================================
+    server.tool(
+      "delete_todo",
+      "Delete a todo (soft delete).",
+      {
+        todoId: z.string().describe("Todo ID to delete"),
+      },
+      async ({ todoId }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          // Verify ownership
+          const [existing] = await sql`
+            SELECT id, title FROM todos WHERE id = ${todoId} AND user_id = ${userId} AND deleted_at IS NULL
+          `
+          if (!existing) return mcpError("Todo not found or access denied")
+
+          await sql`
+            UPDATE todos
+            SET deleted_at = NOW(), updated_at = NOW()
+            WHERE id = ${todoId}
+          `
+
+          return mcpResponse({
+            deleted: true,
+            id: todoId,
+            title: truncate(existing.title as string, 60)
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ==========================================
+    // Tool: Reorder todos
+    // ==========================================
+    server.tool(
+      "reorder_todos",
+      "Update the order of multiple todos (for drag-drop reordering).",
+      {
+        items: z.array(z.object({
+          id: z.string().describe("Todo ID"),
+          orderIndex: z.number().describe("New order index"),
+        })).describe("Array of {id, orderIndex} pairs"),
+      },
+      async ({ items }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          // Verify all todos belong to user
+          const todoIds = items.map(i => i.id)
+          const existing = await sql`
+            SELECT id FROM todos WHERE id = ANY(${todoIds}) AND user_id = ${userId} AND deleted_at IS NULL
+          `
+
+          if (existing.length !== items.length) {
+            return mcpError("Some todos not found or access denied")
+          }
+
+          // Update each todo's order_index
+          for (const item of items) {
+            await sql`
+              UPDATE todos SET order_index = ${item.orderIndex}, updated_at = NOW()
+              WHERE id = ${item.id}
+            `
+          }
+
+          return mcpResponse({
+            reordered: true,
+            count: items.length
           })
         } catch (error: unknown) {
           return mcpError(error instanceof Error ? error.message : "Unknown error")

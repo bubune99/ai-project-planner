@@ -559,3 +559,48 @@ export type ProjectCollaboratorUpdate = Partial<
 export type ProjectInvitationUpdate = Partial<
   Pick<ProjectInvitation, 'status' | 'current_uses' | 'metadata'>
 >
+
+// ============================================================================
+// Todo Types
+// ============================================================================
+
+// Todo status and priority enums
+export type TodoStatus = 'pending' | 'in_progress' | 'completed'
+export type TodoPriority = 'low' | 'medium' | 'high' | 'urgent'
+
+// Core Todo interface matching database schema
+export interface Todo {
+  id: string
+  user_id: string
+  project_id: string | null
+  title: string
+  description: string | null
+  status: TodoStatus
+  priority: TodoPriority
+  due_date: Date | null
+  completed_at: Date | null
+  order_index: number
+  metadata: Record<string, any>
+  created_at: Date
+  updated_at: Date
+  deleted_at: Date | null
+}
+
+// Extended type with project info (for API responses)
+export interface TodoWithProject extends Todo {
+  project?: {
+    id: string
+    name: string
+  } | null
+}
+
+// Insert type (without generated/auto fields)
+export type TodoInsert = Omit<
+  Todo,
+  'id' | 'created_at' | 'updated_at' | 'deleted_at' | 'completed_at' | 'order_index'
+> & {
+  order_index?: number
+}
+
+// Update type (all fields optional except id)
+export type TodoUpdate = Partial<Omit<Todo, 'id' | 'user_id' | 'created_at'>>

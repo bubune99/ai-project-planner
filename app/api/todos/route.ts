@@ -1,0 +1,267 @@
+import { sql } from '@/lib/db/client'
+import { NextRequest } from 'next/server'
+import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
+import { getAuthContext, verifyProjectOwnership } from '@/lib/auth/auth-utils'
+import type { Todo } from '@/lib/types'
+
+export const dynamic = 'force-dynamic'
+
+/**
+ * Transform database row to frontend Todo format
+ * Converts snake_case to camelCase
+ */
+function transformTodo(row: any): Todo {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    projectId: row.project_id,
+    title: row.title,
+    description: row.description,
+    status: row.status,
+    priority: row.priority,
+    dueDate: row.due_date,
+    completedAt: row.completed_at,
+    orderIndex: row.order_index,
+    metadata: row.metadata || {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    project: row.project_name ? {
+      id: row.project_id,
+      name: row.project_name
+    } : null
+  }
+}
+
+/**
+ * GET /api/todos
+ * List todos for authenticated user with optional filters
+ *
+ * Query params:
+ * - view: "today" | "upcoming" | "all" | "completed" (default: "all")
+ * - projectId: UUID (filter by project)
+ * - status: "pending" | "in_progress" | "completed"
+ * - priority: "low" | "medium" | "high" | "urgent"
+ * - unlinked: "true" (only standalone todos without project)
+ * - search: string (search in title/description)
+ */
+export async function GET(request: NextRequest) {
+  try {
+    // Get authenticated user
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    }
+
+    const { userId } = authContext
+    const { searchParams } = new URL(request.url)
+
+    // Parse query parameters
+    const view = searchParams.get('view') || 'all'
+    const projectId = searchParams.get('projectId')
+    const status = searchParams.get('status')
+    const priority = searchParams.get('priority')
+    const unlinked = searchParams.get('unlinked') === 'true'
+    const search = searchParams.get('search')
+
+    // Build the base query with project join
+    let todos: any[]
+
+    if (view === 'today') {
+      // Today: due_date is today
+      todos = await sql`
+        SELECT
+          t.*,
+          p.name as project_name
+        FROM todos t
+        LEFT JOIN projects p ON t.project_id = p.id
+        WHERE t.user_id = ${userId}
+          AND t.deleted_at IS NULL
+          AND t.due_date::date = CURRENT_DATE
+          AND t.status != 'completed'
+          ${projectId ? sql`AND t.project_id = ${projectId}` : sql``}
+          ${status ? sql`AND t.status = ${status}` : sql``}
+          ${priority ? sql`AND t.priority = ${priority}` : sql``}
+          ${unlinked ? sql`AND t.project_id IS NULL` : sql``}
+          ${search ? sql`AND (t.title ILIKE ${'%' + search + '%'} OR t.description ILIKE ${'%' + search + '%'})` : sql``}
+        ORDER BY t.order_index ASC, t.due_date ASC NULLS LAST, t.created_at DESC
+      `
+    } else if (view === 'upcoming') {
+      // Upcoming: due_date within next 7 days (excluding today)
+      todos = await sql`
+        SELECT
+          t.*,
+          p.name as project_name
+        FROM todos t
+        LEFT JOIN projects p ON t.project_id = p.id
+        WHERE t.user_id = ${userId}
+          AND t.deleted_at IS NULL
+          AND t.due_date > CURRENT_DATE
+          AND t.due_date <= CURRENT_DATE + INTERVAL '7 days'
+          AND t.status != 'completed'
+          ${projectId ? sql`AND t.project_id = ${projectId}` : sql``}
+          ${status ? sql`AND t.status = ${status}` : sql``}
+          ${priority ? sql`AND t.priority = ${priority}` : sql``}
+          ${unlinked ? sql`AND t.project_id IS NULL` : sql``}
+          ${search ? sql`AND (t.title ILIKE ${'%' + search + '%'} OR t.description ILIKE ${'%' + search + '%'})` : sql``}
+        ORDER BY t.due_date ASC, t.order_index ASC, t.created_at DESC
+      `
+    } else if (view === 'completed') {
+      // Completed todos
+      todos = await sql`
+        SELECT
+          t.*,
+          p.name as project_name
+        FROM todos t
+        LEFT JOIN projects p ON t.project_id = p.id
+        WHERE t.user_id = ${userId}
+          AND t.deleted_at IS NULL
+          AND t.status = 'completed'
+          ${projectId ? sql`AND t.project_id = ${projectId}` : sql``}
+          ${priority ? sql`AND t.priority = ${priority}` : sql``}
+          ${unlinked ? sql`AND t.project_id IS NULL` : sql``}
+          ${search ? sql`AND (t.title ILIKE ${'%' + search + '%'} OR t.description ILIKE ${'%' + search + '%'})` : sql``}
+        ORDER BY t.completed_at DESC, t.created_at DESC
+        LIMIT 50
+      `
+    } else {
+      // All (non-completed by default unless status filter is set)
+      todos = await sql`
+        SELECT
+          t.*,
+          p.name as project_name
+        FROM todos t
+        LEFT JOIN projects p ON t.project_id = p.id
+        WHERE t.user_id = ${userId}
+          AND t.deleted_at IS NULL
+          ${!status ? sql`AND t.status != 'completed'` : sql``}
+          ${projectId ? sql`AND t.project_id = ${projectId}` : sql``}
+          ${status ? sql`AND t.status = ${status}` : sql``}
+          ${priority ? sql`AND t.priority = ${priority}` : sql``}
+          ${unlinked ? sql`AND t.project_id IS NULL` : sql``}
+          ${search ? sql`AND (t.title ILIKE ${'%' + search + '%'} OR t.description ILIKE ${'%' + search + '%'})` : sql``}
+        ORDER BY t.order_index ASC, t.due_date ASC NULLS LAST, t.created_at DESC
+      `
+    }
+
+    // Transform to frontend format
+    const transformedTodos = todos.map(transformTodo)
+
+    // Get counts for metadata
+    const counts = await sql`
+      SELECT
+        COUNT(*) FILTER (WHERE status != 'completed' AND deleted_at IS NULL) as active,
+        COUNT(*) FILTER (WHERE status = 'completed' AND deleted_at IS NULL) as completed,
+        COUNT(*) FILTER (WHERE due_date::date = CURRENT_DATE AND status != 'completed' AND deleted_at IS NULL) as today,
+        COUNT(*) FILTER (WHERE due_date > CURRENT_DATE AND due_date <= CURRENT_DATE + INTERVAL '7 days' AND status != 'completed' AND deleted_at IS NULL) as upcoming
+      FROM todos
+      WHERE user_id = ${userId}
+    `
+
+    return successResponse(transformedTodos, {
+      total: transformedTodos.length,
+      counts: {
+        active: parseInt(counts[0]?.active || '0'),
+        completed: parseInt(counts[0]?.completed || '0'),
+        today: parseInt(counts[0]?.today || '0'),
+        upcoming: parseInt(counts[0]?.upcoming || '0')
+      }
+    })
+  } catch (error: any) {
+    console.error('[API] GET /api/todos error:', error)
+    return errorResponse(
+      ErrorCodes.DATABASE_ERROR,
+      'Failed to get todos',
+      500,
+      error.message
+    )
+  }
+}
+
+/**
+ * POST /api/todos
+ * Create a new todo
+ *
+ * Body: { title, description?, projectId?, priority?, dueDate?, metadata? }
+ */
+export async function POST(request: NextRequest) {
+  try {
+    // Get authenticated user
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    }
+
+    const { userId } = authContext
+    const body = await request.json()
+    const { title, description, projectId, priority, dueDate, metadata } = body
+
+    // Validate required fields
+    if (!title?.trim()) {
+      return errorResponse(ErrorCodes.VALIDATION_ERROR, 'Title is required', 400)
+    }
+
+    // If projectId provided, verify user has access to the project
+    if (projectId) {
+      const hasAccess = await verifyProjectOwnership(projectId, userId)
+      if (!hasAccess) {
+        return errorResponse(ErrorCodes.FORBIDDEN, 'You do not have access to this project', 403)
+      }
+    }
+
+    // Get the next order_index for the user
+    const maxOrder = await sql`
+      SELECT COALESCE(MAX(order_index), -1) + 1 as next_order
+      FROM todos
+      WHERE user_id = ${userId} AND deleted_at IS NULL
+    `
+    const nextOrder = maxOrder[0]?.next_order || 0
+
+    // Insert the todo
+    const result = await sql`
+      INSERT INTO todos (
+        user_id,
+        project_id,
+        title,
+        description,
+        priority,
+        due_date,
+        order_index,
+        metadata
+      ) VALUES (
+        ${userId},
+        ${projectId || null},
+        ${title.trim()},
+        ${description?.trim() || null},
+        ${priority || 'medium'},
+        ${dueDate || null},
+        ${nextOrder},
+        ${metadata ? JSON.stringify(metadata) : '{}'}
+      )
+      RETURNING *
+    `
+
+    const todo = result[0]
+
+    // If linked to a project, get project name
+    let projectName = null
+    if (todo.project_id) {
+      const projectResult = await sql`
+        SELECT name FROM projects WHERE id = ${todo.project_id}
+      `
+      projectName = projectResult[0]?.name
+    }
+
+    return successResponse(transformTodo({
+      ...todo,
+      project_name: projectName
+    }), undefined, 201)
+  } catch (error: any) {
+    console.error('[API] POST /api/todos error:', error)
+    return errorResponse(
+      ErrorCodes.DATABASE_ERROR,
+      'Failed to create todo',
+      500,
+      error.message
+    )
+  }
+}
