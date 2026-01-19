@@ -604,3 +604,515 @@ export type TodoInsert = Omit<
 
 // Update type (all fields optional except id)
 export type TodoUpdate = Partial<Omit<Todo, 'id' | 'user_id' | 'created_at'>>
+
+// ============================================================================
+// Ideas Module Types (JARVIS)
+// ============================================================================
+
+// Idea lifecycle states
+export type IdeaLifecycle = 'seed' | 'exploring' | 'refined' | 'promoted' | 'archived'
+
+// Facet types
+export type FacetType =
+  | 'pros_cons'
+  | 'timeline'
+  | 'market_research'
+  | 'technical_specs'
+  | 'financials'
+  | 'dependencies'
+  | 'risks'
+  | 'alternatives'
+  | 'custom'
+
+// Validation types
+export type ValidationAgentType = 'business' | 'technical' | 'product' | 'custom'
+export type ValidationStatus = 'active' | 'completed' | 'paused' | 'cancelled'
+
+// Refinement types
+export type RefinementType = 'barrier_found' | 'new_approach' | 'pivot_needed' | 'enhancement' | 'feedback'
+export type RefinementStatus = 'open' | 'accepted' | 'rejected' | 'merged'
+
+// Core Idea interface
+export interface Idea {
+  id: string
+  user_id: string
+  title: string
+  description: string | null
+  category: string | null
+  tags: string[]
+  lifecycle: IdeaLifecycle
+  promoted_to_project_id: string | null
+  promoted_at: Date | null
+  visibility: 'private' | 'shared' | 'public'
+  canvas_settings: Record<string, any>
+  metadata: Record<string, any>
+  created_at: Date
+  updated_at: Date
+  deleted_at: Date | null
+}
+
+// Idea branch (git-like branching)
+export interface IdeaBranch {
+  id: string
+  idea_id: string
+  name: string
+  parent_branch_id: string | null
+  is_active: boolean
+  is_main: boolean
+  snapshot: Record<string, any>
+  created_by: string | null
+  created_at: Date
+  updated_at: Date
+  merged_at: Date | null
+  merged_into_branch_id: string | null
+}
+
+// Perspective (different viewpoints)
+export interface IdeaPerspective {
+  id: string
+  idea_id: string
+  name: string
+  description: string | null
+  owner: string | null
+  is_default: boolean
+  settings: Record<string, any>
+  created_at: Date
+  updated_at: Date
+}
+
+// Scenario (constraint scenarios)
+export interface IdeaScenario {
+  id: string
+  idea_id: string
+  perspective_id: string | null
+  name: string
+  constraints: {
+    budget?: number | null
+    timeline?: string | null
+    team?: number | null
+    market?: string | null
+    technical?: string[] | null
+  }
+  is_active: boolean
+  created_at: Date
+  updated_at: Date
+}
+
+// Facet (analysis module)
+export interface IdeaFacet {
+  id: string
+  idea_id: string
+  branch_id: string | null
+  facet_type: FacetType
+  name: string | null
+  data: Record<string, any>
+  position_x: number
+  position_y: number
+  order_index: number
+  metadata: Record<string, any>
+  created_at: Date
+  updated_at: Date
+}
+
+// Canvas node (for ReactFlow)
+export interface IdeaCanvasNode {
+  id: string
+  idea_id: string
+  branch_id: string | null
+  node_type: 'idea' | 'facet' | 'validation' | 'content'
+  reference_id: string | null
+  reference_type: string | null
+  position_x: number
+  position_y: number
+  width: number | null
+  height: number | null
+  style: Record<string, any>
+  content: Record<string, any>
+  layer: string
+  created_at: Date
+  updated_at: Date
+}
+
+// Canvas edge
+export interface IdeaCanvasEdge {
+  id: string
+  idea_id: string
+  branch_id: string | null
+  source_node_id: string
+  target_node_id: string
+  edge_type: 'dependency' | 'relation' | 'derivation'
+  label: string | null
+  style: Record<string, any>
+  created_at: Date
+}
+
+// Validation session
+export interface IdeaValidation {
+  id: string
+  idea_id: string
+  agent_type: ValidationAgentType
+  status: ValidationStatus
+  messages: Array<{ role: 'user' | 'assistant'; content: string; timestamp: string }>
+  current_facet_id: string | null
+  validated_facet_ids: string[]
+  validation_score: number | null
+  blockers: string[]
+  recommendations: string[]
+  agent_config: Record<string, any>
+  created_at: Date
+  updated_at: Date
+  completed_at: Date | null
+}
+
+// Refinement (feedback from execution)
+export interface IdeaRefinement {
+  id: string
+  idea_id: string
+  source_project_id: string
+  refinement_type: RefinementType
+  status: RefinementStatus
+  title: string
+  description: string | null
+  proposed_changes: Record<string, any>
+  comments: Array<{ author: string; content: string; timestamp: string }>
+  resolved_at: Date | null
+  resolved_by: string | null
+  created_at: Date
+  updated_at: Date
+}
+
+// Generated document
+export interface IdeaDocument {
+  id: string
+  idea_id: string
+  document_type: 'business_plan' | 'prd' | 'pitch_deck' | 'tech_spec' | 'executive_summary'
+  title: string
+  content: string | null
+  content_format: 'markdown' | 'html' | 'json'
+  generated_from_facets: string[]
+  generation_prompt: string | null
+  version: number
+  previous_version_id: string | null
+  blob_key: string | null
+  created_at: Date
+  updated_at: Date
+}
+
+// Insert types for Ideas
+export type IdeaInsert = Omit<Idea, 'id' | 'created_at' | 'updated_at' | 'deleted_at' | 'promoted_at'>
+export type IdeaBranchInsert = Omit<IdeaBranch, 'id' | 'created_at' | 'updated_at' | 'merged_at'>
+export type IdeaPerspectiveInsert = Omit<IdeaPerspective, 'id' | 'created_at' | 'updated_at'>
+export type IdeaScenarioInsert = Omit<IdeaScenario, 'id' | 'created_at' | 'updated_at'>
+export type IdeaFacetInsert = Omit<IdeaFacet, 'id' | 'created_at' | 'updated_at'>
+export type IdeaCanvasNodeInsert = Omit<IdeaCanvasNode, 'id' | 'created_at' | 'updated_at'>
+export type IdeaCanvasEdgeInsert = Omit<IdeaCanvasEdge, 'id' | 'created_at'>
+export type IdeaValidationInsert = Omit<IdeaValidation, 'id' | 'created_at' | 'updated_at' | 'completed_at'>
+export type IdeaRefinementInsert = Omit<IdeaRefinement, 'id' | 'created_at' | 'updated_at' | 'resolved_at'>
+export type IdeaDocumentInsert = Omit<IdeaDocument, 'id' | 'created_at' | 'updated_at'>
+
+// Update types for Ideas
+export type IdeaUpdate = Partial<Omit<Idea, 'id' | 'user_id' | 'created_at'>>
+export type IdeaBranchUpdate = Partial<Omit<IdeaBranch, 'id' | 'idea_id' | 'created_at'>>
+export type IdeaFacetUpdate = Partial<Omit<IdeaFacet, 'id' | 'idea_id' | 'created_at'>>
+export type IdeaValidationUpdate = Partial<Omit<IdeaValidation, 'id' | 'idea_id' | 'created_at'>>
+
+// Extended types with relations
+export interface IdeaWithDetails extends Idea {
+  branches?: IdeaBranch[]
+  facets?: IdeaFacet[]
+  validations?: IdeaValidation[]
+  promoted_project?: { id: string; name: string } | null
+}
+
+// ============================================================================
+// Memory 5W+H Types (JARVIS - Model Ledger Protocol)
+// ============================================================================
+
+// Decision status
+export type DecisionStatus = 'active' | 'resolved' | 'revisit' | 'deprecated'
+
+// Stability level
+export type StabilityLevel = 'stable' | 'evolving' | 'experimental'
+
+// WHERE Layer: Project Structure
+export interface MLPWhereStructure {
+  id: string
+  user_id: string
+  project_id: string | null
+  folder_structure: Record<string, any>
+  architecture_patterns: string[]
+  key_endpoints: string[]
+  style_conventions: Record<string, any>
+  config_locations: Record<string, string>
+  semantic_zones: Array<{ zone: string; paths: string[]; purpose: string }>
+  dependency_graph: Record<string, string[]>
+  entry_points: string[]
+  abstraction_layers: string[]
+  compression_level: number
+  created_at: Date
+  updated_at: Date
+}
+
+// WHAT Layer: Module Dependencies
+export interface MLPWhatModule {
+  id: string
+  user_id: string
+  project_id: string | null
+  file_path: string
+  module_name: string | null
+  imports: string[]
+  exports: string[]
+  classes: string[]
+  functions: string[]
+  types: string[]
+  dependencies: string[]
+  interface_contracts: Record<string, any>
+  module_responsibility: string | null
+  public_api: string[]
+  change_stability: StabilityLevel
+  compression_level: number
+  created_at: Date
+  updated_at: Date
+}
+
+// HOW Layer: Implementation Details
+export interface MLPHowImplementation {
+  id: string
+  user_id: string
+  project_id: string | null
+  file_path: string
+  function_name: string | null
+  parsed_structure: Record<string, any>
+  complexity_metrics: {
+    cyclomaticComplexity?: number
+    linesOfCode?: number
+    dependencies?: number
+  }
+  algorithm_patterns: string[]
+  performance_characteristics: Record<string, any>
+  edge_cases_handled: string[]
+  test_coverage: number | null
+  optimization_opportunities: string[]
+  compression_level: number
+  created_at: Date
+  updated_at: Date
+}
+
+// WHY Layer: Decision Episode
+export interface MLPWhyDecision {
+  id: string
+  user_id: string
+  project_id: string | null
+  idea_id: string | null
+  title: string
+  status: DecisionStatus
+  summary: string | null
+  tags: string[]
+  domains: string[]
+  stakeholders: string[]
+  business_drivers: string[]
+  technical_constraints: string[]
+  future_considerations: string[]
+  compression_level: number
+  created_at: Date
+  updated_at: Date
+}
+
+// WHY Layer: Decision Node
+export interface MLPWhyNode {
+  id: string
+  episode_id: string
+  parent_node_id: string | null
+  reasoning: string
+  alternatives: Array<{ name: string; pros: string[]; cons: string[] }>
+  constraints: string[]
+  confidence_level: number | null
+  revisit_triggers: string[]
+  impact_assessment: Record<string, any>
+  order_index: number
+  created_at: Date
+  updated_at: Date
+}
+
+// WHY Layer: Attempted Solution
+export interface MLPWhyAttempt {
+  id: string
+  episode_id: string
+  problem: string
+  approach_tried: string
+  failure_mode: string
+  root_cause: string | null
+  lesson_learned: string
+  prevention_strategy: string | null
+  created_at: Date
+}
+
+// WHY Layer: Solution Comparison
+export interface MLPWhyComparison {
+  id: string
+  episode_id: string
+  solution_a: string
+  solution_b: string
+  criteria: Array<{
+    criterion: string
+    solution_a_score: number
+    solution_b_score: number
+    notes?: string
+  }>
+  winner: string | null
+  winner_rationale: string | null
+  created_at: Date
+}
+
+// WHO Layer: Collaborator
+export interface MLPWhoCollaborator {
+  id: string
+  user_id: string
+  name: string
+  collaborator_type: 'human' | 'ai' | 'team' | 'service'
+  linked_user_id: string | null
+  expertise: string[]
+  contact_info: Record<string, any>
+  notes: string | null
+  created_at: Date
+  updated_at: Date
+}
+
+// WHO Layer: Contribution
+export interface MLPWhoContribution {
+  id: string
+  collaborator_id: string
+  project_id: string | null
+  idea_id: string | null
+  contribution_type: string
+  description: string | null
+  impact_level: 'low' | 'medium' | 'high' | 'critical' | null
+  metadata: Record<string, any>
+  created_at: Date
+}
+
+// WHEN Layer: Temporal Event
+export interface MLPWhenEvent {
+  id: string
+  user_id: string
+  project_id: string | null
+  idea_id: string | null
+  event_type: string
+  description: string | null
+  affected_components: string[]
+  significance_score: number | null
+  event_data: Record<string, any>
+  timestamp: Date
+}
+
+// WHEN Layer: Code Evolution
+export interface MLPWhenEvolution {
+  id: string
+  user_id: string
+  project_id: string | null
+  file_path: string
+  version: string | null
+  commit_hash: string | null
+  change_type: 'created' | 'modified' | 'refactored' | 'deleted'
+  semantic_diff: Record<string, any>
+  evolution_patterns: string[]
+  stability_metrics: Record<string, number>
+  timestamp: Date
+}
+
+// WHEN Layer: Milestone
+export interface MLPWhenMilestone {
+  id: string
+  user_id: string
+  project_id: string | null
+  idea_id: string | null
+  title: string
+  description: string | null
+  milestone_type: string
+  status: 'pending' | 'achieved' | 'missed' | 'cancelled'
+  target_date: Date | null
+  achieved_date: Date | null
+  impact: string | null
+  deliverables: Array<{ deliverable: string; completed: boolean; link?: string }>
+  created_at: Date
+  updated_at: Date
+}
+
+// Compression Settings
+export interface MLPCompressionSettings {
+  id: string
+  user_id: string
+  where_compression: number
+  what_compression: number
+  how_compression: number
+  why_compression: number
+  who_compression: number
+  when_compression: number
+  max_tokens_per_request: number
+  auto_compress: boolean
+  retention_decisions: number
+  retention_lessons: number
+  retention_activity: number
+  retention_conversations: number
+  created_at: Date
+  updated_at: Date
+}
+
+// Insert types for Memory
+export type MLPWhereStructureInsert = Omit<MLPWhereStructure, 'id' | 'created_at' | 'updated_at'>
+export type MLPWhatModuleInsert = Omit<MLPWhatModule, 'id' | 'created_at' | 'updated_at'>
+export type MLPHowImplementationInsert = Omit<MLPHowImplementation, 'id' | 'created_at' | 'updated_at'>
+export type MLPWhyDecisionInsert = Omit<MLPWhyDecision, 'id' | 'created_at' | 'updated_at'>
+export type MLPWhyNodeInsert = Omit<MLPWhyNode, 'id' | 'created_at' | 'updated_at'>
+export type MLPWhyAttemptInsert = Omit<MLPWhyAttempt, 'id' | 'created_at'>
+export type MLPWhyComparisonInsert = Omit<MLPWhyComparison, 'id' | 'created_at'>
+export type MLPWhoCollaboratorInsert = Omit<MLPWhoCollaborator, 'id' | 'created_at' | 'updated_at'>
+export type MLPWhoContributionInsert = Omit<MLPWhoContribution, 'id' | 'created_at'>
+export type MLPWhenEventInsert = Omit<MLPWhenEvent, 'id'>
+export type MLPWhenEvolutionInsert = Omit<MLPWhenEvolution, 'id'>
+export type MLPWhenMilestoneInsert = Omit<MLPWhenMilestone, 'id' | 'created_at' | 'updated_at'>
+
+// Update types for Memory
+export type MLPWhyDecisionUpdate = Partial<Omit<MLPWhyDecision, 'id' | 'user_id' | 'created_at'>>
+export type MLPWhyNodeUpdate = Partial<Omit<MLPWhyNode, 'id' | 'episode_id' | 'created_at'>>
+export type MLPWhenMilestoneUpdate = Partial<Omit<MLPWhenMilestone, 'id' | 'user_id' | 'created_at'>>
+
+// Extended types with relations
+export interface MLPWhyDecisionWithDetails extends MLPWhyDecision {
+  nodes?: MLPWhyNode[]
+  attempts?: MLPWhyAttempt[]
+  comparisons?: MLPWhyComparison[]
+  project?: { id: string; name: string } | null
+  idea?: { id: string; title: string } | null
+}
+
+// ============================================================================
+// Table Names - Extended
+// ============================================================================
+export const JARVIS_TABLE_NAMES = {
+  // Ideas module
+  IDEAS: 'ideas',
+  IDEA_BRANCHES: 'idea_branches',
+  IDEA_PERSPECTIVES: 'idea_perspectives',
+  IDEA_SCENARIOS: 'idea_scenarios',
+  IDEA_FACETS: 'idea_facets',
+  IDEA_CANVAS_NODES: 'idea_canvas_nodes',
+  IDEA_CANVAS_EDGES: 'idea_canvas_edges',
+  IDEA_VALIDATIONS: 'idea_validations',
+  IDEA_REFINEMENTS: 'idea_refinements',
+  IDEA_DOCUMENTS: 'idea_documents',
+  // Memory 5W+H module
+  MLP_WHERE_STRUCTURES: 'mlp_where_structures',
+  MLP_WHAT_MODULES: 'mlp_what_modules',
+  MLP_HOW_IMPLEMENTATIONS: 'mlp_how_implementations',
+  MLP_WHY_DECISIONS: 'mlp_why_decisions',
+  MLP_WHY_NODES: 'mlp_why_nodes',
+  MLP_WHY_ATTEMPTS: 'mlp_why_attempts',
+  MLP_WHY_COMPARISONS: 'mlp_why_comparisons',
+  MLP_WHO_COLLABORATORS: 'mlp_who_collaborators',
+  MLP_WHO_CONTRIBUTIONS: 'mlp_who_contributions',
+  MLP_WHEN_EVENTS: 'mlp_when_events',
+  MLP_WHEN_EVOLUTION: 'mlp_when_evolution',
+  MLP_WHEN_MILESTONES: 'mlp_when_milestones',
+  MLP_COMPRESSION_SETTINGS: 'mlp_compression_settings',
+} as const

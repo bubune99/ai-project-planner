@@ -6,11 +6,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  experimental: {
-    turbopack: {
-      root: '/mnt/c/Users/bubun/CascadeProjects/ai-project-planner',
-    },
-  },
 }
 
 export default nextConfig

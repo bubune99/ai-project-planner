@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input"
 import { ProjectCard } from "@/components/projects/ProjectCard"
 import { ProjectStats } from "@/components/projects/ProjectStats"
 import { NewProjectModal } from "@/components/projects/NewProjectModal"
-import { Search, Plus, LayoutGrid, List, Loader2, LogOut, User, CheckSquare } from 'lucide-react'
-import Link from 'next/link'
+import { DashboardLayout } from "@/components/navigation"
+import { Search, Plus, LayoutGrid, List, Loader2 } from 'lucide-react'
 import type { ProjectSummary } from "@/lib/types"
 
 export default function ProjectsPage() {
@@ -80,55 +80,31 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b border-white/10 bg-black/60 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-2">Mission Control</h1>
-              <p className="text-muted-foreground">AI-powered project management dashboard</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <Link href="/todos">
+    <DashboardLayout>
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <div className="border-b border-white/10 bg-black/60 backdrop-blur-sm sticky top-0 z-10">
+          <div className="px-8 py-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-white mb-2">Mission Control</h1>
+                <p className="text-muted-foreground">AI-powered project management dashboard</p>
+              </div>
+              <div className="flex items-center gap-4">
                 <Button
-                  variant="outline"
-                  className="border-white/10 hover:bg-white/5 gap-2"
+                  className="bg-blue-500 hover:bg-blue-600 text-white gap-2"
+                  onClick={() => setIsNewProjectModalOpen(true)}
                 >
-                  <CheckSquare className="h-4 w-4" />
-                  Todos
+                  <Plus className="h-4 w-4" />
+                  New Project
                 </Button>
-              </Link>
-              <Button
-                className="bg-blue-500 hover:bg-blue-600 text-white gap-2"
-                onClick={() => setIsNewProjectModalOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-                New Project
-              </Button>
-              {user && (
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 text-sm text-gray-400">
-                    <User className="h-4 w-4" />
-                    <span>{user.displayName || user.primaryEmail}</span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-white/10 hover:bg-white/5"
-                    onClick={() => user.signOut()}
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="container mx-auto px-8 py-8 space-y-8">
+        {/* Main Content */}
+        <div className="px-8 py-8 space-y-8">
         {/* Stats */}
         <ProjectStats projects={projects} />
 
@@ -216,14 +192,15 @@ export default function ProjectsPage() {
               ))}
             </div>
           )}
+          </div>
         </div>
-      </div>
 
-      <NewProjectModal
-        open={isNewProjectModalOpen}
-        onOpenChange={setIsNewProjectModalOpen}
-        onProjectCreated={fetchProjects}
-      />
-    </div>
+        <NewProjectModal
+          open={isNewProjectModalOpen}
+          onOpenChange={setIsNewProjectModalOpen}
+          onProjectCreated={fetchProjects}
+        />
+      </div>
+    </DashboardLayout>
   )
 }

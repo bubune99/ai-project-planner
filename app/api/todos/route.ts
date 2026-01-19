@@ -15,6 +15,8 @@ function transformTodo(row: any): Todo {
     id: row.id,
     userId: row.user_id,
     projectId: row.project_id,
+    ideaId: row.idea_id,
+    transactionId: row.transaction_id,
     title: row.title,
     description: row.description,
     status: row.status,
@@ -28,8 +30,37 @@ function transformTodo(row: any): Todo {
     project: row.project_name ? {
       id: row.project_id,
       name: row.project_name
+    } : null,
+    idea: row.idea_title ? {
+      id: row.idea_id,
+      title: row.idea_title
+    } : null,
+    transaction: row.transaction_description ? {
+      id: row.transaction_id,
+      description: row.transaction_description,
+      amount: row.transaction_amount
     } : null
   }
+}
+
+/**
+ * Verify user owns an idea
+ */
+async function verifyIdeaOwnership(ideaId: string, userId: string): Promise<boolean> {
+  const result = await sql`
+    SELECT 1 FROM ideas WHERE id = ${ideaId} AND user_id = ${userId} AND deleted_at IS NULL
+  `
+  return result.length > 0
+}
+
+/**
+ * Verify user owns a transaction
+ */
+async function verifyTransactionOwnership(transactionId: string, userId: string): Promise<boolean> {
+  const result = await sql`
+    SELECT 1 FROM finance_transactions WHERE id = ${transactionId} AND user_id = ${userId}
+  `
+  return result.length > 0
 }
 
 /**
@@ -37,11 +68,13 @@ function transformTodo(row: any): Todo {
  * List todos for authenticated user with optional filters
  *
  * Query params:
- * - view: "today" | "upcoming" | "all" | "completed" (default: "all")
+ * - view: "today" | "upcoming" | "overdue" | "all" | "completed" (default: "all")
  * - projectId: UUID (filter by project)
+ * - ideaId: UUID (filter by idea - cross-domain)
+ * - transactionId: UUID (filter by transaction - cross-domain)
  * - status: "pending" | "in_progress" | "completed"
  * - priority: "low" | "medium" | "high" | "urgent"
- * - unlinked: "true" (only standalone todos without project)
+ * - unlinked: "true" (only standalone todos without any domain link)
  * - search: string (search in title/description)
  */
 export async function GET(request: NextRequest) {
@@ -58,31 +91,45 @@ export async function GET(request: NextRequest) {
     // Parse query parameters
     const view = searchParams.get('view') || 'all'
     const projectId = searchParams.get('projectId')
+    const ideaId = searchParams.get('ideaId')
+    const transactionId = searchParams.get('transactionId')
     const status = searchParams.get('status')
     const priority = searchParams.get('priority')
     const unlinked = searchParams.get('unlinked') === 'true'
     const search = searchParams.get('search')
 
-    // Build the base query with project join
+    // Build the base query with cross-domain joins
     let todos: any[]
+
+    // Common cross-domain filter conditions
+    const crossDomainFilters = sql`
+      ${projectId ? sql`AND t.project_id = ${projectId}` : sql``}
+      ${ideaId ? sql`AND t.idea_id = ${ideaId}` : sql``}
+      ${transactionId ? sql`AND t.transaction_id = ${transactionId}` : sql``}
+      ${status ? sql`AND t.status = ${status}` : sql``}
+      ${priority ? sql`AND t.priority = ${priority}` : sql``}
+      ${unlinked ? sql`AND t.project_id IS NULL AND t.idea_id IS NULL AND t.transaction_id IS NULL` : sql``}
+      ${search ? sql`AND (t.title ILIKE ${'%' + search + '%'} OR t.description ILIKE ${'%' + search + '%'})` : sql``}
+    `
 
     if (view === 'today') {
       // Today: due_date is today
       todos = await sql`
         SELECT
           t.*,
-          p.name as project_name
+          p.name as project_name,
+          i.title as idea_title,
+          ft.description as transaction_description,
+          ft.amount as transaction_amount
         FROM todos t
         LEFT JOIN projects p ON t.project_id = p.id
+        LEFT JOIN ideas i ON t.idea_id = i.id
+        LEFT JOIN finance_transactions ft ON t.transaction_id = ft.id
         WHERE t.user_id = ${userId}
           AND t.deleted_at IS NULL
           AND t.due_date::date = CURRENT_DATE
           AND t.status != 'completed'
-          ${projectId ? sql`AND t.project_id = ${projectId}` : sql``}
-          ${status ? sql`AND t.status = ${status}` : sql``}
-          ${priority ? sql`AND t.priority = ${priority}` : sql``}
-          ${unlinked ? sql`AND t.project_id IS NULL` : sql``}
-          ${search ? sql`AND (t.title ILIKE ${'%' + search + '%'} OR t.description ILIKE ${'%' + search + '%'})` : sql``}
+          ${crossDomainFilters}
         ORDER BY t.order_index ASC, t.due_date ASC NULLS LAST, t.created_at DESC
       `
     } else if (view === 'upcoming') {
@@ -90,36 +137,59 @@ export async function GET(request: NextRequest) {
       todos = await sql`
         SELECT
           t.*,
-          p.name as project_name
+          p.name as project_name,
+          i.title as idea_title,
+          ft.description as transaction_description,
+          ft.amount as transaction_amount
         FROM todos t
         LEFT JOIN projects p ON t.project_id = p.id
+        LEFT JOIN ideas i ON t.idea_id = i.id
+        LEFT JOIN finance_transactions ft ON t.transaction_id = ft.id
         WHERE t.user_id = ${userId}
           AND t.deleted_at IS NULL
           AND t.due_date > CURRENT_DATE
           AND t.due_date <= CURRENT_DATE + INTERVAL '7 days'
           AND t.status != 'completed'
-          ${projectId ? sql`AND t.project_id = ${projectId}` : sql``}
-          ${status ? sql`AND t.status = ${status}` : sql``}
-          ${priority ? sql`AND t.priority = ${priority}` : sql``}
-          ${unlinked ? sql`AND t.project_id IS NULL` : sql``}
-          ${search ? sql`AND (t.title ILIKE ${'%' + search + '%'} OR t.description ILIKE ${'%' + search + '%'})` : sql``}
+          ${crossDomainFilters}
         ORDER BY t.due_date ASC, t.order_index ASC, t.created_at DESC
+      `
+    } else if (view === 'overdue') {
+      // Overdue: due_date is before today and not completed
+      todos = await sql`
+        SELECT
+          t.*,
+          p.name as project_name,
+          i.title as idea_title,
+          ft.description as transaction_description,
+          ft.amount as transaction_amount
+        FROM todos t
+        LEFT JOIN projects p ON t.project_id = p.id
+        LEFT JOIN ideas i ON t.idea_id = i.id
+        LEFT JOIN finance_transactions ft ON t.transaction_id = ft.id
+        WHERE t.user_id = ${userId}
+          AND t.deleted_at IS NULL
+          AND t.due_date < CURRENT_DATE
+          AND t.status != 'completed'
+          ${crossDomainFilters}
+        ORDER BY t.due_date ASC, t.priority DESC, t.created_at DESC
       `
     } else if (view === 'completed') {
       // Completed todos
       todos = await sql`
         SELECT
           t.*,
-          p.name as project_name
+          p.name as project_name,
+          i.title as idea_title,
+          ft.description as transaction_description,
+          ft.amount as transaction_amount
         FROM todos t
         LEFT JOIN projects p ON t.project_id = p.id
+        LEFT JOIN ideas i ON t.idea_id = i.id
+        LEFT JOIN finance_transactions ft ON t.transaction_id = ft.id
         WHERE t.user_id = ${userId}
           AND t.deleted_at IS NULL
           AND t.status = 'completed'
-          ${projectId ? sql`AND t.project_id = ${projectId}` : sql``}
-          ${priority ? sql`AND t.priority = ${priority}` : sql``}
-          ${unlinked ? sql`AND t.project_id IS NULL` : sql``}
-          ${search ? sql`AND (t.title ILIKE ${'%' + search + '%'} OR t.description ILIKE ${'%' + search + '%'})` : sql``}
+          ${crossDomainFilters}
         ORDER BY t.completed_at DESC, t.created_at DESC
         LIMIT 50
       `
@@ -128,17 +198,18 @@ export async function GET(request: NextRequest) {
       todos = await sql`
         SELECT
           t.*,
-          p.name as project_name
+          p.name as project_name,
+          i.title as idea_title,
+          ft.description as transaction_description,
+          ft.amount as transaction_amount
         FROM todos t
         LEFT JOIN projects p ON t.project_id = p.id
+        LEFT JOIN ideas i ON t.idea_id = i.id
+        LEFT JOIN finance_transactions ft ON t.transaction_id = ft.id
         WHERE t.user_id = ${userId}
           AND t.deleted_at IS NULL
           ${!status ? sql`AND t.status != 'completed'` : sql``}
-          ${projectId ? sql`AND t.project_id = ${projectId}` : sql``}
-          ${status ? sql`AND t.status = ${status}` : sql``}
-          ${priority ? sql`AND t.priority = ${priority}` : sql``}
-          ${unlinked ? sql`AND t.project_id IS NULL` : sql``}
-          ${search ? sql`AND (t.title ILIKE ${'%' + search + '%'} OR t.description ILIKE ${'%' + search + '%'})` : sql``}
+          ${crossDomainFilters}
         ORDER BY t.order_index ASC, t.due_date ASC NULLS LAST, t.created_at DESC
       `
     }
@@ -152,7 +223,8 @@ export async function GET(request: NextRequest) {
         COUNT(*) FILTER (WHERE status != 'completed' AND deleted_at IS NULL) as active,
         COUNT(*) FILTER (WHERE status = 'completed' AND deleted_at IS NULL) as completed,
         COUNT(*) FILTER (WHERE due_date::date = CURRENT_DATE AND status != 'completed' AND deleted_at IS NULL) as today,
-        COUNT(*) FILTER (WHERE due_date > CURRENT_DATE AND due_date <= CURRENT_DATE + INTERVAL '7 days' AND status != 'completed' AND deleted_at IS NULL) as upcoming
+        COUNT(*) FILTER (WHERE due_date > CURRENT_DATE AND due_date <= CURRENT_DATE + INTERVAL '7 days' AND status != 'completed' AND deleted_at IS NULL) as upcoming,
+        COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status != 'completed' AND deleted_at IS NULL) as overdue
       FROM todos
       WHERE user_id = ${userId}
     `
@@ -163,7 +235,8 @@ export async function GET(request: NextRequest) {
         active: parseInt(counts[0]?.active || '0'),
         completed: parseInt(counts[0]?.completed || '0'),
         today: parseInt(counts[0]?.today || '0'),
-        upcoming: parseInt(counts[0]?.upcoming || '0')
+        upcoming: parseInt(counts[0]?.upcoming || '0'),
+        overdue: parseInt(counts[0]?.overdue || '0')
       }
     })
   } catch (error: any) {
@@ -181,7 +254,16 @@ export async function GET(request: NextRequest) {
  * POST /api/todos
  * Create a new todo
  *
- * Body: { title, description?, projectId?, priority?, dueDate?, metadata? }
+ * Body: {
+ *   title: string (required)
+ *   description?: string
+ *   projectId?: UUID (link to project)
+ *   ideaId?: UUID (link to idea - cross-domain)
+ *   transactionId?: UUID (link to transaction - cross-domain)
+ *   priority?: "low" | "medium" | "high" | "urgent"
+ *   dueDate?: ISO date
+ *   metadata?: object
+ * }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -193,18 +275,32 @@ export async function POST(request: NextRequest) {
 
     const { userId } = authContext
     const body = await request.json()
-    const { title, description, projectId, priority, dueDate, metadata } = body
+    const { title, description, projectId, ideaId, transactionId, priority, dueDate, metadata } = body
 
     // Validate required fields
     if (!title?.trim()) {
       return errorResponse(ErrorCodes.VALIDATION_ERROR, 'Title is required', 400)
     }
 
-    // If projectId provided, verify user has access to the project
+    // Verify ownership for cross-domain links
     if (projectId) {
       const hasAccess = await verifyProjectOwnership(projectId, userId)
       if (!hasAccess) {
         return errorResponse(ErrorCodes.FORBIDDEN, 'You do not have access to this project', 403)
+      }
+    }
+
+    if (ideaId) {
+      const hasAccess = await verifyIdeaOwnership(ideaId, userId)
+      if (!hasAccess) {
+        return errorResponse(ErrorCodes.FORBIDDEN, 'You do not have access to this idea', 403)
+      }
+    }
+
+    if (transactionId) {
+      const hasAccess = await verifyTransactionOwnership(transactionId, userId)
+      if (!hasAccess) {
+        return errorResponse(ErrorCodes.FORBIDDEN, 'You do not have access to this transaction', 403)
       }
     }
 
@@ -216,11 +312,13 @@ export async function POST(request: NextRequest) {
     `
     const nextOrder = maxOrder[0]?.next_order || 0
 
-    // Insert the todo
+    // Insert the todo with cross-domain links
     const result = await sql`
       INSERT INTO todos (
         user_id,
         project_id,
+        idea_id,
+        transaction_id,
         title,
         description,
         priority,
@@ -230,6 +328,8 @@ export async function POST(request: NextRequest) {
       ) VALUES (
         ${userId},
         ${projectId || null},
+        ${ideaId || null},
+        ${transactionId || null},
         ${title.trim()},
         ${description?.trim() || null},
         ${priority || 'medium'},
@@ -242,18 +342,34 @@ export async function POST(request: NextRequest) {
 
     const todo = result[0]
 
-    // If linked to a project, get project name
+    // Get linked entity names for response
     let projectName = null
+    let ideaTitle = null
+    let transactionDescription = null
+    let transactionAmount = null
+
     if (todo.project_id) {
-      const projectResult = await sql`
-        SELECT name FROM projects WHERE id = ${todo.project_id}
-      `
+      const projectResult = await sql`SELECT name FROM projects WHERE id = ${todo.project_id}`
       projectName = projectResult[0]?.name
+    }
+
+    if (todo.idea_id) {
+      const ideaResult = await sql`SELECT title FROM ideas WHERE id = ${todo.idea_id}`
+      ideaTitle = ideaResult[0]?.title
+    }
+
+    if (todo.transaction_id) {
+      const txResult = await sql`SELECT description, amount FROM finance_transactions WHERE id = ${todo.transaction_id}`
+      transactionDescription = txResult[0]?.description
+      transactionAmount = txResult[0]?.amount
     }
 
     return successResponse(transformTodo({
       ...todo,
-      project_name: projectName
+      project_name: projectName,
+      idea_title: ideaTitle,
+      transaction_description: transactionDescription,
+      transaction_amount: transactionAmount
     }), undefined, 201)
   } catch (error: any) {
     console.error('[API] POST /api/todos error:', error)

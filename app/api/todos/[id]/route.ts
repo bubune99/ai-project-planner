@@ -8,12 +8,15 @@ export const dynamic = 'force-dynamic'
 
 /**
  * Transform database row to frontend Todo format
+ * Converts snake_case to camelCase and includes cross-domain links
  */
 function transformTodo(row: any): Todo {
   return {
     id: row.id,
     userId: row.user_id,
     projectId: row.project_id,
+    ideaId: row.idea_id,
+    transactionId: row.transaction_id,
     title: row.title,
     description: row.description,
     status: row.status,
@@ -27,6 +30,15 @@ function transformTodo(row: any): Todo {
     project: row.project_name ? {
       id: row.project_id,
       name: row.project_name
+    } : null,
+    idea: row.idea_title ? {
+      id: row.idea_id,
+      title: row.idea_title
+    } : null,
+    transaction: row.transaction_description ? {
+      id: row.transaction_id,
+      description: row.transaction_description,
+      amount: row.transaction_amount
     } : null
   }
 }
@@ -37,6 +49,26 @@ function transformTodo(row: any): Todo {
 async function verifyTodoOwnership(todoId: string, userId: string): Promise<boolean> {
   const result = await sql`
     SELECT 1 FROM todos WHERE id = ${todoId} AND user_id = ${userId} AND deleted_at IS NULL
+  `
+  return result.length > 0
+}
+
+/**
+ * Verify user owns an idea (cross-domain linking)
+ */
+async function verifyIdeaOwnership(ideaId: string, userId: string): Promise<boolean> {
+  const result = await sql`
+    SELECT 1 FROM ideas WHERE id = ${ideaId} AND user_id = ${userId} AND deleted_at IS NULL
+  `
+  return result.length > 0
+}
+
+/**
+ * Verify user owns a transaction (cross-domain linking)
+ */
+async function verifyTransactionOwnership(transactionId: string, userId: string): Promise<boolean> {
+  const result = await sql`
+    SELECT 1 FROM finance_transactions WHERE id = ${transactionId} AND user_id = ${userId}
   `
   return result.length > 0
 }
@@ -60,13 +92,18 @@ export async function GET(
 
     const { userId } = authContext
 
-    // Get the todo with project info
+    // Get the todo with cross-domain info (project, idea, transaction)
     const result = await sql`
       SELECT
         t.*,
-        p.name as project_name
+        p.name as project_name,
+        i.title as idea_title,
+        ft.description as transaction_description,
+        ft.amount as transaction_amount
       FROM todos t
       LEFT JOIN projects p ON t.project_id = p.id
+      LEFT JOIN ideas i ON t.idea_id = i.id
+      LEFT JOIN finance_transactions ft ON t.transaction_id = ft.id
       WHERE t.id = ${id}
         AND t.user_id = ${userId}
         AND t.deleted_at IS NULL
@@ -90,9 +127,19 @@ export async function GET(
 
 /**
  * PATCH /api/todos/[id]
- * Update a todo
+ * Update a todo with cross-domain linking support
  *
- * Body: { title?, description?, status?, priority?, dueDate?, projectId?, metadata? }
+ * Body: {
+ *   title?: string
+ *   description?: string
+ *   status?: "pending" | "in_progress" | "completed"
+ *   priority?: "low" | "medium" | "high" | "urgent"
+ *   dueDate?: ISO date
+ *   projectId?: UUID (link to project)
+ *   ideaId?: UUID (link to idea - cross-domain)
+ *   transactionId?: UUID (link to transaction - cross-domain)
+ *   metadata?: object
+ * }
  */
 export async function PATCH(
   request: NextRequest,
@@ -116,9 +163,9 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { title, description, status, priority, dueDate, projectId, metadata } = body
+    const { title, description, status, priority, dueDate, projectId, ideaId, transactionId, metadata } = body
 
-    // If changing projectId, verify access to the new project
+    // Verify ownership for cross-domain links
     if (projectId !== undefined && projectId !== null) {
       const hasProjectAccess = await verifyProjectOwnership(projectId, userId)
       if (!hasProjectAccess) {
@@ -126,7 +173,21 @@ export async function PATCH(
       }
     }
 
-    // Build update query with only provided fields
+    if (ideaId !== undefined && ideaId !== null) {
+      const hasIdeaAccess = await verifyIdeaOwnership(ideaId, userId)
+      if (!hasIdeaAccess) {
+        return errorResponse(ErrorCodes.FORBIDDEN, 'You do not have access to this idea', 403)
+      }
+    }
+
+    if (transactionId !== undefined && transactionId !== null) {
+      const hasTransactionAccess = await verifyTransactionOwnership(transactionId, userId)
+      if (!hasTransactionAccess) {
+        return errorResponse(ErrorCodes.FORBIDDEN, 'You do not have access to this transaction', 403)
+      }
+    }
+
+    // Build update query with only provided fields (including cross-domain links)
     const result = await sql`
       UPDATE todos
       SET
@@ -145,6 +206,14 @@ export async function PATCH(
           WHEN ${projectId !== undefined} THEN ${projectId || null}::uuid
           ELSE project_id
         END,
+        idea_id = CASE
+          WHEN ${ideaId !== undefined} THEN ${ideaId || null}::uuid
+          ELSE idea_id
+        END,
+        transaction_id = CASE
+          WHEN ${transactionId !== undefined} THEN ${transactionId || null}::uuid
+          ELSE transaction_id
+        END,
         metadata = CASE
           WHEN ${metadata !== undefined} THEN ${metadata ? JSON.stringify(metadata) : '{}'}::jsonb
           ELSE metadata
@@ -162,18 +231,34 @@ export async function PATCH(
 
     const todo = result[0]
 
-    // Get project name if linked
+    // Get linked entity names for response
     let projectName = null
+    let ideaTitle = null
+    let transactionDescription = null
+    let transactionAmount = null
+
     if (todo.project_id) {
-      const projectResult = await sql`
-        SELECT name FROM projects WHERE id = ${todo.project_id}
-      `
+      const projectResult = await sql`SELECT name FROM projects WHERE id = ${todo.project_id}`
       projectName = projectResult[0]?.name
+    }
+
+    if (todo.idea_id) {
+      const ideaResult = await sql`SELECT title FROM ideas WHERE id = ${todo.idea_id}`
+      ideaTitle = ideaResult[0]?.title
+    }
+
+    if (todo.transaction_id) {
+      const txResult = await sql`SELECT description, amount FROM finance_transactions WHERE id = ${todo.transaction_id}`
+      transactionDescription = txResult[0]?.description
+      transactionAmount = txResult[0]?.amount
     }
 
     return successResponse(transformTodo({
       ...todo,
-      project_name: projectName
+      project_name: projectName,
+      idea_title: ideaTitle,
+      transaction_description: transactionDescription,
+      transaction_amount: transactionAmount
     }))
   } catch (error: any) {
     console.error('[API] PATCH /api/todos/[id] error:', error)

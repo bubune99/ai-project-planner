@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation"
 import { useUser } from "@stackframe/stack"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Loader2, ArrowLeft, CheckSquare } from "lucide-react"
-import Link from "next/link"
+import { Loader2, CheckSquare } from "lucide-react"
+import { DashboardLayout } from "@/components/navigation"
 
 import { TodoList } from "@/components/todos/TodoList"
 import { TodoQuickAdd } from "@/components/todos/TodoQuickAdd"
@@ -229,46 +229,41 @@ export default function TodosPage() {
   // Loading state
   if (!user) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
+      <DashboardLayout>
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      </DashboardLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/dashboard">
-                <Button variant="ghost" size="sm">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Dashboard
-                </Button>
-              </Link>
+    <DashboardLayout>
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+          <div className="px-8 py-4">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CheckSquare className="w-6 h-6 text-primary" />
                 <h1 className="text-xl font-semibold">My Todos</h1>
               </div>
-            </div>
 
-            {/* Stats */}
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <span>
-                <span className="font-medium text-foreground">{counts.active}</span> active
-              </span>
-              <span>
-                <span className="font-medium text-foreground">{counts.completed}</span> completed
-              </span>
+              {/* Stats */}
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span>
+                  <span className="font-medium text-foreground">{counts.active}</span> active
+                </span>
+                <span>
+                  <span className="font-medium text-foreground">{counts.completed}</span> completed
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-6 max-w-4xl">
+        {/* Main Content */}
+        <main className="px-8 py-6 max-w-4xl">
         <div className="space-y-6">
           {/* Quick Add */}
           <Card className="p-4">
@@ -321,17 +316,18 @@ export default function TodosPage() {
         </div>
       </main>
 
-      {/* Edit Modal */}
-      <TodoEditModal
-        todo={editingTodo}
-        open={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false)
-          setEditingTodo(null)
-        }}
-        onSave={handleSaveTodo}
-        projects={projects}
-      />
-    </div>
+        {/* Edit Modal */}
+        <TodoEditModal
+          todo={editingTodo}
+          open={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false)
+            setEditingTodo(null)
+          }}
+          onSave={handleSaveTodo}
+          projects={projects}
+        />
+      </div>
+    </DashboardLayout>
   )
 }

@@ -223,6 +223,8 @@ export interface Todo {
   id: string
   userId: string
   projectId: string | null
+  ideaId: string | null
+  transactionId: string | null
   title: string
   description: string | null
   status: TodoStatus
@@ -237,11 +239,579 @@ export interface Todo {
     id: string
     name: string
   } | null
+  idea?: {
+    id: string
+    title: string
+  } | null
+  transaction?: {
+    id: string
+    description: string
+    amount: number
+  } | null
 }
 
 export interface TodoFilters {
-  view: "today" | "upcoming" | "all" | "completed"
+  view: "today" | "upcoming" | "overdue" | "all" | "completed"
   priority?: TodoPriority
+  status?: TodoStatus
   projectId?: string
+  ideaId?: string
+  transactionId?: string
+  unlinked?: boolean
+  search?: string
+}
+
+// ============================================================================
+// Finance Types (Frontend) - Added by JARVIS-Finance
+// ============================================================================
+
+export type AccountType = "checking" | "savings" | "credit_card" | "investment" | "cash" | "loan" | "other"
+export type TransactionType = "income" | "expense" | "transfer"
+export type BudgetPeriod = "weekly" | "monthly" | "quarterly" | "yearly"
+export type IncomeSourceType = "salary" | "freelance" | "investment" | "rental" | "business" | "gift" | "other"
+export type RecurringFrequency = "daily" | "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly"
+
+export interface FinanceAccount {
+  id: string
+  userId: string
+  name: string
+  accountType: AccountType
+  institution: string | null
+  accountNumberLast4: string | null
+  currency: string
+  currentBalance: number
+  availableBalance: number | null
+  creditLimit: number | null
+  interestRate: number | null
+  loanPrincipal: number | null
+  loanTermMonths: number | null
+  isActive: boolean
+  isPrimary: boolean
+  color: string | null
+  icon: string | null
+  metadata: Record<string, any>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface FinanceCategory {
+  id: string
+  userId: string | null
+  name: string
+  parentId: string | null
+  isIncome: boolean
+  icon: string | null
+  color: string | null
+  isSystem: boolean
+  orderIndex: number
+  createdAt: string
+  updatedAt: string
+  subcategories?: FinanceCategory[]
+}
+
+export interface FinanceTransaction {
+  id: string
+  userId: string
+  accountId: string
+  accountName?: string
+  transactionType: TransactionType
+  amount: number
+  currency: string
+  categoryId: string | null
+  categoryName?: string
+  categoryIcon?: string
+  categoryColor?: string
+  description: string | null
+  merchant: string | null
+  notes: string | null
+  transactionDate: string
+  postedDate: string | null
+  transferToAccountId: string | null
+  transferPairId: string | null
+  isRecurring: boolean
+  recurringId: string | null
+  tags: string[]
+  externalId: string | null
+  locationName: string | null
+  locationLat: number | null
+  locationLng: number | null
+  receiptBlobKey: string | null
+  isPending: boolean
+  isReconciled: boolean
+  metadata: Record<string, any>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface FinanceBudget {
+  id: string
+  userId: string
+  name: string
+  categoryId: string | null
+  categoryName?: string
+  categoryIcon?: string
+  categoryColor?: string
+  amount: number
+  currency: string
+  period: BudgetPeriod
+  startDate: string | null
+  endDate: string | null
+  alertThreshold: number
+  alertEnabled: boolean
+  rolloverEnabled: boolean
+  rolloverAmount: number
+  isActive: boolean
+  color: string | null
+  icon: string | null
+  metadata: Record<string, any>
+  createdAt: string
+  updatedAt: string
+  // Computed
+  spent?: number
+  remaining?: number
+  percentUsed?: number
+}
+
+export interface FinanceIncomeStream {
+  id: string
+  userId: string
+  name: string
+  sourceType: IncomeSourceType
+  amount: number
+  currency: string
+  frequency: RecurringFrequency
+  nextPaymentDate: string | null
+  accountId: string | null
+  sourceName: string | null
+  isTaxable: boolean
+  taxCategory: string | null
+  isActive: boolean
+  metadata: Record<string, any>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface FinanceGoal {
+  id: string
+  userId: string
+  name: string
+  description: string | null
+  goalType: string
+  targetAmount: number
+  currency: string
+  currentAmount: number
+  targetDate: string | null
+  startedAt: string
+  accountId: string | null
+  autoContribute: boolean
+  contributeAmount: number | null
+  contributeFrequency: RecurringFrequency | null
+  priority: number
+  isActive: boolean
+  isCompleted: boolean
+  completedAt: string | null
+  color: string | null
+  icon: string | null
+  imageBlobKey: string | null
+  metadata: Record<string, any>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface FinanceSummary {
+  period: string
+  netWorth: {
+    total: number
+    change: number
+    changePercent: number
+    assets: number
+    liabilities: number
+    accountCount: number
+  }
+  income: {
+    total: number
+  }
+  expenses: {
+    total: number
+  }
+  cashFlow: {
+    income: number
+    expenses: number
+    net: number
+    transactionCount: number
+  }
+  categorySpending: Array<{
+    category: string
+    icon: string | null
+    color: string | null
+    amount: number
+    count: number
+  }>
+  budgets: {
+    total: number
+    overBudget: number
+    nearLimit: number
+    totalBudgeted: number
+    totalSpent: number
+  }
+  upcomingBills: Array<{
+    id: string
+    description: string
+    amount: number
+    dueDate: string
+    category: string | null
+    icon: string | null
+  }>
+  monthlyIncome: number
+  incomeStreamCount: number
+  goals: {
+    total: number
+    completed: number
+    totalTarget: number
+    totalSaved: number
+    avgProgress: number
+  }
+}
+
+// ============================================================================
+// Ideas Canvas Types (Frontend) - Added by JARVIS-UI
+// ============================================================================
+
+export type IdeaLifecycle = "seed" | "exploring" | "refined" | "promoted" | "archived"
+export type IdeaVisibility = "private" | "shared" | "public"
+export type FacetType =
+  | "pros_cons"
+  | "timeline"
+  | "market_research"
+  | "technical_specs"
+  | "financials"
+  | "dependencies"
+  | "risks"
+  | "alternatives"
+  | "custom"
+
+export type ValidationAgentType = "business" | "technical" | "product" | "custom"
+export type ValidationStatus = "active" | "completed" | "paused" | "cancelled"
+
+export interface Idea {
+  id: string
+  userId: string
+  title: string
+  description: string | null
+  category: string | null
+  tags: string[]
+  lifecycle: IdeaLifecycle
+  promotedToProjectId: string | null
+  promotedAt: string | null
+  visibility: IdeaVisibility
+  canvasSettings: Record<string, any>
+  metadata: Record<string, any>
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  // Additional joined data
+  projectName?: string | null
+  facetCount?: number
+  branchCount?: number
+  validationCount?: number
+}
+
+export interface IdeaBranch {
+  id: string
+  ideaId: string
+  name: string
+  parentBranchId: string | null
+  isActive: boolean
+  isMain: boolean
+  snapshot: Record<string, any>
+  createdBy: string | null
+  createdAt: string
+  updatedAt: string
+  mergedAt: string | null
+  mergedIntoBranchId: string | null
+}
+
+export interface IdeaFacet {
+  id: string
+  ideaId: string
+  branchId: string | null
+  facetType: FacetType
+  name: string | null
+  data: Record<string, any>
+  positionX: number
+  positionY: number
+  orderIndex: number
+  metadata: Record<string, any>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface IdeaValidation {
+  id: string
+  ideaId: string
+  agentType: ValidationAgentType
+  status: ValidationStatus
+  messages: Array<{ role: "user" | "assistant"; content: string; timestamp: string }>
+  currentFacetId: string | null
+  validatedFacetIds: string[]
+  validationScore: number | null
+  blockers: string[]
+  recommendations: string[]
+  agentConfig: Record<string, any>
+  createdAt: string
+  updatedAt: string
+  completedAt: string | null
+}
+
+export interface IdeaWithDetails extends Idea {
+  branches?: IdeaBranch[]
+  facets?: IdeaFacet[]
+  validations?: IdeaValidation[]
+  promotedProject?: { id: string; name: string } | null
+}
+
+export interface IdeaFilters {
+  lifecycle?: IdeaLifecycle
+  category?: string
+  search?: string
+  visibility?: IdeaVisibility
+  includeArchived?: boolean
+}
+
+export interface IdeaLifecycleCounts {
+  seed: number
+  exploring: number
+  refined: number
+  promoted: number
+  archived: number
+}
+
+// ============================================================================
+// Memory (MLP - Model Ledger Protocol) Types (Frontend) - Added by JARVIS-UI
+// ============================================================================
+
+export type DecisionStatus = "active" | "resolved" | "revisit" | "deprecated"
+export type StabilityLevel = "stable" | "evolving" | "experimental"
+export type CollaboratorType = "human" | "ai" | "team" | "service"
+export type MilestoneStatus = "pending" | "achieved" | "missed" | "cancelled"
+
+export interface MemoryOverview {
+  where: {
+    structures: number
+    description: string
+  }
+  what: {
+    modules: number
+    description: string
+  }
+  how: {
+    implementations: number
+    description: string
+  }
+  why: {
+    decisions: {
+      total: number
+      active: number
+      resolved: number
+      revisit: number
+    }
+    description: string
+  }
+  who: {
+    collaborators: number
+    description: string
+  }
+  when: {
+    events: number
+    milestones: {
+      total: number
+      pending: number
+      achieved: number
+    }
+    description: string
+  }
+  settings: MemoryCompressionSettings | null
+}
+
+export interface MemoryCompressionSettings {
+  id: string
+  userId: string
+  whereCompression: number
+  whatCompression: number
+  howCompression: number
+  whyCompression: number
+  whoCompression: number
+  whenCompression: number
+  maxTokensPerRequest: number
+  autoCompress: boolean
+  retentionDecisions: number
+  retentionLessons: number
+  retentionActivity: number
+  retentionConversations: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface WhyDecision {
+  id: string
+  userId: string
+  projectId: string | null
+  ideaId: string | null
+  title: string
+  status: DecisionStatus
+  summary: string | null
+  tags: string[]
+  domains: string[]
+  stakeholders: string[]
+  businessDrivers: string[]
+  technicalConstraints: string[]
+  futureConsiderations: string[]
+  compressionLevel: number
+  createdAt: string
+  updatedAt: string
+  // Joined data
+  projectName?: string | null
+  ideaTitle?: string | null
+  nodeCount?: number
+  attemptCount?: number
+}
+
+export interface WhoCollaborator {
+  id: string
+  userId: string
+  name: string
+  collaboratorType: CollaboratorType
+  linkedUserId: string | null
+  expertise: string[]
+  contactInfo: Record<string, any>
+  notes: string | null
+  createdAt: string
+  updatedAt: string
+  contributionCount?: number
+}
+
+export interface WhenMilestone {
+  id: string
+  userId: string
+  projectId: string | null
+  ideaId: string | null
+  title: string
+  description: string | null
+  milestoneType: string
+  status: MilestoneStatus
+  targetDate: string | null
+  achievedDate: string | null
+  impact: string | null
+  deliverables: Array<{ deliverable: string; completed: boolean; link?: string }>
+  createdAt: string
+  updatedAt: string
+  projectName?: string | null
+  ideaTitle?: string | null
+}
+
+// ============================================================================
+// Calendar Types (Frontend) - Added by JARVIS-Finance
+// ============================================================================
+
+export type EventSource = "manual" | "todo" | "project" | "travel" | "external" | "finance" | "idea"
+export type RecurrenceFrequency = "daily" | "weekly" | "biweekly" | "monthly" | "yearly" | "custom"
+export type EventStatus = "confirmed" | "tentative" | "cancelled"
+export type AttendeeStatus = "accepted" | "declined" | "tentative" | "pending"
+export type ReminderType = "email" | "notification" | "sms"
+
+export interface CalendarAttendee {
+  email: string
+  name?: string
+  status: AttendeeStatus
+  isOrganizer?: boolean
+}
+
+export interface CalendarReminder {
+  type: ReminderType
+  minutes: number
+}
+
+export interface RecurrenceRule {
+  frequency: RecurrenceFrequency
+  interval?: number
+  until?: string
+  count?: number
+  byDay?: string[]  // ["MO", "TU", "WE", etc.]
+  byMonth?: number[]
+  byMonthDay?: number[]
+}
+
+export interface CalendarEvent {
+  id: string
+  userId: string
+  title: string
+  description: string | null
+  startTime: string
+  endTime: string | null
+  isAllDay: boolean
+  timezone: string
+  source: EventSource
+  sourceId: string | null
+  sourceMetadata: Record<string, any>
+  isRecurring: boolean
+  recurrenceRule: RecurrenceRule | null
+  recurrenceParentId: string | null
+  recurrenceIndex: number | null
+  locationName: string | null
+  locationAddress: string | null
+  locationLat: number | null
+  locationLng: number | null
+  locationUrl: string | null
+  attendees: CalendarAttendee[]
+  reminders: CalendarReminder[]
+  color: string | null
+  icon: string | null
+  status: EventStatus
+  isPrivate: boolean
+  externalId: string | null
+  externalCalendar: string | null
+  categoryId: string | null
+  categoryName?: string | null
+  tags: string[]
+  metadata: Record<string, any>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CalendarCategory {
+  id: string
+  userId: string
+  name: string
+  color: string | null
+  icon: string | null
+  isVisible: boolean
+  isDefault: boolean
+  orderIndex: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CalendarAgendaItem {
+  id: string
+  type: "event" | "todo" | "milestone" | "bill"
+  title: string
+  description: string | null
+  startTime: string
+  endTime: string | null
+  isAllDay: boolean
+  source: EventSource
+  sourceId: string | null
+  color: string | null
+  icon: string | null
+  status: string
+  metadata: Record<string, any>
+}
+
+export interface CalendarFilters {
+  startDate?: string
+  endDate?: string
+  source?: EventSource
+  categoryId?: string
+  includeRecurring?: boolean
   search?: string
 }

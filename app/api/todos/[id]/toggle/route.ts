@@ -14,6 +14,8 @@ function transformTodo(row: any): Todo {
     id: row.id,
     userId: row.user_id,
     projectId: row.project_id,
+    ideaId: row.idea_id,
+    transactionId: row.transaction_id,
     title: row.title,
     description: row.description,
     status: row.status,
@@ -27,6 +29,15 @@ function transformTodo(row: any): Todo {
     project: row.project_name ? {
       id: row.project_id,
       name: row.project_name
+    } : null,
+    idea: row.idea_title ? {
+      id: row.idea_id,
+      title: row.idea_title
+    } : null,
+    transaction: row.transaction_description ? {
+      id: row.transaction_id,
+      description: row.transaction_description,
+      amount: row.transaction_amount
     } : null
   }
 }
