@@ -1,0 +1,3 @@
+[submodule "apps/idea-incubator"]
+	path = apps/idea-incubator
+	url = https://github.com/bubune99/idea-incubator.git
