@@ -171,9 +171,17 @@ export async function GET(request: NextRequest) {
       period,
       netWorth: {
         total: assets - liabilities,
+        change: 0, // TODO: Calculate from historical data
+        changePercent: 0, // TODO: Calculate from historical data
         assets,
         liabilities,
         accountCount: parseInt(accountSummary[0]?.account_count || '0')
+      },
+      income: {
+        total: income
+      },
+      expenses: {
+        total: expenses
       },
       cashFlow: {
         income,
