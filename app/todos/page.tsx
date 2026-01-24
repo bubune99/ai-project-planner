@@ -263,7 +263,7 @@ export default function TodosPage() {
         </header>
 
         {/* Main Content */}
-        <main className="px-8 py-6 max-w-4xl">
+        <main className="px-8 py-6">
         <div className="space-y-6">
           {/* Quick Add */}
           <Card className="p-4">
