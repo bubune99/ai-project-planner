@@ -4,6 +4,7 @@ import { Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { StackProvider, StackTheme } from "@stackframe/stack"
 import { stackServerApp } from "@/lib/auth/stack-auth"
+import { ThemeProvider } from "@/components/theme-provider"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -20,13 +21,20 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} antialiased`}>
-        <StackProvider app={stackServerApp}>
-          <StackTheme>
-            {children}
-          </StackTheme>
-        </StackProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <StackProvider app={stackServerApp}>
+            <StackTheme>
+              {children}
+            </StackTheme>
+          </StackProvider>
+        </ThemeProvider>
         <Analytics />
       </body>
     </html>
