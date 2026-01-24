@@ -4,7 +4,7 @@ import { ChevronUp } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { User } from "@/lib/chatsdk/auth-types";
-import { signOut, useSession } from "@/lib/chatsdk/auth-compat";
+import { signOut, useSession } from "@/lib/chatsdk/auth-compat-client";
 import { useTheme } from "next-themes";
 import {
   DropdownMenu,
