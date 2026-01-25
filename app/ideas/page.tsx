@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { useUser } from "@stackframe/stack"
 import { DashboardLayout } from "@/components/navigation"
 import { IdeaList } from "@/components/ideas"
@@ -28,6 +29,7 @@ import { Plus, Loader2, RefreshCw, Lightbulb } from "lucide-react"
 import type { Idea, IdeaLifecycle, IdeaLifecycleCounts } from "@/lib/types"
 
 export default function IdeasPage() {
+  const router = useRouter()
   const user = useUser()
   const [ideas, setIdeas] = useState<Idea[]>([])
   const [counts, setCounts] = useState<IdeaLifecycleCounts | undefined>()
@@ -152,8 +154,7 @@ export default function IdeasPage() {
   }
 
   const handleIdeaClick = (idea: Idea) => {
-    // TODO: Navigate to idea detail/canvas view
-    console.log("Open idea:", idea.id)
+    router.push(`/ideas/${idea.id}`)
   }
 
   if (!user) {

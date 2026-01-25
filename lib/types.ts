@@ -815,3 +815,202 @@ export interface CalendarFilters {
   includeRecurring?: boolean
   search?: string
 }
+
+// ============================================================================
+// Ideas Canvas Extended Types (for idea-incubator integration)
+// ============================================================================
+
+export type IdeaState = "seed" | "exploring" | "refined" | "promoted" | "archived"
+export type TransformationType = "evolved-into" | "branched-as" | "merged-with" | "spawned"
+export type RefinementType = "barrier-found" | "new-approach" | "pivot-needed" | "enhancement" | "feedback"
+export type RefinementStatus = "open" | "accepted" | "rejected" | "merged"
+export type CanvasNodeType = "ideaNode" | "facetNode" | "validationNode" | "contentNode"
+export type ContentType = "text" | "image" | "video" | "audio" | "link" | "diagram" | "document" | "table"
+export type SessionStatus = "active" | "completed" | "paused" | "cancelled"
+
+export interface IdeaWithStats extends Idea {
+  idea_state?: IdeaState
+  core_content?: string | null
+  origin_idea_id?: string | null
+  transformed_from?: string | null
+  current_type?: string | null
+  archived_reason?: string | null
+  branches?: IdeaBranch[]
+  facets?: IdeaFacet[]
+  nodes?: number
+  branches_count?: number
+  perspectives?: number
+  scenarios?: number
+  linked_ideas?: number
+  categories?: string[]
+  created_at?: string
+  updated_at?: string
+}
+
+export interface IdeaTransformation {
+  id: string
+  fromIdeaId: string | null
+  toIdeaId: string
+  transformationType: TransformationType
+  notes: string | null
+  createdAt: string
+}
+
+export interface IdeaRelationship {
+  id: string
+  fromIdeaId: string
+  toIdeaId: string
+  relationshipType: string
+  metadata: Record<string, any> | null
+  createdAt: string
+}
+
+export interface IdeaNote {
+  id: string
+  ideaId: string
+  branchId: string | null
+  facetId: string | null
+  perspectiveId: string | null
+  title: string | null
+  content: string
+  noteType: string
+  tags: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface IdeaCanvasNode {
+  id: string
+  ideaId: string
+  branchId: string | null
+  nodeType: CanvasNodeType
+  positionX: number
+  positionY: number
+  width: number | null
+  height: number | null
+  zIndex: number
+  data: Record<string, any>
+  layerId: string | null
+  perspectiveId: string | null
+  scenarioId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface IdeaCanvasEdge {
+  id: string
+  ideaId: string
+  branchId: string | null
+  sourceNodeId: string
+  targetNodeId: string
+  edgeType: string
+  label: string | null
+  data: Record<string, any>
+  createdAt: string
+}
+
+export interface IdeaCanvasLayer {
+  id: string
+  ideaId: string
+  name: string
+  description: string | null
+  orderIndex: number
+  isVisible: boolean
+  opacity: number
+  color: string | null
+  createdAt: string
+}
+
+export interface IdeaPerspective {
+  id: string
+  ideaId: string
+  name: string
+  description: string | null
+  owner: string | null
+  ownerType: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface IdeaScenario {
+  id: string
+  perspectiveId: string
+  name: string
+  description: string | null
+  assumptions: Record<string, any>
+  isBaseline: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface IdeaRefinement {
+  id: string
+  ideaId: string
+  facetId: string | null
+  validationId: string | null
+  refinementType: RefinementType
+  status: RefinementStatus
+  title: string
+  content: string
+  suggestedChanges: Record<string, any>
+  createdBy: string | null
+  createdAt: string
+  resolvedAt: string | null
+  resolvedBy: string | null
+}
+
+export interface IdeaDocument {
+  id: string
+  ideaId: string
+  branchId: string | null
+  title: string
+  documentType: string
+  content: string
+  templateUsed: string | null
+  generatedBy: string | null
+  metadata: Record<string, any>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface IdeaCanvasSnapshot {
+  id: string
+  ideaId: string
+  branchId: string | null
+  name: string
+  description: string | null
+  snapshotData: Record<string, any>
+  createdBy: string | null
+  createdAt: string
+}
+
+export interface CanvasStats {
+  totalNodes: number
+  nodesByType: {
+    ideas: number
+    facets: number
+    validations: number
+    content: number
+  }
+  totalConnections: number
+  linkedIdeas: number
+  activeLayers: number
+  totalBranches: number
+  totalPerspectives: number
+  totalScenarios: number
+  perspectiveDetails: Array<{
+    name: string
+    owner?: string
+    scenarioCount: number
+  }>
+}
+
+export interface ViewSettings {
+  showBranches: boolean
+  showPerspectives: boolean
+  showScenarios: boolean
+  showLayers: boolean
+  showMinimap: boolean
+  showControls: boolean
+  showContextNotes: boolean
+}
