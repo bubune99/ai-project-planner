@@ -33,10 +33,13 @@ import {
 import { toast } from "sonner"
 import type { IdeaWithStats, ViewSettings, CanvasStats } from "@/lib/types"
 
-// Import simple canvas components
+// Import canvas components
 import { SimpleIdeaCanvas } from "@/components/ideas-canvas/simple-idea-canvas"
 import { SimpleLifecycleBadge } from "@/components/ideas-canvas/simple-lifecycle-badge"
 import { SimpleCanvasStats } from "@/components/ideas-canvas/simple-canvas-stats"
+import { SpawnChildDialog } from "@/components/ideas-canvas/spawn-child-dialog"
+import { MergeIdeasDialog } from "@/components/ideas-canvas/merge-ideas-dialog"
+import { EvolvedIntoDialog } from "@/components/ideas-canvas/evolved-into-dialog"
 
 export default function IdeaDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: ideaId } = use(params)
@@ -51,6 +54,11 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ id: strin
   // Canvas state
   const [contextNotes, setContextNotes] = useState("")
   const [isSavingNotes, setIsSavingNotes] = useState(false)
+
+  // Dialog state
+  const [isSpawnDialogOpen, setIsSpawnDialogOpen] = useState(false)
+  const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false)
+  const [isEvolveDialogOpen, setIsEvolveDialogOpen] = useState(false)
 
   const [viewSettings] = useState<ViewSettings>({
     showBranches: true,
@@ -168,6 +176,35 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ id: strin
 
   const handleAddFacet = () => {
     toast.info("Add facet feature coming soon")
+  }
+
+  const refetchIdea = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/ideas/${ideaId}`)
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success) {
+          setIdea(result.data)
+        }
+      }
+    } catch (err) {
+      console.error("Failed to refetch idea:", err)
+    }
+  }, [ideaId])
+
+  const handleSpawnSuccess = (childIdea: any) => {
+    refetchIdea()
+    if (childIdea?.id) {
+      router.push(`/ideas/${childIdea.id}`)
+    }
+  }
+
+  const handleMergeSuccess = () => {
+    refetchIdea()
+  }
+
+  const handleEvolveSuccess = () => {
+    refetchIdea()
   }
 
   // Loading state
@@ -291,15 +328,15 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ id: strin
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  <Button variant="outline" size="sm" disabled>
+                  <Button variant="outline" size="sm" onClick={() => setIsMergeDialogOpen(true)}>
                     <GitMerge className="h-4 w-4 mr-2" />
                     Merge
                   </Button>
-                  <Button variant="outline" size="sm" disabled>
+                  <Button variant="outline" size="sm" onClick={() => setIsSpawnDialogOpen(true)}>
                     <GitBranch className="h-4 w-4 mr-2" />
                     Branch
                   </Button>
-                  <Button variant="outline" size="sm" disabled>
+                  <Button variant="outline" size="sm" onClick={() => setIsEvolveDialogOpen(true)}>
                     <TrendingUp className="h-4 w-4 mr-2" />
                     Evolve
                   </Button>
@@ -456,6 +493,29 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ id: strin
           )}
         </div>
       </div>
+
+      {/* Transformation Dialogs */}
+      <SpawnChildDialog
+        open={isSpawnDialogOpen}
+        onOpenChange={setIsSpawnDialogOpen}
+        ideaId={ideaId}
+        ideaTitle={idea.title}
+        onSuccess={handleSpawnSuccess}
+      />
+      <MergeIdeasDialog
+        open={isMergeDialogOpen}
+        onOpenChange={setIsMergeDialogOpen}
+        ideaId={ideaId}
+        ideaTitle={idea.title}
+        onSuccess={handleMergeSuccess}
+      />
+      <EvolvedIntoDialog
+        open={isEvolveDialogOpen}
+        onOpenChange={setIsEvolveDialogOpen}
+        ideaId={ideaId}
+        ideaTitle={idea.title}
+        onSuccess={handleEvolveSuccess}
+      />
     </DashboardLayout>
   )
 }

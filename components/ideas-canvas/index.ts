@@ -1,3 +1,6 @@
 export { SimpleIdeaCanvas } from "./simple-idea-canvas"
 export { SimpleLifecycleBadge } from "./simple-lifecycle-badge"
 export { SimpleCanvasStats } from "./simple-canvas-stats"
+export { SpawnChildDialog } from "./spawn-child-dialog"
+export { MergeIdeasDialog } from "./merge-ideas-dialog"
+export { EvolvedIntoDialog } from "./evolved-into-dialog"
