@@ -181,6 +181,8 @@ export async function verifyMcpProjectOwnership(projectId: string): Promise<bool
             SELECT 1 FROM project_collaborators pc
             WHERE pc.project_id = p.id
               AND pc.user_id = ${context.userId}
+              AND pc.removed_at IS NULL
+              AND pc.accepted_at IS NOT NULL
           )
         )
     `;
@@ -224,11 +226,13 @@ export async function verifyMcpProjectAccess(projectId: string): Promise<Project
       return { hasAccess: true, role: "owner", canWrite: true, canAdmin: true };
     }
 
-    // Check collaborator access
+    // Check collaborator access (must be accepted and not removed)
     const collabResult = await sql`
       SELECT role FROM project_collaborators
       WHERE project_id = ${projectId}
         AND user_id = ${context.userId}
+        AND removed_at IS NULL
+        AND accepted_at IS NOT NULL
     `;
 
     if (collabResult.length > 0) {

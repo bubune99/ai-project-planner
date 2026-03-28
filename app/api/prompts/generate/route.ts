@@ -1,10 +1,17 @@
 import { sql } from "@/lib/db/client"
 import { type NextRequest, NextResponse } from "next/server"
+import { getAuthContext } from "@/lib/auth/auth-utils"
+import { verifyProjectOwnership } from "@/lib/auth/auth-utils"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(request: NextRequest) {
   try {
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const projectId = searchParams.get("projectId")
     const stepId = searchParams.get("stepId")
@@ -12,6 +19,12 @@ export async function GET(request: NextRequest) {
 
     if (!projectId) {
       return NextResponse.json({ error: "Project ID required" }, { status: 400 })
+    }
+
+    // Verify project ownership
+    const hasAccess = await verifyProjectOwnership(projectId, authContext.userId)
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Project not found or access denied" }, { status: 403 })
     }
 
     // Fetch project data
@@ -78,7 +91,10 @@ export async function GET(request: NextRequest) {
     })
   } catch (error: any) {
     console.error("Generate prompt error:", error)
-    return NextResponse.json({ error: "Failed to generate prompt", details: error.message }, { status: 500 })
+    return NextResponse.json(
+      { error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error' },
+      { status: 500 }
+    )
   }
 }
 

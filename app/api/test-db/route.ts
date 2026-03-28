@@ -1,11 +1,24 @@
 import { NextResponse } from 'next/server'
 import { sql } from '@/lib/db/client'
+import { getAuthContext } from '@/lib/auth/auth-utils'
 
 /**
  * Simple database test endpoint
  * Tests basic connectivity and queries
+ *
+ * SECURITY: Only available in development mode
  */
 export async function GET() {
+  // Gate behind development mode
+  if (process.env.NODE_ENV !== 'development') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  const authContext = await getAuthContext()
+  if (!authContext) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const results: any = {
     timestamp: new Date().toISOString(),
     tests: []

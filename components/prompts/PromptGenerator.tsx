@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Sparkles, Copy, Check, Download, Send, RefreshCw } from "lucide-react"
+import DOMPurify from "dompurify"
 
 interface PromptGeneratorProps {
   projectId: string
@@ -179,7 +180,7 @@ export function PromptGenerator({ projectId, stepId, type = "task", onSendToClau
 
                   {/* Formatted Preview */}
                   <div className="prose prose-invert max-w-none">
-                    <div dangerouslySetInnerHTML={{ __html: promptData.htmlPreview || "" }} />
+                    <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(promptData.htmlPreview || "") }} />
                   </div>
                 </div>
               )}

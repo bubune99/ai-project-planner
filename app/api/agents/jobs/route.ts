@@ -57,6 +57,11 @@ function transformJob(row: any) {
  */
 export async function GET(request: NextRequest) {
   try {
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    }
+
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const priority = searchParams.get('priority')
@@ -140,6 +145,11 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    }
+
     const body = await request.json()
     const {
       title,

@@ -54,6 +54,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verify project ownership before allowing upload
+    const { verifyProjectOwnership } = await import("@/lib/auth/auth-utils");
+    const hasAccess = await verifyProjectOwnership(projectId, userId);
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: "Project not found or access denied" },
+        { status: 403 }
+      );
+    }
+
     // Validate file size (max 50MB)
     const maxSize = 50 * 1024 * 1024;
     if (file.size > maxSize) {
@@ -210,7 +220,7 @@ export async function POST(request: NextRequest) {
     console.error("Upload error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Upload failed", details: message },
+      { error: process.env.NODE_ENV === 'development' ? message : 'Upload failed' },
       { status: 500 }
     );
   }
@@ -270,7 +280,7 @@ export async function GET(request: NextRequest) {
     console.error("Get upload URL error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to generate upload URL", details: message },
+      { error: process.env.NODE_ENV === 'development' ? message : 'Failed to generate upload URL' },
       { status: 500 }
     );
   }

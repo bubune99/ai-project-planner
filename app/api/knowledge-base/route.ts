@@ -1,6 +1,7 @@
 import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
+import { getAuthContext } from '@/lib/auth/auth-utils'
 
 /**
  * GET /api/knowledge-base
@@ -8,6 +9,10 @@ import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
  */
 export async function GET(request: NextRequest) {
   try {
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    }
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('query')
     const category = searchParams.get('category')
@@ -60,6 +65,11 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    }
+
     const body = await request.json()
     // Extract project_id (snake_case) as expected from SDK
     const { title, description, category, content, project_id } = body

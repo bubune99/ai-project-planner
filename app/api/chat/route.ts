@@ -27,6 +27,7 @@ import {
 } from "@/lib/ai/conversation-queries";
 import { sessionCache } from "@/lib/ai/session-cache";
 import { getAuthContext } from "@/lib/auth/auth-utils";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -92,6 +93,14 @@ export async function POST(request: Request) {
     }
 
     const { userId } = authContext;
+
+    // Rate limit: 30 requests per minute per user for LLM calls
+    if (!checkRateLimit(`chat:${userId}`, 30, 60000)) {
+      return new Response(
+        JSON.stringify({ error: "Too many requests. Please slow down." }),
+        { status: 429, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
     // Step 1: Extract request data
     const body: ChatRequestBody = await request.json();

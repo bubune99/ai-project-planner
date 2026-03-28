@@ -70,9 +70,9 @@
       "mcp__ui-validation__validate_event_handlers"
     ]
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "postgresql",
     "stack-auth"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }
