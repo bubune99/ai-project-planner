@@ -21,6 +21,7 @@ import {
   Brain,
   Bot,
   CheckSquare,
+  CalendarDays,
   Settings,
   MessageSquare,
   ChevronLeft,
@@ -64,6 +65,7 @@ const navSections: NavSection[] = [
     title: "Tools",
     items: [
       { title: "Todos", href: "/todos", icon: CheckSquare },
+      { title: "Calendar", href: "/calendar", icon: CalendarDays },
       { title: "AI Chat", href: "/chat", icon: MessageSquare },
     ],
   },

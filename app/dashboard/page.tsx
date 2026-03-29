@@ -6,25 +6,22 @@ import { useUser } from "@stackframe/stack"
 import { DashboardLayout } from "@/components/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
+import { TodaysFocus } from "@/components/dashboard/TodaysFocus"
+import { ActivityFeed } from "@/components/dashboard/ActivityFeed"
 import {
   FolderKanban,
   Lightbulb,
   Wallet,
   Brain,
-  Bot,
   CheckSquare,
   TrendingUp,
   TrendingDown,
-  Clock,
   Zap,
   ArrowRight,
   Activity,
-  Target,
   Sparkles,
-  Calendar,
   DollarSign,
   ListTodo,
   MessageSquare,
@@ -62,19 +59,9 @@ interface DashboardStats {
   }
 }
 
-interface RecentActivity {
-  id: string
-  type: "project" | "idea" | "transaction" | "todo" | "agent"
-  title: string
-  description: string
-  timestamp: string
-  icon: React.ReactNode
-}
-
 export default function DashboardPage() {
   const user = useUser()
   const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [activities, setActivities] = useState<RecentActivity[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -185,34 +172,6 @@ export default function DashboardPage() {
         todos: todoStats,
         agents: agentStats,
       })
-
-      // Generate recent activities (mock for now, could be from a real endpoint)
-      setActivities([
-        {
-          id: "1",
-          type: "project",
-          title: "Project updated",
-          description: "AI Dashboard progress increased to 75%",
-          timestamp: "2 hours ago",
-          icon: <FolderKanban className="h-4 w-4 text-blue-400" />,
-        },
-        {
-          id: "2",
-          type: "idea",
-          title: "New idea captured",
-          description: "Voice assistant integration concept",
-          timestamp: "5 hours ago",
-          icon: <Lightbulb className="h-4 w-4 text-yellow-400" />,
-        },
-        {
-          id: "3",
-          type: "todo",
-          title: "Task completed",
-          description: "Review API documentation",
-          timestamp: "Yesterday",
-          icon: <CheckSquare className="h-4 w-4 text-green-400" />,
-        },
-      ])
 
     } catch (error) {
       console.error("Failed to fetch dashboard data:", error)
@@ -577,76 +536,11 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
 
-              {/* Tasks Due Today */}
-              <Card className="bg-black/40 border-white/10">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-white flex items-center gap-2">
-                      <Calendar className="h-5 w-5 text-orange-400" />
-                      Due Today
-                    </CardTitle>
-                    <Badge variant="outline" className="border-orange-500/50 text-orange-400">
-                      {stats?.todos.dueToday || 0}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {loading ? (
-                    <Skeleton className="h-20 w-full bg-white/10" />
-                  ) : stats?.todos.dueToday ? (
-                    <div className="text-center py-4">
-                      <p className="text-gray-400 text-sm mb-3">
-                        You have {stats.todos.dueToday} task{stats.todos.dueToday > 1 ? "s" : ""} due today
-                      </p>
-                      <Button size="sm" variant="outline" className="border-orange-500/50 text-orange-400" asChild>
-                        <Link href="/todos">View Tasks</Link>
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="text-center py-4 text-gray-500">
-                      <CheckSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">No tasks due today</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              {/* Today's Focus */}
+              <TodaysFocus />
 
-              {/* Recent Activity */}
-              <Card className="bg-black/40 border-white/10">
-                <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-2">
-                    <Activity className="h-5 w-5 text-cyan-400" />
-                    Recent Activity
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {loading ? (
-                    <div className="space-y-3">
-                      {[1, 2, 3].map((i) => (
-                        <Skeleton key={i} className="h-12 w-full bg-white/10" />
-                      ))}
-                    </div>
-                  ) : activities.length > 0 ? (
-                    <div className="space-y-3">
-                      {activities.map((activity) => (
-                        <div key={activity.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-white/5">
-                          <div className="mt-1">{activity.icon}</div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">{activity.title}</p>
-                            <p className="text-xs text-gray-400 truncate">{activity.description}</p>
-                          </div>
-                          <span className="text-xs text-gray-500 whitespace-nowrap">{activity.timestamp}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-4 text-gray-500">
-                      <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">No recent activity</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              {/* Recent Activity (real data) */}
+              <ActivityFeed />
 
               {/* Ideas Highlight */}
               <Card className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border-yellow-500/20">
