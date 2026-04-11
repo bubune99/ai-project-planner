@@ -1116,3 +1116,165 @@ export const JARVIS_TABLE_NAMES = {
   MLP_WHEN_MILESTONES: 'mlp_when_milestones',
   MLP_COMPRESSION_SETTINGS: 'mlp_compression_settings',
 } as const
+
+// ============================================================================
+// Backbone Foundation (migrations 033-036)
+// Workers registry, agent_jobs delegation + unlock-as-status, structured
+// step instructions, and sources federation scaffolding.
+// ============================================================================
+
+// ---------- Workers ----------
+export type WorkerKind =
+  | 'claude_code_local'
+  | 'claude_sdk_cloud'
+  | 'openai_gpt4'
+  | 'openai_gpt5'
+  | 'gemini_pro'
+  | 'local_llama'
+  | 'human_owner'
+  | 'cron'
+  | 'webhook'
+  | (string & {}) // open-ended: new kinds allowed without a schema change
+
+export type WorkerStatus = 'active' | 'inactive' | 'busy' | 'error'
+
+export interface WorkerCapabilities {
+  tools?: string[]
+  models?: string[]
+  max_context?: number
+  supports_streaming?: boolean
+  supports_unlock?: boolean
+  [key: string]: unknown
+}
+
+export interface Worker {
+  id: string
+  user_id: string | null
+  kind: WorkerKind
+  name: string
+  capabilities: WorkerCapabilities
+  status: WorkerStatus
+  last_seen_at: Date | null
+  metadata: Record<string, unknown>
+  created_at: Date
+  updated_at: Date
+  deleted_at: Date | null
+}
+
+// ---------- Structured Step Instructions ----------
+export type ExpectedOutputKind =
+  | 'file_edit'
+  | 'artifact'
+  | 'chat_answer'
+  | 'pr'
+  | 'decision'
+  | 'research'
+
+export interface StepInstructions {
+  intent?: string
+  context?: string
+  constraints?: string[]
+  expected_output?: {
+    kind: ExpectedOutputKind
+    shape: string
+  }
+  required_capabilities?: {
+    tools?: string[]
+    min_context_tokens?: number
+    models?: string[]
+  }
+  preconditions?: string[]
+  success_criteria?: string[]
+}
+
+// ---------- Agent Jobs (delegation + unlock) ----------
+export type AgentJobStatus =
+  | 'pending'
+  | 'queued'
+  | 'assigned'
+  | 'claimed'
+  | 'in_progress'
+  | 'awaiting-unlock'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+
+export type AgentJobPriority = 'low' | 'normal' | 'high' | 'critical'
+
+export interface AgentJob {
+  id: string
+  title: string
+  description: string | null
+
+  created_by: string
+  assigned_to: string | null
+
+  // Backbone foundation additions (migration 034)
+  worker_id: string | null
+  parent_step_id: string | null
+  parent_job_id: string | null
+
+  status: AgentJobStatus
+  priority: AgentJobPriority
+
+  input: Record<string, unknown>
+  result: Record<string, unknown> | null
+  error: string | null
+
+  progress: number
+  conversation_id: string | null
+  tags: string[]
+
+  // Unlock-as-status
+  unlock_prompt: string | null
+  unlock_resolved_at: Date | null
+  unlock_resolved_by: string | null
+  unlock_note: string | null
+
+  capabilities_required: WorkerCapabilities
+
+  started_at: Date | null
+  completed_at: Date | null
+  expires_at: Date | null
+
+  metadata: Record<string, unknown>
+  created_at: Date
+  updated_at: Date
+}
+
+// ---------- Sources (federation scaffolding) ----------
+export type SourceKind =
+  | 'github_issue'
+  | 'agent_com_job'
+  | 'shopify_theme_commit'
+  | 'vercel_deployment'
+  | 'linear_ticket'
+  | 'manual'
+  | 'auto'
+  | (string & {})
+
+export interface Source {
+  id: string
+  user_id: string
+  kind: SourceKind
+  external_id: string | null
+  external_url: string | null
+
+  // At least one of these is non-null (DB-enforced)
+  step_id: string | null
+  job_id: string | null
+  todo_id: string | null
+
+  status: string | null
+  last_synced_at: Date | null
+  metadata: Record<string, unknown>
+  created_at: Date
+  deleted_at: Date | null
+}
+
+export const BACKBONE_TABLE_NAMES = {
+  WORKERS: 'workers',
+  SOURCES: 'sources',
+  AGENT_JOBS: 'agent_jobs',
+  PROJECT_STEPS: 'project_steps',
+} as const

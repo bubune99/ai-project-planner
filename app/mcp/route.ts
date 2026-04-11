@@ -11,6 +11,19 @@
 import { createMcpHandler } from "mcp-handler"
 import { z } from "zod"
 import { sql } from "@/lib/db/client"
+import {
+  createWorker,
+  listWorkers,
+  getWorker,
+  updateWorkerStatus,
+  claimJob,
+  transitionJobToUnlock,
+  resolveUnlock,
+  listAwaitingUnlocks,
+  createSource,
+  listSourcesForStep,
+  listSourcesForJob,
+} from "@/lib/db/backbone"
 import { NextRequest } from "next/server"
 import {
   validateMcpApiKey,
@@ -2900,6 +2913,342 @@ const handler = createMcpHandler(
             query,
             results,
             totalMatches
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ==========================================
+    // BACKBONE FOUNDATION TOOLS
+    // Workers registry, delegation unlock, sources federation
+    // (migrations 033-036)
+    // ==========================================
+
+    // ---------- Workers ----------
+
+    server.tool(
+      "register_worker",
+      "Register an execution site (worker) — local Claude Code, cloud SDK, GPT/Gemini endpoint, human, cron, webhook. Returns the worker id.",
+      {
+        kind: z.string().describe("Worker kind, e.g. claude_code_local, openai_gpt5, human_owner"),
+        name: z.string().describe("Human-readable worker name"),
+        capabilities: z.record(z.unknown()).optional().describe("Capability descriptor: { tools, models, max_context, supports_unlock, ... }"),
+        status: z.enum(["active", "inactive", "busy", "error"]).optional().describe("Initial status (default: active)"),
+        shared: z.boolean().optional().describe("If true, create as a shared/system worker (user_id = null). Default: false"),
+        metadata: z.record(z.unknown()).optional().describe("Freeform metadata"),
+      },
+      async ({ kind, name, capabilities, status, shared, metadata }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+          const worker = await createWorker({
+            userId: shared ? null : userId,
+            kind,
+            name,
+            capabilities: (capabilities as Record<string, unknown>) ?? {},
+            status: status ?? "active",
+            metadata: (metadata as Record<string, unknown>) ?? {},
+          })
+          return mcpResponse({
+            registered: true,
+            id: worker.id,
+            kind: worker.kind,
+            name: worker.name,
+            status: worker.status,
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "heartbeat_worker",
+      "Update a worker's liveness: sets last_seen_at = NOW() and updates status. Call on a schedule.",
+      {
+        workerId: z.string().describe("Worker id"),
+        status: z.enum(["active", "inactive", "busy", "error"]).optional().describe("New status (default: active)"),
+      },
+      async ({ workerId, status }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+          const existing = await getWorker(workerId)
+          if (!existing) return mcpError("Worker not found")
+          if (existing.user_id !== null && existing.user_id !== userId) {
+            return mcpError("Access denied")
+          }
+          const updated = await updateWorkerStatus(workerId, status ?? "active")
+          if (!updated) return mcpError("Worker not found")
+          return mcpResponse({
+            heartbeat: true,
+            id: updated.id,
+            status: updated.status,
+            last_seen_at: updated.last_seen_at,
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "list_workers",
+      "List registered workers. Returns the caller's workers plus shared system workers by default.",
+      {
+        kind: z.string().optional().describe("Filter by worker kind"),
+        status: z.enum(["active", "inactive", "busy", "error"]).optional().describe("Filter by status"),
+        includeShared: z.boolean().optional().describe("Include shared/system workers (default: true)"),
+        limit: z.number().optional().describe("Max results (default: 50)"),
+      },
+      async ({ kind, status, includeShared, limit }) => {
+        try {
+          const userId = getMcpUserId()
+          const workers = await listWorkers({
+            userId,
+            kind,
+            status,
+            includeShared: includeShared ?? true,
+            limit,
+          })
+          return mcpResponse({
+            workers: workers.map((w) => ({
+              id: w.id,
+              kind: w.kind,
+              name: w.name,
+              status: w.status,
+              shared: w.user_id === null,
+              last_seen_at: w.last_seen_at,
+              capabilities: w.capabilities,
+            })),
+            count: workers.length,
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ---------- Job claim / unlock lifecycle ----------
+
+    server.tool(
+      "claim_job",
+      "Worker claims an agent_job: sets worker_id and status='claimed'. Fails if another worker already holds it.",
+      {
+        jobId: z.string().describe("Agent job id"),
+        workerId: z.string().describe("Worker id claiming the job"),
+      },
+      async ({ jobId, workerId }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+          // Verify the job is owned by this user
+          const [job] = await sql`
+            SELECT id, created_by FROM agent_jobs WHERE id = ${jobId}
+          `
+          if (!job) return mcpError("Job not found")
+          if (job.created_by !== userId) return mcpError("Access denied")
+          // Verify the worker belongs to this user (or is shared)
+          const worker = await getWorker(workerId)
+          if (!worker) return mcpError("Worker not found")
+          if (worker.user_id !== null && worker.user_id !== userId) {
+            return mcpError("Access denied on worker")
+          }
+          const claimed = await claimJob(jobId, workerId)
+          if (!claimed) return mcpError("Job could not be claimed (already held or wrong status)")
+          return mcpResponse({
+            claimed: true,
+            id: claimed.id,
+            status: claimed.status,
+            worker_id: claimed.worker_id,
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "request_unlock",
+      "Agent transitions a job to 'awaiting-unlock': pauses execution until the owner acts, approves, or decides.",
+      {
+        jobId: z.string().describe("Agent job id"),
+        prompt: z.string().describe("What the owner needs to do/decide/approve"),
+      },
+      async ({ jobId, prompt }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+          const [job] = await sql`
+            SELECT id, created_by FROM agent_jobs WHERE id = ${jobId}
+          `
+          if (!job) return mcpError("Job not found")
+          if (job.created_by !== userId) return mcpError("Access denied")
+          const updated = await transitionJobToUnlock(jobId, prompt)
+          if (!updated) return mcpError("Unable to transition job")
+          return mcpResponse({
+            unlock_requested: true,
+            id: updated.id,
+            status: updated.status,
+            unlock_prompt: updated.unlock_prompt,
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "resolve_unlock",
+      "Owner resolves a job awaiting unlock: moves it back to 'queued' so a worker can resume. Accepts an optional note (approval/rejection rationale).",
+      {
+        jobId: z.string().describe("Agent job id"),
+        note: z.string().optional().describe("Owner note captured at resolution time"),
+      },
+      async ({ jobId, note }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+          const [job] = await sql`
+            SELECT id, created_by, status FROM agent_jobs WHERE id = ${jobId}
+          `
+          if (!job) return mcpError("Job not found")
+          if (job.created_by !== userId) return mcpError("Access denied")
+          if (job.status !== "awaiting-unlock") {
+            return mcpError(`Job is not awaiting unlock (status=${job.status})`)
+          }
+          const resolved = await resolveUnlock(jobId, userId, note)
+          if (!resolved) return mcpError("Unable to resolve unlock")
+          return mcpResponse({
+            resolved: true,
+            id: resolved.id,
+            status: resolved.status,
+            unlock_resolved_at: resolved.unlock_resolved_at,
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "list_awaiting_unlocks",
+      "Owner query: list all agent jobs currently in status 'awaiting-unlock'. This is 'what's waiting for me?'.",
+      {
+        limit: z.number().optional().describe("Max results (default: 50)"),
+      },
+      async ({ limit }) => {
+        try {
+          const userId = getMcpUserId()
+          const jobs = await listAwaitingUnlocks({ userId, limit })
+          return mcpResponse({
+            jobs: jobs.map((j) => ({
+              id: j.id,
+              title: j.title,
+              unlock_prompt: j.unlock_prompt,
+              parent_step_id: j.parent_step_id,
+              worker_id: j.worker_id,
+              created_at: j.created_at,
+            })),
+            count: jobs.length,
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ---------- Sources (federation scaffolding) ----------
+
+    server.tool(
+      "create_source",
+      "Link a planner entity (step, job, or todo) to an external source (GitHub issue, Vercel deployment, agent-com job, ...). Schema-only — no sync logic yet.",
+      {
+        kind: z.string().describe("Source kind, e.g. github_issue, vercel_deployment, agent_com_job"),
+        stepId: z.string().optional().describe("Target project_step id"),
+        jobId: z.string().optional().describe("Target agent_job id"),
+        todoId: z.string().optional().describe("Target todo id"),
+        externalId: z.string().optional().describe("Upstream record id"),
+        externalUrl: z.string().optional().describe("Upstream deep link"),
+        status: z.string().optional().describe("Upstream status snapshot"),
+        metadata: z.record(z.unknown()).optional().describe("Freeform metadata"),
+      },
+      async ({ kind, stepId, jobId, todoId, externalId, externalUrl, status, metadata }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+          if (!stepId && !jobId && !todoId) {
+            return mcpError("At least one of stepId, jobId, todoId must be set")
+          }
+          const source = await createSource({
+            userId,
+            kind,
+            stepId,
+            jobId,
+            todoId,
+            externalId,
+            externalUrl,
+            status,
+            metadata: (metadata as Record<string, unknown>) ?? {},
+          })
+          return mcpResponse({
+            created: true,
+            id: source.id,
+            kind: source.kind,
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "list_sources_for_step",
+      "List external sources linked to a project step.",
+      {
+        stepId: z.string().describe("Project step id"),
+      },
+      async ({ stepId }) => {
+        try {
+          const sources = await listSourcesForStep(stepId)
+          return mcpResponse({
+            sources: sources.map((s) => ({
+              id: s.id,
+              kind: s.kind,
+              external_id: s.external_id,
+              external_url: s.external_url,
+              status: s.status,
+              last_synced_at: s.last_synced_at,
+            })),
+            count: sources.length,
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "list_sources_for_job",
+      "List external sources linked to an agent job.",
+      {
+        jobId: z.string().describe("Agent job id"),
+      },
+      async ({ jobId }) => {
+        try {
+          const sources = await listSourcesForJob(jobId)
+          return mcpResponse({
+            sources: sources.map((s) => ({
+              id: s.id,
+              kind: s.kind,
+              external_id: s.external_id,
+              external_url: s.external_url,
+              status: s.status,
+              last_synced_at: s.last_synced_at,
+            })),
+            count: sources.length,
           })
         } catch (error: unknown) {
           return mcpError(error instanceof Error ? error.message : "Unknown error")
