@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { sql } from '@/lib/db/client'
 import { getAuthContext } from '@/lib/auth/auth-utils'
 
+export const dynamic = "force-dynamic"
+
 /**
  * Simple database test endpoint
  * Tests basic connectivity and queries

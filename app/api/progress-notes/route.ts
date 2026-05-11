@@ -9,6 +9,8 @@ import { sql } from "@/lib/db/client";
 import { type NextRequest, NextResponse } from "next/server";
 import { getAuthContext, verifyProjectOwnership } from "@/lib/auth/auth-utils";
 
+export const dynamic = "force-dynamic"
+
 /**
  * GET /api/progress-notes
  * Get progress notes for a project
@@ -240,4 +242,4 @@ export async function POST(request: NextRequest) {
 }
 
 // Mark as dynamic to prevent static generation
-export const dynamic = "force-dynamic";
+;

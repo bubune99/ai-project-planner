@@ -5,6 +5,8 @@ import { getAuthContext } from "@/lib/auth/auth-utils";
 import { getProjectAccess } from "@/lib/auth/collaboration-access";
 import type { CollaborationActionType } from "@/lib/db/schema";
 
+export const dynamic = "force-dynamic"
+
 /**
  * GET /api/projects/[id]/activity
  * Get the activity log for a project

@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { successResponse, errorResponse } from "@/lib/api-utils";
 import { validateInvitation } from "@/lib/collaboration";
 
+export const dynamic = "force-dynamic"
+
 /**
  * GET /api/invitations/[token]
  * Get invitation details (public endpoint)

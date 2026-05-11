@@ -29,8 +29,10 @@ import { sessionCache } from "@/lib/ai/session-cache";
 import { getAuthContext } from "@/lib/auth/auth-utils";
 import { checkRateLimit } from "@/lib/rate-limit";
 
+export const dynamic = "force-dynamic"
+
 export const maxDuration = 60;
-export const dynamic = "force-dynamic";
+;
 
 /**
  * Extract text content from UIMessage

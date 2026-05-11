@@ -10,6 +10,8 @@ import { sql } from "@/lib/db/client";
 import { getAuthContext, hashApiKey } from "@/lib/auth/auth-utils";
 import crypto from "crypto";
 
+export const dynamic = "force-dynamic"
+
 /**
  * Generate a new API key
  * Format: aipp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (aipp_ + 32 base64url chars)
@@ -288,4 +290,4 @@ export async function GET(request: NextRequest) {
 }
 
 // Mark as dynamic to prevent static generation
-export const dynamic = "force-dynamic";
+;

@@ -6,6 +6,8 @@ import { getProjectAccess } from "@/lib/auth/collaboration-access";
 import { updateCollaboratorRole, removeCollaborator } from "@/lib/collaboration";
 import type { CollaboratorRole } from "@/lib/db/schema";
 
+export const dynamic = "force-dynamic"
+
 /**
  * GET /api/projects/[id]/collaborators/[collaboratorId]
  * Get a specific collaborator's details

@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { successResponse, errorResponse } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectOwnership } from '@/lib/auth/auth-utils'
 
+export const dynamic = "force-dynamic"
+
 /**
  * GET /api/projects/[id]
  * Get project details with all related data

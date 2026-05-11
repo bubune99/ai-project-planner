@@ -2,6 +2,8 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 
+export const dynamic = "force-dynamic"
+
 /**
  * GET /api/projects/[id]/phases
  * Get all phases for a project

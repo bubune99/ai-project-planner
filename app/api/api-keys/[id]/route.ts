@@ -10,6 +10,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
 import { getAuthContext } from "@/lib/auth/auth-utils";
 
+export const dynamic = "force-dynamic"
+
 /**
  * GET /api/api-keys/[id]
  * Get details about a specific API key
@@ -291,4 +293,4 @@ export async function DELETE(
 }
 
 // Mark as dynamic to prevent static generation
-export const dynamic = "force-dynamic";
+;

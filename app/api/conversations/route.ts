@@ -7,7 +7,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth/auth-utils";
 
-export const dynamic = "force-dynamic";
+;
 import {
   getUserConversations,
   getConversation,
@@ -16,6 +16,8 @@ import {
   deleteConversation,
   updateConversationTitle,
 } from "@/lib/ai/conversation-queries";
+
+export const dynamic = "force-dynamic"
 
 /**
  * GET /api/conversations

@@ -5,6 +5,8 @@ import { getAuthContext } from "@/lib/auth/auth-utils";
 import { getProjectAccess } from "@/lib/auth/collaboration-access";
 import { logActivity } from "@/lib/collaboration";
 
+export const dynamic = "force-dynamic"
+
 /**
  * GET /api/projects/[id]/invites/[inviteId]
  * Get details of a specific invitation

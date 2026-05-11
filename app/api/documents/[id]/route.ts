@@ -3,7 +3,9 @@ import { sql } from "@/lib/db/client";
 import { deleteFromR2 } from "@/lib/storage/r2-client";
 import { getAuthContext } from "@/lib/auth/auth-utils";
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic"
+
+;
 
 /**
  * GET /api/documents/[id]

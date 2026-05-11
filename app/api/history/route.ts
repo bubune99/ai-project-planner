@@ -9,7 +9,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserConversations, deleteConversation } from "@/lib/ai/conversation-queries";
 import { getAuthContext } from "@/lib/auth/auth-utils";
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic"
+
+;
 
 /**
  * GET /api/history

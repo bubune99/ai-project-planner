@@ -6,6 +6,8 @@ import { getProjectAccess } from "@/lib/auth/collaboration-access";
 import { createInvitation, logActivity } from "@/lib/collaboration";
 import type { CollaboratorRole } from "@/lib/db/schema";
 
+export const dynamic = "force-dynamic"
+
 /**
  * GET /api/projects/[id]/invites
  * List all pending invitations for a project

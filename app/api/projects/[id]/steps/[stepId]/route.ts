@@ -10,6 +10,8 @@ import { type NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
 import { getAuthContext, verifyProjectOwnership } from "@/lib/auth/auth-utils";
 
+export const dynamic = "force-dynamic"
+
 /**
  * GET /api/projects/[id]/steps/[stepId]
  * Get step details with dependencies
@@ -316,4 +318,4 @@ export async function DELETE(
 }
 
 // Mark as dynamic to prevent static generation
-export const dynamic = "force-dynamic";
+;

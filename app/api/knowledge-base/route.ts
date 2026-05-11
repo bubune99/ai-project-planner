@@ -3,6 +3,8 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
 
+export const dynamic = "force-dynamic"
+
 /**
  * GET /api/knowledge-base
  * Search or list documents

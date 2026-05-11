@@ -4,6 +4,8 @@ import { successResponse, errorResponse } from "@/lib/api-utils";
 import { getAuthContext } from "@/lib/auth/auth-utils";
 import { acceptInvitation, validateInvitation } from "@/lib/collaboration";
 
+export const dynamic = "force-dynamic"
+
 /**
  * POST /api/invitations/accept
  * Accept an invitation and become a collaborator

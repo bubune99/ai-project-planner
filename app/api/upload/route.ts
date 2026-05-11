@@ -10,6 +10,8 @@ import {
 } from "@/lib/storage/r2-client";
 import { getAuthContext } from "@/lib/auth/auth-utils";
 
+export const dynamic = "force-dynamic"
+
 /**
  * POST /api/upload
  * Upload file to Cloudflare R2 and create document record
@@ -287,4 +289,4 @@ export async function GET(request: NextRequest) {
 }
 
 // Mark as dynamic to prevent static generation
-export const dynamic = "force-dynamic";
+;

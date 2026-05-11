@@ -7,11 +7,13 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-export const dynamic = "force-dynamic";
+;
 import {
   getConversation,
   getConversationMessages,
 } from "@/lib/ai/conversation-queries";
+
+export const dynamic = "force-dynamic"
 
 /**
  * Transform database messages to the format expected by AI SDK's useChat

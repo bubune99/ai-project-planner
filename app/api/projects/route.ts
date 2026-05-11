@@ -4,6 +4,8 @@ import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import type { ProjectSummary } from '@/lib/types'
 import { getAuthContext } from '@/lib/auth/auth-utils'
 
+export const dynamic = "force-dynamic"
+
 /**
  * Transform database row to ProjectSummary format
  * Converts snake_case to camelCase and adds computed fields

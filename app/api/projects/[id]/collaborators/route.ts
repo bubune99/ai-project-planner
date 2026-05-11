@@ -3,12 +3,15 @@ import { sql } from "@/lib/db/client";
 import { successResponse, errorResponse } from "@/lib/api-utils";
 import { getAuthContext, verifyProjectOwnership } from "@/lib/auth/auth-utils";
 import {
+
   getProjectAccess,
   getProjectAccessList,
   canPerformAction,
 } from "@/lib/auth/collaboration-access";
 import { createInvitation, logActivity } from "@/lib/collaboration";
 import type { CollaboratorRole } from "@/lib/db/schema";
+
+export const dynamic = "force-dynamic"
 
 /**
  * GET /api/projects/[id]/collaborators
