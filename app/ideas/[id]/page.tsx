@@ -5,35 +5,9 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useUser } from "@stackframe/stack"
 import { DashboardLayout } from "@/components/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  ArrowLeft,
-  Calendar,
-  Clock,
-  Loader2,
-  AlertCircle,
-  ChevronDown,
-  Network,
-  LayoutGrid,
-  Share2,
-  GitBranch,
-  GitMerge,
-  TrendingUp,
-  Plus,
-  Save,
-} from "lucide-react"
 import { toast } from "sonner"
 import type { IdeaWithStats, ViewSettings, CanvasStats } from "@/lib/types"
 
-// Import canvas components
 import { SimpleIdeaCanvas } from "@/components/ideas-canvas/simple-idea-canvas"
 import { SimpleLifecycleBadge } from "@/components/ideas-canvas/simple-lifecycle-badge"
 import { SimpleCanvasStats } from "@/components/ideas-canvas/simple-canvas-stats"
@@ -50,12 +24,8 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ id: strin
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState<"canvas" | "details">("canvas")
-
-  // Canvas state
   const [contextNotes, setContextNotes] = useState("")
-  const [isSavingNotes, setIsSavingNotes] = useState(false)
 
-  // Dialog state
   const [isSpawnDialogOpen, setIsSpawnDialogOpen] = useState(false)
   const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false)
   const [isEvolveDialogOpen, setIsEvolveDialogOpen] = useState(false)
@@ -82,54 +52,34 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ id: strin
     perspectiveDetails: [],
   })
 
-  // Fetch idea data
   useEffect(() => {
     const fetchIdea = async () => {
       try {
         setIsLoading(true)
         setError(null)
-
         const response = await fetch(`/api/ideas/${ideaId}`)
-        if (!response.ok) {
-          throw new Error(`Failed to fetch idea: ${response.statusText}`)
-        }
-
+        if (!response.ok) throw new Error(`Failed to fetch idea: ${response.statusText}`)
         const result = await response.json()
-        if (!result.success) {
-          throw new Error(result.error || "Failed to fetch idea")
-        }
-
+        if (!result.success) throw new Error(result.error || "Failed to fetch idea")
         setIdea(result.data)
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Unknown error occurred"
-        setError(errorMessage)
-        toast.error("Failed to load idea", { description: errorMessage })
+        const msg = err instanceof Error ? err.message : "Unknown error"
+        setError(msg)
+        toast.error("Failed to load idea", { description: msg })
       } finally {
         setIsLoading(false)
       }
     }
-
-    if (user && ideaId) {
-      fetchIdea()
-    }
+    if (user && ideaId) fetchIdea()
   }, [user, ideaId])
 
-  // Update canvas stats when idea data changes
   useEffect(() => {
     if (!idea) return
-
     const facets = idea.facets || []
-    const facetCount = facets.length
-
     setCanvasStats({
-      totalNodes: 1 + facetCount,
-      nodesByType: {
-        ideas: 1,
-        facets: facetCount,
-        validations: 0,
-        content: 0,
-      },
-      totalConnections: facetCount,
+      totalNodes: 1 + facets.length,
+      nodesByType: { ideas: 1, facets: facets.length, validations: 0, content: 0 },
+      totalConnections: facets.length,
       linkedIdeas: idea.linked_ideas || 0,
       activeLayers: 3,
       totalBranches: idea.branches_count || idea.branches?.length || 1,
@@ -140,17 +90,8 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ id: strin
   }, [idea])
 
   const handleCanvasStatsChange = useCallback(
-    (stats: {
-      totalNodes: number
-      nodesByType: { ideas: number; facets: number; validations: number; content: number }
-      totalConnections: number
-    }) => {
-      setCanvasStats((prev) => ({
-        ...prev,
-        totalNodes: stats.totalNodes,
-        nodesByType: stats.nodesByType,
-        totalConnections: stats.totalConnections,
-      }))
+    (stats: { totalNodes: number; nodesByType: { ideas: number; facets: number; validations: number; content: number }; totalConnections: number }) => {
+      setCanvasStats(prev => ({ ...prev, ...stats }))
     },
     []
   )
@@ -163,19 +104,14 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ id: strin
         body: JSON.stringify({ lifecycle: targetState }),
       })
       if (!response.ok) throw new Error("Failed to update idea")
-
       const result = await response.json()
       if (result.success) {
         setIdea(result.data)
         toast.success(`Idea promoted to ${targetState}`)
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to promote idea")
     }
-  }
-
-  const handleAddFacet = () => {
-    toast.info("Add facet feature coming soon")
   }
 
   const refetchIdea = useCallback(async () => {
@@ -183,66 +119,38 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ id: strin
       const response = await fetch(`/api/ideas/${ideaId}`)
       if (response.ok) {
         const result = await response.json()
-        if (result.success) {
-          setIdea(result.data)
-        }
+        if (result.success) setIdea(result.data)
       }
     } catch (err) {
       console.error("Failed to refetch idea:", err)
     }
   }, [ideaId])
 
-  const handleSpawnSuccess = (childIdea: any) => {
+  const handleSpawnSuccess = (childIdea: { id?: string }) => {
     refetchIdea()
-    if (childIdea?.id) {
-      router.push(`/ideas/${childIdea.id}`)
-    }
+    if (childIdea?.id) router.push(`/ideas/${childIdea.id}`)
   }
 
-  const handleMergeSuccess = () => {
-    refetchIdea()
-  }
-
-  const handleEvolveSuccess = () => {
-    refetchIdea()
-  }
-
-  // Loading state
   if (!user || isLoading) {
     return (
       <DashboardLayout>
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <Loader2 className="w-12 h-12 animate-spin mx-auto text-muted-foreground" />
-            <p className="text-muted-foreground">Loading idea...</p>
-          </div>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 300 }}>
+          <div className="j-dot-pulse" />
         </div>
       </DashboardLayout>
     )
   }
 
-  // Error state
   if (error || !idea) {
     return (
       <DashboardLayout>
-        <div className="min-h-screen bg-background">
-          <div className="px-8 py-6">
-            <div className="flex flex-col items-center justify-center py-24 text-center">
-              <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
-                <AlertCircle className="w-8 h-8 text-destructive" />
-              </div>
-              <h3 className="text-2xl font-semibold mb-3">Failed to load idea</h3>
-              <p className="text-muted-foreground mb-6 max-w-md">{error || "Idea not found"}</p>
-              <div className="flex gap-3">
-                <Link href="/ideas">
-                  <Button variant="outline">
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back to Ideas
-                  </Button>
-                </Link>
-                <Button onClick={() => window.location.reload()}>Try Again</Button>
-              </div>
-            </div>
+        <div className="j-content" style={{ textAlign: "center", padding: 48 }}>
+          <div style={{ width: 64, height: 64, borderRadius: "50%", background: "oklch(0.545 0.199 27 / 0.15)", display: "grid", placeItems: "center", margin: "0 auto 16px", fontSize: 28 }}>⚠</div>
+          <h3 style={{ fontSize: 20, fontWeight: 500, marginBottom: 8 }}>Failed to load idea</h3>
+          <p className="j-muted" style={{ marginBottom: 20 }}>{error || "Idea not found"}</p>
+          <div className="j-row" style={{ justifyContent: "center", gap: 10 }}>
+            <Link href="/ideas"><button className="j-btn j-btn-ghost">← Back to Ideas</button></Link>
+            <button className="j-btn j-btn-primary" onClick={() => window.location.reload()}>Try again</button>
           </div>
         </div>
       </DashboardLayout>
@@ -253,248 +161,168 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ id: strin
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-background">
+      <div className="j-content j-col j-gap-4">
         {/* Header */}
-        <div className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-          <div className="px-8 py-4">
-            <Link href="/ideas">
-              <Button variant="ghost" size="sm" className="mb-3 -ml-2">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Ideas
-              </Button>
-            </Link>
+        <div>
+          <Link href="/ideas">
+            <button className="j-btn j-btn-ghost" style={{ marginBottom: 12, fontSize: 12 }}>← Ideas</button>
+          </Link>
 
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-3">
-                  <SimpleLifecycleBadge stage={lifecycleState} />
-                  <span className="text-sm text-muted-foreground font-mono">{idea.id.slice(0, 8)}...</span>
-                </div>
-                <h1 className="text-3xl font-bold">{idea.title}</h1>
-                {idea.description && (
-                  <p className="text-muted-foreground max-w-2xl">{idea.description}</p>
-                )}
-                <div className="flex items-center gap-6 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    <span>
-                      Created{" "}
-                      {new Date(idea.createdAt || idea.created_at || "").toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    <span>
-                      Updated{" "}
-                      {new Date(idea.updatedAt || idea.updated_at || "").toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </span>
-                  </div>
-                </div>
+          <div className="j-row j-between" style={{ alignItems: "flex-start" }}>
+            <div className="j-col" style={{ gap: 6, flex: 1, minWidth: 0 }}>
+              <div className="j-row" style={{ gap: 8 }}>
+                <SimpleLifecycleBadge stage={lifecycleState} />
+                <span className="j-muted j-num" style={{ fontSize: 11 }}>{idea.id.slice(0, 8)}…</span>
               </div>
+              <h1 style={{ fontSize: 24, fontWeight: 500, margin: 0, letterSpacing: "-0.02em" }}>{idea.title}</h1>
+              {idea.description && (
+                <p className="j-muted" style={{ fontSize: 13, margin: 0, lineHeight: 1.5, maxWidth: 600 }}>{idea.description}</p>
+              )}
+              <div className="j-row j-gap-3" style={{ gap: 16 }}>
+                {idea.createdAt || idea.created_at ? (
+                  <span className="j-muted" style={{ fontSize: 11 }}>
+                    Created {new Date(idea.createdAt || idea.created_at || "").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                ) : null}
+                {idea.updatedAt || idea.updated_at ? (
+                  <span className="j-muted" style={{ fontSize: 11 }}>
+                    Updated {new Date(idea.updatedAt || idea.updated_at || "").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                ) : null}
+              </div>
+            </div>
 
-              {/* Actions */}
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" onClick={handleAddFacet}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Facet
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        Promote <ChevronDown className="w-4 h-4 ml-1" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem onClick={() => promoteIdea("exploring")}>
-                        Promote to Exploring
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => promoteIdea("refined")}>
-                        Promote to Refined
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => promoteIdea("promoted")}>
-                        Promote to Execution
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => promoteIdea("archived")} className="text-destructive">
-                        Archive Idea
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <Button variant="outline" size="sm" onClick={() => setIsMergeDialogOpen(true)}>
-                    <GitMerge className="h-4 w-4 mr-2" />
-                    Merge
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => setIsSpawnDialogOpen(true)}>
-                    <GitBranch className="h-4 w-4 mr-2" />
-                    Branch
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => setIsEvolveDialogOpen(true)}>
-                    <TrendingUp className="h-4 w-4 mr-2" />
-                    Evolve
-                  </Button>
-                </div>
-
-                {/* View controls */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-                    <Button
-                      variant={view === "canvas" ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setView("canvas")}
-                      className="h-8"
-                    >
-                      <Network className="w-4 h-4 mr-1" />
-                      Canvas
-                    </Button>
-                    <Button
-                      variant={view === "details" ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setView("details")}
-                      className="h-8"
-                    >
-                      <LayoutGrid className="w-4 h-4 mr-1" />
-                      Details
-                    </Button>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      navigator.clipboard.writeText(window.location.href)
-                      toast.success("Link copied to clipboard")
-                    }}
+            {/* Action bar */}
+            <div className="j-col" style={{ gap: 8, alignItems: "flex-end", flexShrink: 0 }}>
+              <div className="j-row j-gap-2">
+                <button className="j-btn j-btn-ghost" onClick={() => toast.info("Add facet feature coming soon")}>+ Facet</button>
+                <select
+                  style={{ background: "oklch(1 0 0 / 0.04)", border: "1px solid var(--j-ring)", borderRadius: 8, padding: "6px 10px", color: "oklch(0.860 0 0)", fontSize: 12, fontFamily: "inherit", cursor: "pointer", outline: "none" }}
+                  onChange={(e) => { if (e.target.value) promoteIdea(e.target.value) }}
+                  value=""
+                >
+                  <option value="">Promote…</option>
+                  <option value="exploring">Exploring</option>
+                  <option value="refined">Refined</option>
+                  <option value="promoted">Execution</option>
+                  <option value="archived">Archive</option>
+                </select>
+                <button className="j-btn j-btn-ghost" onClick={() => setIsMergeDialogOpen(true)}>⇌ Merge</button>
+                <button className="j-btn j-btn-ghost" onClick={() => setIsSpawnDialogOpen(true)}>⎇ Branch</button>
+                <button className="j-btn j-btn-ghost" onClick={() => setIsEvolveDialogOpen(true)}>↑ Evolve</button>
+                <button
+                  className="j-btn j-btn-ghost"
+                  style={{ padding: "6px 10px" }}
+                  onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success("Link copied") }}
+                >
+                  ⎘
+                </button>
+              </div>
+              <div className="j-row j-gap-2">
+                {(["canvas","details"] as const).map(v => (
+                  <button
+                    key={v}
+                    onClick={() => setView(v)}
+                    className={`j-pill ${view === v ? "j-proj" : "j-ghost"}`}
+                    style={{ cursor: "pointer", border: "none", textTransform: "capitalize" }}
                   >
-                    <Share2 className="w-4 h-4" />
-                  </Button>
-                </div>
+                    {v}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="px-8 py-6">
-          {view === "canvas" ? (
-            <div className="space-y-6">
-              <Card className="overflow-hidden">
-                <div className="p-3 border-b border-border bg-muted/50">
-                  <p className="text-sm text-muted-foreground">
-                    Visualize your idea as an interactive graph. Drag nodes to reorganize, zoom to focus.
-                  </p>
-                </div>
-                <div className="w-full h-[600px]">
-                  <SimpleIdeaCanvas
-                    viewSettings={viewSettings}
-                    idea={idea}
-                    onStatsChange={handleCanvasStatsChange}
-                  />
-                </div>
-              </Card>
-
-              <SimpleCanvasStats stats={canvasStats} />
-
-              {/* Context Notes */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium">Context Notes</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Textarea
-                    placeholder="Add notes about this idea..."
-                    value={contextNotes}
-                    onChange={(e) => setContextNotes(e.target.value)}
-                    className="min-h-[100px]"
-                  />
-                </CardContent>
-              </Card>
+        {/* Canvas view */}
+        {view === "canvas" && (
+          <>
+            <div className="j-card" style={{ padding: 0, overflow: "hidden" }}>
+              <div style={{ padding: "8px 14px", borderBottom: "1px solid var(--j-hairline)" }}>
+                <p className="j-muted" style={{ fontSize: 12, margin: 0 }}>
+                  Visualize your idea as an interactive graph. Drag nodes to reorganize, zoom to focus.
+                </p>
+              </div>
+              <div style={{ width: "100%", height: 600 }}>
+                <SimpleIdeaCanvas
+                  viewSettings={viewSettings}
+                  idea={idea}
+                  onStatsChange={handleCanvasStatsChange}
+                />
+              </div>
             </div>
-          ) : (
-            <div className="space-y-6">
-              {/* Details View */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Description</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">
-                    {idea.description || idea.core_content || "No description provided."}
-                  </p>
-                </CardContent>
-              </Card>
 
-              {/* Facets */}
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Facets ({(idea.facets || []).length})</CardTitle>
-                  <Button size="sm" onClick={handleAddFacet}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Facet
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  {(idea.facets || []).length === 0 ? (
-                    <p className="text-muted-foreground text-center py-8">
-                      No facets yet. Add facets to explore different aspects of your idea.
-                    </p>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {(idea.facets || []).map((facet) => (
-                        <Card key={facet.id} className="bg-muted/50">
-                          <CardHeader className="pb-2">
-                            <CardTitle className="text-sm">
-                              {facet.name || facet.facetType.replace(/_/g, " ")}
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <pre className="text-xs text-muted-foreground overflow-auto max-h-32">
-                              {typeof facet.data === "object"
-                                ? JSON.stringify(facet.data, null, 2)
-                                : String(facet.data || "")}
-                            </pre>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+            <SimpleCanvasStats stats={canvasStats} />
 
-              {/* Tags */}
-              {idea.tags && idea.tags.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Tags</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                      {idea.tags.map((tag, index) => (
-                        <span
-                          key={index}
-                          className="px-2 py-1 text-sm rounded-full bg-primary/10 text-primary"
-                        >
-                          {tag}
-                        </span>
-                      ))}
+            <div className="j-card">
+              <div className="j-card-head">
+                <p className="j-card-title">Context notes</p>
+              </div>
+              <textarea
+                placeholder="Add notes about this idea..."
+                value={contextNotes}
+                onChange={(e) => setContextNotes(e.target.value)}
+                style={{ width: "100%", background: "transparent", border: "none", outline: "none", resize: "vertical", fontSize: 13, lineHeight: 1.5, minHeight: 80, color: "oklch(0.860 0 0)", fontFamily: "inherit" }}
+              />
+            </div>
+          </>
+        )}
+
+        {/* Details view */}
+        {view === "details" && (
+          <>
+            <div className="j-card">
+              <div className="j-card-head">
+                <p className="j-card-title">Description</p>
+              </div>
+              <p className="j-muted" style={{ fontSize: 13, lineHeight: 1.6, margin: 0 }}>
+                {idea.description || (idea as { core_content?: string }).core_content || "No description provided."}
+              </p>
+            </div>
+
+            <div className="j-card">
+              <div className="j-card-head">
+                <p className="j-card-title">Facets ({(idea.facets || []).length})</p>
+                <button className="j-btn j-btn-primary" style={{ fontSize: 12 }} onClick={() => toast.info("Add facet feature coming soon")}>+ Add facet</button>
+              </div>
+              {(idea.facets || []).length === 0 ? (
+                <p className="j-muted" style={{ textAlign: "center", padding: 32, fontSize: 13 }}>
+                  No facets yet. Add facets to explore different aspects of your idea.
+                </p>
+              ) : (
+                <div className="j-grid j-cols-2">
+                  {(idea.facets || []).map(facet => (
+                    <div key={facet.id} className="j-card" style={{ background: "oklch(1 0 0 / 0.03)" }}>
+                      <div className="j-eyebrow" style={{ marginBottom: 6 }}>
+                        {facet.name || facet.facetType.replace(/_/g, " ")}
+                      </div>
+                      <pre style={{ fontSize: 11, color: "var(--j-muted)", overflow: "auto", maxHeight: 128, margin: 0 }}>
+                        {typeof facet.data === "object" ? JSON.stringify(facet.data, null, 2) : String(facet.data || "")}
+                      </pre>
                     </div>
-                  </CardContent>
-                </Card>
+                  ))}
+                </div>
               )}
-
-              <SimpleCanvasStats stats={canvasStats} />
             </div>
-          )}
-        </div>
+
+            {idea.tags && idea.tags.length > 0 && (
+              <div className="j-card">
+                <div className="j-card-head">
+                  <p className="j-card-title">Tags</p>
+                </div>
+                <div className="j-row j-wrap" style={{ gap: 6 }}>
+                  {idea.tags.map((tag, i) => (
+                    <span key={i} className="j-pill j-idea">{tag}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <SimpleCanvasStats stats={canvasStats} />
+          </>
+        )}
       </div>
 
-      {/* Transformation Dialogs */}
       <SpawnChildDialog
         open={isSpawnDialogOpen}
         onOpenChange={setIsSpawnDialogOpen}
@@ -507,14 +335,14 @@ export default function IdeaDetailPage({ params }: { params: Promise<{ id: strin
         onOpenChange={setIsMergeDialogOpen}
         ideaId={ideaId}
         ideaTitle={idea.title}
-        onSuccess={handleMergeSuccess}
+        onSuccess={refetchIdea}
       />
       <EvolvedIntoDialog
         open={isEvolveDialogOpen}
         onOpenChange={setIsEvolveDialogOpen}
         ideaId={ideaId}
         ideaTitle={idea.title}
-        onSuccess={handleEvolveSuccess}
+        onSuccess={refetchIdea}
       />
     </DashboardLayout>
   )

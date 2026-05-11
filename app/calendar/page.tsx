@@ -4,9 +4,6 @@ import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useUser } from "@stackframe/stack"
 import { DashboardLayout } from "@/components/navigation"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Loader2, CalendarDays, ChevronLeft, ChevronRight, Plus } from "lucide-react"
 import { CalendarMonthView } from "@/components/calendar/CalendarMonthView"
 import { CalendarWeekView } from "@/components/calendar/CalendarWeekView"
 import { CalendarDayView } from "@/components/calendar/CalendarDayView"
@@ -27,24 +24,14 @@ function getDateRange(date: Date, view: ViewMode): { start: Date; end: Date } {
   switch (view) {
     case "month": {
       const grid = getMonthGrid(date.getFullYear(), date.getMonth())
-      return {
-        start: grid[0][0],
-        end: addDays(grid[5][6], 1),
-      }
+      return { start: grid[0][0], end: addDays(grid[5][6], 1) }
     }
     case "week": {
       const weekStart = getWeekStart(date)
-      return {
-        start: weekStart,
-        end: addDays(weekStart, 7),
-      }
+      return { start: weekStart, end: addDays(weekStart, 7) }
     }
-    case "day": {
-      return {
-        start: startOfDay(date),
-        end: addDays(startOfDay(date), 1),
-      }
-    }
+    case "day":
+      return { start: startOfDay(date), end: addDays(startOfDay(date), 1) }
   }
 }
 
@@ -55,13 +42,11 @@ export default function CalendarPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("month")
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(new Date())
-
   const [items, setItems] = useState<CalendarAgendaItem[]>([])
   const [categories, setCategories] = useState<CalendarCategory[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isAddEventOpen, setIsAddEventOpen] = useState(false)
 
-  // Fetch agenda items for the visible range
   const fetchItems = useCallback(async () => {
     try {
       const { start, end } = getDateRange(currentDate, viewMode)
@@ -69,13 +54,9 @@ export default function CalendarPage() {
         startDate: start.toISOString(),
         endDate: end.toISOString(),
       })
-
       const response = await fetch(`/api/calendar/agenda?${params}`)
       const data = await response.json()
-
-      if (data.success) {
-        setItems(data.data)
-      }
+      if (data.success) setItems(data.data)
     } catch (error) {
       console.error("Failed to fetch calendar items:", error)
     } finally {
@@ -83,14 +64,11 @@ export default function CalendarPage() {
     }
   }, [currentDate, viewMode])
 
-  // Fetch categories
   const fetchCategories = useCallback(async () => {
     try {
       const response = await fetch("/api/calendar/categories")
       const data = await response.json()
-      if (data.success) {
-        setCategories(data.data)
-      }
+      if (data.success) setCategories(data.data)
     } catch (error) {
       console.error("Failed to fetch categories:", error)
     }
@@ -111,32 +89,19 @@ export default function CalendarPage() {
     }
   }, [user, fetchItems])
 
-  // Navigation
   const navigateBack = () => {
     switch (viewMode) {
-      case "month":
-        setCurrentDate(addMonths(currentDate, -1))
-        break
-      case "week":
-        setCurrentDate(addDays(currentDate, -7))
-        break
-      case "day":
-        setCurrentDate(addDays(currentDate, -1))
-        break
+      case "month": setCurrentDate(addMonths(currentDate, -1)); break
+      case "week":  setCurrentDate(addDays(currentDate, -7)); break
+      case "day":   setCurrentDate(addDays(currentDate, -1)); break
     }
   }
 
   const navigateForward = () => {
     switch (viewMode) {
-      case "month":
-        setCurrentDate(addMonths(currentDate, 1))
-        break
-      case "week":
-        setCurrentDate(addDays(currentDate, 7))
-        break
-      case "day":
-        setCurrentDate(addDays(currentDate, 1))
-        break
+      case "month": setCurrentDate(addMonths(currentDate, 1)); break
+      case "week":  setCurrentDate(addDays(currentDate, 7)); break
+      case "day":   setCurrentDate(addDays(currentDate, 1)); break
     }
   }
 
@@ -152,7 +117,6 @@ export default function CalendarPage() {
     setViewMode("day")
   }
 
-  // Create event via API
   const handleCreateEvent = async (payload: NewEventPayload) => {
     const response = await fetch("/api/calendar", {
       method: "POST",
@@ -160,60 +124,34 @@ export default function CalendarPage() {
       body: JSON.stringify(payload),
     })
     const data = await response.json()
-
-    if (!data.success) {
-      throw new Error(data.error?.message ?? "Failed to create event")
-    }
-
-    // Refresh
+    if (!data.success) throw new Error(data.error?.message ?? "Failed to create event")
     fetchItems()
   }
 
-  // Header title
   const getHeaderTitle = (): string => {
     switch (viewMode) {
       case "month":
-        return currentDate.toLocaleDateString("en-US", {
-          month: "long",
-          year: "numeric",
-        })
+        return currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })
       case "week": {
         const weekStart = getWeekStart(currentDate)
         const weekEnd = addDays(weekStart, 6)
-        const startLabel = weekStart.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        })
-        const endLabel = weekEnd.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        })
-        return `${startLabel} - ${endLabel}`
+        return `${weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${weekEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
       }
       case "day":
-        return currentDate.toLocaleDateString("en-US", {
-          weekday: "long",
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-        })
+        return currentDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
     }
   }
 
-  // Filter items relevant to the current day view
   const getItemsForDayView = (): CalendarAgendaItem[] => {
     const dayKey = currentDate.toISOString().split("T")[0]
-    return items.filter(
-      (item) => new Date(item.startTime).toISOString().split("T")[0] === dayKey
-    )
+    return items.filter(item => new Date(item.startTime).toISOString().split("T")[0] === dayKey)
   }
 
   if (!user) {
     return (
       <DashboardLayout>
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 300 }}>
+          <div className="j-dot-pulse" />
         </div>
       </DashboardLayout>
     )
@@ -221,67 +159,37 @@ export default function CalendarPage() {
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-          <div className="px-8 py-4">
-            <div className="flex items-center justify-between">
-              {/* Left: title and nav */}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <CalendarDays className="w-6 h-6 text-primary" />
-                  <h1 className="text-xl font-semibold">Calendar</h1>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <Button variant="outline" size="icon" onClick={navigateBack}>
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={goToToday}
-                    className="px-3"
-                  >
-                    Today
-                  </Button>
-                  <Button variant="outline" size="icon" onClick={navigateForward}>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <h2 className="text-lg font-medium text-muted-foreground">
-                  {getHeaderTitle()}
-                </h2>
-              </div>
-
-              {/* Right: view switcher + add event */}
-              <div className="flex items-center gap-3">
-                <Tabs
-                  value={viewMode}
-                  onValueChange={(v) => setViewMode(v as ViewMode)}
-                >
-                  <TabsList>
-                    <TabsTrigger value="month">Month</TabsTrigger>
-                    <TabsTrigger value="week">Week</TabsTrigger>
-                    <TabsTrigger value="day">Day</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-
-                <Button onClick={() => setIsAddEventOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Event
-                </Button>
-              </div>
-            </div>
+      <div className="j-content j-col j-gap-4">
+        {/* Toolbar */}
+        <div className="j-row j-between">
+          <div className="j-row j-gap-2">
+            {/* Nav controls */}
+            <button className="j-btn j-btn-ghost" onClick={navigateBack} style={{ padding: "6px 10px" }}>‹</button>
+            <button className="j-btn j-btn-ghost" onClick={goToToday} style={{ padding: "6px 12px" }}>Today</button>
+            <button className="j-btn j-btn-ghost" onClick={navigateForward} style={{ padding: "6px 10px" }}>›</button>
+            <h2 style={{ fontSize: 16, fontWeight: 500, margin: 0, letterSpacing: "-0.01em" }}>{getHeaderTitle()}</h2>
           </div>
-        </header>
+          <div className="j-row j-gap-2">
+            {/* View mode pills */}
+            {(["month","week","day"] as ViewMode[]).map(v => (
+              <button
+                key={v}
+                onClick={() => setViewMode(v)}
+                className={`j-pill ${viewMode === v ? "j-proj" : "j-ghost"}`}
+                style={{ cursor: "pointer", border: "none", textTransform: "capitalize" }}
+              >
+                {v}
+              </button>
+            ))}
+            <button className="j-btn j-btn-primary" onClick={() => setIsAddEventOpen(true)}>+ Add event</button>
+          </div>
+        </div>
 
-        {/* Main content */}
-        <main className="px-8 py-6">
+        {/* Calendar content */}
+        <div className="j-card" style={{ padding: 0, overflow: "hidden" }}>
           {isLoading ? (
-            <div className="flex items-center justify-center py-24">
-              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            <div style={{ padding: 48, textAlign: "center" }}>
+              <div className="j-dot-pulse" />
             </div>
           ) : (
             <>
@@ -309,17 +217,16 @@ export default function CalendarPage() {
               )}
             </>
           )}
-        </main>
-
-        {/* Add Event Dialog */}
-        <AddEventDialog
-          open={isAddEventOpen}
-          onClose={() => setIsAddEventOpen(false)}
-          onSave={handleCreateEvent}
-          categories={categories}
-          defaultDate={selectedDate}
-        />
+        </div>
       </div>
+
+      <AddEventDialog
+        open={isAddEventOpen}
+        onClose={() => setIsAddEventOpen(false)}
+        onSave={handleCreateEvent}
+        categories={categories}
+        defaultDate={selectedDate}
+      />
     </DashboardLayout>
   )
 }

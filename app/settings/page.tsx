@@ -1,127 +1,48 @@
 "use client"
 
 import { DashboardLayout } from "@/components/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Settings, User, Bell, Palette, Shield, Database, Key } from "lucide-react"
+
+const SETTINGS_CATEGORIES = [
+  { icon: "👤", title: "Profile", description: "Manage your account settings and preferences" },
+  { icon: "🔔", title: "Notifications", description: "Configure alerts and notification preferences" },
+  { icon: "🎨", title: "Appearance", description: "Customize theme, colors, and display options" },
+  { icon: "🛡️", title: "Privacy & Security", description: "Manage security settings and data privacy" },
+  { icon: "🔑", title: "API Keys", description: "Manage API keys and integrations" },
+  { icon: "🗄️", title: "Data & Storage", description: "Export data, manage storage, and backups" },
+]
 
 export default function SettingsPage() {
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <div className="border-b border-white/10 bg-black/60 backdrop-blur-sm sticky top-0 z-10">
-          <div className="px-8 py-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-white mb-2">Settings</h1>
-                <p className="text-muted-foreground">Configure your JARVIS experience</p>
-              </div>
-            </div>
+      <div className="j-content j-col j-gap-4">
+        <div className="j-coming-soon">
+          <div style={{ width: 64, height: 64, borderRadius: 16, display: "grid", placeItems: "center", background: "oklch(0.870 0.045 252 / 0.15)", boxShadow: "0 0 0 1px var(--j-ring-strong), 0 0 40px oklch(0.870 0.045 252 / 0.3)" }}>
+            <span style={{ fontSize: 28 }}>⚙️</span>
           </div>
+          <span className="j-eyebrow" style={{ color: "var(--j-accent)" }}>Coming soon</span>
+          <h1 style={{ margin: 0, fontSize: 30, fontWeight: 500, letterSpacing: "-0.02em" }}>Settings</h1>
+          <p className="j-muted" style={{ maxWidth: 520, fontSize: 14, margin: 0, lineHeight: 1.5 }}>
+            Workspace, integrations, API keys, theming, data export, billing.
+          </p>
         </div>
 
-        {/* Content */}
-        <div className="px-8 py-8">
-          <div className="max-w-4xl mx-auto space-y-6">
-            {/* Settings Categories */}
-            <div className="grid gap-4 md:grid-cols-2">
-              <SettingsCard
-                icon={User}
-                title="Profile"
-                description="Manage your account settings and preferences"
-                href="/settings/profile"
-                disabled
-              />
-              <SettingsCard
-                icon={Bell}
-                title="Notifications"
-                description="Configure alerts and notification preferences"
-                href="/settings/notifications"
-                disabled
-              />
-              <SettingsCard
-                icon={Palette}
-                title="Appearance"
-                description="Customize theme, colors, and display options"
-                href="/settings/appearance"
-                disabled
-              />
-              <SettingsCard
-                icon={Shield}
-                title="Privacy & Security"
-                description="Manage security settings and data privacy"
-                href="/settings/security"
-                disabled
-              />
-              <SettingsCard
-                icon={Key}
-                title="API Keys"
-                description="Manage API keys and integrations"
-                href="/settings/api-keys"
-                disabled
-              />
-              <SettingsCard
-                icon={Database}
-                title="Data & Storage"
-                description="Export data, manage storage, and backups"
-                href="/settings/data"
-                disabled
-              />
-            </div>
-
-            {/* Coming Soon Notice */}
-            <Card className="border-white/10 bg-black/40">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-500/20">
-                    <Settings className="h-6 w-6 text-gray-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-white">Settings Module In Progress</h3>
-                    <p className="text-sm text-gray-400">
-                      Full settings functionality is being developed. Some options may be limited.
-                    </p>
-                  </div>
+        <div className="j-grid j-cols-3">
+          {SETTINGS_CATEGORIES.map((cat) => (
+            <div key={cat.title} className="j-card" style={{ opacity: 0.6 }}>
+              <div className="j-row" style={{ gap: 12, marginBottom: 8 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: "oklch(0.870 0.045 252 / 0.12)", display: "grid", placeItems: "center", fontSize: 18 }}>
+                  {cat.icon}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+                <div>
+                  <div style={{ fontWeight: 500, fontSize: 14 }}>{cat.title}</div>
+                  <span className="j-pill j-muted" style={{ fontSize: 10, marginTop: 2 }}>Soon</span>
+                </div>
+              </div>
+              <p className="j-muted" style={{ fontSize: 12, margin: 0, lineHeight: 1.5 }}>{cat.description}</p>
+            </div>
+          ))}
         </div>
       </div>
     </DashboardLayout>
-  )
-}
-
-function SettingsCard({
-  icon: Icon,
-  title,
-  description,
-  href,
-  disabled
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  title: string
-  description: string
-  href: string
-  disabled?: boolean
-}) {
-  return (
-    <Card className={`border-white/10 bg-black/40 ${disabled ? 'opacity-60' : 'hover:bg-black/50 cursor-pointer'}`}>
-      <CardContent className="pt-6">
-        <div className="flex items-start gap-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/20">
-            <Icon className="h-5 w-5 text-blue-400" />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-medium text-white">{title}</h3>
-            <p className="text-sm text-gray-400 mt-1">{description}</p>
-          </div>
-          {disabled && (
-            <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">Soon</span>
-          )}
-        </div>
-      </CardContent>
-    </Card>
   )
 }

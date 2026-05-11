@@ -4,11 +4,10 @@ import { useState, useEffect } from "react"
 import { useUser } from "@stackframe/stack"
 import { DashboardLayout } from "@/components/navigation"
 import { FinanceSummaryCards, AccountCard, TransactionList } from "@/components/finance"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Loader2, RefreshCw } from "lucide-react"
 import type { FinanceAccount, FinanceTransaction, FinanceSummary } from "@/lib/types"
+
+const TABS = ["overview", "accounts", "transactions", "budgets"] as const
+type Tab = typeof TABS[number]
 
 export default function FinancePage() {
   const user = useUser()
@@ -17,40 +16,33 @@ export default function FinancePage() {
   const [transactions, setTransactions] = useState<FinanceTransaction[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState("overview")
+  const [activeTab, setActiveTab] = useState<Tab>("overview")
 
   useEffect(() => {
-    if (user) {
-      fetchData()
-    }
+    if (user) fetchData()
   }, [user])
 
   const fetchData = async () => {
     try {
       setIsLoading(true)
       setError(null)
-
       const [summaryRes, accountsRes, transactionsRes] = await Promise.all([
         fetch("/api/finance/summary"),
         fetch("/api/finance/accounts"),
         fetch("/api/finance/transactions?limit=50"),
       ])
-
       if (!summaryRes.ok || !accountsRes.ok || !transactionsRes.ok) {
         throw new Error("Failed to fetch finance data")
       }
-
       const [summaryData, accountsData, transactionsData] = await Promise.all([
         summaryRes.json(),
         accountsRes.json(),
         transactionsRes.json(),
       ])
-
       setSummary(summaryData.data)
       setAccounts(accountsData.data || [])
       setTransactions(transactionsData.data || [])
     } catch (err) {
-      console.error("Failed to fetch finance data:", err)
       setError(err instanceof Error ? err.message : "An error occurred")
     } finally {
       setIsLoading(false)
@@ -60,8 +52,8 @@ export default function FinancePage() {
   if (!user) {
     return (
       <DashboardLayout>
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 300 }}>
+          <div className="j-dot-pulse" />
         </div>
       </DashboardLayout>
     )
@@ -69,152 +61,101 @@ export default function FinancePage() {
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <div className="border-b border-white/10 bg-black/60 backdrop-blur-sm sticky top-0 z-10">
-          <div className="px-8 py-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-white mb-2">Finance Manager</h1>
-                <p className="text-muted-foreground">Track income, expenses, and financial goals</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={fetchData}
-                  disabled={isLoading}
-                  className="border-white/10 hover:bg-white/5"
-                >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-                  Refresh
-                </Button>
-                <Button className="bg-green-500 hover:bg-green-600 text-white gap-2">
-                  <Plus className="h-4 w-4" />
-                  Add Transaction
-                </Button>
-              </div>
-            </div>
+      <div className="j-content j-col j-gap-4">
+        {/* Action strip */}
+        <div className="j-row j-between">
+          <div className="j-row j-gap-2">
+            {TABS.map(t => (
+              <button
+                key={t}
+                onClick={() => setActiveTab(t)}
+                className={`j-pill ${activeTab === t ? "j-proj" : "j-ghost"}`}
+                style={{ cursor: "pointer", border: "none", textTransform: "capitalize" }}
+              >
+                {t === "accounts" ? `Accounts (${accounts.length})` : t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            ))}
+          </div>
+          <div className="j-row j-gap-2">
+            <button className="j-btn j-btn-ghost" onClick={fetchData} disabled={isLoading}>↻ Refresh</button>
+            <button className="j-btn j-btn-primary">+ Add transaction</button>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="px-8 py-8">
-          {error ? (
-            <Card className="border-white/10 bg-black/40">
-              <CardContent className="pt-6">
-                <div className="text-center py-8">
-                  <p className="text-red-400 mb-4">{error}</p>
-                  <Button onClick={fetchData} variant="outline">
-                    Try Again
-                  </Button>
+        {error && (
+          <div className="j-card" style={{ textAlign: "center", padding: 32 }}>
+            <p style={{ color: "var(--j-neg)", marginBottom: 12 }}>{error}</p>
+            <button className="j-btn j-btn-ghost" onClick={fetchData}>Try again</button>
+          </div>
+        )}
+
+        {!error && (
+          <>
+            {/* Summary cards */}
+            <FinanceSummaryCards summary={summary} isLoading={isLoading} />
+
+            {/* Overview tab */}
+            {activeTab === "overview" && (
+              <div className="j-split">
+                {/* Accounts overview */}
+                <div className="j-card">
+                  <div className="j-card-head">
+                    <p className="j-card-title">Accounts</p>
+                    <button className="j-btn j-btn-ghost" style={{ fontSize: 12 }} onClick={() => setActiveTab("accounts")}>View all</button>
+                  </div>
+                  {isLoading ? (
+                    <div className="j-col j-gap-2">
+                      {[1,2,3].map(i => <div key={i} style={{ height: 64, background: "oklch(1 0 0 / 0.04)", borderRadius: 8 }} />)}
+                    </div>
+                  ) : accounts.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: 32 }}>
+                      <p className="j-muted" style={{ marginBottom: 12 }}>No accounts yet.</p>
+                      <button className="j-btn j-btn-primary">+ Add account</button>
+                    </div>
+                  ) : (
+                    <div className="j-col j-gap-2">
+                      {accounts.slice(0, 4).map(a => <AccountCard key={a.id} account={a} />)}
+                    </div>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-6">
-              {/* Summary Cards */}
-              <FinanceSummaryCards summary={summary} isLoading={isLoading} />
 
-              {/* Tabs */}
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="bg-black/40 border-white/10">
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="accounts">Accounts ({accounts.length})</TabsTrigger>
-                  <TabsTrigger value="transactions">Transactions</TabsTrigger>
-                  <TabsTrigger value="budgets">Budgets</TabsTrigger>
-                </TabsList>
+                {/* Recent transactions */}
+                <TransactionList transactions={transactions.slice(0, 10)} isLoading={isLoading} />
+              </div>
+            )}
 
-                <TabsContent value="overview" className="mt-6">
-                  <div className="grid gap-6 lg:grid-cols-2">
-                    {/* Accounts Overview */}
-                    <Card className="border-white/10 bg-black/40">
-                      <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle className="text-white">Accounts</CardTitle>
-                        <Button variant="ghost" size="sm" onClick={() => setActiveTab("accounts")}>
-                          View All
-                        </Button>
-                      </CardHeader>
-                      <CardContent>
-                        {isLoading ? (
-                          <div className="space-y-4">
-                            {[1, 2, 3].map((i) => (
-                              <div key={i} className="h-16 bg-white/5 rounded-lg animate-pulse" />
-                            ))}
-                          </div>
-                        ) : accounts.length === 0 ? (
-                          <div className="text-center py-8 text-gray-400">
-                            <p>No accounts yet. Add your first account to get started!</p>
-                            <Button className="mt-4" variant="outline">
-                              <Plus className="h-4 w-4 mr-2" />
-                              Add Account
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            {accounts.slice(0, 4).map((account) => (
-                              <AccountCard key={account.id} account={account} />
-                            ))}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    {/* Recent Transactions */}
-                    <TransactionList
-                      transactions={transactions.slice(0, 10)}
-                      isLoading={isLoading}
-                    />
+            {/* Accounts tab */}
+            {activeTab === "accounts" && (
+              <div className="j-grid j-cols-3">
+                {isLoading ? (
+                  [1,2,3,4,5,6].map(i => <div key={i} className="j-card" style={{ height: 128 }} />)
+                ) : accounts.length === 0 ? (
+                  <div className="j-card" style={{ gridColumn: "1 / -1", textAlign: "center", padding: 48 }}>
+                    <p className="j-muted" style={{ marginBottom: 12 }}>No accounts yet.</p>
+                    <button className="j-btn j-btn-primary">+ Add account</button>
                   </div>
-                </TabsContent>
+                ) : (
+                  accounts.map(a => <AccountCard key={a.id} account={a} />)
+                )}
+              </div>
+            )}
 
-                <TabsContent value="accounts" className="mt-6">
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {isLoading ? (
-                      [1, 2, 3, 4, 5, 6].map((i) => (
-                        <Card key={i} className="border-white/10 bg-black/40 h-32 animate-pulse" />
-                      ))
-                    ) : accounts.length === 0 ? (
-                      <Card className="border-white/10 bg-black/40 col-span-full">
-                        <CardContent className="pt-6">
-                          <div className="text-center py-12 text-gray-400">
-                            <p className="mb-4">No accounts yet. Add your first account!</p>
-                            <Button className="bg-green-500 hover:bg-green-600">
-                              <Plus className="h-4 w-4 mr-2" />
-                              Add Account
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ) : (
-                      accounts.map((account) => (
-                        <AccountCard key={account.id} account={account} />
-                      ))
-                    )}
-                  </div>
-                </TabsContent>
+            {/* Transactions tab */}
+            {activeTab === "transactions" && (
+              <TransactionList transactions={transactions} isLoading={isLoading} />
+            )}
 
-                <TabsContent value="transactions" className="mt-6">
-                  <TransactionList
-                    transactions={transactions}
-                    isLoading={isLoading}
-                  />
-                </TabsContent>
-
-                <TabsContent value="budgets" className="mt-6">
-                  <Card className="border-white/10 bg-black/40">
-                    <CardContent className="pt-6">
-                      <div className="text-center py-12 text-gray-400">
-                        <p className="mb-4">Budget tracking coming soon!</p>
-                        <p className="text-sm">Set spending limits and track your progress.</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
-            </div>
-          )}
-        </div>
+            {/* Budgets tab */}
+            {activeTab === "budgets" && (
+              <div className="j-coming-soon">
+                <span style={{ fontSize: 32 }}>💰</span>
+                <span className="j-eyebrow" style={{ color: "var(--j-accent)" }}>Coming soon</span>
+                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 500 }}>Budget tracking</h2>
+                <p className="j-muted" style={{ fontSize: 14, margin: 0 }}>Set spending limits and track your progress.</p>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </DashboardLayout>
   )

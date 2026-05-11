@@ -3,9 +3,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useUser } from "@stackframe/stack"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Loader2, CheckSquare } from "lucide-react"
 import { DashboardLayout } from "@/components/navigation"
 
 import { TodoList } from "@/components/todos/TodoList"
@@ -226,12 +223,11 @@ export default function TodosPage() {
     }
   }
 
-  // Loading state
   if (!user) {
     return (
       <DashboardLayout>
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 300 }}>
+          <div className="j-dot-pulse" />
         </div>
       </DashboardLayout>
     )
@@ -239,95 +235,86 @@ export default function TodosPage() {
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-          <div className="px-8 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CheckSquare className="w-6 h-6 text-primary" />
-                <h1 className="text-xl font-semibold">My Todos</h1>
-              </div>
-
-              {/* Stats */}
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span>
-                  <span className="font-medium text-foreground">{counts.active}</span> active
-                </span>
-                <span>
-                  <span className="font-medium text-foreground">{counts.completed}</span> completed
-                </span>
-              </div>
-            </div>
+      <div className="j-content j-col j-gap-4">
+        {/* Stat strip + view tabs */}
+        <div className="j-row j-between">
+          <div className="j-row j-gap-2">
+            {(["today","upcoming","all","completed"] as const).map(v => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={`j-pill ${view === v ? "j-proj" : "j-ghost"}`}
+                style={{ cursor: "pointer", border: "none", textTransform: "capitalize" }}
+              >
+                {v === "all" ? `All (${counts.active})` : v === "completed" ? `Done (${counts.completed})` : v === "today" ? `Today (${counts.today})` : `Upcoming (${counts.upcoming})`}
+              </button>
+            ))}
           </div>
-        </header>
-
-        {/* Main Content */}
-        <main className="px-8 py-6">
-        <div className="space-y-6">
-          {/* Quick Add */}
-          <Card className="p-4">
-            <TodoQuickAdd
-              onAdd={handleAddTodo}
-              projects={projects}
-              isLoading={isAdding}
-            />
-          </Card>
-
-          {/* Filters */}
-          <TodoFilters
-            view={view}
-            onViewChange={setView}
-            priorityFilter={priorityFilter}
-            onPriorityChange={setPriorityFilter}
-            projectFilter={projectFilter}
-            onProjectChange={setProjectFilter}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            projects={projects}
-            counts={counts}
-          />
-
-          {/* Todo List */}
-          <Card className="p-4">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <TodoList
-                todos={todos}
-                onToggle={handleToggleTodo}
-                onEdit={handleEditTodo}
-                onDelete={handleDeleteTodo}
-                onReorder={handleReorderTodos}
-                emptyMessage={
-                  view === "today"
-                    ? "No todos due today. Enjoy your day!"
-                    : view === "upcoming"
-                    ? "No upcoming todos in the next 7 days."
-                    : view === "completed"
-                    ? "No completed todos yet."
-                    : "No todos yet. Add one above to get started!"
-                }
-              />
-            )}
-          </Card>
+          <div className="j-row j-gap-2">
+            <span className="j-muted" style={{ fontSize: 12 }}>{counts.active} active · {counts.completed} done</span>
+          </div>
         </div>
-      </main>
 
-        {/* Edit Modal */}
-        <TodoEditModal
-          todo={editingTodo}
-          open={isEditModalOpen}
-          onClose={() => {
-            setIsEditModalOpen(false)
-            setEditingTodo(null)
-          }}
-          onSave={handleSaveTodo}
+        {/* Quick add */}
+        <div className="j-card">
+          <TodoQuickAdd
+            onAdd={handleAddTodo}
+            projects={projects}
+            isLoading={isAdding}
+          />
+        </div>
+
+        {/* Filters */}
+        <TodoFilters
+          view={view}
+          onViewChange={setView}
+          priorityFilter={priorityFilter}
+          onPriorityChange={setPriorityFilter}
+          projectFilter={projectFilter}
+          onProjectChange={setProjectFilter}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
           projects={projects}
+          counts={counts}
         />
+
+        {/* Todo list */}
+        <div className="j-card">
+          {isLoading ? (
+            <div style={{ padding: 32, textAlign: "center" }}>
+              <span className="j-muted" style={{ fontSize: 13 }}>Loading todos…</span>
+            </div>
+          ) : (
+            <TodoList
+              todos={todos}
+              onToggle={handleToggleTodo}
+              onEdit={handleEditTodo}
+              onDelete={handleDeleteTodo}
+              onReorder={handleReorderTodos}
+              emptyMessage={
+                view === "today"
+                  ? "No todos due today. Enjoy your day!"
+                  : view === "upcoming"
+                  ? "No upcoming todos in the next 7 days."
+                  : view === "completed"
+                  ? "No completed todos yet."
+                  : "No todos yet. Add one above to get started!"
+              }
+            />
+          )}
+        </div>
       </div>
+
+      <TodoEditModal
+        todo={editingTodo}
+        open={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false)
+          setEditingTodo(null)
+        }}
+        onSave={handleSaveTodo}
+        projects={projects}
+      />
     </DashboardLayout>
   )
 }

@@ -21,35 +21,31 @@ function SparkRail({ data }: { data: number[] }) {
 }
 
 function VitalSigns() {
-  const totalProjects = PROJECTS.filter(p => p.status === "active").length
-  const totalARR = BUSINESSES.reduce((s, b) => s + b.arr, 0)
-  const openTodos = TODAY_TODOS.filter(t => !t.done).length
-  const runningAgents = AGENTS.filter(a => a.status === "running").length
+  const active       = PROJECTS.filter(p => p.status === "active")
+  const totalARR     = BUSINESSES.reduce((s, b) => s + b.arr, 0)
+  const mrr          = Math.round(totalARR / 12)
+  const openIdeas    = ACTIVITY.filter(a => a.type === "idea").length + 4
+  const momentum     = active.length ? Math.round(active.reduce((s, p) => s + p.progress, 0) / active.length) : 0
+
+  const tiles = [
+    { l: "Active projects",  v: active.length,                   s: `${PROJECTS.length} total`,             spark: active.map(p => p.progress) },
+    { l: "Open ideas",       v: openIdeas,                       s: "in incubator",                         spark: [4,6,5,8,7,9,8,7,9,10,8,9,10,10] },
+    { l: "Momentum index",   v: `${momentum}/100`,               s: "avg project progress",                 spark: [40,45,42,50,55,58,60,62,65,68,70,72,74,momentum] },
+    { l: "MRR",              v: `$${(mrr/1000).toFixed(1)}K`,    s: `$${(totalARR/1000).toFixed(1)}K ARR`, spark: BUSINESSES.map(b => b.arr / 1000) },
+  ]
 
   return (
     <div className="j-grid j-cols-4">
-      <div className="j-card j-tight">
-        <div className="j-eyebrow">Active Projects</div>
-        <div className="j-amount-lg j-num" style={{ marginTop: 8 }}>{totalProjects}</div>
-        <div className="j-muted" style={{ fontSize: 12, marginTop: 4 }}>{PROJECTS.length} total</div>
-      </div>
-      <div className="j-card j-tight">
-        <div className="j-eyebrow">Combined ARR</div>
-        <div className="j-amount-lg j-num" style={{ marginTop: 8 }}>
-          ${(totalARR / 1000).toFixed(1)}K
+      {tiles.map(t => (
+        <div key={t.l} className="j-card j-tight">
+          <div className="j-eyebrow">{t.l}</div>
+          <div className="j-row j-between" style={{ marginTop: 8, alignItems: "flex-end" }}>
+            <div className="j-amount-lg j-num">{t.v}</div>
+            <SparkRail data={t.spark} />
+          </div>
+          <div className="j-muted" style={{ fontSize: 12, marginTop: 4 }}>{t.s}</div>
         </div>
-        <div className="j-muted" style={{ fontSize: 12, marginTop: 4 }}>across {BUSINESSES.length} ventures</div>
-      </div>
-      <div className="j-card j-tight">
-        <div className="j-eyebrow">Open Tasks</div>
-        <div className="j-amount-lg j-num" style={{ marginTop: 8 }}>{openTodos}</div>
-        <div className="j-muted" style={{ fontSize: 12, marginTop: 4 }}>due today</div>
-      </div>
-      <div className="j-card j-tight">
-        <div className="j-eyebrow">Agents Running</div>
-        <div className="j-amount-lg j-num" style={{ marginTop: 8 }}>{runningAgents}</div>
-        <div className="j-muted" style={{ fontSize: 12, marginTop: 4 }}>{AGENTS.length} jobs total</div>
-      </div>
+      ))}
     </div>
   )
 }
@@ -334,6 +330,25 @@ function AgentRail() {
   )
 }
 
+function QuickCapture() {
+  return (
+    <div className="j-card" style={{ padding: 16 }}>
+      <textarea
+        placeholder="/idea · /todo · /note · /decision — capture instantly"
+        style={{ width: "100%", background: "transparent", border: "none", outline: "none", resize: "none", fontSize: 13, lineHeight: 1.5, height: 44, color: "oklch(0.860 0 0)", fontFamily: "inherit" }}
+      />
+      <div className="j-row j-between" style={{ marginTop: 8 }}>
+        <div className="j-row j-gap-2">
+          {["/idea","/todo","/note","/decision"].map(c => (
+            <span key={c} className="j-pill j-ghost" style={{ fontSize: 10 }}>{c}</span>
+          ))}
+        </div>
+        <button className="j-btn j-btn-primary">Capture ↵</button>
+      </div>
+    </div>
+  )
+}
+
 export function JarvisDashboard() {
   return (
     <div className="j-content">
@@ -351,6 +366,7 @@ export function JarvisDashboard() {
           <ActivityRail />
         </div>
       </div>
+      <QuickCapture />
     </div>
   )
 }
