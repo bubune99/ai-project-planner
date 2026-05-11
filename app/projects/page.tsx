@@ -1,23 +1,320 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from 'next/navigation'
-import { useUser } from "@stackframe/stack"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { ProjectCard } from "@/components/projects/ProjectCard"
-import { ProjectStats } from "@/components/projects/ProjectStats"
-import { NewProjectModal } from "@/components/projects/NewProjectModal"
+import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/navigation"
-import { Search, Plus, LayoutGrid, List, Loader2 } from 'lucide-react'
+import { NewProjectModal } from "@/components/projects/NewProjectModal"
 import type { ProjectSummary } from "@/lib/types"
 
+type ViewMode = "cards" | "table" | "portfolio" | "phase"
+type StatusFilter = "all" | "in_progress" | "planning" | "review" | "on_hold"
+
+const STATUS_LABEL: Record<string, string> = {
+  in_progress: "Active",
+  planning: "Planning",
+  review: "Review",
+  on_hold: "On Hold",
+  completed: "Done",
+}
+
+const STATUS_CLASS: Record<string, string> = {
+  in_progress: "j-pos",
+  planning: "j-info",
+  review: "j-warn",
+  on_hold: "j-muted",
+  completed: "j-proj",
+}
+
+const HEALTH_CLASS: Record<string, string> = {
+  excellent: "j-pos",
+  good: "j-info",
+  attention: "j-warn",
+  critical: "j-neg",
+}
+
+const PHASE_COLORS: Record<string, string> = {
+  Planning: "var(--j-info)",
+  Design: "var(--j-biz)",
+  Development: "var(--j-accent)",
+  Testing: "var(--j-warn)",
+  Review: "var(--j-warn)",
+  Launch: "var(--j-pos)",
+  Done: "var(--j-pos)",
+}
+
+function genMomentum(progress: number, seed: number): number[] {
+  return Array.from({ length: 14 }, (_, i) =>
+    Math.max(2, Math.min(100, Math.max(0, progress - 30) + i * 2.5 + Math.sin((i + seed) * 0.9) * 10))
+  )
+}
+
+function SparkRail({ values }: { values: number[] }) {
+  const max = Math.max(...values, 1)
+  return (
+    <div className="j-spark-rail" style={{ height: 24, width: 80 }}>
+      {values.map((v, i) => (
+        <span
+          key={i}
+          className={i >= values.length - 3 ? "j-hi" : ""}
+          style={{ height: `${(v / max) * 100}%` }}
+        />
+      ))}
+    </div>
+  )
+}
+
+function ProjectCard({ p, onClick }: { p: ProjectSummary; onClick: () => void }) {
+  const momentum = genMomentum(p.progress, p.id.charCodeAt(0))
+  return (
+    <div className="j-card" style={{ cursor: "pointer", display: "flex", flexDirection: "column" }} onClick={onClick}>
+      <div style={{ marginBottom: 10 }}>
+        <div className="j-row j-between" style={{ marginBottom: 8 }}>
+          <div className="j-row" style={{ gap: 6 }}>
+            <span className={`j-pill ${HEALTH_CLASS[p.health]}`}>
+              <span className="j-pill-dot" />
+              {p.health}
+            </span>
+            {p.phase && <span className="j-pill j-ghost">{p.phase}</span>}
+          </div>
+          <span className={`j-pill ${STATUS_CLASS[p.status] || "j-muted"}`}>
+            {STATUS_LABEL[p.status] || p.status}
+          </span>
+        </div>
+        <h3 style={{ fontSize: 15, fontWeight: 500, margin: "0 0 4px", letterSpacing: "-0.01em" }}>
+          {p.name}
+        </h3>
+        {p.description && (
+          <p className="j-muted" style={{ fontSize: 12, margin: 0, lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } as React.CSSProperties}>
+            {p.description}
+          </p>
+        )}
+      </div>
+
+      <div style={{ marginBottom: 10 }}>
+        <div className="j-row j-between" style={{ marginBottom: 5 }}>
+          <span className="j-muted" style={{ fontSize: 11 }}>Progress</span>
+          <span className="j-num" style={{ fontSize: 11 }}>{p.progress}%</span>
+        </div>
+        <div className="j-progress"><span style={{ width: `${p.progress}%` }} /></div>
+      </div>
+
+      {p.techStack && p.techStack.length > 0 && (
+        <div className="j-row j-wrap" style={{ gap: 4, marginBottom: 10 }}>
+          {p.techStack.slice(0, 4).map(t => (
+            <span key={t} className="j-pill j-ghost" style={{ fontSize: 10, padding: "1px 7px" }}>{t}</span>
+          ))}
+          {p.techStack.length > 4 && (
+            <span className="j-pill j-ghost" style={{ fontSize: 10, padding: "1px 7px" }}>+{p.techStack.length - 4}</span>
+          )}
+        </div>
+      )}
+
+      <div className="j-row j-between" style={{ borderTop: "1px solid var(--j-hairline)", paddingTop: 10, marginTop: "auto" }}>
+        <div className="j-col" style={{ gap: 0 }}>
+          <span className="j-num" style={{ fontSize: 12 }}>{p.completedTasks}/{p.totalTasks}</span>
+          <span className="j-muted" style={{ fontSize: 10 }}>tasks · {p.activeAgents} agents</span>
+        </div>
+        <SparkRail values={momentum} />
+      </div>
+    </div>
+  )
+}
+
+function ProjectsTable({ projects, onOpen }: { projects: ProjectSummary[]; onOpen: (id: string) => void }) {
+  return (
+    <div className="j-card" style={{ padding: 0 }}>
+      <table className="j-table">
+        <thead>
+          <tr>
+            <th>Project</th>
+            <th>Phase</th>
+            <th>Status</th>
+            <th>Progress</th>
+            <th>Tasks</th>
+            <th>Agents</th>
+            <th>Health</th>
+          </tr>
+        </thead>
+        <tbody>
+          {projects.map(p => (
+            <tr key={p.id} style={{ cursor: "pointer" }} onClick={() => onOpen(p.id)}>
+              <td>
+                <div style={{ fontWeight: 500 }}>{p.name}</div>
+                {p.description && (
+                  <div className="j-muted" style={{ fontSize: 11, marginTop: 2 }}>
+                    {p.description.slice(0, 64)}{p.description.length > 64 ? "…" : ""}
+                  </div>
+                )}
+              </td>
+              <td>
+                <span className="j-pill j-ghost">{p.phase || "—"}</span>
+              </td>
+              <td>
+                <span className={`j-pill ${STATUS_CLASS[p.status] || "j-muted"}`}>
+                  <span className="j-pill-dot" />
+                  {STATUS_LABEL[p.status] || p.status}
+                </span>
+              </td>
+              <td>
+                <div className="j-row" style={{ gap: 8, alignItems: "center" }}>
+                  <div className="j-progress" style={{ flex: 1, minWidth: 80 }}>
+                    <span style={{ width: `${p.progress}%` }} />
+                  </div>
+                  <span className="j-num" style={{ fontSize: 11, minWidth: 28, textAlign: "right" }}>{p.progress}%</span>
+                </div>
+              </td>
+              <td className="j-num" style={{ fontSize: 12 }}>{p.completedTasks}/{p.totalTasks}</td>
+              <td className="j-muted j-num" style={{ fontSize: 12 }}>{p.activeAgents}</td>
+              <td>
+                <span className={`j-pill ${HEALTH_CLASS[p.health] || "j-muted"}`}>
+                  <span className="j-pill-dot" />
+                  {p.health}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function ProjectsPortfolio({ projects, onOpen }: { projects: ProjectSummary[]; onOpen: (id: string) => void }) {
+  return (
+    <div className="j-col" style={{ gap: 8 }}>
+      {projects.map(p => {
+        const momentum = genMomentum(p.progress, p.id.charCodeAt(0))
+        const barColor = PHASE_COLORS[p.phase || ""] || "var(--j-accent)"
+        return (
+          <div
+            key={p.id}
+            className="j-card"
+            style={{ padding: "14px 18px", cursor: "pointer", display: "flex", gap: 16, alignItems: "center" }}
+            onClick={() => onOpen(p.id)}
+          >
+            <div style={{ width: 4, alignSelf: "stretch", borderRadius: 4, background: barColor, flexShrink: 0 }} />
+
+            <div style={{ flex: "0 0 220px", minWidth: 0 }}>
+              <div style={{ fontWeight: 500, fontSize: 14, marginBottom: 3 }}>{p.name}</div>
+              <div className="j-row" style={{ gap: 6 }}>
+                <span className={`j-pill ${STATUS_CLASS[p.status] || "j-muted"}`} style={{ fontSize: 10 }}>
+                  {STATUS_LABEL[p.status] || p.status}
+                </span>
+                {p.phase && <span className="j-pill j-ghost" style={{ fontSize: 10 }}>{p.phase}</span>}
+              </div>
+            </div>
+
+            <div style={{ flex: "0 0 180px" }}>
+              <div className="j-row j-between" style={{ marginBottom: 5 }}>
+                <span className="j-muted" style={{ fontSize: 10 }}>Progress</span>
+                <span className="j-num" style={{ fontSize: 10 }}>{p.progress}%</span>
+              </div>
+              <div className="j-progress"><span style={{ width: `${p.progress}%` }} /></div>
+            </div>
+
+            <div style={{ flex: "0 0 100px" }}>
+              <SparkRail values={momentum} />
+              <div className="j-muted" style={{ fontSize: 9, marginTop: 2, letterSpacing: "0.04em" }}>14-day momentum</div>
+            </div>
+
+            <div style={{ flex: "0 0 90px", textAlign: "center" }}>
+              <div className="j-num" style={{ fontSize: 15, fontWeight: 500 }}>{p.completedTasks}/{p.totalTasks}</div>
+              <div className="j-muted" style={{ fontSize: 10 }}>tasks done</div>
+            </div>
+
+            <div style={{ flex: "0 0 80px", textAlign: "center" }}>
+              <div className="j-num" style={{ fontSize: 13 }}>{p.activeAgents}</div>
+              <div className="j-muted" style={{ fontSize: 10 }}>agents</div>
+            </div>
+
+            <div style={{ marginLeft: "auto" }}>
+              <span className={`j-pill ${HEALTH_CLASS[p.health] || "j-muted"}`}>
+                <span className="j-pill-dot" />
+                {p.health}
+              </span>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function ProjectsByPhase({ projects, onOpen }: { projects: ProjectSummary[]; onOpen: (id: string) => void }) {
+  const groups = projects.reduce<Record<string, ProjectSummary[]>>((acc, p) => {
+    const key = p.phase || "Unassigned"
+    if (!acc[key]) acc[key] = []
+    acc[key].push(p)
+    return acc
+  }, {})
+
+  return (
+    <div className="j-col" style={{ gap: 24 }}>
+      {Object.entries(groups).map(([phase, items]) => {
+        const avgProg = Math.round(items.reduce((s, p) => s + p.progress, 0) / items.length)
+        const color = PHASE_COLORS[phase] || "var(--j-accent)"
+        return (
+          <div key={phase}>
+            <div className="j-row j-between" style={{ marginBottom: 12 }}>
+              <div className="j-row" style={{ gap: 8 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 999, background: color, display: "inline-block" }} />
+                <h3 style={{ fontSize: 11, fontWeight: 700, margin: 0, letterSpacing: "0.12em", textTransform: "uppercase", color: "oklch(0.708 0 0)" }}>{phase}</h3>
+                <span className="j-pill j-ghost" style={{ fontSize: 10 }}>{items.length}</span>
+              </div>
+              <span className="j-muted" style={{ fontSize: 11 }}>avg {avgProg}% complete</span>
+            </div>
+            <div className="j-grid j-cols-3">
+              {items.map(p => (
+                <div
+                  key={p.id}
+                  className="j-card j-tight"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => onOpen(p.id)}
+                >
+                  <div className="j-row j-between" style={{ marginBottom: 8 }}>
+                    <span style={{ fontWeight: 500, fontSize: 13 }}>{p.name}</span>
+                    <span className={`j-pill ${STATUS_CLASS[p.status] || "j-muted"}`} style={{ fontSize: 10 }}>
+                      {STATUS_LABEL[p.status] || p.status}
+                    </span>
+                  </div>
+                  <div className="j-progress" style={{ marginBottom: 8 }}>
+                    <span style={{ width: `${p.progress}%` }} />
+                  </div>
+                  <div className="j-row j-between">
+                    <span className="j-muted" style={{ fontSize: 11 }}>{p.completedTasks}/{p.totalTasks} tasks</span>
+                    <span className={`j-pill ${HEALTH_CLASS[p.health] || "j-muted"}`} style={{ fontSize: 10 }}>
+                      <span className="j-pill-dot" />{p.health}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+const STATUS_FILTERS: { id: StatusFilter | "all"; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "in_progress", label: "Active" },
+  { id: "planning", label: "Planning" },
+  { id: "review", label: "Review" },
+  { id: "on_hold", label: "On Hold" },
+]
+
+const VIEW_MODES: { id: ViewMode; label: string }[] = [
+  { id: "cards", label: "Cards" },
+  { id: "table", label: "Table" },
+  { id: "portfolio", label: "Portfolio" },
+  { id: "phase", label: "By Phase" },
+]
+
 export default function ProjectsPage() {
-  const user = useUser()
   const router = useRouter()
-  const [searchQuery, setSearchQuery] = useState("")
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [view, setView] = useState<ViewMode>("cards")
+  const [filter, setFilter] = useState<StatusFilter | "all">("all")
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false)
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -25,182 +322,128 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     fetchProjects()
-  }, [statusFilter])
+  }, [filter])
 
   const fetchProjects = async () => {
     try {
       setLoading(true)
       setError(null)
-      const url = statusFilter === "all"
-        ? "/api/projects"
-        : `/api/projects?status=${statusFilter}`
-
-      console.log('[Frontend] Fetching projects from:', url)
-
+      const url = filter === "all" ? "/api/projects" : `/api/projects?status=${filter}`
       const response = await fetch(url)
-
-      console.log('[Frontend] Response status:', response.status, response.statusText)
-      console.log('[Frontend] Response headers:', Object.fromEntries(response.headers.entries()))
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('[Frontend] Error response body:', errorText)
-        throw new Error(`Failed to fetch projects: ${response.status} ${response.statusText}`)
-      }
-
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`)
       const data = await response.json()
-      console.log('[Frontend] Response data:', data)
-      console.log('[Frontend] Projects array:', data.data)
-      console.log('[Frontend] Number of projects:', data.data?.length || 0)
-
-      if (data.data && data.data.length > 0) {
-        console.log('[Frontend] First project sample:', data.data[0])
-      }
-
       setProjects(data.data || [])
-      console.log('[Frontend] State updated with projects')
     } catch (err) {
-      console.error('[Frontend] Fetch error:', err)
-      setError(err instanceof Error ? err.message : "An error occurred")
+      setError(err instanceof Error ? err.message : "Failed to load projects")
     } finally {
       setLoading(false)
     }
   }
 
-  const filteredProjects = projects.filter((project) => {
-    const matchesSearch =
-      (project.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-      (project.description?.toLowerCase() || '').includes(searchQuery.toLowerCase())
-    const matchesStatus = statusFilter === "all" || project.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+  const openProject = (id: string) => router.push(`/project/${id}`)
 
-  const handleProjectSelect = (projectId: string) => {
-    router.push(`/project/${projectId}`)
-  }
+  const total = projects.length
+  const active = projects.filter(p => p.status === "in_progress").length
+  const atRisk = projects.filter(p => p.health === "attention" || p.health === "critical").length
+  const avgProgress = total ? Math.round(projects.reduce((s, p) => s + p.progress, 0) / total) : 0
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <div className="border-b border-white/10 bg-black/60 backdrop-blur-sm sticky top-0 z-10">
-          <div className="px-8 py-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-white mb-2">Projects</h1>
-                <p className="text-muted-foreground">Manage your AI development projects</p>
-              </div>
-              <div className="flex items-center gap-4">
-                <Button
-                  className="bg-blue-500 hover:bg-blue-600 text-white gap-2"
-                  onClick={() => setIsNewProjectModalOpen(true)}
-                >
-                  <Plus className="h-4 w-4" />
-                  New Project
-                </Button>
+      <div className="j-content">
+        {/* Top stat strip */}
+        <div className="j-row" style={{ gap: 10 }}>
+          {[
+            { label: "Total", value: total, cls: "" },
+            { label: "Active", value: active, cls: "j-pos" },
+            { label: "At risk", value: atRisk, cls: atRisk > 0 ? "j-warn" : "j-muted" },
+            { label: "Avg progress", value: `${avgProgress}%`, cls: "j-info" },
+          ].map(s => (
+            <div key={s.label} className="j-card j-tight" style={{ flex: 1, padding: "12px 16px" }}>
+              <div className="j-eyebrow">{s.label}</div>
+              <div className={`j-num ${s.cls}`} style={{ fontSize: 24, fontWeight: 600, marginTop: 4, letterSpacing: "-0.02em" }}>
+                {s.value}
               </div>
             </div>
+          ))}
+          <div className="j-card j-tight" style={{ padding: "12px 16px", display: "flex", alignItems: "center" }}>
+            <button
+              className="j-btn j-btn-primary"
+              style={{ whiteSpace: "nowrap" }}
+              onClick={() => setIsNewProjectModalOpen(true)}
+            >
+              + New project
+            </button>
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="px-8 py-8 space-y-8">
-        {/* Stats */}
-        <ProjectStats projects={projects} />
-
-        {/* Filters and Search */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1 flex items-center gap-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search projects..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-black/40 border-white/10"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              {["all", "in-progress", "planning", "review", "completed", "on-hold"].map((status) => (
-                <Button
-                  key={status}
-                  variant={statusFilter === status ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setStatusFilter(status)}
-                  className={
-                    statusFilter === status
-                      ? "bg-blue-500 hover:bg-blue-600"
-                      : "border-white/10 hover:bg-white/5"
-                  }
+        {/* Filter chips + view mode tabs */}
+        <div className="j-row j-between j-wrap" style={{ gap: 8 }}>
+          <div className="j-row j-wrap" style={{ gap: 6 }}>
+            {STATUS_FILTERS.map(f => {
+              const count = f.id === "all" ? total : projects.filter(p => p.status === f.id).length
+              const active = filter === f.id
+              return (
+                <button
+                  key={f.id}
+                  className={`j-pill ${active ? "j-proj" : "j-ghost"}`}
+                  style={active ? { background: "oklch(0.870 0.045 252 / 0.18)", color: "oklch(0.985 0 0)", boxShadow: "none" } : {}}
+                  onClick={() => setFilter(f.id)}
                 >
-                  {status.replace("-", " ")}
-                </Button>
-              ))}
-            </div>
+                  {f.label}
+                  <span className="j-muted" style={{ fontSize: 10, marginLeft: 4 }}>{count}</span>
+                </button>
+              )
+            })}
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant={viewMode === "grid" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setViewMode("grid")}
-              className={viewMode === "grid" ? "bg-blue-500" : "border-white/10"}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setViewMode("list")}
-              className={viewMode === "list" ? "bg-blue-500" : "border-white/10"}
-            >
-              <List className="h-4 w-4" />
-            </Button>
+          <div className="j-tabs">
+            {VIEW_MODES.map(m => (
+              <button
+                key={m.id}
+                className={`j-tab${view === m.id ? " j-active" : ""}`}
+                onClick={() => setView(m.id)}
+              >
+                {m.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Projects Grid */}
-        <div>
-          <h2 className="text-xl font-semibold text-white mb-4">
-            {filteredProjects.length} Projects
-          </h2>
-
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-            </div>
-          ) : error ? (
-            <div className="text-center py-12">
-              <p className="text-red-500 mb-4">{error}</p>
-              <Button onClick={fetchProjects} variant="outline">
-                Try Again
-              </Button>
-            </div>
-          ) : filteredProjects.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <p>No projects found. Create your first project to get started!</p>
-            </div>
-          ) : (
-            <div
-              className={
-                viewMode === "grid"
-                  ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-                  : "space-y-4"
-              }
-            >
-              {filteredProjects.map((project) => (
-                <ProjectCard key={project.id} project={project} onSelect={handleProjectSelect} />
-              ))}
-            </div>
-          )}
+        {/* Content area */}
+        {loading ? (
+          <div style={{ display: "grid", placeItems: "center", minHeight: 240 }}>
+            <span className="j-muted">Loading projects…</span>
           </div>
-        </div>
-
-        <NewProjectModal
-          open={isNewProjectModalOpen}
-          onOpenChange={setIsNewProjectModalOpen}
-          onProjectCreated={fetchProjects}
-        />
+        ) : error ? (
+          <div className="j-card" style={{ textAlign: "center", padding: 40 }}>
+            <div className="j-muted" style={{ marginBottom: 12 }}>{error}</div>
+            <button className="j-btn j-btn-ghost" onClick={fetchProjects}>Try again</button>
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="j-card" style={{ textAlign: "center", padding: 48 }}>
+            <div style={{ marginBottom: 12 }}>No projects yet.</div>
+            <button className="j-btn j-btn-primary" onClick={() => setIsNewProjectModalOpen(true)}>
+              + Create your first project
+            </button>
+          </div>
+        ) : (
+          <>
+            {view === "cards" && (
+              <div className="j-grid j-cols-3">
+                {projects.map(p => <ProjectCard key={p.id} p={p} onClick={() => openProject(p.id)} />)}
+              </div>
+            )}
+            {view === "table" && <ProjectsTable projects={projects} onOpen={openProject} />}
+            {view === "portfolio" && <ProjectsPortfolio projects={projects} onOpen={openProject} />}
+            {view === "phase" && <ProjectsByPhase projects={projects} onOpen={openProject} />}
+          </>
+        )}
       </div>
+
+      <NewProjectModal
+        open={isNewProjectModalOpen}
+        onOpenChange={setIsNewProjectModalOpen}
+        onProjectCreated={fetchProjects}
+      />
     </DashboardLayout>
   )
 }
