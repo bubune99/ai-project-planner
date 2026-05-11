@@ -1,45 +1,44 @@
 import { neon, neonConfig, Pool } from '@neondatabase/serverless'
 
-// Configure Neon for optimal performance
 neonConfig.fetchConnectionCache = true
 
-// Database connection URL from environment
-const connectionString = process.env.DATABASE_URL
+let _sql: ReturnType<typeof neon> | null = null
+let _pool: Pool | null = null
 
-if (!connectionString) {
-  throw new Error('DATABASE_URL environment variable is not set')
+function dbUrl(): string {
+  const url = process.env.DATABASE_URL
+  if (!url) throw new Error('DATABASE_URL environment variable is not set')
+  return url
 }
 
-/**
- * Neon SQL client for simple queries
- * Use this for straightforward SQL operations
- */
-export const sql = neon(connectionString)
+function getSql() {
+  if (!_sql) _sql = neon(dbUrl())
+  return _sql
+}
 
-/**
- * Connection pool for transaction support and complex operations
- * Use this when you need transactions or prepared statements
- */
-export const pool = new Pool({ connectionString })
+function getPool() {
+  if (!_pool) _pool = new Pool({ connectionString: dbUrl() })
+  return _pool
+}
 
-/**
- * Health check function to verify database connectivity
- * @returns Promise<boolean> - true if connection is healthy
- */
+export const sql = new Proxy(function sql() {} as unknown as ReturnType<typeof neon>, {
+  apply: (_t, thisArg, args) => Reflect.apply(getSql() as unknown as (...a: unknown[]) => unknown, thisArg, args),
+  get: (_t, prop) => Reflect.get(getSql(), prop as string),
+}) as ReturnType<typeof neon>
+
+export const pool = new Proxy({} as Pool, {
+  get: (_t, prop) => Reflect.get(getPool(), prop as string),
+})
+
 export async function healthCheck(): Promise<boolean> {
   try {
     const result = await sql`SELECT 1 as health`
     return result.length > 0 && result[0].health === 1
-  } catch (error) {
-    console.error('Database health check failed:', error)
+  } catch {
     return false
   }
 }
 
-/**
- * Get database connection info
- * @returns Promise<object> - connection information
- */
 export async function getConnectionInfo() {
   try {
     const result = await sql`
@@ -55,14 +54,9 @@ export async function getConnectionInfo() {
   }
 }
 
-/**
- * Close the connection pool
- * Call this when shutting down the application
- */
 export async function closePool() {
-  await pool.end()
+  await getPool().end()
 }
 
-// Export types for use in other modules
 export type SQL = typeof sql
 export type { NeonQueryFunction } from '@neondatabase/serverless'

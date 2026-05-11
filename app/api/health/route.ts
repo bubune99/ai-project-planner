@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { sql } from '@/lib/db/client'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Health check endpoint
  * Returns minimal status info to avoid leaking environment details
