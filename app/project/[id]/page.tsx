@@ -206,47 +206,148 @@ function RoadmapFacet({ phases }: { phases: any[] }) {
 
 // ─── Decisions ───────────────────────────────────────────────────────────────
 
-function DecisionsFacet() {
-  const adrs = [
-    { id: "d1", num: "001", title: "Primary framework selection",   status: "accepted",  date: "Apr 28", impact: "high", author: "You" },
-    { id: "d2", num: "002", title: "Database schema approach",       status: "accepted",  date: "May 1",  impact: "high", author: "Claude" },
-    { id: "d3", num: "003", title: "Authentication strategy",        status: "accepted",  date: "May 4",  impact: "med",  author: "You" },
-    { id: "d4", num: "004", title: "API design pattern",             status: "proposed",  date: "May 9",  impact: "med",  author: "Claude" },
-    { id: "d5", num: "005", title: "State management approach",      status: "proposed",  date: "May 10", impact: "low",  author: "You" },
-    { id: "d6", num: "006", title: "Original CSS-in-JS approach",    status: "superseded",date: "Apr 20", impact: "low",  author: "You" },
-  ]
-  const tone: Record<string, string>     = { accepted: "j-pos", proposed: "j-warn", superseded: "j-muted", rejected: "j-neg" }
-  const impactTone = (i: string) => i === "high" ? "j-warn" : i === "med" ? "j-info" : "j-muted"
+function DecisionsFacet({ projectId }: { projectId: string }) {
+  const [adrs, setAdrs] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ title: "", context: "", decision: "", consequences: "" })
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setLoading(true)
+    fetch(`/api/projects/${projectId}/adrs`)
+      .then(r => r.json())
+      .then(data => { setAdrs(data.adrs || []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [projectId])
+
+  const createAdr = async () => {
+    if (!form.title.trim() || !form.context.trim() || !form.decision.trim()) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/projects/${projectId}/adrs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      })
+      const data = await res.json()
+      if (data.adr) {
+        setAdrs(prev => [data.adr, ...prev])
+        setForm({ title: "", context: "", decision: "", consequences: "" })
+        setShowForm(false)
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const updateStatus = async (adrId: string, status: string) => {
+    const res = await fetch(`/api/projects/${projectId}/adrs/${adrId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    })
+    const data = await res.json()
+    if (data.adr) setAdrs(prev => prev.map(a => a.id === adrId ? data.adr : a))
+  }
+
+  const tone: Record<string, string> = { accepted: "j-pos", proposed: "j-warn", superseded: "j-muted", rejected: "j-neg" }
+  const accepted   = adrs.filter(a => a.status === "accepted").length
+  const proposed   = adrs.filter(a => a.status === "proposed").length
+  const superseded = adrs.filter(a => a.status === "superseded" || a.status === "rejected").length
+
   return (
     <div className="j-col j-gap-4">
       <div className="j-grid j-cols-4">
-        {[["Total", adrs.length, "j-info"], ["Accepted", 3, "j-pos"], ["Proposed", 2, "j-warn"], ["Superseded", 1, "j-muted"]].map(([l, v, t]) => (
+        {[["Total", adrs.length, "j-info"], ["Accepted", accepted, "j-pos"], ["Proposed", proposed, "j-warn"], ["Superseded", superseded, "j-muted"]].map(([l, v, t]) => (
           <div key={l as string} className="j-card j-tight" style={{ padding: 14 }}>
             <div className="j-eyebrow">{l}</div>
             <div className="j-amount-lg" style={{ marginTop: 6 }}>{v}</div>
           </div>
         ))}
       </div>
+
+      {showForm && (
+        <div className="j-card">
+          <h4 className="j-card-title" style={{ marginBottom: 16 }}>New architecture decision</h4>
+          <div className="j-col j-gap-3">
+            {[
+              { key: "title",        label: "Decision title",   placeholder: "e.g. Framework selection" },
+              { key: "context",      label: "Context",          placeholder: "Why this decision was needed" },
+              { key: "decision",     label: "Decision made",    placeholder: "What was decided" },
+              { key: "consequences", label: "Consequences",     placeholder: "Trade-offs and implications (optional)" },
+            ].map(f => (
+              <div key={f.key}>
+                <div className="j-eyebrow" style={{ marginBottom: 4 }}>{f.label}</div>
+                <textarea
+                  value={(form as any)[f.key]}
+                  onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                  placeholder={f.placeholder}
+                  rows={f.key === "title" ? 1 : 2}
+                  style={{
+                    width: "100%", background: "oklch(1 0 0 / 0.04)", border: "1px solid var(--j-ring)",
+                    borderRadius: 7, padding: "8px 10px", fontSize: 13, color: "inherit",
+                    fontFamily: "inherit", resize: "vertical", outline: "none",
+                  }}
+                />
+              </div>
+            ))}
+            <div className="j-row j-gap-2" style={{ justifyContent: "flex-end" }}>
+              <button className="j-btn j-btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
+              <button className="j-btn j-btn-primary" onClick={createAdr} disabled={saving}>
+                {saving ? "Saving…" : "Save ADR"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="j-card" style={{ padding: 0 }}>
         <div className="j-row j-between" style={{ padding: 16 }}>
           <h3 className="j-card-title">Architecture decisions</h3>
-          <button className="j-btn j-btn-primary">+ New ADR</button>
+          {!showForm && (
+            <button className="j-btn j-btn-primary" onClick={() => setShowForm(true)}>+ New ADR</button>
+          )}
         </div>
-        <table className="j-table">
-          <thead><tr><th>#</th><th>Decision</th><th>Status</th><th>Impact</th><th>Author</th><th>Date</th></tr></thead>
-          <tbody>
-            {adrs.map(a => (
-              <tr key={a.id}>
-                <td className="j-muted" style={{ fontSize: 11, fontFamily: "monospace" }}>ADR-{a.num}</td>
-                <td style={{ fontWeight: 500 }}>{a.title}</td>
-                <td><span className={`j-pill ${tone[a.status]}`}>{a.status}</span></td>
-                <td><span className={`j-pill ${impactTone(a.impact)}`}>{a.impact}</span></td>
-                <td className="j-muted">{a.author}</td>
-                <td className="j-muted" style={{ fontSize: 12 }}>{a.date}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {loading ? (
+          <div style={{ padding: 32, textAlign: "center" }}>
+            <span className="j-muted" style={{ fontSize: 13 }}>Loading decisions…</span>
+          </div>
+        ) : adrs.length === 0 ? (
+          <div style={{ padding: 32, textAlign: "center" }}>
+            <p className="j-muted" style={{ fontSize: 13, margin: "0 0 12px" }}>No architecture decisions recorded yet.</p>
+            <button className="j-btn j-btn-primary" onClick={() => setShowForm(true)}>Record first ADR</button>
+          </div>
+        ) : (
+          <table className="j-table">
+            <thead><tr><th>#</th><th>Decision</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+            <tbody>
+              {adrs.map((a, i) => (
+                <tr key={a.id}>
+                  <td className="j-muted" style={{ fontSize: 11, fontFamily: "monospace" }}>ADR-{String(i + 1).padStart(3, "0")}</td>
+                  <td style={{ fontWeight: 500 }}>{a.title}</td>
+                  <td><span className={`j-pill ${tone[a.status] || "j-muted"}`}>{a.status}</span></td>
+                  <td className="j-muted" style={{ fontSize: 12 }}>{a.created_at ? new Date(a.created_at).toLocaleDateString() : "—"}</td>
+                  <td>
+                    <select
+                      value={a.status}
+                      onChange={e => updateStatus(a.id, e.target.value)}
+                      style={{
+                        background: "transparent", border: "1px solid var(--j-ring)", borderRadius: 5,
+                        padding: "2px 6px", fontSize: 11, color: "inherit", cursor: "pointer",
+                      }}
+                    >
+                      <option value="proposed">proposed</option>
+                      <option value="accepted">accepted</option>
+                      <option value="superseded">superseded</option>
+                      <option value="rejected">rejected</option>
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )
@@ -254,38 +355,116 @@ function DecisionsFacet() {
 
 // ─── Ideas ───────────────────────────────────────────────────────────────────
 
-function IdeasFacet() {
-  const linked = [
-    { id: "i1", title: "Automate onboarding step with AI assistant", heat: 8, source: "User research",    age: "2d", state: "exploring" },
-    { id: "i2", title: "Add in-app milestone celebrations",           heat: 6, source: "Product review",   age: "1w", state: "ready to promote" },
-    { id: "i3", title: "Weekly digest email report",                  heat: 5, source: "Customer feedback",age: "3d", state: "exploring" },
-  ]
+function IdeasFacet({ projectId }: { projectId: string }) {
+  const router = useRouter()
+  const [ideas, setIdeas]     = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [promoting, setPromoting] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    // Fetch ideas promoted to this project + all non-promoted ideas
+    Promise.all([
+      fetch(`/api/ideas?projectId=${projectId}`).then(r => r.json()),
+      fetch(`/api/ideas`).then(r => r.json()),
+    ])
+      .then(([promoted, all]) => {
+        const promotedIds = new Set((promoted.data || []).map((i: any) => i.id))
+        const promotedList = (promoted.data || [])
+        const nonPromoted  = (all.data || []).filter((i: any) => !promotedIds.has(i.id) && i.lifecycle !== "promoted")
+        setIdeas([...promotedList, ...nonPromoted])
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [projectId])
+
+  const promoteToTask = async (ideaId: string, title: string) => {
+    setPromoting(ideaId)
+    try {
+      const res = await fetch("/api/todos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, projectId, metadata: { sourceIdeaId: ideaId } }),
+      })
+      if (res.ok) {
+        setIdeas(prev => prev.map(i => i.id === ideaId ? { ...i, _promoted: true } : i))
+      }
+    } finally {
+      setPromoting(null)
+    }
+  }
+
+  const lifecycleTone: Record<string, string> = {
+    seed: "j-muted", exploring: "j-info", refined: "j-proj", promoted: "j-pos", archived: "j-muted",
+  }
+
   return (
     <div className="j-col j-gap-4">
       <div className="j-card">
         <div className="j-card-head">
-          <div><h3 className="j-card-title">Linked ideas</h3><p className="j-card-sub">{linked.length} active · cross-linked from project research</p></div>
-          <button className="j-btn j-btn-ghost">Browse all</button>
+          <div>
+            <h3 className="j-card-title">Ideas</h3>
+            <p className="j-card-sub">{ideas.filter(i => i.lifecycle !== "archived").length} active · promoted and in-flight ideas</p>
+          </div>
+          <button className="j-btn j-btn-ghost" onClick={() => router.push("/idea-incubator")}>Open incubator ↗</button>
         </div>
-        <div className="j-col j-gap-3">
-          {linked.map(i => (
-            <div key={i.id} className="j-card j-tight" style={{ padding: 14, background: "oklch(1 0 0 / 0.03)" }}>
-              <div className="j-row j-between" style={{ marginBottom: 8 }}>
-                <div className="j-row j-gap-2">
-                  <span className="j-pill j-idea">heat {i.heat}/10</span>
-                  <span className="j-pill j-ghost">{i.state}</span>
+        {loading ? (
+          <div style={{ padding: 32, textAlign: "center" }}>
+            <span className="j-muted" style={{ fontSize: 13 }}>Loading ideas…</span>
+          </div>
+        ) : ideas.length === 0 ? (
+          <div style={{ padding: 32, textAlign: "center" }}>
+            <p className="j-muted" style={{ fontSize: 13, margin: "0 0 12px" }}>No ideas yet. Capture your first one in the incubator.</p>
+            <button className="j-btn j-btn-primary" onClick={() => router.push("/idea-incubator")}>Go to incubator</button>
+          </div>
+        ) : (
+          <div className="j-col j-gap-3">
+            {ideas.map(idea => (
+              <div key={idea.id} className="j-card j-tight" style={{ padding: 14, background: "oklch(1 0 0 / 0.03)" }}>
+                <div className="j-row j-between" style={{ marginBottom: 8 }}>
+                  <div className="j-row j-gap-2">
+                    <span className={`j-pill ${lifecycleTone[idea.lifecycle] || "j-muted"}`}>{idea.lifecycle}</span>
+                    {idea.category && <span className="j-pill j-ghost">{idea.category}</span>}
+                    {idea.promotedToProjectId === projectId && <span className="j-pill j-pos">linked</span>}
+                  </div>
+                  <span className="j-muted" style={{ fontSize: 11 }}>
+                    {idea.updatedAt ? new Date(idea.updatedAt).toLocaleDateString() : ""}
+                  </span>
                 </div>
-                <span className="j-muted" style={{ fontSize: 11 }}>{i.age}</span>
+                <div style={{ fontSize: 14, fontWeight: 500, marginBottom: idea.description ? 4 : 0 }}>{idea.title}</div>
+                {idea.description && (
+                  <div className="j-muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
+                    {idea.description.slice(0, 120)}{idea.description.length > 120 ? "…" : ""}
+                  </div>
+                )}
+                {(idea.tags || []).length > 0 && (
+                  <div className="j-row j-wrap j-gap-2" style={{ marginTop: 6 }}>
+                    {(idea.tags as string[]).map(t => <span key={t} className="j-pill j-ghost" style={{ fontSize: 10 }}>{t}</span>)}
+                  </div>
+                )}
+                {!idea._promoted && idea.lifecycle !== "promoted" && (
+                  <div className="j-row j-gap-2" style={{ marginTop: 10 }}>
+                    <button
+                      className="j-btn j-btn-primary"
+                      disabled={promoting === idea.id}
+                      onClick={() => promoteToTask(idea.id, idea.title)}
+                    >
+                      {promoting === idea.id ? "Promoting…" : "Promote to task"}
+                    </button>
+                    <button className="j-btn j-btn-ghost" onClick={() => router.push(`/idea-incubator?id=${idea.id}`)}>
+                      Open in incubator
+                    </button>
+                  </div>
+                )}
+                {idea._promoted && (
+                  <div className="j-row j-gap-2" style={{ marginTop: 10 }}>
+                    <span className="j-pill j-pos">Added to tasks ✓</span>
+                  </div>
+                )}
               </div>
-              <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>{i.title}</div>
-              <div className="j-muted" style={{ fontSize: 12 }}>From: {i.source}</div>
-              <div className="j-row j-gap-2" style={{ marginTop: 10 }}>
-                <button className="j-btn j-btn-primary">Promote to task</button>
-                <button className="j-btn j-btn-ghost">Open in incubator</button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -357,54 +536,159 @@ function FinanceFacet() {
 // ─── Agents ──────────────────────────────────────────────────────────────────
 
 function AgentsFacet() {
-  const runs = [
-    { id: "r1", agent: "Claude", task: "Analyze project requirements and write spec",  status: "running", elapsed: "8m",    tokens: 12400, cost: "$0.12" },
-    { id: "r2", agent: "v0",     task: "Generate UI components for dashboard view",    status: "running", elapsed: "22m",   tokens: 8600,  cost: "$0.21" },
-    { id: "r3", agent: "Claude", task: "Code review and architecture suggestions",     status: "done",    elapsed: "1h 4m", tokens: 24800, cost: "$0.34" },
-    { id: "r4", agent: "GPT",    task: "Generate integration test cases",              status: "done",    elapsed: "12m",   tokens: 6400,  cost: "$0.08" },
-    { id: "r5", agent: "Claude", task: "Document API endpoints and response shapes",   status: "queued",  elapsed: "—",     tokens: 0,     cost: "$0.00" },
-  ]
-  const tone: Record<string, string> = { running: "j-proj", done: "j-pos", queued: "j-muted", error: "j-neg" }
+  const [jobs, setJobs]       = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ title: "", assignedTo: "" })
+  const [saving, setSaving]   = useState(false)
+
+  const fetchJobs = () => {
+    setLoading(true)
+    fetch("/api/agents/jobs?includeCompleted=true&limit=20")
+      .then(r => r.json())
+      .then(data => { setJobs(data.data || []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }
+
+  useEffect(() => { fetchJobs() }, [])
+
+  const dispatch = async () => {
+    if (!form.title.trim()) return
+    setSaving(true)
+    try {
+      const res = await fetch("/api/agents/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: form.title, createdBy: "user", assignedTo: form.assignedTo || undefined }),
+      })
+      if (res.ok) {
+        fetchJobs()
+        setForm({ title: "", assignedTo: "" })
+        setShowForm(false)
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const tone: Record<string, string> = {
+    pending: "j-muted", assigned: "j-info", in_progress: "j-proj",
+    completed: "j-pos",  failed: "j-neg",  cancelled: "j-muted",
+  }
+
+  const active    = jobs.filter(j => j.status === "in_progress" || j.status === "assigned").length
+  const completed = jobs.filter(j => j.status === "completed").length
+
+  const elapsed = (job: any) => {
+    if (!job.startedAt) return "—"
+    const end  = job.completedAt ? new Date(job.completedAt).getTime() : Date.now()
+    const secs = Math.floor((end - new Date(job.startedAt).getTime()) / 1000)
+    if (secs < 60) return `${secs}s`
+    if (secs < 3600) return `${Math.floor(secs / 60)}m`
+    return `${Math.floor(secs / 3600)}h ${Math.floor((secs % 3600) / 60)}m`
+  }
+
   return (
     <div className="j-col j-gap-4">
       <div className="j-grid j-cols-4">
-        {[["Active", 2, "j-proj"], ["Completed today", 7, "j-pos"], ["Token spend · 24h", "62.4K", "j-info"], ["Cost · 24h", "$1.42", "j-warn"]].map(([l, v, t]) => (
+        {[["Active", active, "j-proj"], ["Completed", completed, "j-pos"], ["Total jobs", jobs.length, "j-info"], ["Failed", jobs.filter(j => j.status === "failed").length, "j-neg"]].map(([l, v, t]) => (
           <div key={l as string} className="j-card j-tight" style={{ padding: 14 }}>
             <div className="j-eyebrow">{l}</div>
             <div className="j-amount-lg" style={{ marginTop: 6 }}>{v}</div>
           </div>
         ))}
       </div>
+
+      {showForm && (
+        <div className="j-card">
+          <h4 className="j-card-title" style={{ marginBottom: 16 }}>Dispatch agent job</h4>
+          <div className="j-col j-gap-3">
+            <div>
+              <div className="j-eyebrow" style={{ marginBottom: 4 }}>Task</div>
+              <input
+                value={form.title}
+                onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="What should the agent do?"
+                style={{
+                  width: "100%", background: "oklch(1 0 0 / 0.04)", border: "1px solid var(--j-ring)",
+                  borderRadius: 7, padding: "8px 10px", fontSize: 13, color: "inherit",
+                  fontFamily: "inherit", outline: "none", boxSizing: "border-box",
+                }}
+              />
+            </div>
+            <div>
+              <div className="j-eyebrow" style={{ marginBottom: 4 }}>Assign to (optional)</div>
+              <input
+                value={form.assignedTo}
+                onChange={e => setForm(prev => ({ ...prev, assignedTo: e.target.value }))}
+                placeholder="Agent name or ID"
+                style={{
+                  width: "100%", background: "oklch(1 0 0 / 0.04)", border: "1px solid var(--j-ring)",
+                  borderRadius: 7, padding: "8px 10px", fontSize: 13, color: "inherit",
+                  fontFamily: "inherit", outline: "none", boxSizing: "border-box",
+                }}
+              />
+            </div>
+            <div className="j-row j-gap-2" style={{ justifyContent: "flex-end" }}>
+              <button className="j-btn j-btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
+              <button className="j-btn j-btn-primary" onClick={dispatch} disabled={saving}>
+                {saving ? "Dispatching…" : "Dispatch"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="j-card" style={{ padding: 0 }}>
         <div className="j-row j-between" style={{ padding: 16 }}>
-          <h3 className="j-card-title">Agent runs</h3>
-          <button className="j-btn j-btn-primary">Dispatch agent</button>
+          <h3 className="j-card-title">Agent jobs</h3>
+          <div className="j-row j-gap-2">
+            <button className="j-btn j-btn-ghost" onClick={fetchJobs}>↺ Refresh</button>
+            {!showForm && <button className="j-btn j-btn-primary" onClick={() => setShowForm(true)}>Dispatch agent</button>}
+          </div>
         </div>
-        <table className="j-table">
-          <thead><tr><th>Agent</th><th>Task</th><th>Status</th><th>Elapsed</th><th>Tokens</th><th>Cost</th></tr></thead>
-          <tbody>
-            {runs.map(r => (
-              <tr key={r.id}>
-                <td>
-                  <div className="j-row j-gap-2">
-                    <div className="j-avatar" style={{ width: 22, height: 22, fontSize: 10 }}>{r.agent.slice(0, 2).toUpperCase()}</div>
-                    <span style={{ fontWeight: 500 }}>{r.agent}</span>
-                  </div>
-                </td>
-                <td className="j-muted" style={{ fontSize: 12 }}>{r.task}</td>
-                <td>
-                  <span className={`j-pill ${tone[r.status]}`} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                    {r.status === "running" && <span className="j-dot-pulse" style={{ width: 6, height: 6 }} />}
-                    {r.status}
-                  </span>
-                </td>
-                <td className="j-muted j-num" style={{ fontSize: 12 }}>{r.elapsed}</td>
-                <td className="j-num j-muted">{r.tokens.toLocaleString()}</td>
-                <td className="j-num">{r.cost}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {loading ? (
+          <div style={{ padding: 32, textAlign: "center" }}>
+            <span className="j-muted" style={{ fontSize: 13 }}>Loading jobs…</span>
+          </div>
+        ) : jobs.length === 0 ? (
+          <div style={{ padding: 32, textAlign: "center" }}>
+            <p className="j-muted" style={{ fontSize: 13, margin: "0 0 12px" }}>No agent jobs yet.</p>
+            <button className="j-btn j-btn-primary" onClick={() => setShowForm(true)}>Dispatch first job</button>
+          </div>
+        ) : (
+          <table className="j-table">
+            <thead><tr><th>Agent</th><th>Task</th><th>Status</th><th>Priority</th><th>Elapsed</th><th>Created</th></tr></thead>
+            <tbody>
+              {jobs.map(j => (
+                <tr key={j.id}>
+                  <td>
+                    <div className="j-row j-gap-2">
+                      <div className="j-avatar" style={{ width: 22, height: 22, fontSize: 10 }}>
+                        {(j.assignedTo || j.agent?.name || "?").slice(0, 2).toUpperCase()}
+                      </div>
+                      <span style={{ fontWeight: 500, fontSize: 12 }}>{j.assignedTo || j.agent?.name || "Unassigned"}</span>
+                    </div>
+                  </td>
+                  <td className="j-muted" style={{ fontSize: 12, maxWidth: 280 }}>
+                    <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {j.title}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`j-pill ${tone[j.status] || "j-muted"}`} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      {j.status === "in_progress" && <span className="j-dot-pulse" style={{ width: 6, height: 6 }} />}
+                      {j.status.replace("_", " ")}
+                    </span>
+                  </td>
+                  <td><span className="j-pill j-ghost" style={{ fontSize: 10 }}>{j.priority}</span></td>
+                  <td className="j-muted j-num" style={{ fontSize: 12 }}>{elapsed(j)}</td>
+                  <td className="j-muted" style={{ fontSize: 12 }}>{j.createdAt ? new Date(j.createdAt).toLocaleDateString() : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )
@@ -847,8 +1131,8 @@ export default function ProjectDashboardPage() {
             <DocsView projectId={projectId} />
           </div>
         )}
-        {activeTab === "decisions" && <DecisionsFacet />}
-        {activeTab === "ideas"     && <IdeasFacet />}
+        {activeTab === "decisions" && <DecisionsFacet projectId={projectId} />}
+        {activeTab === "ideas"     && <IdeasFacet projectId={projectId} />}
         {activeTab === "finance"   && <FinanceFacet />}
         {activeTab === "agents"    && <AgentsFacet />}
         {activeTab === "notes"     && <NotesFacet />}
