@@ -219,6 +219,7 @@ const handler = createMcpHandler(
 
           const [project] = await sql`
             SELECT p.id, p.name, p.description, p.current_phase, p.status,
+                   p.project_type, p.tags,
                    bc.vision, bc.target_market, bc.primary_use_case
             FROM projects p
             LEFT JOIN business_context bc ON p.id = bc.project_id
@@ -240,6 +241,8 @@ const handler = createMcpHandler(
               description: truncate(project.description as string, 200),
               phase: project.current_phase,
               status: project.status,
+              project_type: project.project_type,
+              tags: project.tags ?? [],
               vision: truncate(project.vision as string, 150),
               target_market: truncate(project.target_market as string, 100),
               use_case: truncate(project.primary_use_case as string, 100),
