@@ -1,151 +1,51 @@
 import Link from "next/link";
-import { ArrowRight, Rocket, Shield, Zap, Users } from "lucide-react";
 import { stackServerApp } from "@/lib/auth/stack-auth";
 import { redirect } from "next/navigation";
 
 export default async function LandingPage() {
-  // Check if user is already logged in
   try {
     const user = await stackServerApp.getUser();
     if (user) {
       redirect("/dashboard");
     }
   } catch {
-    // If auth check fails, just show the landing page
     console.warn("Auth check failed on landing page, showing public view");
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-      {/* Hero Section */}
-      <div className="relative overflow-hidden">
-        {/* Background gradient effects */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl" />
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl" />
+    <div style={{ minHeight: "100vh", background: "oklch(0.110 0.028 268)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      {/* Radial glow */}
+      <div style={{ position: "fixed", inset: 0, background: "radial-gradient(ellipse 80% 50% at 50% -10%, oklch(0.870 0.045 252 / 0.12), transparent)", pointerEvents: "none" }} />
+
+      <div style={{ position: "relative", maxWidth: 480, width: "100%", textAlign: "center" }}>
+        {/* Logo mark */}
+        <div style={{ width: 56, height: 56, borderRadius: 14, background: "oklch(0.870 0.045 252 / 0.15)", boxShadow: "0 0 0 1px oklch(0.870 0.045 252 / 0.3), 0 0 40px oklch(0.870 0.045 252 / 0.15)", display: "grid", placeItems: "center", margin: "0 auto 24px", fontSize: 24 }}>
+          ◈
         </div>
 
-        {/* Navigation */}
-        <nav className="relative z-10 container mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Rocket className="h-8 w-8 text-blue-500" />
-              <span className="text-2xl font-bold text-white">Mission Control</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <Link
-                href="/sign-in"
-                className="text-gray-300 hover:text-white transition-colors"
-              >
-                Sign In
-              </Link>
-              <Link
-                href="/sign-up"
-                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
-              >
-                Get Started
-              </Link>
-            </div>
-          </div>
-        </nav>
+        <p style={{ fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "oklch(0.870 0.045 252)", marginBottom: 12 }}>Central Nervous System</p>
+        <h1 style={{ fontSize: 36, fontWeight: 500, letterSpacing: "-0.03em", color: "oklch(0.985 0 0)", margin: "0 0 12px" }}>JARVIS</h1>
+        <p style={{ fontSize: 14, color: "oklch(0.556 0 0)", margin: "0 0 40px", lineHeight: 1.6 }}>
+          Your businesses, projects, and agents — unified.
+        </p>
 
-        {/* Hero Content */}
-        <div className="relative z-10 container mx-auto px-6 pt-20 pb-32 text-center">
-          <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
-            AI-Powered
-            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
-              Project Management
-            </span>
-          </h1>
-          <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-10">
-            Track, manage, and accelerate your AI development projects with intelligent
-            automation, real-time progress tracking, and seamless agent integration.
-          </p>
-          <div className="flex items-center justify-center gap-4">
-            <Link
-              href="/sign-up"
-              className="px-8 py-4 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold text-lg flex items-center gap-2 transition-all hover:gap-3"
-            >
-              Start Free <ArrowRight className="h-5 w-5" />
-            </Link>
-            <Link
-              href="/sign-in"
-              className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white rounded-lg font-semibold text-lg border border-white/20 transition-colors"
-            >
-              Sign In
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Features Section */}
-      <div className="py-24 bg-black/40">
-        <div className="container mx-auto px-6">
-          <h2 className="text-3xl font-bold text-white text-center mb-16">
-            Everything You Need to Ship Faster
-          </h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            <FeatureCard
-              icon={<Zap className="h-8 w-8 text-yellow-500" />}
-              title="AI-Powered Insights"
-              description="Get intelligent suggestions, automated progress tracking, and predictive analytics for your projects."
-            />
-            <FeatureCard
-              icon={<Users className="h-8 w-8 text-green-500" />}
-              title="Agent Integration"
-              description="Connect external AI agents via API keys to automatically update progress and log decisions."
-            />
-            <FeatureCard
-              icon={<Shield className="h-8 w-8 text-blue-500" />}
-              title="Secure & Scalable"
-              description="Enterprise-grade security with multi-tenant isolation and granular access controls."
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* CTA Section */}
-      <div className="py-24">
-        <div className="container mx-auto px-6 text-center">
-          <h2 className="text-4xl font-bold text-white mb-6">
-            Ready to Transform Your Workflow?
-          </h2>
-          <p className="text-xl text-gray-400 mb-10 max-w-xl mx-auto">
-            Join developers and teams using Mission Control to ship projects faster.
-          </p>
+        <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+          <Link
+            href="/sign-in"
+            style={{ padding: "10px 24px", background: "oklch(0.870 0.045 252)", color: "oklch(0.110 0.028 268)", borderRadius: 8, fontWeight: 500, fontSize: 14, textDecoration: "none", letterSpacing: "-0.01em" }}
+          >
+            Sign in
+          </Link>
           <Link
             href="/sign-up"
-            className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white rounded-lg font-semibold text-lg transition-all"
+            style={{ padding: "10px 24px", background: "oklch(1 0 0 / 0.06)", color: "oklch(0.860 0 0)", borderRadius: 8, fontWeight: 500, fontSize: 14, textDecoration: "none", boxShadow: "inset 0 0 0 1px oklch(1 0 0 / 0.12)", letterSpacing: "-0.01em" }}
           >
-            Get Started for Free <ArrowRight className="h-5 w-5" />
+            Create account
           </Link>
         </div>
+
+        <p style={{ marginTop: 48, fontSize: 11, color: "oklch(0.360 0 0)" }}>faridea.dev · {new Date().getFullYear()}</p>
       </div>
-
-      {/* Footer */}
-      <footer className="border-t border-white/10 py-8">
-        <div className="container mx-auto px-6 text-center text-gray-500">
-          <p>&copy; {new Date().getFullYear()} Mission Control. All rights reserved.</p>
-        </div>
-      </footer>
-    </div>
-  );
-}
-
-function FeatureCard({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="p-6 rounded-xl bg-white/5 border border-white/10 hover:border-white/20 transition-colors">
-      <div className="mb-4">{icon}</div>
-      <h3 className="text-xl font-semibold text-white mb-2">{title}</h3>
-      <p className="text-gray-400">{description}</p>
     </div>
   );
 }
