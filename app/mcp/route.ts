@@ -3261,7 +3261,6 @@ const handler = createMcpHandler(
     basePath: "",
     verboseLogs: true,
     maxDuration: 60,
-    disableSse: true, // Use simple HTTP polling instead of SSE
   }
 )
 
