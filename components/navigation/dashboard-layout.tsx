@@ -21,9 +21,10 @@ const PAGE_META: Record<string, { title: string; sub: string }> = {
 
 interface DashboardLayoutProps {
   children: React.ReactNode
+  noPad?: boolean
 }
 
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function DashboardLayout({ children, noPad }: DashboardLayoutProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [cmdOpen, setCmdOpen] = useState(false)
   const pathname = usePathname()
@@ -69,7 +70,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </header>
 
-        <main style={{ flex: 1, overflowY: "auto" }}>
+        <main style={noPad
+          ? { flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }
+          : { flex: 1, overflowY: "auto" }
+        }>
           {children}
         </main>
       </div>
