@@ -785,8 +785,9 @@ const handler = createMcpHandler(
         title: z.string().describe("Document title"),
         content: z.string().describe("Markdown content"),
         category: z.string().optional().describe("Category"),
+        docType: z.enum(["architecture","api","ui_ux","requirements","testing","deployment","general"]).optional().describe("Document type (default: general)"),
       },
-      async ({ projectId, title, content, category }) => {
+      async ({ projectId, title, content, category, docType }) => {
         try {
           requireMcpScope("write")
           const userId = getMcpUserId()
@@ -801,7 +802,7 @@ const handler = createMcpHandler(
 
           const [doc] = await sql`
             INSERT INTO documents(project_id, title, content, category, doc_type, blob_key, file_type, file_size, user_id)
-            VALUES(${resolvedId}, ${title}, ${content}, ${category || "general"}, 'page', NULL, 'text/markdown', ${contentSize}, ${userId})
+            VALUES(${resolvedId}, ${title}, ${content}, ${category || "general"}, ${docType || "general"}, NULL, 'text/markdown', ${contentSize}, ${userId})
             RETURNING id, title
           `
 

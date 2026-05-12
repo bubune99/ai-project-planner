@@ -119,6 +119,7 @@
     "use-stick-to-bottom": "^1.1.1",
     "usehooks-ts": "^3.1.1",
     "vaul": "^0.9.9",
+    "web-push": "^3.6.7",
     "zod": "3.25.76"
   },
   "devDependencies": {
@@ -127,6 +128,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "@types/web-push": "^3.6.4",
     "dotenv": "^16.4.7",
     "dotenv-cli": "^11.0.0",
     "postcss": "^8.5.6",
