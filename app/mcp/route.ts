@@ -265,19 +265,21 @@ const handler = createMcpHandler(
       {
         name: z.string().describe("Project name"),
         description: z.string().describe("Project description"),
+        projectType: z.enum(["product","client-software","client-physical","client-service","internal","research"]).optional().describe("Project type: product (own software), client-software, client-physical, client-service, internal, research"),
+        tags: z.array(z.string()).optional().describe("Classification tags e.g. ['shopify','nextjs','ai']"),
         vision: z.string().optional().describe("Project vision/goal"),
         targetMarket: z.string().optional().describe("Target market"),
         primaryUseCase: z.string().optional().describe("Primary use case"),
       },
-      async ({ name, description, vision, targetMarket, primaryUseCase }) => {
+      async ({ name, description, projectType, tags, vision, targetMarket, primaryUseCase }) => {
         try {
           requireMcpScope("write")
           const userId = getMcpUserId()
 
           const [project] = await sql`
-            INSERT INTO projects (name, description, status, priority, current_phase, user_id)
-            VALUES (${name}, ${description}, 'planning', 'medium', 'ideation', ${userId})
-            RETURNING id, name, status, current_phase
+            INSERT INTO projects (name, description, status, priority, current_phase, user_id, project_type, tags)
+            VALUES (${name}, ${description}, 'planning', 'medium', 'ideation', ${userId}, ${projectType || "product"}, ${tags || []})
+            RETURNING id, name, status, current_phase, project_type, tags
           `
 
           if (vision || targetMarket || primaryUseCase) {
@@ -327,6 +329,7 @@ const handler = createMcpHandler(
           const projects = includeShared
             ? await sql`
                 SELECT DISTINCT p.id, p.name, p.description, p.current_phase, p.status, p.created_at,
+                       p.project_type, p.tags,
                        CASE WHEN p.user_id = ${userId} THEN 'owner' ELSE pc.role END as my_role
                 FROM projects p
                 LEFT JOIN project_collaborators pc ON p.id = pc.project_id AND pc.user_id = ${userId}
@@ -337,7 +340,7 @@ const handler = createMcpHandler(
               `
             : await sql`
                 SELECT p.id, p.name, p.description, p.current_phase, p.status, p.created_at,
-                       'owner' as my_role
+                       p.project_type, p.tags, 'owner' as my_role
                 FROM projects p
                 WHERE p.user_id = ${userId} AND p.deleted_at IS NULL
                 ORDER BY p.created_at DESC
@@ -367,6 +370,8 @@ const handler = createMcpHandler(
                 description: truncate(p.description as string, 100),
                 phase: p.current_phase,
                 status: p.status,
+                project_type: p.project_type,
+                tags: p.tags,
                 role: p.my_role,
                 created_at: p.created_at
               }))
@@ -375,6 +380,59 @@ const handler = createMcpHandler(
             projects: data,
             pagination: { total: count, limit: actualLimit, offset: actualOffset }
           })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ==========================================
+    // Tool: Update project
+    // ==========================================
+    server.tool(
+      "update_project",
+      "Update project fields including type, tags, status, priority, and description.",
+      {
+        projectId: z.string().optional().describe("Project ID (uses active project if not specified)"),
+        name: z.string().optional().describe("New project name"),
+        description: z.string().optional().describe("New description"),
+        projectType: z.enum(["product","client-software","client-physical","client-service","internal","research"]).optional().describe("Project type"),
+        tags: z.array(z.string()).optional().describe("Replace tags array"),
+        status: z.enum(["planning","in-progress","on-hold","completed","cancelled"]).optional().describe("Project status"),
+        priority: z.enum(["low","medium","high","critical"]).optional().describe("Project priority"),
+        health: z.enum(["on-track","at-risk","blocked"]).optional().describe("Project health"),
+        githubRepoUrl: z.string().optional().describe("GitHub repository URL"),
+      },
+      async ({ projectId, name, description, projectType, tags, status, priority, health, githubRepoUrl }) => {
+        try {
+          requireMcpScope("write")
+          const [resolvedId, error] = resolveProjectId(projectId)
+          if (!resolvedId) return mcpError(error!)
+
+          const hasAccess = await requireMcpProjectWriteAccess(resolvedId)
+          if (!hasAccess) return mcpError("No write access to this project")
+
+          const updates: Record<string, unknown> = {}
+          if (name !== undefined) updates.name = name
+          if (description !== undefined) updates.description = description
+          if (projectType !== undefined) updates.project_type = projectType
+          if (tags !== undefined) updates.tags = tags
+          if (status !== undefined) updates.status = status
+          if (priority !== undefined) updates.priority = priority
+          if (health !== undefined) updates.health = health
+          if (githubRepoUrl !== undefined) updates.github_repo_url = githubRepoUrl
+
+          if (Object.keys(updates).length === 0) return mcpError("No fields to update")
+
+          const setClauses = Object.keys(updates)
+          const values = Object.values(updates)
+
+          const [updated] = await sql(
+            `UPDATE projects SET ${setClauses.map((k, i) => `${k} = $${i + 2}`).join(", ")}, updated_at = NOW() WHERE id = $1 RETURNING id, name, project_type, tags, status, priority, health`,
+            [resolvedId, ...values]
+          )
+
+          return mcpResponse({ updated: true, project: updated })
         } catch (error: unknown) {
           return mcpError(error instanceof Error ? error.message : "Unknown error")
         }
