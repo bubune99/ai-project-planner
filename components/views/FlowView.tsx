@@ -278,13 +278,13 @@ export function FlowView({
 
         <StepFormModal
           projectId={projectId}
-          isOpen={isStepModalOpen}
+          open={isStepModalOpen}
           onClose={() => {
             setIsStepModalOpen(false)
             setEditingStep(null)
           }}
           onSuccess={handleStepSaved}
-          editingStep={editingStep}
+          step={editingStep}
         />
       </div>
     )

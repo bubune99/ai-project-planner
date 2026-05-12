@@ -139,6 +139,18 @@ export interface Task {
   dependencies: string[]
 }
 
+export interface GanttTask {
+  id: string
+  name: string
+  agent: any
+  startDate: Date
+  endDate: Date
+  progress: number
+  dependencies: string[]
+  phase: number | string
+  status: "pending" | "in_progress" | "completed" | "blocked"
+}
+
 export interface KanbanTask {
   id: string
   title: string

@@ -1,6 +1,27 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+
+function stepToGantt(step: any, index: number): any {
+  const today = new Date()
+  const start = step.start_date ? new Date(step.start_date) : new Date(today.getFullYear(), today.getMonth(), 1 + index * 3)
+  const end   = step.end_date   ? new Date(step.end_date)   : new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000)
+  const statusMap: Record<string, string> = {
+    pending: "pending", "in-progress": "in_progress", in_progress: "in_progress",
+    review: "in_progress", completed: "completed", blocked: "pending",
+  }
+  return {
+    id: step.id,
+    name: step.title || "Untitled",
+    agent: { name: step.assigned_agent || "human" },
+    startDate: start,
+    endDate: end,
+    progress: step.progress || (step.status === "completed" ? 100 : 0),
+    dependencies: (step.dependencies || []).map((d: any) => d.depends_on_step_id || d).filter(Boolean),
+    phase: typeof step.phase === "string" ? parseInt(step.phase) || 1 : (step.phase || 1),
+    status: statusMap[step.status] ?? "pending",
+  }
+}
 import { Calendar, Download, Printer, Filter, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -21,23 +42,50 @@ interface GanttViewProps {
 
 type ViewMode = "day" | "week" | "month"
 
-export function GanttView({ tasks, projectId, onTaskSelect, onRefresh, onFilterAgents, onExportPng, onPrint }: GanttViewProps) {
+export function GanttView({ tasks: initialTasks, projectId, onTaskSelect, onRefresh, onFilterAgents, onExportPng, onPrint }: GanttViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("week")
   const [showDependencies, setShowDependencies] = useState(true)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [showStepForm, setShowStepForm] = useState(false)
   const [selectedTask, setSelectedTask] = useState<GanttTask | null>(null)
+  const [fetchedTasks, setFetchedTasks] = useState<GanttTask[]>([])
+  const [fetching, setFetching] = useState(false)
+
+  // Dynamic date range: start of current month, 3 months forward
+  const today = new Date()
   const [dateRange, setDateRange] = useState({
-    start: new Date("2025-01-01"),
-    end: new Date("2025-03-31"),
+    start: new Date(today.getFullYear(), today.getMonth(), 1),
+    end: new Date(today.getFullYear(), today.getMonth() + 3, 0),
   })
 
   const taskListRef = useRef<HTMLDivElement>(null)
   const timelineRef = useRef<HTMLDivElement>(null)
   const timelineHeaderRef = useRef<HTMLDivElement>(null)
 
-  // Use provided tasks or show empty state
-  const ganttTasks = Array.isArray(tasks) && tasks.length > 0 ? tasks : []
+  useEffect(() => {
+    if (Array.isArray(initialTasks) && initialTasks.length > 0) return
+    setFetching(true)
+    fetch(`/api/projects/${projectId}/steps`)
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data.steps)) {
+          const mapped = data.steps.map(stepToGantt)
+          setFetchedTasks(mapped)
+          // Adjust date range to cover actual task dates if present
+          const dates = mapped.flatMap((t: any) => [t.startDate, t.endDate]).filter(Boolean)
+          if (dates.length > 0) {
+            const minDate = new Date(Math.min(...dates.map((d: Date) => d.getTime())))
+            const maxDate = new Date(Math.max(...dates.map((d: Date) => d.getTime())))
+            setDateRange({ start: minDate, end: maxDate })
+          }
+        }
+      })
+      .catch(console.error)
+      .finally(() => setFetching(false))
+  }, [projectId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Use provided tasks or self-fetched
+  const ganttTasks = Array.isArray(initialTasks) && initialTasks.length > 0 ? initialTasks : fetchedTasks
 
   useEffect(() => {
     const taskList = taskListRef.current
@@ -216,7 +264,11 @@ export function GanttView({ tasks, projectId, onTaskSelect, onRefresh, onFilterA
 
         {/* Gantt Content */}
         <div className="flex-1 flex overflow-hidden min-h-0">
-          {ganttTasks.length === 0 ? (
+          {fetching ? (
+            <div className="flex-1 flex items-center justify-center text-muted-foreground">
+              <div className="text-center py-12"><p className="text-sm">Loading tasks…</p></div>
+            </div>
+          ) : ganttTasks.length === 0 ? (
             <div className="flex-1 flex items-center justify-center text-muted-foreground">
               <div className="text-center py-12">
                 <p className="text-lg mb-2">No steps defined yet</p>

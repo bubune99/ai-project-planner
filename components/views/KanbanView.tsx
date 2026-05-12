@@ -1,7 +1,31 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { KanbanTask } from "@/lib/types"
+
+function stepToKanban(step: any): KanbanTask {
+  const statusMap: Record<string, KanbanTask["status"]> = {
+    pending: "backlog",
+    "in-progress": "in_progress",
+    in_progress: "in_progress",
+    review: "review",
+    completed: "complete",
+    blocked: "backlog",
+  }
+  const priorityMap: Record<string, KanbanTask["priority"]> = {
+    low: "low", medium: "medium", high: "high", critical: "high",
+  }
+  return {
+    id: step.id,
+    title: step.title || "Untitled",
+    description: step.description || "",
+    status: statusMap[step.status] ?? "backlog",
+    priority: priorityMap[step.priority] ?? "medium",
+    agent: step.assigned_agent || "human",
+    phase: step.phase || "",
+    tags: step.tags || [],
+  }
+}
 import { KanbanColumn } from "./KanbanColumn"
 import { TaskDetailModal } from "./TaskDetailModal"
 import { StepFormModal } from "@/components/steps/StepFormModal"
@@ -20,8 +44,24 @@ interface KanbanViewProps {
 }
 
 export function KanbanView({ tasks: initialTasks, projectId, onTaskSelect, onRefresh }: KanbanViewProps) {
-  const kanbanTasks = Array.isArray(initialTasks) && initialTasks.length > 0 ? initialTasks : []
-  const [tasks, setTasks] = useState<KanbanTask[]>(kanbanTasks)
+  const [tasks, setTasks] = useState<KanbanTask[]>(
+    Array.isArray(initialTasks) && initialTasks.length > 0 ? initialTasks : []
+  )
+  const [fetching, setFetching] = useState(!initialTasks || initialTasks.length === 0)
+
+  useEffect(() => {
+    if (Array.isArray(initialTasks) && initialTasks.length > 0) return
+    setFetching(true)
+    fetch(`/api/projects/${projectId}/steps`)
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data.steps)) setTasks(data.steps.map(stepToKanban))
+      })
+      .catch(console.error)
+      .finally(() => setFetching(false))
+  }, [projectId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const kanbanTasks = tasks
   const [searchQuery, setSearchQuery] = useState("")
   const [phaseFilter, setPhaseFilter] = useState("all")
   const [agentFilter, setAgentFilter] = useState("all")
@@ -76,8 +116,11 @@ export function KanbanView({ tasks: initialTasks, projectId, onTaskSelect, onRef
         description: "Failed to update task status",
         variant: "destructive",
       })
-      // Revert on error
-      setTasks(initialTasks)
+      // Revert on error — re-fetch to get latest state
+      fetch(`/api/projects/${projectId}/steps`)
+        .then(r => r.json())
+        .then(data => { if (Array.isArray(data.steps)) setTasks(data.steps.map(stepToKanban)) })
+        .catch(console.error)
     }
   }
 
@@ -211,7 +254,13 @@ export function KanbanView({ tasks: initialTasks, projectId, onTaskSelect, onRef
         </div>
 
         {/* Kanban Board */}
-        {kanbanTasks.length === 0 ? (
+        {fetching ? (
+          <div className="flex-1 flex items-center justify-center text-muted-foreground">
+            <div className="text-center py-12">
+              <p className="text-sm">Loading tasks…</p>
+            </div>
+          </div>
+        ) : kanbanTasks.length === 0 ? (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
             <div className="text-center py-12">
               <p className="text-lg mb-2">No steps defined yet</p>

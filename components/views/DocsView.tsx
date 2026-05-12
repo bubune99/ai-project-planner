@@ -32,6 +32,23 @@ export function DocsView({ projectId }: DocsViewProps) {
   const [isLoading, setIsLoading] = useState(true)
 
   const fetchDocuments = async () => {
+    try {
+      setIsLoading(true)
+      const res = await fetch(`/api/projects/${projectId}/documents`)
+      if (!res.ok) throw new Error("Failed to fetch documents")
+      const data = await res.json()
+      const docs: Document[] = data.documents || []
+      setDocuments(docs)
+      setChapters(docs.filter(d => d.doc_type === "chapter"))
+      if (!activeDoc) {
+        const firstPage = docs.find(d => d.doc_type === "page")
+        if (firstPage) setActiveDoc(firstPage)
+      }
+    } catch (error) {
+      console.error("[DocsView] Failed to fetch documents:", error)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   useEffect(() => {
