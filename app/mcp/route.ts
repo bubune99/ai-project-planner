@@ -3320,6 +3320,12 @@ const handler = createMcpHandler(
   },
   {},
   {
+    // mcp-handler's stateful (SSE/streamable-HTTP) transport keeps session
+    // state in Redis. On Vercel's stateless serverless, omitting this makes
+    // every post-initialize request land on a fresh instance with no session
+    // -> HTTP 500 (even initialize fails under load). Wire the already-present
+    // REDIS_URL/KV so sessions persist across invocations.
+    redisUrl: process.env.REDIS_URL || process.env.KV_URL,
     basePath: "",
     verboseLogs: true,
     maxDuration: 60,
