@@ -62,6 +62,13 @@ function isValidApiKeyFormat(key: string): boolean {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Method-aware public exception: the feedback widget is embeddable and meant
+  // to accept reports from anonymous/end users, so POST /api/feedback is open.
+  // GET (admin inbox list) and PATCH (triage) stay auth-gated below.
+  if (pathname === "/api/feedback" && request.method === "POST") {
+    return NextResponse.next();
+  }
+
   // Skip middleware for public routes
   if (isPublicRoute(pathname)) {
     return NextResponse.next();
