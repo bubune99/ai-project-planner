@@ -67,7 +67,8 @@
       "Bash(find:*)",
       "Bash(timeout 30 pnpm dev:*)",
       "mcp__internal-code__pre_deploy_audit",
-      "mcp__ui-validation__validate_event_handlers"
+      "mcp__ui-validation__validate_event_handlers",
+      "WebFetch(domain:api.anthropic.com)"
     ]
   },
   "enableAllProjectMcpServers": true,

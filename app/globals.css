@@ -443,3 +443,226 @@ body::before {
 .j-spark-rail { display: flex; align-items: flex-end; gap: 2px; height: 28px; }
 .j-spark-rail > span { flex: 1; background: oklch(1 0 0 / 0.12); border-radius: 1px; }
 .j-spark-rail > span.j-hi { background: var(--j-accent); }
+
+/* ============================================================
+   JARVIS — Responsive layer
+   Adds tablet (≤1100px) and mobile (≤768px) compatibility on top
+   of the fixed-grid desktop shell above.
+
+   Approach (ported from the Central Nervous System design handoff,
+   "Mobile Responsive Design" session):
+   - Desktop-collapse is class-driven (.j-collapsed) so media
+     queries can override it cleanly — no inline-style conflicts.
+   - Tablet: sidebar auto-collapses to an icon rail; .j-split
+     stacks; 4/5-col grids reflow; padding tightens.
+   - Mobile: sidebar becomes an off-canvas drawer toggled from a
+     hamburger in the topbar; all multi-col grids collapse; tables
+     scroll horizontally; the desktop search bar collapses to an icon.
+   ============================================================ */
+
+/* Class-driven desktop collapse (replaces inline grid/width styles) */
+.j-app.j-collapsed { grid-template-columns: 64px 1fr; }
+.j-sidebar.j-collapsed { width: 64px; padding: 18px 10px; }
+
+/* Mobile-only controls: hidden by default, shown in media queries */
+.j-drawer-backdrop { display: none; }
+.j-btn-icon.j-nav-toggle,
+.j-btn-icon.j-search-mobile,
+.j-sidebar .j-drawer-close { display: none; }
+
+/* ---------- TABLET — ≤ 1100px ---------- */
+@media (max-width: 1100px) {
+  .j-topbar { padding: 14px 22px; }
+  .j-content { padding: calc(22px * var(--j-density)) 22px 64px; gap: calc(16px * var(--j-density)); }
+
+  /* Sidebar auto-collapses to an icon rail — grid follows */
+  .j-app,
+  .j-app.j-collapsed { grid-template-columns: 64px 1fr; }
+
+  /* Search shrinks but stays */
+  .j-search { min-width: 180px; }
+  .j-search > span:first-of-type { display: none; }
+
+  /* Multi-column reflow */
+  .j-grid.j-cols-5 { grid-template-columns: repeat(3, 1fr); }
+  .j-grid.j-cols-4 { grid-template-columns: repeat(2, 1fr); }
+  .j-split        { grid-template-columns: 1fr; gap: 16px; }
+
+  /* Gantt rows tighter */
+  .j-gantt-row { grid-template-columns: 130px 1fr 50px; gap: 10px; }
+  .j-gantt-name { font-size: 12px; }
+
+  /* Graph a touch shorter */
+  .j-graph-canvas { min-height: 320px; }
+}
+
+/* ---------- MOBILE — ≤ 768px ---------- */
+@media (max-width: 768px) {
+  /* Show mobile-only controls */
+  .j-btn-icon.j-nav-toggle { display: inline-flex; }
+  .j-btn-icon.j-search-mobile { display: inline-flex; }
+  .j-sidebar .j-drawer-close { display: inline-flex; }
+
+  /* Single-column app shell */
+  .j-app,
+  .j-app.j-collapsed { grid-template-columns: 1fr; }
+
+  /* Sidebar → off-canvas drawer */
+  .j-sidebar,
+  .j-sidebar.j-collapsed {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 280px;
+    padding: 18px 14px;
+    z-index: 60;
+    transform: translateX(-100%);
+    transition: transform .26s ease;
+    box-shadow: 14px 0 40px -12px oklch(0 0 0 / 0.5);
+    border-right: 1px solid var(--j-ring-strong);
+  }
+  .j-sidebar.j-mobile-open { transform: translateX(0); }
+
+  /* Sidebar brand row gets a close button on the right */
+  .j-brand { justify-content: space-between; }
+
+  /* Larger touch targets for nav items */
+  .j-nav-item { padding: 11px 10px; font-size: 14px; }
+
+  /* Backdrop */
+  .j-drawer-backdrop {
+    display: block;
+    position: fixed; inset: 0;
+    z-index: 55;
+    background: oklch(0 0 0 / 0.55);
+    backdrop-filter: blur(3px);
+    animation: j-drawer-fade-in .2s ease;
+  }
+  @keyframes j-drawer-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+  /* Lock body scroll while the drawer is open */
+  .j-app.j-drawer-open { overflow: hidden; height: 100vh; }
+
+  /* Topbar */
+  .j-topbar { padding: 12px 14px; gap: 8px; }
+  .j-topbar-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .j-topbar-titles { min-width: 0; }
+  .j-topbar-titles h1 {
+    font-size: 16px; line-height: 1.2;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .j-topbar-left p { display: none; }            /* hide subtitle to save height */
+  .j-search { display: none; }                   /* desktop search → icon button */
+  .j-topbar-right { gap: 4px; }
+
+  /* Content padding */
+  .j-content { padding: 14px 14px 72px; gap: 14px; }
+
+  /* Card padding, smaller radii */
+  .j-card { padding: 16px; border-radius: 10px; }
+  .j-card.j-tight { padding: 14px; }
+
+  /* All multi-col grids reflow toward 2 */
+  .j-grid.j-cols-5,
+  .j-grid.j-cols-4,
+  .j-grid.j-cols-3 { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .j-grid.j-cols-2 { gap: 10px; }
+
+  /* Focus-mode hero */
+  .j-focus-mode { padding: 18px; border-radius: 14px; }
+  .j-focus-mode .j-row.j-between {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .j-focus-mode .j-btn { flex: 1; justify-content: center; }
+
+  /* Card heads — let actions wrap below the title */
+  .j-card-head { flex-wrap: wrap; gap: 10px; }
+  .j-card-head .j-card-actions,
+  .j-card-head .j-row { flex-wrap: wrap; }
+
+  /* Gantt: stack name / track / progress */
+  .j-gantt-row {
+    grid-template-columns: 1fr;
+    grid-template-areas: "name" "track" "progress";
+    gap: 6px;
+    padding: 12px 0;
+  }
+  .j-gantt-name  { grid-area: name; }
+  .j-gantt-track { grid-area: track; }
+  .j-gantt-row > .j-row:last-child {
+    grid-area: progress;
+    justify-content: flex-start;
+  }
+
+  /* Tables: horizontal scroll inside the card */
+  .j-card:has(> .j-table),
+  .j-card:has(.j-table) { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .j-table { min-width: 620px; font-size: 12.5px; }
+  .j-table th, .j-table td { padding: 9px 10px; }
+
+  /* Graph smaller */
+  .j-graph-canvas { min-height: 280px; aspect-ratio: 4 / 5; }
+  .j-graph-label { font-size: 10px; padding: 1px 4px; }
+
+  /* Calendar — tighter day cells */
+  .j-cal-grid { gap: 3px; }
+  .j-cal-day { padding: 4px; font-size: 9.5px; }
+
+  /* Tab rails scroll horizontally with comfy taps */
+  .j-tabs {
+    overflow-x: auto;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .j-tabs::-webkit-scrollbar { display: none; }
+  .j-tab { padding: 8px 12px; font-size: 12px; flex-shrink: 0; }
+
+  /* Command palette fits the viewport (width set inline as min(560px,94vw)) */
+  .j-cmdk { max-height: 70vh; }
+}
+
+/* ---------- SMALL PHONE — ≤ 480px ---------- */
+@media (max-width: 480px) {
+  .j-topbar { padding: 10px 12px; }
+  .j-content { padding: 12px 12px 72px; }
+
+  /* Everything → single column */
+  .j-grid.j-cols-5,
+  .j-grid.j-cols-4,
+  .j-grid.j-cols-3,
+  .j-grid.j-cols-2 { grid-template-columns: 1fr; }
+
+  /* Typography */
+  .j-amount-xl { font-size: 26px; }
+  .j-amount-lg { font-size: 19px; }
+
+  /* Drawer covers more of the screen */
+  .j-sidebar,
+  .j-sidebar.j-collapsed { width: 86vw; }
+
+  /* Graph: nearly square, hide static labels */
+  .j-graph-canvas { aspect-ratio: 1 / 1.1; min-height: 320px; }
+  .j-graph-label { display: none; }
+  .j-graph-node:hover .j-graph-label,
+  .j-graph-node:active .j-graph-label { display: block; }
+
+  /* Card-head stacks fully */
+  .j-card-head > *:first-child { flex: 1 1 100%; }
+  .j-card-head > .j-row,
+  .j-card-head > .j-card-actions { flex: 1 1 100%; }
+}
+
+/* ---------- TOUCH / HOVER refinements ---------- */
+@media (hover: none) and (pointer: coarse) {
+  .j-nav-item:hover { background: transparent; color: oklch(0.860 0 0); }
+  .j-nav-item.j-active:hover {
+    background: oklch(0.870 0.045 252 / 0.14);
+    color: oklch(0.985 0 0);
+  }
+  /* Bigger tap targets */
+  .j-btn { min-height: 36px; }
+  .j-btn-icon { min-width: 34px; min-height: 34px; }
+  .j-pill { height: 22px; padding: 3px 9px; }
+}

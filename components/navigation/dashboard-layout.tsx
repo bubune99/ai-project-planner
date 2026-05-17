@@ -24,9 +24,18 @@ interface DashboardLayoutProps {
   noPad?: boolean
 }
 
+type Viewport = "mobile" | "tablet" | "desktop"
+
+function viewportFor(width: number): Viewport {
+  return width <= 768 ? "mobile" : width <= 1100 ? "tablet" : "desktop"
+}
+
 export function DashboardLayout({ children, noPad }: DashboardLayoutProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [cmdOpen, setCmdOpen] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  // Deterministic on first render (SSR + hydration); corrected on mount.
+  const [vp, setVp] = useState<Viewport>("desktop")
   const pathname = usePathname()
 
   const meta = PAGE_META[pathname] || { title: "JARVIS", sub: "Central Nervous System" }
@@ -36,7 +45,10 @@ export function DashboardLayout({ children, noPad }: DashboardLayoutProps) {
       e.preventDefault()
       setCmdOpen(o => !o)
     }
-    if (e.key === "Escape") setCmdOpen(false)
+    if (e.key === "Escape") {
+      setCmdOpen(false)
+      setMobileOpen(false)
+    }
   }, [])
 
   useEffect(() => {
@@ -44,15 +56,71 @@ export function DashboardLayout({ children, noPad }: DashboardLayoutProps) {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [handleKeyDown])
 
+  // Track viewport: auto-collapse on tablet, close the drawer when
+  // resizing back out of mobile.
+  useEffect(() => {
+    const onResize = () => {
+      const next = viewportFor(window.innerWidth)
+      setVp(next)
+      if (next !== "mobile") setMobileOpen(false)
+    }
+    onResize()
+    window.addEventListener("resize", onResize)
+    return () => window.removeEventListener("resize", onResize)
+  }, [])
+
+  // Close the drawer on route change.
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [pathname])
+
+  // Lock body scroll while the mobile drawer is open.
+  useEffect(() => {
+    if (!mobileOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = prev }
+  }, [mobileOpen])
+
+  // On mobile the drawer always shows full labels; on tablet the
+  // sidebar is forced to the icon rail; on desktop honor the toggle.
+  const effectiveCollapsed = vp === "mobile" ? false : vp === "tablet" ? true : collapsed
+
   return (
-    <div className="j-app" style={collapsed ? { gridTemplateColumns: "64px 1fr" } : {}}>
-      <AppSidebar collapsed={collapsed} onCollapsedChange={setCollapsed} />
+    <div
+      className={
+        `j-app${effectiveCollapsed ? " j-collapsed" : ""}${mobileOpen ? " j-drawer-open" : ""}`
+      }
+    >
+      <AppSidebar
+        collapsed={effectiveCollapsed}
+        onCollapsedChange={setCollapsed}
+        mobileOpen={mobileOpen}
+        onCloseMobile={() => setMobileOpen(false)}
+      />
+      {mobileOpen && (
+        <div
+          className="j-drawer-backdrop"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
 
       <div className="j-main">
         <header className="j-topbar">
           <div className="j-topbar-left">
-            <h1>{meta.title}</h1>
-            <p>{meta.sub}</p>
+            <button
+              className="j-btn j-btn-icon j-btn-ghost j-nav-toggle"
+              onClick={() => setMobileOpen(true)}
+              title="Open menu"
+              aria-label="Open navigation menu"
+            >
+              <Icon name="list" size={16} />
+            </button>
+            <div className="j-topbar-titles">
+              <h1>{meta.title}</h1>
+              <p>{meta.sub}</p>
+            </div>
           </div>
           <div className="j-topbar-right">
             <button
@@ -63,6 +131,14 @@ export function DashboardLayout({ children, noPad }: DashboardLayoutProps) {
               <Icon name="search" size={14} />
               <span>Search or jump to…</span>
               <span className="j-kbd">⌘K</span>
+            </button>
+            <button
+              className="j-btn j-btn-icon j-btn-ghost j-search-mobile"
+              onClick={() => setCmdOpen(true)}
+              title="Search"
+              aria-label="Open search"
+            >
+              <Icon name="search" size={16} />
             </button>
             <button className="j-btn j-btn-icon j-btn-ghost" title="Notifications">
               <Icon name="bell" size={16} />
@@ -89,9 +165,10 @@ export function DashboardLayout({ children, noPad }: DashboardLayoutProps) {
           }}
         >
           <div
+            className="j-cmdk"
             onClick={e => e.stopPropagation()}
             style={{
-              width: 560, background: "oklch(0.155 0 0)", borderRadius: 14,
+              width: "min(560px, 94vw)", background: "oklch(0.155 0 0)", borderRadius: 14,
               boxShadow: "0 0 0 1px oklch(1 0 0 / 0.12), 0 24px 48px -12px oklch(0 0 0 / 0.6)",
               overflow: "hidden",
             }}

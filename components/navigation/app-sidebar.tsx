@@ -55,9 +55,16 @@ const NAV_SECTIONS: NavSection[] = [
 interface AppSidebarProps {
   collapsed?: boolean
   onCollapsedChange?: (collapsed: boolean) => void
+  mobileOpen?: boolean
+  onCloseMobile?: () => void
 }
 
-export function AppSidebar({ collapsed = false, onCollapsedChange }: AppSidebarProps) {
+export function AppSidebar({
+  collapsed = false,
+  onCollapsedChange,
+  mobileOpen = false,
+  onCloseMobile,
+}: AppSidebarProps) {
   const pathname = usePathname()
   const user = useUser()
 
@@ -66,7 +73,9 @@ export function AppSidebar({ collapsed = false, onCollapsedChange }: AppSidebarP
     : "U"
 
   return (
-    <div className="j-sidebar" style={collapsed ? { width: 64, padding: "18px 10px" } : {}}>
+    <div
+      className={`j-sidebar${collapsed ? " j-collapsed" : ""}${mobileOpen ? " j-mobile-open" : ""}`}
+    >
       {/* Brand */}
       <div className="j-brand" style={collapsed ? { justifyContent: "center", padding: "6px 0 14px" } : {}}>
         <div className="j-brand-mark">J</div>
@@ -76,6 +85,15 @@ export function AppSidebar({ collapsed = false, onCollapsedChange }: AppSidebarP
             <span>Central Nervous System</span>
           </div>
         )}
+        <button
+          onClick={onCloseMobile}
+          className="j-btn j-btn-icon j-btn-ghost j-drawer-close"
+          style={{ marginLeft: "auto" }}
+          title="Close menu"
+          aria-label="Close menu"
+        >
+          <Icon name="x" size={14} />
+        </button>
       </div>
 
       {/* Navigation */}
@@ -90,6 +108,7 @@ export function AppSidebar({ collapsed = false, onCollapsedChange }: AppSidebarP
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={onCloseMobile}
                 className={`j-nav-item${isActive ? " j-active" : ""}`}
                 style={collapsed ? { justifyContent: "center", padding: "9px 0" } : {}}
                 title={collapsed ? item.title : undefined}
