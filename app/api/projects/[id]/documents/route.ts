@@ -80,7 +80,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         ${title},
         ${description || null},
         ${content || ""},
-        ${doc_type || "page"},
+        ${doc_type || "general"},
         ${parent_id || null},
         ${category || "documentation"}
       )
