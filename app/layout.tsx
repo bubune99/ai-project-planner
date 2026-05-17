@@ -7,6 +7,7 @@ import { StackProvider, StackTheme } from "@stackframe/stack"
 import { stackServerApp } from "@/lib/auth/stack-auth"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister"
+import { FeedbackWidget } from "@/components/feedback/FeedbackWidget"
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -50,6 +51,7 @@ export default function RootLayout({
         </ThemeProvider>
         <Analytics />
         <ServiceWorkerRegister />
+        <FeedbackWidget source="ai-project-planner" />
       </body>
     </html>
   )
