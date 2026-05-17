@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { DashboardLayout } from "@/components/navigation"
 import { NewProjectModal } from "@/components/projects/NewProjectModal"
 import type { ProjectSummary } from "@/lib/types"
@@ -350,30 +351,43 @@ export default function ProjectsPage() {
   return (
     <DashboardLayout>
       <div className="j-content">
-        {/* Top stat strip */}
-        <div className="j-row" style={{ gap: 10 }}>
+        {/* Breadcrumbs — wayfinding, esp. on mobile (feedback #2) */}
+        <nav aria-label="Breadcrumb" className="j-row j-wrap" style={{ gap: 6, fontSize: 12 }}>
+          <Link href="/dashboard" className="j-muted" style={{ textDecoration: "none" }}>Dashboard</Link>
+          <span className="j-muted" aria-hidden="true">›</span>
+          <span aria-current="page">Projects</span>
+        </nav>
+
+        {/* Header action — pulled out of the stat bar so it no longer
+            stretches the row and forces horizontal page scroll on mobile
+            (feedback #1) */}
+        <div className="j-row j-between j-wrap" style={{ gap: 10 }}>
+          <span className="j-muted" style={{ fontSize: 13 }}>All ventures and initiatives</span>
+          <button
+            className="j-btn j-btn-primary"
+            style={{ whiteSpace: "nowrap" }}
+            onClick={() => setIsNewProjectModalOpen(true)}
+          >
+            + New project
+          </button>
+        </div>
+
+        {/* Stat strip — responsive grid (4 / 2 / 1 cols), contained on
+            mobile so the whole page no longer scrolls sideways (feedback #1) */}
+        <div className="j-grid j-cols-4">
           {[
             { label: "Total", value: total, cls: "" },
             { label: "Active", value: active, cls: "j-pos" },
             { label: "At risk", value: atRisk, cls: atRisk > 0 ? "j-warn" : "j-muted" },
             { label: "Avg progress", value: `${avgProgress}%`, cls: "j-info" },
           ].map(s => (
-            <div key={s.label} className="j-card j-tight" style={{ flex: 1, padding: "12px 16px" }}>
+            <div key={s.label} className="j-card j-tight" style={{ padding: "12px 16px" }}>
               <div className="j-eyebrow">{s.label}</div>
               <div className={`j-num ${s.cls}`} style={{ fontSize: 24, fontWeight: 600, marginTop: 4, letterSpacing: "-0.02em" }}>
                 {s.value}
               </div>
             </div>
           ))}
-          <div className="j-card j-tight" style={{ padding: "12px 16px", display: "flex", alignItems: "center" }}>
-            <button
-              className="j-btn j-btn-primary"
-              style={{ whiteSpace: "nowrap" }}
-              onClick={() => setIsNewProjectModalOpen(true)}
-            >
-              + New project
-            </button>
-          </div>
         </div>
 
         {/* Filter chips + view mode tabs */}
