@@ -67,6 +67,26 @@ interface ProjectRow {
   totalTasks: number
 }
 
+interface ClientRow {
+  id: string
+  name: string
+  company: string | null
+  status: "active" | "paused" | "churned" | "prospect"
+  projectCount: number
+  activeScheduleCount: number
+  nextServiceDate: string | null
+}
+interface ServiceRow {
+  id: string
+  title: string
+  clientId: string
+  clientName: string | null
+  frequency: string
+  nextOccurrence: string
+  amount: number | null
+  currency: string
+  isActive: boolean
+}
 interface DashData {
   stats: DashboardStats | null
   finance: FinanceSummary | null
@@ -74,6 +94,8 @@ interface DashData {
   activity: ActivityItem[]
   agents: AgentJob[]
   projects: ProjectRow[]
+  clients: ClientRow[]
+  services: ServiceRow[]
 }
 
 // ── Fetch helper ─────────────────────────────────────────────────────────────
@@ -521,19 +543,97 @@ function QuickCapture() {
 
 // ── Shell ────────────────────────────────────────────────────────────────────
 
+// ── Clients & retainers (real clients + upcoming/overdue service schedules) ──
+
+function ClientsRail({ d }: { d: DashData }) {
+  const today = new Date().toISOString().slice(0, 10)
+  const soon = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10)
+  const dueCls = (date: string | null) =>
+    !date ? "j-ghost" : date < today ? "j-neg" : date <= soon ? "j-warn" : "j-pos"
+
+  const activeClients = d.clients.filter(c => c.status === "active")
+  const services = [...d.services]
+    .filter(s => s.isActive)
+    .sort((a, b) => a.nextOccurrence.localeCompare(b.nextOccurrence))
+  const overdue = services.filter(s => s.nextOccurrence < today).length
+  const recurringMrr = services
+    .filter(s => s.amount != null && (s.frequency === "monthly" || s.frequency === "biweekly" || s.frequency === "weekly"))
+    .reduce((sum, s) => {
+      const a = s.amount || 0
+      return sum + (s.frequency === "weekly" ? a * 4.33 : s.frequency === "biweekly" ? a * 2.17 : a)
+    }, 0)
+
+  return (
+    <div className="j-card">
+      <div className="j-card-head">
+        <div>
+          <p className="j-card-title">Clients &amp; Retainers</p>
+          <p className="j-card-sub">
+            {activeClients.length} active
+            {overdue > 0 && <> · <span style={{ color: "var(--j-neg)" }}>{overdue} overdue</span></>}
+            {recurringMrr > 0 && <> · ~${Math.round(recurringMrr).toLocaleString()}/mo recurring</>}
+          </p>
+        </div>
+        <Link href="/clients" style={{ fontSize: 12, color: "var(--j-accent)", textDecoration: "none" }}>
+          Manage <Icon name="arrow" size={12} />
+        </Link>
+      </div>
+
+      {d.clients.length === 0 ? (
+        <Empty>No clients yet. <Link href="/clients" style={{ color: "var(--j-accent)" }}>Add a client</Link> to track retainers.</Empty>
+      ) : (
+        <div className="j-col j-gap-3">
+          <div className="j-row j-wrap" style={{ gap: 6 }}>
+            {d.clients.slice(0, 8).map(c => (
+              <Link
+                key={c.id}
+                href="/clients"
+                className={`j-pill ${dueCls(c.nextServiceDate)}`}
+                style={{ fontSize: 11, textDecoration: "none", maxWidth: 190, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                title={c.nextServiceDate ? `Next service ${c.nextServiceDate}` : "No scheduled service"}
+              >
+                {c.company || c.name}
+                {c.nextServiceDate ? ` · ${c.nextServiceDate}` : ` · ${c.activeScheduleCount} svc`}
+              </Link>
+            ))}
+          </div>
+
+          {services.length > 0 && (
+            <div className="j-col" style={{ gap: 4 }}>
+              <span className="j-eyebrow">Upcoming services</span>
+              {services.slice(0, 5).map(s => (
+                <div key={s.id} className="j-row j-between" style={{ gap: 8 }}>
+                  <span style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {s.clientName ? `${s.clientName} — ` : ""}{s.title}
+                  </span>
+                  <span className={`j-pill ${dueCls(s.nextOccurrence)}`} style={{ fontSize: 10, flexShrink: 0 }}>
+                    {s.nextOccurrence}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function JarvisDashboard() {
   const [d, setD] = useState<DashData | null>(null)
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const [stats, finance, focus, activity, agents, projects] = await Promise.all([
+      const [stats, finance, focus, activity, agents, projects, clients, services] = await Promise.all([
         getJson("/api/dashboard"),
         getJson("/api/finance/summary"),
         getJson("/api/dashboard/focus"),
         getJson("/api/dashboard/activity?limit=8"),
         getJson("/api/agents/jobs?limit=6"),
         getJson("/api/projects"),
+        getJson("/api/clients"),
+        getJson("/api/service-schedules?activeOnly=1&dueWithin=30"),
       ])
       if (cancelled) return
       setD({
@@ -543,6 +643,8 @@ export function JarvisDashboard() {
         activity: Array.isArray(activity) ? activity : [],
         agents: Array.isArray(agents) ? agents : [],
         projects: Array.isArray(projects) ? projects : [],
+        clients: Array.isArray(clients) ? clients : [],
+        services: Array.isArray(services) ? services : [],
       })
     })()
     return () => { cancelled = true }
@@ -566,6 +668,7 @@ export function JarvisDashboard() {
         <div className="j-col j-gap-4">
           <PortfolioStrip d={d} />
           <PortfolioMap d={d} />
+          <ClientsRail d={d} />
         </div>
         <div className="j-col j-gap-4">
           <ProjectMomentum d={d} />

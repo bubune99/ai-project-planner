@@ -8,6 +8,7 @@ import { Icon } from "@/components/jarvis/icons"
 const PAGE_META: Record<string, { title: string; sub: string }> = {
   "/dashboard": { title: "Dashboard", sub: "Central Nervous System overview" },
   "/projects": { title: "Projects", sub: "All ventures and initiatives" },
+  "/clients": { title: "Clients", sub: "Ongoing client work and retainers" },
   "/todos": { title: "Today", sub: "Daily focus and tasks" },
   "/ideas": { title: "Ideas Incubator", sub: "Capture and refine new ideas" },
   "/finance": { title: "Finance", sub: "Revenue, expenses, and net worth" },

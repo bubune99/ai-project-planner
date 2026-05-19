@@ -24,6 +24,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { title: "Dashboard", href: "/dashboard", icon: "grid" },
       { title: "Projects", href: "/projects", icon: "folder" },
+      { title: "Clients", href: "/clients", icon: "users" },
       { title: "Today", href: "/todos", icon: "target" },
     ],
   },
