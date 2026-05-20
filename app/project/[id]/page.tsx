@@ -473,65 +473,23 @@ function IdeasFacet({ projectId }: { projectId: string }) {
 // ─── Finance ─────────────────────────────────────────────────────────────────
 
 function FinanceFacet() {
-  const breakdown = [
-    { l: "AI agent runs",        v: 6240, c: "var(--j-proj)" },
-    { l: "Design work",          v: 4800, c: "var(--j-biz)"  },
-    { l: "Infrastructure",       v: 2150, c: "var(--j-info)" },
-    { l: "Tools & subscriptions",v: 1430, c: "var(--j-idea)" },
-    { l: "Miscellaneous",        v: 800,  c: "var(--j-muted)"},
-  ]
+  // Honest empty state: per-project finance attribution isn't wired yet.
+  // The Finance module is the source of truth for money; redirect there.
   return (
     <div className="j-col j-gap-4">
-      <div className="j-grid j-cols-4">
-        {[
-          { l: "Budget",      v: "$24,000", s: "approved",        t: "j-info" },
-          { l: "Spent",       v: "$15,420", s: "64% used",        t: "j-warn" },
-          { l: "Burn / week", v: "$2,100",  s: "trending",        t: "j-info" },
-          { l: "Runway",      v: "4w left", s: "at current pace", t: "j-warn" },
-        ].map(c => (
-          <div key={c.l} className="j-card j-tight" style={{ padding: 16 }}>
-            <div className="j-eyebrow">{c.l}</div>
-            <div className="j-amount-lg" style={{ marginTop: 8 }}>{c.v}</div>
-            <span className={`j-pill ${c.t}`} style={{ marginTop: 6 }}>{c.s}</span>
-          </div>
-        ))}
-      </div>
-      <div className="j-split">
-        <div className="j-card">
-          <div className="j-card-head"><div><h3 className="j-card-title">Cost breakdown</h3><p className="j-card-sub">Where the budget has gone</p></div></div>
-          {breakdown.map((r, i) => (
-            <div key={i} className="j-row j-gap-3" style={{ padding: "10px 0", borderBottom: i < breakdown.length - 1 ? "1px solid var(--j-hairline)" : "none" }}>
-              <span style={{ width: 8, height: 8, borderRadius: 999, background: r.c, flexShrink: 0 }} />
-              <span style={{ flex: 1, fontSize: 13 }}>{r.l}</span>
-              <div style={{ flex: 1, maxWidth: 180 }}>
-                <div className="j-progress j-thick">
-                  <span style={{ width: `${(r.v / 6240) * 100}%`, background: r.c }} />
-                </div>
-              </div>
-              <span className="j-num" style={{ fontSize: 12.5, fontWeight: 500, minWidth: 60, textAlign: "right" }}>${r.v.toLocaleString()}</span>
-            </div>
-          ))}
-        </div>
-        <div className="j-col j-gap-4">
-          <div className="j-card">
-            <div className="j-card-head"><div><h3 className="j-card-title">Projected return</h3></div></div>
-            <div className="j-amount-xl" style={{ color: "var(--j-pos)" }}>+$84K</div>
-            <div className="j-muted" style={{ fontSize: 12, marginTop: 4 }}>activation lift × 12mo CLV</div>
-            <hr className="j-divider" style={{ margin: "14px 0" }} />
-            <div className="j-row j-between">
-              <span className="j-muted" style={{ fontSize: 12 }}>ROI multiple</span>
-              <span className="j-num" style={{ fontSize: 13, fontWeight: 500, color: "var(--j-pos)" }}>5.4×</span>
-            </div>
-          </div>
-          <div className="j-coming-soon" style={{ padding: 24 }}>
-            <p className="j-muted" style={{ fontSize: 12, margin: 0, textAlign: "center" }}>Full finance dashboard lives separately.</p>
-            <button className="j-btn j-btn-ghost">Open Finance</button>
-          </div>
-        </div>
+      <div className="j-card j-col" style={{ alignItems: "center", gap: 10, padding: 48, textAlign: "center" }}>
+        <h3 className="j-card-title" style={{ margin: 0 }}>Project finance not connected</h3>
+        <p className="j-muted" style={{ fontSize: 13, maxWidth: 520, margin: 0 }}>
+          Per-project budget, spend, and ROI live in the Finance module. Link this
+          project to a finance budget or income stream there; this tab will surface
+          a real summary once attribution is in place.
+        </p>
+        <a className="j-btn j-btn-primary" href="/finance" style={{ textDecoration: "none" }}>Open Finance →</a>
       </div>
     </div>
   )
 }
+
 
 // ─── Agents ──────────────────────────────────────────────────────────────────
 
@@ -696,105 +654,430 @@ function AgentsFacet() {
 
 // ─── Notes ───────────────────────────────────────────────────────────────────
 
-function NotesFacet() {
-  const notes = [
-    { id: "n1", title: "Customer feedback · initial review",  date: "May 9",  excerpt: "Users want faster onboarding. The current flow is too long — consider condensing to 3 steps max.",                tags: ["feedback","ux"],       pinned: true  },
-    { id: "n2", title: "Sprint review thoughts",              date: "May 7",  excerpt: "Progress is solid but the API integration needs more focus. Consider pairing sessions with the agent.",           tags: ["sprint"],              pinned: false },
-    { id: "n3", title: "Architecture decision notes",         date: "May 5",  excerpt: "Sticking with server actions over API routes significantly simplified the codebase. No regrets.",                  tags: ["arch","decisions"],    pinned: true  },
-    { id: "n4", title: "Brand consistency reminder",          date: "May 3",  excerpt: "Use sentence case throughout. Consistent icon library. No mixing of design systems.",                              tags: ["brand"],               pinned: false },
-  ]
+const NOTE_TYPES = ["note", "progress", "decision", "blocker"] as const
+const NOTE_TYPE_TONE: Record<string, string> = {
+  note: "j-ghost", progress: "j-info", decision: "j-proj", blocker: "j-neg",
+}
+
+function NotesFacet({ projectId }: { projectId: string }) {
+  const [notes, setNotes] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [filter, setFilter] = useState<string>("")
+  const [form, setForm] = useState({ title: "", content: "", note_type: "note" as (typeof NOTE_TYPES)[number] })
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  const fetchNotes = useCallback(async () => {
+    setLoading(true)
+    try {
+      const r = await fetch(`/api/progress-notes?projectId=${projectId}&limit=100`)
+      const j = await r.json()
+      setNotes(Array.isArray(j.notes) ? j.notes : [])
+      setErr(null)
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Failed to load notes")
+    } finally {
+      setLoading(false)
+    }
+  }, [projectId])
+
+  useEffect(() => { fetchNotes() }, [fetchNotes])
+
+  const create = async () => {
+    if (!form.content.trim()) { setErr("Note content is required"); return }
+    setSaving(true); setErr(null)
+    try {
+      const res = await fetch("/api/progress-notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          author_type: "human",
+          author_name: "You",
+          note_type: form.note_type,
+          title: form.title.trim() || undefined,
+          content: form.content.trim(),
+        }),
+      })
+      const j = await res.json()
+      if (!res.ok) throw new Error(j.error || "Failed to create note")
+      setForm({ title: "", content: "", note_type: "note" })
+      setShowForm(false)
+      await fetchNotes()
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Failed to create note")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const filtered = filter ? notes.filter(n => n.note_type === filter) : notes
+  const count = (t: string) => notes.filter(n => n.note_type === t).length
+
   return (
     <div className="j-col j-gap-4">
-      <div className="j-row j-between">
+      <div className="j-row j-between j-wrap" style={{ gap: 12 }}>
         <div className="j-row j-gap-2">
-          <span className="j-pill j-proj">All</span>
-          <span className="j-pill j-ghost">Pinned</span>
-          <span className="j-pill j-ghost">Feedback</span>
-          <span className="j-pill j-ghost">Arch</span>
+          <span className={`j-tab${filter === "" ? " j-active" : ""}`} onClick={() => setFilter("")}>
+            All <b style={{ marginLeft: 6 }}>{notes.length}</b>
+          </span>
+          {NOTE_TYPES.map(t => (
+            <span key={t} className={`j-tab${filter === t ? " j-active" : ""}`} onClick={() => setFilter(t)}>
+              {t} <b style={{ marginLeft: 6 }}>{count(t)}</b>
+            </span>
+          ))}
         </div>
-        <button className="j-btn j-btn-primary">+ New note</button>
+        <button className="j-btn j-btn-primary" onClick={() => { setShowForm(s => !s); setErr(null) }}>+ New note</button>
       </div>
-      <div className="j-grid j-cols-2">
-        {notes.map(n => (
-          <div key={n.id} className="j-card">
-            <div className="j-row j-between" style={{ marginBottom: 8 }}>
-              <div className="j-row j-gap-2">
-                <h4 style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>{n.title}</h4>
-                {n.pinned && <span className="j-pill j-warn" style={{ fontSize: 9 }}>pinned</span>}
-              </div>
-              <span className="j-muted" style={{ fontSize: 11 }}>{n.date}</span>
+
+      {showForm && (
+        <div className="j-card">
+          <div className="j-col j-gap-3">
+            <input
+              className="j-search"
+              placeholder="Title (optional)"
+              value={form.title}
+              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+            />
+            <div className="j-row j-gap-2">
+              <select
+                className="j-search"
+                value={form.note_type}
+                onChange={e => setForm(f => ({ ...f, note_type: e.target.value as (typeof NOTE_TYPES)[number] }))}
+              >
+                {NOTE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
             </div>
-            <p className="j-muted" style={{ fontSize: 12.5, lineHeight: 1.55, margin: "0 0 10px" }}>{n.excerpt}</p>
-            <div className="j-row j-wrap j-gap-2">
-              {n.tags.map(t => <span key={t} className="j-pill j-ghost" style={{ fontSize: 10 }}>{t}</span>)}
+            <textarea
+              placeholder="Note content (markdown supported)…"
+              value={form.content}
+              onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
+              rows={6}
+              style={{
+                width: "100%", background: "oklch(1 0 0 / 0.04)", color: "oklch(0.985 0 0)",
+                border: "none", boxShadow: "0 0 0 1px var(--j-ring)", borderRadius: 8,
+                padding: 12, fontSize: 13, fontFamily: "var(--font-geist-mono, monospace)", resize: "vertical",
+              }}
+            />
+            {err && <div className="j-pill j-neg" style={{ alignSelf: "flex-start" }}>{err}</div>}
+            <div className="j-row j-gap-2">
+              <button className="j-btn j-btn-primary" onClick={create} disabled={saving}>
+                {saving ? "Saving…" : "Save note"}
+              </button>
+              <button className="j-btn j-btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
             </div>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="j-card"><span className="j-muted">Loading notes…</span></div>
+      ) : filtered.length === 0 ? (
+        <div className="j-card j-col" style={{ alignItems: "center", gap: 8, padding: 48, textAlign: "center" }}>
+          <p className="j-muted" style={{ fontSize: 13, margin: 0 }}>
+            {filter ? `No ${filter} notes yet.` : "No notes yet. Capture your first progress note."}
+          </p>
+        </div>
+      ) : (
+        <div className="j-grid j-cols-2">
+          {filtered.map(n => (
+            <div key={n.id} className="j-card">
+              <div className="j-row j-between" style={{ marginBottom: 8 }}>
+                <div className="j-row j-gap-2" style={{ minWidth: 0 }}>
+                  <h4 style={{ fontSize: 14, fontWeight: 500, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {n.title || (n.content || "").slice(0, 60)}
+                  </h4>
+                  <span className={`j-pill ${NOTE_TYPE_TONE[n.note_type] || "j-ghost"}`} style={{ fontSize: 9 }}>{n.note_type}</span>
+                </div>
+                <span className="j-muted" style={{ fontSize: 11, whiteSpace: "nowrap" }}>
+                  {n.created_at ? new Date(n.created_at).toLocaleDateString() : ""}
+                </span>
+              </div>
+              {n.content && (
+                <p className="j-muted" style={{ fontSize: 12.5, lineHeight: 1.55, margin: "0 0 6px", whiteSpace: "pre-wrap" }}>
+                  {n.content.length > 280 ? n.content.slice(0, 280) + "…" : n.content}
+                </p>
+              )}
+              {n.author_name && (
+                <span className="j-muted" style={{ fontSize: 11 }}>
+                  — {n.author_name}{n.author_type === "agent" ? " (agent)" : ""}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
 // ─── Calendar ────────────────────────────────────────────────────────────────
 
-function CalendarFacet() {
-  const today = new Date().getDate()
-  const events: Record<number, { c: string; t: string }[]> = {
-    5:  [{ c: "j-proj", t: "Phase start" }],
-    10: [{ c: "j-proj", t: "Sync" }, { c: "j-idea", t: "Idea triage" }],
-    15: [{ c: "j-pos",  t: "Milestone" }],
-    18: [{ c: "j-warn", t: "Phase end" }],
-    22: [{ c: "j-neg",  t: "QA deadline" }],
-    26: [{ c: "j-pos",  t: "Launch" }],
+function CalendarFacet({ projectId }: { projectId: string }) {
+  const [now, setNow] = useState(() => new Date())
+  const [events, setEvents] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [form, setForm] = useState({ title: "", description: "", time: "09:00" })
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  // Compute month window (first/last day) for filtering
+  const monthStart = useMemo(() => {
+    const d = new Date(now.getFullYear(), now.getMonth(), 1)
+    return d.toISOString().slice(0, 10)
+  }, [now])
+  const monthEnd = useMemo(() => {
+    const d = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+    return d.toISOString()
+  }, [now])
+
+  const fetchEvents = useCallback(async () => {
+    setLoading(true)
+    try {
+      const qs = new URLSearchParams({
+        source: "project",
+        startDate: monthStart + "T00:00:00.000Z",
+        endDate: monthEnd,
+      })
+      const r = await fetch(`/api/calendar?${qs.toString()}`)
+      const j = await r.json()
+      // Filter to this project (source=project narrows; sourceId pins it)
+      const list = (j.data || []).filter((e: any) => e.sourceId === projectId || e.source_id === projectId)
+      setEvents(list)
+    } catch {
+      setEvents([])
+    } finally {
+      setLoading(false)
+    }
+  }, [monthStart, monthEnd, projectId])
+
+  useEffect(() => { fetchEvents() }, [fetchEvents])
+
+  const create = async () => {
+    if (!selectedDate || !form.title.trim()) { setErr("Title is required"); return }
+    setSaving(true); setErr(null)
+    try {
+      const start = `${selectedDate}T${form.time}:00`
+      const res = await fetch("/api/calendar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: form.title.trim(),
+          description: form.description.trim() || undefined,
+          startTime: new Date(start).toISOString(),
+          source: "project",
+          sourceId: projectId,
+          sourceMetadata: { projectId },
+        }),
+      })
+      const j = await res.json()
+      if (!res.ok || !j.success) throw new Error(j?.error?.message || "Failed to create event")
+      setSelectedDate(null)
+      setForm({ title: "", description: "", time: "09:00" })
+      await fetchEvents()
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Failed to create event")
+    } finally {
+      setSaving(false)
+    }
   }
+
+  const remove = async (id: string) => {
+    if (!confirm("Delete this event?")) return
+    await fetch(`/api/calendar/${id}`, { method: "DELETE" })
+    await fetchEvents()
+  }
+
+  // Build the month grid (start on Monday, 35-42 cells)
+  const monthLabel = now.toLocaleString(undefined, { month: "long", year: "numeric" })
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  // jsDay: Sun=0..Sat=6 → shift so Mon=0
+  const leading = (firstDay.getDay() + 6) % 7
+  const totalCells = Math.ceil((leading + daysInMonth) / 7) * 7
+  const todayKey = new Date().toISOString().slice(0, 10)
+
+  const eventsByDate: Record<string, any[]> = {}
+  for (const ev of events) {
+    const key = (ev.startTime || ev.start_time || "").slice(0, 10)
+    if (!key) continue
+    ;(eventsByDate[key] ||= []).push(ev)
+  }
+
+  const goPrev = () => setNow(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))
+  const goNext = () => setNow(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))
+  const goToday = () => setNow(new Date())
+
   return (
     <div className="j-col j-gap-4">
       <div className="j-card">
         <div className="j-card-head">
-          <div><h3 className="j-card-title">Project calendar</h3><p className="j-card-sub">Milestones, deadlines, and time blocks</p></div>
+          <div>
+            <h3 className="j-card-title">Project calendar</h3>
+            <p className="j-card-sub">
+              {loading ? "Loading…" : `${events.length} event${events.length === 1 ? "" : "s"} this month · click a day to add one`}
+            </p>
+          </div>
+          <div className="j-row j-gap-2">
+            <button className="j-btn j-btn-ghost" onClick={goPrev}>←</button>
+            <button className="j-btn j-btn-ghost" onClick={goToday}>{monthLabel}</button>
+            <button className="j-btn j-btn-ghost" onClick={goNext}>→</button>
+          </div>
         </div>
         <div className="j-cal-grid" style={{ gap: 6 }}>
           {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => (
             <div key={d} className="j-muted" style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", padding: 4 }}>{d}</div>
           ))}
-          {Array.from({ length: 35 }).map((_, i) => {
-            const d = i - 3
-            const inMonth = d > 0 && d <= 31
-            const isToday = d === today
-            const evts = events[d] || []
+          {Array.from({ length: totalCells }).map((_, i) => {
+            const dayNum = i - leading + 1
+            const inMonth = dayNum > 0 && dayNum <= daysInMonth
+            const date = inMonth
+              ? new Date(now.getFullYear(), now.getMonth(), dayNum).toISOString().slice(0, 10)
+              : null
+            const isToday = date === todayKey
+            const dayEvents = date ? (eventsByDate[date] || []) : []
+            const isSelected = selectedDate === date
             return (
-              <div key={i} className={`j-cal-day${!inMonth ? " j-outside" : ""}${isToday ? " j-today" : ""}`} style={{ minHeight: 70 }}>
+              <div
+                key={i}
+                className={`j-cal-day${!inMonth ? " j-outside" : ""}${isToday ? " j-today" : ""}`}
+                style={{
+                  minHeight: 80,
+                  cursor: inMonth ? "pointer" : "default",
+                  boxShadow: isSelected ? "inset 0 0 0 2px var(--j-accent)" : undefined,
+                }}
+                onClick={() => inMonth && date && setSelectedDate(isSelected ? null : date)}
+              >
                 <span style={{ fontWeight: isToday ? 700 : 400, color: isToday ? "var(--j-accent)" : "inherit" }}>
-                  {inMonth ? d : ""}
+                  {inMonth ? dayNum : ""}
                 </span>
                 <div style={{ display: "flex", flexDirection: "column", marginTop: 4, gap: 2 }}>
-                  {evts.map((e, j) => (
-                    <div key={j} className="j-row j-gap-2" style={{ padding: "2px 4px", borderRadius: 4, background: "oklch(0.180 0 0)", boxShadow: "inset 0 0 0 1px var(--j-ring)", fontSize: 9 }}>
-                      <span style={{ width: 4, height: 4, borderRadius: 999, background: `var(--${e.c})`, flexShrink: 0 }} />
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.t}</span>
+                  {dayEvents.slice(0, 3).map((e: any) => (
+                    <div
+                      key={e.id}
+                      title={e.title}
+                      onClick={(ev) => { ev.stopPropagation(); remove(e.id) }}
+                      className="j-row j-gap-2"
+                      style={{
+                        padding: "2px 4px", borderRadius: 4,
+                        background: "oklch(0.180 0 0)", boxShadow: "inset 0 0 0 1px var(--j-ring)",
+                        fontSize: 9, cursor: "pointer",
+                      }}
+                    >
+                      <span style={{ width: 4, height: 4, borderRadius: 999, background: "var(--j-accent)", flexShrink: 0 }} />
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.title}</span>
                     </div>
                   ))}
+                  {dayEvents.length > 3 && (
+                    <span className="j-muted" style={{ fontSize: 9 }}>+{dayEvents.length - 3} more</span>
+                  )}
                 </div>
               </div>
             )
           })}
         </div>
       </div>
+
+      {selectedDate && (
+        <div className="j-card">
+          <div className="j-card-head">
+            <div><h3 className="j-card-title">Add event · {selectedDate}</h3></div>
+            <button className="j-btn j-btn-icon j-btn-ghost" onClick={() => setSelectedDate(null)} aria-label="Close">✕</button>
+          </div>
+          <div className="j-col j-gap-3">
+            <input className="j-search" placeholder="Event title *" value={form.title}
+              onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+            <div className="j-row j-gap-2">
+              <input className="j-search" type="time" value={form.time} style={{ maxWidth: 120 }}
+                onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
+              <input className="j-search" style={{ flex: 1 }} placeholder="Description (optional)"
+                value={form.description}
+                onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+            </div>
+            {err && <div className="j-pill j-neg" style={{ alignSelf: "flex-start" }}>{err}</div>}
+            <div className="j-row j-gap-2">
+              <button className="j-btn j-btn-primary" onClick={create} disabled={saving}>
+                {saving ? "Saving…" : "Add event"}
+              </button>
+              <button className="j-btn j-btn-ghost" onClick={() => setSelectedDate(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 // ─── Metrics ─────────────────────────────────────────────────────────────────
 
-function MetricsFacet() {
-  const kpis = [
-    { l: "Completion rate", v: "47%", d: "+9pp",  t: "j-pos", target: "60%" },
-    { l: "Tasks per week",  v: "8.2", d: "+2.1",  t: "j-pos", target: "10"  },
-    { l: "Velocity",        v: "3.1", d: "−0.3",  t: "j-neg", target: "4"   },
-    { l: "Time to close",   v: "4d",  d: "−1d",   t: "j-pos", target: "3d"  },
+function MetricsFacet({ project, steps }: { project: any; steps: any[] }) {
+  const safeSteps = Array.isArray(steps) ? steps : []
+  const totalSteps = safeSteps.length
+  const doneSteps = safeSteps.filter(s => (s.status || "").toLowerCase() === "completed").length
+  const inProgressSteps = safeSteps.filter(s => {
+    const st = (s.status || "").toLowerCase()
+    return st === "in_progress" || st === "in-progress" || st === "active"
+  }).length
+  const blockedSteps = safeSteps.filter(s => (s.status || "").toLowerCase() === "blocked").length
+
+  // Real per-week completion trend (last 13 weeks) from step completed_at when available.
+  const weeks = 13
+  const trend: number[] = Array(weeks).fill(0)
+  const now = new Date()
+  const startOfThisWeek = new Date(now)
+  startOfThisWeek.setHours(0, 0, 0, 0)
+  startOfThisWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7)) // Monday-anchored
+  for (const s of safeSteps) {
+    const ts = s.completed_at || s.completedAt || (s.status === "completed" ? s.updated_at || s.updatedAt : null)
+    if (!ts) continue
+    const d = new Date(ts).getTime()
+    if (Number.isNaN(d)) continue
+    const weeksAgo = Math.floor((startOfThisWeek.getTime() - d) / (7 * 864e5))
+    if (weeksAgo >= 0 && weeksAgo < weeks) trend[weeks - 1 - weeksAgo]++
+  }
+  const trendSum = trend.reduce((a, b) => a + b, 0)
+  const hasTrend = trendSum > 0
+  const trendMax = Math.max(1, ...trend)
+  const avgPerWeek = trendSum > 0
+    ? (trend.filter(v => v > 0).reduce((a, b) => a + b, 0) / Math.max(1, trend.filter(v => v > 0).length))
+    : 0
+
+  // Time to close: project age in days
+  const startMs = project?.created_at || project?.createdAt
+  const startedDays = startMs
+    ? Math.max(1, Math.round((Date.now() - new Date(startMs).getTime()) / 864e5))
+    : null
+
+  const progress = typeof project?.progress === "number" ? project.progress : 0
+  const kpis: { l: string; v: string; s: string; t: string }[] = [
+    {
+      l: "Completion rate",
+      v: `${progress}%`,
+      s: `${doneSteps} / ${totalSteps} steps`,
+      t: progress >= 80 ? "j-pos" : progress >= 40 ? "j-info" : "j-muted",
+    },
+    {
+      l: "Steps in progress",
+      v: `${inProgressSteps}`,
+      s: blockedSteps > 0 ? `${blockedSteps} blocked` : "no blockers",
+      t: blockedSteps > 0 ? "j-warn" : "j-info",
+    },
+    {
+      l: "Avg per active week",
+      v: hasTrend ? avgPerWeek.toFixed(1) : "—",
+      s: hasTrend ? "completed steps" : "needs completion data",
+      t: hasTrend ? "j-info" : "j-muted",
+    },
+    {
+      l: "Project age",
+      v: startedDays != null ? `${startedDays}d` : "—",
+      s: startedDays != null ? "since created" : "no start date",
+      t: "j-ghost",
+    },
   ]
-  const trend = [12, 18, 15, 22, 19, 25, 28, 24, 32, 38, 36, 42, 47]
-  const max = Math.max(...trend)
+
   return (
     <div className="j-col j-gap-4">
       <div className="j-grid j-cols-4">
@@ -802,35 +1085,46 @@ function MetricsFacet() {
           <div key={k.l} className="j-card">
             <div className="j-eyebrow">{k.l}</div>
             <div className="j-amount-xl" style={{ marginTop: 8 }}>{k.v}</div>
-            <div className="j-row j-between" style={{ marginTop: 8 }}>
-              <span className={`j-pill ${k.t}`}>{k.d}</span>
-              <span className="j-muted" style={{ fontSize: 11 }}>goal {k.target}</span>
-            </div>
+            <span className={`j-pill ${k.t}`} style={{ marginTop: 8 }}>{k.s}</span>
           </div>
         ))}
       </div>
       <div className="j-card">
         <div className="j-card-head">
-          <div><h3 className="j-card-title">Completion rate · last 13 weeks</h3><p className="j-card-sub">Trend toward 60% target</p></div>
-        </div>
-        <div style={{ position: "relative", height: 200, paddingTop: 20 }}>
-          <div style={{ position: "absolute", inset: 20, borderBottom: "1px solid var(--j-hairline)" }} />
-          <div style={{ position: "absolute", left: 0, right: 0, top: "33%", borderTop: "1px dashed oklch(1 0 0 / 0.1)" }}>
-            <span className="j-muted" style={{ fontSize: 10, marginLeft: 4, background: "var(--j-surface)", padding: "0 4px" }}>target · 60%</span>
+          <div>
+            <h3 className="j-card-title">Completed steps · last 13 weeks</h3>
+            <p className="j-card-sub">
+              {hasTrend ? `${trendSum} steps completed in the trailing 13 weeks` : "No completion timestamps yet — close some steps to populate this trend"}
+            </p>
           </div>
-          <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} viewBox="0 0 100 100" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="metric-grad" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="oklch(0.870 0.045 252 / 0.35)" />
-                <stop offset="100%" stopColor="oklch(0.870 0.045 252 / 0)" />
-              </linearGradient>
-            </defs>
-            <polyline fill="none" stroke="oklch(0.870 0.045 252)" strokeWidth="0.6"
-              points={trend.map((v, i) => `${(i / (trend.length - 1)) * 100},${100 - (v / max) * 70 - 15}`).join(" ")} />
-            <polygon fill="url(#metric-grad)"
-              points={`0,100 ${trend.map((v, i) => `${(i / (trend.length - 1)) * 100},${100 - (v / max) * 70 - 15}`).join(" ")} 100,100`} />
-          </svg>
         </div>
+        {hasTrend ? (
+          <div style={{ position: "relative", height: 200, paddingTop: 20 }}>
+            <div style={{ position: "absolute", inset: 20, borderBottom: "1px solid var(--j-hairline)" }} />
+            <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} viewBox="0 0 100 100" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="metric-grad" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="oklch(0.870 0.045 252 / 0.35)" />
+                  <stop offset="100%" stopColor="oklch(0.870 0.045 252 / 0)" />
+                </linearGradient>
+              </defs>
+              <polyline
+                fill="none"
+                stroke="oklch(0.870 0.045 252)"
+                strokeWidth="0.6"
+                points={trend.map((v, i) => `${(i / (trend.length - 1)) * 100},${100 - (v / trendMax) * 70 - 15}`).join(" ")}
+              />
+              <polygon
+                fill="url(#metric-grad)"
+                points={`0,100 ${trend.map((v, i) => `${(i / (trend.length - 1)) * 100},${100 - (v / trendMax) * 70 - 15}`).join(" ")} 100,100`}
+              />
+            </svg>
+          </div>
+        ) : (
+          <div className="j-muted" style={{ fontSize: 13, padding: 40, textAlign: "center" }}>
+            Trend will appear once steps have completion timestamps.
+          </div>
+        )}
       </div>
     </div>
   )
@@ -838,84 +1132,267 @@ function MetricsFacet() {
 
 // ─── Risks ───────────────────────────────────────────────────────────────────
 
-function RisksFacet() {
-  const risks = [
-    { id: "r1", title: "Scope creep beyond MVP definition",       sev: "high", lik: "high", owner: "You",    mitig: "Weekly scope reviews",             status: "monitoring"  },
-    { id: "r2", title: "External API rate limits at launch",      sev: "med",  lik: "med",  owner: "Claude", mitig: "Implement caching + retry logic",   status: "mitigating"  },
-    { id: "r3", title: "Tech debt accumulation in core modules",  sev: "med",  lik: "high", owner: "You",    mitig: "Allocate 20% refactor time",        status: "open"        },
-    { id: "r4", title: "Dependency version conflicts",            sev: "low",  lik: "med",  owner: "Claude", mitig: "Pin major versions, audit quarterly",status: "scheduled"   },
-  ]
-  const sevTone: Record<string, string> = { high: "j-neg", med: "j-warn", low: "j-info" }
+type Risk = {
+  id: string
+  title: string
+  sev: "high" | "med" | "low"
+  lik: "high" | "med" | "low"
+  owner: string
+  mitig: string
+  status: "open" | "monitoring" | "mitigating" | "mitigated" | "scheduled"
+}
+
+const RISK_SEV_TONE: Record<string, string> = { high: "j-neg", med: "j-warn", low: "j-info" }
+const RISK_STATUS_OPTIONS = ["open", "monitoring", "mitigating", "mitigated", "scheduled"] as const
+
+function RisksFacet({ projectId, project, onChange }: { projectId: string; project: any; onChange: () => void }) {
+  const initialRisks: Risk[] = Array.isArray(project?.metadata?.risks) ? project.metadata.risks : []
+  const [risks, setRisks] = useState<Risk[]>(initialRisks)
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState<Risk>({
+    id: "", title: "", sev: "med", lik: "med", owner: "", mitig: "", status: "open",
+  })
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  // Keep local state in sync with refetched project data
+  useEffect(() => {
+    if (Array.isArray(project?.metadata?.risks)) setRisks(project.metadata.risks)
+  }, [project?.metadata?.risks])
+
+  const persist = async (next: Risk[]) => {
+    setSaving(true); setErr(null)
+    try {
+      const mergedMetadata = { ...(project?.metadata || {}), risks: next }
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ metadata: mergedMetadata }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        throw new Error(j?.error?.message || j?.error || "Failed to save risk")
+      }
+      setRisks(next)
+      onChange()
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Failed to save risk")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const addRisk = async () => {
+    if (!form.title.trim()) { setErr("Risk title is required"); return }
+    const next: Risk[] = [
+      ...risks,
+      { ...form, id: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `r-${Date.now()}` },
+    ]
+    await persist(next)
+    if (!err) {
+      setForm({ id: "", title: "", sev: "med", lik: "med", owner: "", mitig: "", status: "open" })
+      setShowForm(false)
+    }
+  }
+
+  const updateStatus = async (id: string, status: Risk["status"]) => {
+    await persist(risks.map(r => r.id === id ? { ...r, status } : r))
+  }
+
+  const removeRisk = async (id: string) => {
+    if (!confirm("Delete this risk?")) return
+    await persist(risks.filter(r => r.id !== id))
+  }
+
+  const counts = {
+    high: risks.filter(r => r.sev === "high" && r.status !== "mitigated").length,
+    med:  risks.filter(r => r.sev === "med"  && r.status !== "mitigated").length,
+    low:  risks.filter(r => r.sev === "low"  && r.status !== "mitigated").length,
+    mitigated: risks.filter(r => r.status === "mitigated").length,
+  }
+
   return (
     <div className="j-col j-gap-4">
       <div className="j-grid j-cols-4">
-        {[["High", 1, "j-neg"], ["Medium", 2, "j-warn"], ["Low", 1, "j-info"], ["Mitigated", 1, "j-pos"]].map(([l, v, t]) => (
+        {[
+          ["High", counts.high, "j-neg"],
+          ["Medium", counts.med, "j-warn"],
+          ["Low", counts.low, "j-info"],
+          ["Mitigated", counts.mitigated, "j-pos"],
+        ].map(([l, v]) => (
           <div key={l as string} className="j-card j-tight" style={{ padding: 14 }}>
             <div className="j-eyebrow">{l}</div>
-            <div className="j-amount-lg" style={{ marginTop: 6 }}>{v}</div>
+            <div className="j-amount-lg" style={{ marginTop: 6 }}>{v as number}</div>
           </div>
         ))}
       </div>
+
+      {showForm && (
+        <div className="j-card">
+          <div className="j-col j-gap-3">
+            <input className="j-search" placeholder="Risk title *" value={form.title}
+              onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+            <div className="j-row j-gap-2">
+              <select className="j-search" value={form.sev}
+                onChange={e => setForm(f => ({ ...f, sev: e.target.value as Risk["sev"] }))}>
+                <option value="high">severity: high</option>
+                <option value="med">severity: medium</option>
+                <option value="low">severity: low</option>
+              </select>
+              <select className="j-search" value={form.lik}
+                onChange={e => setForm(f => ({ ...f, lik: e.target.value as Risk["lik"] }))}>
+                <option value="high">likelihood: high</option>
+                <option value="med">likelihood: medium</option>
+                <option value="low">likelihood: low</option>
+              </select>
+              <select className="j-search" value={form.status}
+                onChange={e => setForm(f => ({ ...f, status: e.target.value as Risk["status"] }))}>
+                {RISK_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="j-row j-gap-2">
+              <input className="j-search" style={{ flex: 1 }} placeholder="Owner (optional)"
+                value={form.owner} onChange={e => setForm(f => ({ ...f, owner: e.target.value }))} />
+              <input className="j-search" style={{ flex: 2 }} placeholder="Mitigation plan (optional)"
+                value={form.mitig} onChange={e => setForm(f => ({ ...f, mitig: e.target.value }))} />
+            </div>
+            {err && <div className="j-pill j-neg" style={{ alignSelf: "flex-start" }}>{err}</div>}
+            <div className="j-row j-gap-2">
+              <button className="j-btn j-btn-primary" onClick={addRisk} disabled={saving}>
+                {saving ? "Saving…" : "Add risk"}
+              </button>
+              <button className="j-btn j-btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="j-card" style={{ padding: 0 }}>
         <div className="j-row j-between" style={{ padding: 16 }}>
           <h3 className="j-card-title">Risk register</h3>
-          <button className="j-btn j-btn-primary">+ New risk</button>
+          <button className="j-btn j-btn-primary" onClick={() => { setShowForm(s => !s); setErr(null) }}>+ New risk</button>
         </div>
-        <table className="j-table">
-          <thead><tr><th>Risk</th><th>Severity</th><th>Likelihood</th><th>Owner</th><th>Mitigation</th><th>Status</th></tr></thead>
-          <tbody>
-            {risks.map(r => (
-              <tr key={r.id}>
-                <td style={{ fontWeight: 500 }}>{r.title}</td>
-                <td><span className={`j-pill ${sevTone[r.sev]}`}>{r.sev}</span></td>
-                <td><span className={`j-pill ${sevTone[r.lik]}`}>{r.lik}</span></td>
-                <td className="j-muted">{r.owner}</td>
-                <td className="j-muted" style={{ fontSize: 12 }}>{r.mitig}</td>
-                <td><span className="j-pill j-ghost">{r.status}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {risks.length === 0 ? (
+          <div style={{ padding: 32, textAlign: "center" }}>
+            <p className="j-muted" style={{ fontSize: 13, margin: 0 }}>
+              No risks tracked yet. Add what could derail this project.
+            </p>
+          </div>
+        ) : (
+          <table className="j-table">
+            <thead><tr><th>Risk</th><th>Severity</th><th>Likelihood</th><th>Owner</th><th>Mitigation</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              {risks.map(r => (
+                <tr key={r.id}>
+                  <td style={{ fontWeight: 500 }}>{r.title}</td>
+                  <td><span className={`j-pill ${RISK_SEV_TONE[r.sev]}`}>{r.sev}</span></td>
+                  <td><span className={`j-pill ${RISK_SEV_TONE[r.lik]}`}>{r.lik}</span></td>
+                  <td className="j-muted">{r.owner || "—"}</td>
+                  <td className="j-muted" style={{ fontSize: 12 }}>{r.mitig || "—"}</td>
+                  <td>
+                    <select
+                      className="j-search"
+                      value={r.status}
+                      onChange={e => updateStatus(r.id, e.target.value as Risk["status"])}
+                      style={{ fontSize: 11, padding: "2px 6px" }}
+                    >
+                      {RISK_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </td>
+                  <td>
+                    <button className="j-btn j-btn-icon j-btn-ghost" onClick={() => removeRisk(r.id)} aria-label="Delete risk">✕</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )
 }
 
 // ─── Team ────────────────────────────────────────────────────────────────────
+// Note: Team here = humans (collaborators on this project). Agents live on the
+// separate Agents tab. This separation is intentional per feedback fd8e5217.
 
 function TeamFacet() {
-  const team = [
-    { id: "u1", n: "You",    r: "Operator",       load: 80, status: "deep work", contrib: 142, kind: "human" },
-    { id: "u2", n: "Claude", r: "Engineering",    load: 65, status: "running",   contrib: 86,  kind: "agent" },
-    { id: "u3", n: "v0",     r: "UI/UX agent",    load: 40, status: "running",   contrib: 52,  kind: "agent" },
-    { id: "u4", n: "GPT",    r: "Research",       load: 15, status: "idle",      contrib: 18,  kind: "agent" },
+  const params = useParams()
+  const projectId = params?.id as string
+  const [owner, setOwner] = useState<any>(null)
+  const [collaborators, setCollaborators] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!projectId) return
+    setLoading(true)
+    fetch(`/api/projects/${projectId}/collaborators`)
+      .then(r => r.json())
+      .then(j => {
+        if (j?.success && j?.data) {
+          setOwner(j.data.owner || null)
+          setCollaborators(Array.isArray(j.data.collaborators) ? j.data.collaborators : [])
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [projectId])
+
+  const allHumans = [
+    ...(owner ? [{ ...owner, role: "owner" }] : []),
+    ...collaborators,
   ]
+
+  if (loading) {
+    return <div className="j-card"><span className="j-muted">Loading team…</span></div>
+  }
+
   return (
     <div className="j-col j-gap-4">
-      <div className="j-grid j-cols-3">
-        {team.map(m => (
-          <div key={m.id} className="j-card">
-            <div className="j-row j-gap-3" style={{ marginBottom: 12 }}>
-              <div className="j-avatar" style={{ width: 40, height: 40, fontSize: 13 }}>{m.n.slice(0, 2).toUpperCase()}</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 500 }}>{m.n}</div>
-                <div className="j-muted" style={{ fontSize: 11 }}>{m.r}</div>
-              </div>
-              <span className={`j-pill ${m.kind === "agent" ? "j-proj" : "j-biz"}`} style={{ fontSize: 9 }}>{m.kind}</span>
-            </div>
-            <div className="j-row j-between" style={{ marginBottom: 4 }}>
-              <span className="j-muted" style={{ fontSize: 11 }}>Load</span>
-              <span className="j-num" style={{ fontSize: 11 }}>{m.load}%</span>
-            </div>
-            <div className="j-progress j-thick" style={{ marginBottom: 12 }}>
-              <span style={{ width: `${m.load}%`, background: m.load > 75 ? "var(--j-warn)" : "var(--j-accent)" }} />
-            </div>
-            <div className="j-row j-between">
-              <span className="j-pill j-ghost">{m.status}</span>
-              <span className="j-muted" style={{ fontSize: 11 }}>{m.contrib} contribs</span>
-            </div>
+      <div className="j-card">
+        <div className="j-card-head">
+          <div>
+            <h3 className="j-card-title">People</h3>
+            <p className="j-card-sub">
+              {allHumans.length} {allHumans.length === 1 ? "person" : "people"} on this project · agents live on the Agents tab
+            </p>
           </div>
-        ))}
+        </div>
+        {allHumans.length === 0 ? (
+          <div style={{ padding: 24, textAlign: "center" }}>
+            <p className="j-muted" style={{ fontSize: 13, margin: 0 }}>No collaborators yet.</p>
+          </div>
+        ) : (
+          <div className="j-grid j-cols-3">
+            {allHumans.map((m: any) => {
+              const name = m.name || m.displayName || m.email || "Unknown"
+              const role = (m.role || "collaborator").toString()
+              const initials = (name || "U").split(/\s+/).map((p: string) => p[0]).join("").slice(0, 2).toUpperCase()
+              return (
+                <div key={m.id || m.userId || m.email} className="j-card">
+                  <div className="j-row j-gap-3" style={{ marginBottom: 8 }}>
+                    <div className="j-avatar" style={{ width: 40, height: 40, fontSize: 13 }}>{initials}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
+                      {m.email && <div className="j-muted" style={{ fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.email}</div>}
+                    </div>
+                    <span className={`j-pill ${role === "owner" ? "j-pos" : "j-ghost"}`} style={{ fontSize: 9 }}>{role}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+      <div className="j-card j-row j-between" style={{ alignItems: "center" }}>
+        <div>
+          <p className="j-card-sub" style={{ margin: 0, fontSize: 12 }}>
+            Looking for agent activity? Agents have their own dedicated workspace.
+          </p>
+        </div>
+        <a className="j-btn j-btn-ghost" href="#" onClick={(e) => { e.preventDefault(); document.querySelector<HTMLButtonElement>('button')?.click() }} style={{ pointerEvents: "none", opacity: 0.5 }}>
+          See Agents tab →
+        </a>
       </div>
     </div>
   )
@@ -1107,8 +1584,8 @@ export default function ProjectDashboardPage() {
         </div>
       </div>
 
-      {/* Facet content */}
-      <div style={{ padding: "24px 32px", maxWidth: 1440, margin: "0 auto" }}>
+      {/* Facet content — full-width; per-facet cards can self-constrain */}
+      <div style={{ padding: "24px 32px" }}>
         {activeTab === "overview"  && <OverviewFacet  project={project} progressNotes={progressNotes || []} />}
         {activeTab === "tasks"     && (
           <div style={{ height: "calc(100vh - 200px)" }}>
@@ -1135,10 +1612,10 @@ export default function ProjectDashboardPage() {
         {activeTab === "ideas"     && <IdeasFacet projectId={projectId} />}
         {activeTab === "finance"   && <FinanceFacet />}
         {activeTab === "agents"    && <AgentsFacet />}
-        {activeTab === "notes"     && <NotesFacet />}
-        {activeTab === "calendar"  && <CalendarFacet />}
-        {activeTab === "metrics"   && <MetricsFacet />}
-        {activeTab === "risks"     && <RisksFacet />}
+        {activeTab === "notes"     && <NotesFacet projectId={projectId} />}
+        {activeTab === "calendar"  && <CalendarFacet projectId={projectId} />}
+        {activeTab === "metrics"   && <MetricsFacet project={project} steps={steps} />}
+        {activeTab === "risks"     && <RisksFacet projectId={projectId} project={project} onChange={() => fetchProjectData(true)} />}
         {activeTab === "team"      && <TeamFacet />}
         {activeTab === "links"     && <LinksFacet />}
       </div>

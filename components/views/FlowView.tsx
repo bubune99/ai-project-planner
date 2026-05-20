@@ -217,7 +217,7 @@ export function FlowView({
           fitView
           className="bg-background"
         >
-          <Background className="bg-muted" gap={16} size={1} />
+          <Background className="bg-muted" gap={20} size={1} color="#3f3f46" />
           <Controls className="bg-card border border-border rounded-lg shadow-lg" />
 
           <Panel position="top-left" className="flex gap-2">
@@ -306,7 +306,7 @@ export function FlowView({
         fitView
         className="bg-background"
       >
-        <Background className="bg-muted" gap={16} size={1} />
+        <Background className="bg-muted" gap={20} size={1} color="#3f3f46" />
 
         <Controls className="bg-card border border-border rounded-lg shadow-lg" />
 
@@ -322,30 +322,34 @@ export function FlowView({
           }}
         />
 
-        <Panel position="top-left" className="flex gap-2">
-          <Button size="sm" onClick={() => setIsStepModalOpen(true)} className="bg-card border-border shadow-lg gap-2">
+        <Panel position="top-left" className="flex flex-col gap-2 bg-card/90 backdrop-blur-sm border border-border rounded-lg shadow-lg p-3 w-48">
+          <div className="text-xs font-medium text-foreground">Add nodes</div>
+          <Button size="sm" onClick={() => { setEditingStep(null); setIsStepModalOpen(true) }} className="gap-2 w-full justify-start">
             <Plus className="w-4 h-4" />
-            Add Step
+            New step
           </Button>
-
+          <div className="text-[10px] text-muted-foreground leading-snug mt-1">
+            Click "New step" or right-click the canvas to add a node. Drag node handles to connect.
+          </div>
+          <div className="border-t border-border my-2" />
+          <div className="text-xs font-medium text-foreground">View modes</div>
           <Button
             variant={highlightMode ? "default" : "outline"}
             size="sm"
             onClick={() => setHighlightMode(!highlightMode)}
-            className="bg-card border-border shadow-lg"
+            className="gap-2 w-full justify-start"
           >
-            <Target className="w-4 h-4 mr-2" />
-            Highlight Mode
+            <Target className="w-4 h-4" />
+            Highlight mode
           </Button>
-
           <Button
             variant={showCriticalPath ? "default" : "outline"}
             size="sm"
             onClick={() => setShowCriticalPath(!showCriticalPath)}
-            className="bg-card border-border shadow-lg"
+            className="gap-2 w-full justify-start"
           >
-            <Zap className="w-4 h-4 mr-2" />
-            Critical Path
+            <Zap className="w-4 h-4" />
+            Critical path
           </Button>
         </Panel>
 
