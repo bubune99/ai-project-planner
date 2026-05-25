@@ -17,6 +17,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { formatDistanceToNow } from "date-fns"
 import { Icon } from "./icons"
 
 // ── Types (subset of the API envelopes we consume) ───────────────────────────
@@ -678,6 +679,87 @@ export function JarvisDashboard() {
         </div>
       </div>
       <QuickCapture />
+      <CatalogHealth />
+    </div>
+  )
+}
+
+// ── Catalog Health panel ─────────────────────────────────────────────────────
+
+type CatalogStats = {
+  total: number
+  fresh: number
+  needs_revalidation: number
+  stale: number
+  deprecated: number
+  oldest_needs_revalidation: string | null
+}
+
+function CatalogHealth() {
+  const [stats, setStats] = useState<CatalogStats | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      fetch("/api/catalog/surfaces?limit=500&status=fresh").then(r => r.json()),
+      fetch("/api/catalog/surfaces?limit=500&status=needs_revalidation").then(r => r.json()),
+      fetch("/api/catalog/surfaces?limit=500&status=stale").then(r => r.json()),
+      fetch("/api/catalog/surfaces?limit=500&status=deprecated").then(r => r.json()),
+    ]).then(([fresh, needs, stale, dep]) => {
+      if (cancelled) return
+      const freshN = fresh?.meta?.total ?? 0
+      const needsN = needs?.meta?.total ?? 0
+      const staleN = stale?.meta?.total ?? 0
+      const depN = dep?.meta?.total ?? 0
+      const total = freshN + needsN + staleN + depN
+
+      // Find oldest needs_revalidation
+      const needsItems: Array<{ last_verified_at: string | null }> = Array.isArray(needs?.data) ? needs.data : []
+      const oldest = needsItems.reduce<string | null>((acc, item) => {
+        if (!item.last_verified_at) return acc
+        if (!acc) return item.last_verified_at
+        return item.last_verified_at < acc ? item.last_verified_at : acc
+      }, null)
+
+      setStats({ total, fresh: freshN, needs_revalidation: needsN, stale: staleN, deprecated: depN, oldest_needs_revalidation: oldest })
+    }).catch(() => { if (!cancelled) setStats(null) })
+
+    return () => { cancelled = true }
+  }, [])
+
+  if (!stats) return null
+
+  return (
+    <div className="j-card j-tight">
+      <div className="j-card-head">
+        <p className="j-card-title">Catalog Health</p>
+        <Link href="/catalog" style={{ fontSize: 12, color: "var(--j-accent)", textDecoration: "none" }}>Browse</Link>
+      </div>
+      <div className="j-row j-wrap" style={{ gap: 8, marginTop: 4 }}>
+        <span className="j-pill j-ghost" style={{ fontSize: 11 }}>{stats.total} surfaces</span>
+        <span className="j-pill j-pos" style={{ fontSize: 11 }}>{stats.fresh} fresh</span>
+        {stats.needs_revalidation > 0 && (
+          <Link href="/catalog?status=needs_revalidation" style={{ textDecoration: "none" }}>
+            <span className="j-pill j-warn" style={{ fontSize: 11, cursor: "pointer" }}>
+              {stats.needs_revalidation} needs revalidation
+            </span>
+          </Link>
+        )}
+        {stats.stale > 0 && (
+          <span className="j-pill j-neg" style={{ fontSize: 11 }}>{stats.stale} stale</span>
+        )}
+        {stats.deprecated > 0 && (
+          <span className="j-pill j-muted" style={{ fontSize: 11 }}>{stats.deprecated} deprecated</span>
+        )}
+      </div>
+      {stats.oldest_needs_revalidation && (
+        <p style={{ margin: "6px 0 0", fontSize: 11, color: "oklch(0.556 0 0)" }}>
+          Oldest unvalidated: {(() => {
+            try { return formatDistanceToNow(new Date(stats.oldest_needs_revalidation!), { addSuffix: true }) }
+            catch { return "—" }
+          })()}
+        </p>
+      )}
     </div>
   )
 }
