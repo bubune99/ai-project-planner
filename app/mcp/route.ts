@@ -198,135 +198,6 @@ async function authenticateRequest(
 const handler = createMcpHandler(
   async (server) => {
     // ==========================================
-    // Tool: planner_agent_guide — START HERE
-    // The agent workflow contract. Call once at session start.
-    // ==========================================
-    server.tool(
-      "planner_agent_guide",
-      "START HERE. Returns the full agent workflow contract: when to call which tools, the check-in loop semantics, how to handle blockers/failures, and the closed feedback loop. Call this once at session start to understand how to interact with the planner correctly.",
-      {
-        focus: z
-          .enum(["all", "execution", "library", "reflection", "envelope"])
-          .optional()
-          .describe("Limit guide to a specific dimension. Default 'all'."),
-      },
-      async ({ focus }) => {
-        const f = focus ?? "all"
-        const guide: Record<string, unknown> = {
-          summary:
-            "AI Project Planner — agent workflow contract. The planner is the orchestration substrate for AI-assisted dev: it knows what to build, in what order, with what skills, and tracks outcomes back. Always check in.",
-          contract_principles: [
-            "Every entity has a 5W+H envelope (documentation_5wh). When you create rows, the API auto-derives; you can override by passing documentation_5wh in the body.",
-            "Every write operation MUST come with a rationale (the WHY dimension). API auto-fills with a 'Created via X' sentinel in legacy mode, but you should provide explicit rationale.",
-            "Work happens in work_orders → work_order_steps. Steps are claimed by agents; agents check in on every event (progress, blocker, completion).",
-            "On failure: ALWAYS call record_attempt to capture lessons_learned. The next agent will see it via prior_art lookup automatically.",
-            "After work: ALWAYS call record_spec_outcome to score the template/skill used. This is how the library learns.",
-            "Cross-link entities via entity_link to make the knowledge graph richer. The /graph UI visualizes these.",
-          ],
-        }
-
-        if (f === "all" || f === "execution") {
-          guide.execution_workflow = {
-            phase_1_orient: [
-              "1. Call get_active_project (or set_active_project) to scope your session.",
-              "2. Call planner_agent_guide for this contract (already done if you're reading this).",
-              "3. Call list_projects / list_ideas / library_search to discover what's relevant.",
-            ],
-            phase_2_compose: [
-              "1. Call library_search to find existing templates that match the work needed.",
-              "2. If a template fits: call compose_work_order with sourceTemplateId. Otherwise: call compose_work_order with ad_hoc_steps[].",
-              "3. The response includes max_parallelism — if > 1, multiple agents can claim parallel steps simultaneously.",
-            ],
-            phase_3_execute: [
-              "1. Call work_order_claim_step to claim a 'ready' step. Response includes full instructions (the JIT delivery).",
-              "2. While working: call work_order_check_in('progress', message) at meaningful milestones.",
-              "3. On encountering a blocker: work_order_check_in('blocker', message, payload). Response.prior_art[] returns matching attempted_solutions — READ IT before deciding next move.",
-              "4. On completion: work_order_check_in('completion', outcome_summary, outcome_artifacts). This auto-promotes newly-ready downstream steps.",
-              "5. On failure that you cannot resolve: work_order_check_in('failure', message). Then ALSO call record_attempt with what you tried and what was learned.",
-              "6. On release (you cannot continue but step isn't failed): work_order_check_in('release', reason).",
-            ],
-            phase_4_reflect: [
-              "1. Call record_spec_outcome for every template/skill applied — success or failure.",
-              "2. If you discovered useful cross-links: entity_link({from_entity_type, from_entity_id, to_entity_type, to_entity_id, relation_type}).",
-              "3. If the work resolved feedback: entity_link with relation_type='addresses' between work_order and feedback. The promotion flow auto-closes feedback on mark-implemented.",
-            ],
-            phase_5_complete: [
-              "When all steps in a work_order finish, the runtime auto-flips work_order.status='completed'.",
-              "You can explicitly POST /api/work-orders/{id}/mark-implemented to also: bump source template counters, auto-close addressed feedback, stamp implementation timestamp on source idea.",
-            ],
-          }
-        }
-
-        if (f === "all" || f === "library") {
-          guide.library_workflow = {
-            consume: [
-              "library_search → discover what exists",
-              "library_get → full details of a skill/template/protocol with envelope",
-              "find_related → 2-hop neighborhood of cross-links",
-              "find_attempts → prior failures relevant to your context",
-            ],
-            contribute: [
-              "library_create_skill — atomic capability (a small how-to)",
-              "library_create_template — composed multi-step feature blueprint",
-              "library_create_protocol — enforcement rule fired at a trigger_event",
-              "All three require rationale + auto-derive remaining envelope fields",
-            ],
-            promotion: [
-              "POST /api/ideas/{id}/promote-to-template — promote a refined idea to a feature_template (carries over facets)",
-              "POST /api/feature-templates/{id}/promote-to-work-order — composes the template into an executable work order",
-            ],
-          }
-        }
-
-        if (f === "all" || f === "reflection") {
-          guide.reflection_workflow = {
-            score_outcomes: "record_spec_outcome bumps usage_count / success_count / failure_count on the source spec. View aggregated outcomes via score_template / score_prompt.",
-            capture_failure: "record_attempt — entity_type + entity_id + approach + outcome + lessons_learned. This is what makes the next agent smarter via prior_art lookup.",
-            audit_envelope_quality: "audit_5wh — returns coverage summary; flags entities lacking explicit rationale.",
-            fire_prompts: "record_prompt_fire when you used a specific prompt and it helped/hurt — feeds prompt_outcomes view.",
-          }
-        }
-
-        if (f === "all" || f === "envelope") {
-          guide.envelope_contract = {
-            shape: "5W+H — who/what/when/where/why/how, with starred mandatory fields auto-derived from request context (user_id, project_id, created_at) and request body (title, type, summary, rationale).",
-            mandatory_fields: [
-              "who.user_id (auto from API key)",
-              "what.title", "what.type", "what.summary",
-              "when.created_at (auto from now())",
-              "where.project_id (auto from project scope or optional for user-scoped entities)",
-              "why.rationale (YOU MUST provide this on creates — legacy mode auto-stamps a derived value; strict mode 422s)",
-            ],
-            optional_high_value: [
-              "why.relates_to[] — typed cross-links inline",
-              "where.parent_entity — when this entity is a child of another",
-              "where.external_refs[] — github/vercel/stripe links",
-              "how.references[] — docs, examples, prior prompts",
-              "how.success_criteria[] — what 'done' looks like",
-            ],
-            get_audit: "Call get_5wh({entity_type, entity_id}) to inspect any entity's envelope + completeness score.",
-          }
-        }
-
-        if (f === "all") {
-          guide.quick_reference = {
-            session_start: ["planner_agent_guide", "get_active_project", "library_search"],
-            executing: ["work_order_claim_step", "work_order_check_in"],
-            on_blocker: ["work_order_check_in('blocker') → read prior_art[]", "find_attempts"],
-            on_failure: ["work_order_check_in('failure')", "record_attempt"],
-            on_completion: ["work_order_check_in('completion')", "record_spec_outcome"],
-            discovery: ["library_search", "find_related", "get_knowledge_graph"],
-            ad_hoc_creation: ["library_create_*", "entity_link", "compose_work_order"],
-          }
-          guide.tool_count = 80
-          guide.platform_alias = "v0-ai-project-planner-eight.vercel.app"
-        }
-
-        return mcpResponse(guide)
-      }
-    )
-
-    // ==========================================
     // Tool: Get project context
     // ==========================================
     server.tool(
@@ -4388,7 +4259,6 @@ const handler = createMcpHandler(
             await sql`UPDATE feature_templates SET usage_count = usage_count + 1, last_used_at = NOW() WHERE id = ${source_template_id}`
           }
 
-          const readySteps = insertedSteps.filter((s) => s.status === "ready")
           return mcpResponse({
             success: true,
             data: {
@@ -4399,15 +4269,6 @@ const handler = createMcpHandler(
                 cycles_detected: plan.cycles_detected,
                 warnings: plan.warnings,
               },
-              next_actions: [
-                auto_approve
-                  ? `${readySteps.length} step(s) are 'ready' — call work_order_claim_step({ work_order_id: '${wo.id}', step_id: <one of the ready step ids>, agent_id: <your id>, agent_type: 'agent' }) to claim one.`
-                  : `work_order is 'proposed' — call POST /api/work-orders/${wo.id} with { status: 'approved' } OR re-compose with auto_approve: true to start claiming.`,
-                plan.max_parallelism > 1
-                  ? `max_parallelism=${plan.max_parallelism} — multiple agents can claim parallel-group steps simultaneously.`
-                  : null,
-                plan.cycles_detected ? `WARNING: cycle detected in DAG — review warnings[] before executing.` : null,
-              ].filter(Boolean),
             },
           })
         } catch (error: unknown) {
@@ -4485,14 +4346,6 @@ const handler = createMcpHandler(
                 acceptance_criteria: step.acceptance_criteria,
                 required_capabilities: step.required_capabilities,
               },
-              next_actions: [
-                `BEFORE starting: call find_attempts({ entity_type: 'work_order_step', search: '${(step.title as string).slice(0, 40)}' }) to read prior-art / lessons.`,
-                `WHILE working: call work_order_check_in({ work_order_id: '${work_order_id}', step_id: '${step.id}', event_type: 'progress', message: '<what you did>' }) at meaningful milestones.`,
-                `ON COMPLETION: work_order_check_in({ ..., event_type: 'completion', outcome_summary: '<what got built>', outcome_artifacts: [{kind, ref, url?}] }).`,
-                `ON BLOCKER: work_order_check_in({ ..., event_type: 'blocker', message: '<what blocks you>' }) — response.prior_art[] returns matching attempted_solutions.`,
-                `ON FAILURE you cannot recover: work_order_check_in({ ..., event_type: 'failure' }) THEN record_attempt({ entity_type: 'work_order_step', entity_id: '${step.id}', approach, outcome: 'failed', lessons_learned }).`,
-                `AFTER completion: record_spec_outcome({ spec_source_type: 'feature_template', spec_source_id: <work_order.source_template_id>, applied_to_type: 'work_order_step', applied_to_id: '${step.id}', outcome: 'success' }) so the library learns.`,
-              ],
             },
           })
         } catch (error: unknown) {
@@ -4611,56 +4464,6 @@ const handler = createMcpHandler(
             newStepStatus = "in_progress"
           }
 
-          // Build next_actions per event type — the agent's "go back" contract
-          const nextActions: string[] = []
-          if (event_type === "completion") {
-            if (promotedSteps.length > 0) {
-              nextActions.push(
-                `${promotedSteps.length} downstream step(s) just promoted to 'ready'. Call work_order_claim_step on one to continue, OR release this work order for another agent to claim.`
-              )
-            } else {
-              nextActions.push(
-                `No more steps were promoted. Check if work_order is now 'completed' (auto-set if all steps done) — if yes, optionally POST /api/work-orders/${work_order_id}/mark-implemented to bump source-template counters + auto-close addressed feedback.`
-              )
-            }
-            nextActions.push(
-              `Call record_spec_outcome with outcome:'success' so the library learns. Include spec_source_type='feature_template' if work_order came from one.`
-            )
-          } else if (event_type === "failure") {
-            nextActions.push(
-              `MANDATORY: call record_attempt({ entity_type:'work_order_step', entity_id:'${step_id}', approach:'<what you tried>', outcome:'failed', failure_mode:'<how>', root_cause:'<why>', lessons_learned:'<what next agent should know>', prevention_strategy:'<optional>' }) so this failure is captured for the next agent's prior-art lookup.`
-            )
-            nextActions.push(
-              `Then call record_spec_outcome with outcome:'failure' to bump failure_count on the source template/skill.`
-            )
-            if (priorArt.length > 0) {
-              nextActions.push(
-                `${priorArt.length} prior attempt(s) returned in prior_art[] — read them; the failure_mode/root_cause may match yours.`
-              )
-            }
-          } else if (event_type === "blocker") {
-            nextActions.push(
-              `Step status is now 'blocked'. To unblock: (a) resolve the blocker out-of-band and call work_order_check_in('release') to return it to 'ready', OR (b) call work_order_check_in('failure') if it is truly unrecoverable.`
-            )
-            if (priorArt.length > 0) {
-              nextActions.push(
-                `${priorArt.length} prior_art entry(ies) returned — read the lessons_learned + prevention_strategy fields BEFORE making your next move.`
-              )
-            } else {
-              nextActions.push(
-                `No prior_art found for this blocker — once resolved, record_attempt({ outcome:'inconclusive' or 'failed' }) with what you tried so the next agent benefits.`
-              )
-            }
-          } else if (event_type === "progress" || event_type === "retry") {
-            nextActions.push(
-              `Continue working. Check in again at next milestone, OR call work_order_check_in('completion'|'failure'|'blocker') when state changes.`
-            )
-          } else if (event_type === "release") {
-            nextActions.push(
-              `Step claim released — status back to 'ready'. Another agent (or you later) can call work_order_claim_step on it again.`
-            )
-          }
-
           return mcpResponse({
             success: true,
             data: {
@@ -4668,7 +4471,6 @@ const handler = createMcpHandler(
               step_status: newStepStatus,
               promoted_steps: promotedSteps,
               ...(priorArt.length > 0 ? { prior_art: priorArt } : {}),
-              next_actions: nextActions,
             },
           })
         } catch (error: unknown) {

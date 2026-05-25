@@ -8,68 +8,6 @@ AI Project Planner is an intelligent, adaptive project management platform desig
 
 **Key Concept**: This is a "Central Persistence Agent" that tracks business context, technical decisions, and project state across all development phases, with intelligent routing to different AI tools based on task requirements.
 
----
-
-## ⚡ AGENT CONTRACT — How to interact with this planner via MCP
-
-**This planner exposes 80 MCP tools at `app/mcp/route.ts`.** When you (an AI agent — Claude Code, v0, GPT, etc.) interact with it, **always start with `planner_agent_guide`**. It returns the workflow contract for the current session.
-
-### The check-in loop (mandatory for work execution)
-
-Every step you work on goes through this loop. Skipping any of these breaks the platform's learning feedback:
-
-```
-work_order_claim_step       → returns JIT instructions + next_actions[]
-   ↓
-work_order_check_in("progress", message)   ← call at each milestone
-   ↓ (during work, on each event)
-work_order_check_in("blocker", message)    ← returns prior_art[]
-work_order_check_in("completion", outcome) ← auto-promotes ready downstream
-work_order_check_in("failure", message)    ← MUST follow with record_attempt
-   ↓
-record_spec_outcome                        ← MANDATORY scoring after every step
-record_attempt (on failure)                ← MANDATORY for failure capture
-entity_link (when you discover cross-refs) ← enriches the knowledge graph
-```
-
-**Every workflow tool returns a `next_actions[]` array.** Read it — it tells you what to call next based on what just happened.
-
-### Common discovery flows
-
-| You want to… | Call |
-|---|---|
-| Start a session | `planner_agent_guide` then `get_active_project` |
-| Find an applicable template | `library_search({ query, types: ["feature_template"] })` |
-| See what's been tried before | `find_attempts({ entity_type, search })` |
-| See what's connected to X | `find_related({ entity_type, entity_id, hops: 2 })` |
-| Render the knowledge graph | `get_knowledge_graph` (or visit /graph in browser) |
-| Inspect any envelope | `get_5wh({ entity_type, entity_id })` |
-| Audit envelope coverage | `audit_5wh({ scope: "summary" })` |
-
-### What "go back" looks like in practice
-
-When you finish an operation, the response tells you the next step. For example:
-
-- After `compose_work_order`: response.next_actions tells you which step IDs are 'ready' to claim
-- After `work_order_check_in("completion")`: response.next_actions tells you to score the outcome AND call `record_spec_outcome`
-- After `work_order_check_in("blocker")`: response.prior_art[] shows what other agents tried; response.next_actions tells you how to either release or fail
-
-### The 5W+H envelope
-
-Every entity (idea, todo, work_order_step, prompt, skill, etc.) has a `documentation_5wh` JSONB column with mandatory starred fields:
-
-- `who.user_id` (auto-derived from your API key)
-- `what.title`, `what.type`, `what.summary` (you supply title; type auto-derived; summary defaults to title)
-- `when.created_at` (auto from now())
-- `where.project_id` (auto from active project; optional for user-scoped entities like ideas/todos)
-- `why.rationale` (**YOU MUST PROVIDE** on creates — legacy mode auto-stamps "Auto-derived: created via X API endpoint" but explicit rationale is the contract)
-
-When creating any entity, pass `documentation_5wh: { why: { rationale: "...", constraints: [...], relates_to: [...] }, how: { approach: "...", success_criteria: [...] } }` to enrich beyond the auto-derived skeleton.
-
-### Prod alias
-
-Planner lives at **`v0-ai-project-planner-eight.vercel.app`** (NOT faridea.dev — see memory `planner-prod-url-correction`).
-
 ## Development Commands
 
 \`\`\`bash
