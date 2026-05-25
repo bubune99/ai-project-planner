@@ -192,43 +192,18 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // 8b. Scannable files present — run TARGETED scan
-    //
-    // The scanner (lib/catalog/scan.ts) is being built by the scanner agent.
-    // Until that lands, we log the event with empty diffs so the audit chain
-    // is intact + the dedup guard records that we received this commit.
-    //
-    // Once the scanner is wired in, replace this block with:
-    //   const scanResult = await scanPaths({ projectRoot, files: scannable, commitSha, branch })
-    //   const diff = diffScanAgainstCurrent({ scanResult, ... })
-    //   const persisted = await persistDiff(diff, userId, commitSha)
-    //   surfacesAdded = persisted.added; surfacesModified = persisted.modified
-    //
-    // For now: produce the event row with scan_type='targeted' but empty surface arrays.
-    // This is a real entry that proves the webhook reached us; we'll backfill via
-    // catalog_scan_now({scope:'targeted', files:scannable, commitSha}) once the
-    // scanner is operational.
-
-    const t0 = Date.now()
-    const surfacesAdded: string[] = []
-    const surfacesModified: string[] = []
-    const surfacesRemoved: string[] = []
-    const scanDurationMs = Date.now() - t0
-
-    const eventId = await logScanEvent({
+    // 8b. Scannable files present — run TARGETED scan via the shared orchestrator
+    const { runCatalogScan } = await import('@/lib/catalog/run-scan')
+    const result = await runCatalogScan({
       userId,
+      projectRoot: process.cwd(),
+      files: scannable,
+      scope: 'targeted',
       commitSha,
       branch,
-      scanType: 'targeted',
-      scannedFiles: scannable,
-      surfacesAdded,
-      surfacesModified,
-      surfacesRemoved,
-      scanDurationMs,
       triggeredBy: 'github_webhook',
-      metadata: {
+      eventMetadata: {
         repo: body.repository?.full_name,
-        scanner_status: 'pending_wave_1_completion',
         changed_files_total: changedFiles.length,
         pusher: body.pusher?.name,
         commits_in_push: body.commits?.length ?? 0,
@@ -237,14 +212,17 @@ export async function POST(request: NextRequest) {
 
     return successResponse({
       scanned: true,
-      scan_type: 'targeted',
-      event_id: eventId,
+      scan_type: result.scanType,
+      event_id: result.scanEventId,
       commit_sha: commitSha,
       branch,
       scannable_files: scannable,
-      surfaces_added: surfacesAdded.length,
-      surfaces_modified: surfacesModified.length,
-      surfaces_removed: surfacesRemoved.length,
+      scanned_files_count: result.scannedFilesCount,
+      surfaces_added: result.surfacesAdded.length,
+      surfaces_modified: result.surfacesModified.length,
+      surfaces_removed: result.surfacesRemoved.length,
+      scan_duration_ms: result.scanDurationMs,
+      warnings: result.warnings,
     })
   } catch (error) {
     console.error('POST /api/catalog/webhooks/github error:', error)

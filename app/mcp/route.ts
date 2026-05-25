@@ -4527,7 +4527,7 @@ const handler = createMcpHandler(
 
     server.tool(
       "work_order_check_in",
-      "Fire a check-in event on a work_order_step. On completion, auto-promotes newly-ready steps. On failure/blocker, returns matching prior_art from attempted_solutions.",
+      "Fire a check-in event on a work_order_step. On completion: validates affected surfaces via Truth Seeker contracts (BLOCKS completion if required validators failed/missing); auto-promotes newly-ready steps when allowed. On failure/blocker, returns matching prior_art from attempted_solutions.",
       {
         work_order_id: z.string().describe("Work order UUID"),
         step_id: z.string().describe("Step UUID"),
@@ -4539,9 +4539,15 @@ const handler = createMcpHandler(
           kind: z.string(),
           ref: z.string(),
           url: z.string().optional(),
-        })).optional().describe("Artifacts produced on completion"),
+        })).optional().describe("Artifacts produced on completion — used to identify affected catalog surfaces for the validation gate"),
+        validation_results: z.array(z.object({
+          validator_tool: z.string(),
+          surface_canonical_id: z.string(),
+          passed: z.boolean(),
+          notes: z.string().optional(),
+        })).optional().describe("Results from running the required validators per affected surface. Required on 'completion' if the catalog has explicit contracts for any affected surface — otherwise completion will be blocked. Call analyze_impact or list_required_validations first to see what's required."),
       },
-      async ({ work_order_id, step_id, event_type, message, payload, outcome_summary, outcome_artifacts }) => {
+      async ({ work_order_id, step_id, event_type, message, payload, outcome_summary, outcome_artifacts, validation_results }) => {
         try {
           requireMcpScope("write")
           const userId = getMcpUserId()
@@ -4556,11 +4562,84 @@ const handler = createMcpHandler(
 
           const now = new Date().toISOString()
 
+          // ─── COMPLETION GATE (Idea H Wave 3) ──────────────────────────────────
+          // BEFORE persisting the check-in event for a 'completion', resolve
+          // outcome_artifacts → affected catalog surfaces and check the validation
+          // contracts. If required validators are missing or failed, block the
+          // completion and return next_actions describing what the agent must run.
+          // ──────────────────────────────────────────────────────────────────────
+          if (event_type === "completion" && outcome_artifacts && outcome_artifacts.length > 0) {
+            const refs = outcome_artifacts.map((a) => a.ref)
+            const kinds = outcome_artifacts.map((a) => a.kind)
+            // Match by canonical_id (e.g. 'mcp:foo') OR by location.file_path
+            const affected = await sql`
+              SELECT *
+              FROM surfaces
+              WHERE user_id = ${userId}
+                AND deleted_at IS NULL
+                AND (
+                  canonical_id = ANY(${refs}::text[])
+                  OR location->>'file_path' = ANY(${refs}::text[])
+                )
+            ` as unknown as Array<{ id: string; canonical_id: string; kind: string; project_id: string | null; location: Record<string, unknown>; signature: Record<string, unknown>; content_hash: string | null; status: string; documentation_5wh: Record<string, unknown> }>
+
+            if (affected.length > 0) {
+              const { getValidationsForBatch, evaluateGate } = await import("@/lib/catalog/validate")
+              const required = await getValidationsForBatch(affected as never, 'on_modify', userId)
+
+              if (required.length > 0) {
+                const decision = evaluateGate(required, validation_results ?? null)
+
+                if (!decision.allow_completion) {
+                  // Log the gate-blocked check-in for audit
+                  const [blockedCheckin] = await sql`
+                    INSERT INTO work_order_check_ins (step_id, work_order_id, event_type, message, payload, by_type, by_id, user_id)
+                    VALUES (${step_id}::uuid, ${work_order_id}::uuid, 'protocol_violation',
+                            ${`Completion blocked by validation gate: ${decision.block_reason}`},
+                            ${JSON.stringify({ gate_blocked: true, block_reason: decision.block_reason, kinds_of_artifacts: kinds, affected_surface_ids: affected.map(a => a.id) })}::jsonb,
+                            'system', 'completion_gate', ${userId})
+                    RETURNING id
+                  `
+                  return mcpResponse({
+                    success: true,
+                    data: {
+                      check_in_id: blockedCheckin.id,
+                      step_status: step.status, // unchanged — step did NOT complete
+                      gate_blocked: true,
+                      block_reason: decision.block_reason,
+                      required_total: decision.required_total,
+                      required_passed: decision.required_passed,
+                      required_failed: decision.required_failed,
+                      required_missing: decision.required_missing,
+                      affected_surfaces: affected.map(s => ({
+                        id: s.id,
+                        canonical_id: s.canonical_id,
+                        kind: s.kind,
+                      })),
+                      required_validators: required.map(r => ({
+                        contract_id: r.contract_id,
+                        validator_tool: r.validator_tool,
+                        surface_canonical_id: r.surface_canonical_id,
+                        surface_kind: r.surface_kind,
+                        required: r.required,
+                        invoke_args: r.invoke_args,
+                        description: r.description,
+                      })),
+                      next_actions: decision.next_actions,
+                    },
+                  })
+                }
+                // Gate allowed — fall through to normal completion flow.
+                // Validation results (passing) are recorded in the check-in payload below.
+              }
+            }
+          }
+
           // Insert check-in event
           const [checkin] = await sql`
             INSERT INTO work_order_check_ins (step_id, work_order_id, event_type, message, payload, by_type, by_id, user_id)
             VALUES (${step_id}::uuid, ${work_order_id}::uuid, ${event_type}, ${message ?? null},
-                    ${JSON.stringify(payload ?? {})}::jsonb, 'agent', ${step.claimed_by_id ?? "mcp"}, ${userId})
+                    ${JSON.stringify({ ...(payload ?? {}), ...(validation_results ? { validation_results } : {}) })}::jsonb, 'agent', ${step.claimed_by_id ?? "mcp"}, ${userId})
             RETURNING id
           `
 
@@ -5008,6 +5087,962 @@ const handler = createMcpHandler(
           await sql`UPDATE prompts SET fire_count = fire_count + 1, last_fired_at = ${now} WHERE id = ${prompt_id}::uuid`
 
           return mcpResponse({ success: true, data: { recorded: true, prompt_fire: row } })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ==========================================
+    // IDEA H — Catalog-first surface map (Wave 2)
+    // Agent-facing layer over surfaces + surface_dependencies + catalog_scan_events
+    // Trust tiers: agent declarations > hash-on-write > targeted scan
+    // Every query scoped to user_id via getMcpUserId()
+    // ==========================================
+
+    // ---- Inquiry tier (read-only) ----
+
+    server.tool(
+      "catalog_list",
+      "List catalog surfaces for the current user with optional filters. Returns surfaces array, total, and per-kind/per-status summary.",
+      {
+        kind: z.string().optional().describe("Filter by surface kind (e.g. 'api_route', 'mcp_tool', 'db_table'). Must be a SURFACE_KINDS value."),
+        project_id: z.string().optional().describe("Filter to a specific project UUID"),
+        status: z.enum(["fresh", "needs_revalidation", "stale", "deprecated"]).optional().describe("Filter by surface status"),
+        search: z.string().optional().describe("Case-insensitive substring match on canonical_id"),
+        limit: z.number().int().min(1).max(200).optional().describe("Max rows to return (default 50, max 200)"),
+      },
+      async ({ kind, project_id, status, search, limit }) => {
+        try {
+          const userId = getMcpUserId()
+          const effectiveLimit = Math.min(limit ?? 50, 200)
+
+          const rows = await sql`
+            SELECT id, canonical_id, kind, project_id, location, signature,
+                   content_hash, status, auto_detected_by, last_verified_at,
+                   last_verified_method, first_seen_commit_sha, last_seen_commit_sha,
+                   created_at, updated_at, metadata
+            FROM surfaces
+            WHERE user_id = ${userId}
+              AND deleted_at IS NULL
+              ${kind ? sql`AND kind = ${kind}` : sql``}
+              ${project_id ? sql`AND project_id = ${project_id}::uuid` : sql``}
+              ${status ? sql`AND status = ${status}` : sql``}
+              ${search ? sql`AND canonical_id ILIKE ${"%" + search + "%"}` : sql``}
+            ORDER BY updated_at DESC
+            LIMIT ${effectiveLimit}
+          `
+
+          // Count totals + summaries
+          const countRows = await sql`
+            SELECT kind, status, COUNT(*)::int AS cnt
+            FROM surfaces
+            WHERE user_id = ${userId}
+              AND deleted_at IS NULL
+              ${kind ? sql`AND kind = ${kind}` : sql``}
+              ${project_id ? sql`AND project_id = ${project_id}::uuid` : sql``}
+              ${status ? sql`AND status = ${status}` : sql``}
+              ${search ? sql`AND canonical_id ILIKE ${"%" + search + "%"}` : sql``}
+            GROUP BY kind, status
+          `
+
+          const byKind: Record<string, number> = {}
+          const byStatus: Record<string, number> = {}
+          let total = 0
+          for (const r of countRows) {
+            const k = r.kind as string
+            const s = r.status as string
+            const c = r.cnt as number
+            byKind[k] = (byKind[k] ?? 0) + c
+            byStatus[s] = (byStatus[s] ?? 0) + c
+            total += c
+          }
+
+          return mcpResponse({
+            success: true,
+            data: {
+              surfaces: rows,
+              total,
+              summary: { by_kind: byKind, by_status: byStatus },
+            },
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "catalog_search",
+      "Full-text-ish search across canonical_id, signature, and location of catalog surfaces. Returns matches with a snippet showing the matched substring in context.",
+      {
+        query: z.string().describe("Search term — matched against canonical_id, signature::text, and location::text (ILIKE)"),
+        kinds: z.array(z.string()).optional().describe("Restrict search to these surface kinds"),
+        limit: z.number().int().min(1).max(100).optional().describe("Max results (default 25)"),
+      },
+      async ({ query, kinds, limit }) => {
+        try {
+          const userId = getMcpUserId()
+          const effectiveLimit = Math.min(limit ?? 25, 100)
+          const pattern = "%" + query + "%"
+
+          const rows = await sql`
+            SELECT id, canonical_id, kind, status, location, signature,
+                   last_verified_at, updated_at
+            FROM surfaces
+            WHERE user_id = ${userId}
+              AND deleted_at IS NULL
+              AND (
+                canonical_id ILIKE ${pattern}
+                OR signature::text ILIKE ${pattern}
+                OR location::text ILIKE ${pattern}
+              )
+              ${kinds && kinds.length > 0 ? sql`AND kind = ANY(${kinds})` : sql``}
+            ORDER BY updated_at DESC
+            LIMIT ${effectiveLimit}
+          `
+
+          // Compute snippet: find the matched substring with ±40 char context
+          const matches = rows.map((row) => {
+            const candidates = [
+              row.canonical_id as string,
+              JSON.stringify(row.signature),
+              JSON.stringify(row.location),
+            ]
+            let snippet = ""
+            for (const candidate of candidates) {
+              if (!candidate) continue
+              const idx = candidate.toLowerCase().indexOf(query.toLowerCase())
+              if (idx !== -1) {
+                const start = Math.max(0, idx - 40)
+                const end = Math.min(candidate.length, idx + query.length + 40)
+                snippet = (start > 0 ? "…" : "") + candidate.slice(start, end) + (end < candidate.length ? "…" : "")
+                break
+              }
+            }
+            return { surface: row, snippet }
+          })
+
+          return mcpResponse({ success: true, data: { matches } })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "catalog_get",
+      "Get a single surface by UUID or canonical_id, including its incoming and outgoing dependencies.",
+      {
+        canonical_id_or_id: z.string().describe("Either the UUID (uuid format) or the canonical_id string of the surface"),
+      },
+      async ({ canonical_id_or_id }) => {
+        try {
+          const userId = getMcpUserId()
+
+          // Try UUID first, then canonical_id
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(canonical_id_or_id)
+
+          const surfaceRows = isUuid
+            ? await sql`SELECT * FROM surfaces WHERE id = ${canonical_id_or_id}::uuid AND user_id = ${userId} AND deleted_at IS NULL LIMIT 1`
+            : await sql`SELECT * FROM surfaces WHERE canonical_id = ${canonical_id_or_id} AND user_id = ${userId} AND deleted_at IS NULL LIMIT 1`
+
+          if (!surfaceRows[0]) return mcpError("Surface not found")
+          const surface = surfaceRows[0]
+
+          // Outgoing deps (this surface → others)
+          const outgoing = await sql`
+            SELECT sd.*, s.canonical_id AS to_canonical_id, s.kind AS to_kind, s.status AS to_status
+            FROM surface_dependencies sd
+            JOIN surfaces s ON s.id = sd.to_surface_id
+            WHERE sd.from_surface_id = ${surface.id}::uuid
+              AND sd.user_id = ${userId}
+              AND sd.deleted_at IS NULL
+          `
+
+          // Incoming deps (others → this surface)
+          const incoming = await sql`
+            SELECT sd.*, s.canonical_id AS from_canonical_id, s.kind AS from_kind, s.status AS from_status
+            FROM surface_dependencies sd
+            JOIN surfaces s ON s.id = sd.from_surface_id
+            WHERE sd.to_surface_id = ${surface.id}::uuid
+              AND sd.user_id = ${userId}
+              AND sd.deleted_at IS NULL
+          `
+
+          // Validate envelope presence
+          const envelope = surface.documentation_5wh
+          const envelopeValid = !!(envelope && typeof envelope === "object" && Object.keys(envelope as object).length > 0)
+
+          return mcpResponse({
+            success: true,
+            data: {
+              surface,
+              envelope_valid: envelopeValid,
+              outgoing_dependencies: outgoing,
+              incoming_dependencies: incoming,
+              counts: { outgoing: outgoing.length, incoming: incoming.length },
+            },
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "catalog_get_dependents",
+      "Get all surfaces that depend on a given surface within k hops (BFS over the reverse-dependency graph). Uses graph.findDependents().",
+      {
+        canonical_id_or_id: z.string().describe("UUID or canonical_id of the surface to start from"),
+        hops: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional().describe("Max hops (1=direct consumers only, 2=default, 3=transitive)"),
+      },
+      async ({ canonical_id_or_id, hops }) => {
+        try {
+          const userId = getMcpUserId()
+          const effectiveHops = (hops ?? 2) as 1 | 2 | 3
+
+          // Resolve surface
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(canonical_id_or_id)
+          const surfaceRows = isUuid
+            ? await sql`SELECT id, canonical_id, kind FROM surfaces WHERE id = ${canonical_id_or_id}::uuid AND user_id = ${userId} AND deleted_at IS NULL LIMIT 1`
+            : await sql`SELECT id, canonical_id, kind FROM surfaces WHERE canonical_id = ${canonical_id_or_id} AND user_id = ${userId} AND deleted_at IS NULL LIMIT 1`
+
+          if (!surfaceRows[0]) return mcpError("Surface not found")
+          const surface = surfaceRows[0]
+
+          // Fetch all deps for user
+          const deps = await sql`
+            SELECT from_surface_id, to_surface_id, kind, confidence
+            FROM surface_dependencies
+            WHERE user_id = ${userId} AND deleted_at IS NULL
+          `
+
+          const { findDependents } = await import("@/lib/catalog/graph")
+
+          // graph.findDependents operates on canonical_ids; we have UUID-based deps.
+          // Build a mapping uuid → canonical_id for all surfaces referenced in deps.
+          const referencedIds = new Set<string>()
+          for (const d of deps) {
+            referencedIds.add(d.from_surface_id as string)
+            referencedIds.add(d.to_surface_id as string)
+          }
+          const idList = Array.from(referencedIds)
+          const surfaceMapRows = idList.length > 0
+            ? await sql`SELECT id, canonical_id, kind FROM surfaces WHERE id = ANY(${idList}::uuid[]) AND user_id = ${userId}`
+            : []
+          const uuidToCanonical = new Map<string, { canonical_id: string; kind: string }>()
+          for (const r of surfaceMapRows) {
+            uuidToCanonical.set(r.id as string, { canonical_id: r.canonical_id as string, kind: r.kind as string })
+          }
+
+          // Convert deps to canonical_id form for graph functions
+          const canonicalDeps = deps.map((d) => ({
+            from_canonical_id: uuidToCanonical.get(d.from_surface_id as string)?.canonical_id ?? (d.from_surface_id as string),
+            to_canonical_id: uuidToCanonical.get(d.to_surface_id as string)?.canonical_id ?? (d.to_surface_id as string),
+            confidence: d.confidence as number,
+          }))
+
+          const dependents = findDependents(surface.canonical_id as string, canonicalDeps, effectiveHops)
+
+          // Enrich results with surface metadata
+          const dependentCanonicalIds = dependents.map((d) => d.surface_id)
+          const enrichedRows = dependentCanonicalIds.length > 0
+            ? await sql`SELECT id, canonical_id, kind, status FROM surfaces WHERE canonical_id = ANY(${dependentCanonicalIds}) AND user_id = ${userId} AND deleted_at IS NULL`
+            : []
+          const enrichMap = new Map<string, { id: string; kind: string; status: string }>()
+          for (const r of enrichedRows) {
+            enrichMap.set(r.canonical_id as string, { id: r.id as string, kind: r.kind as string, status: r.status as string })
+          }
+
+          const result = dependents.map((d) => ({
+            surface_id: enrichMap.get(d.surface_id)?.id ?? d.surface_id,
+            canonical_id: d.surface_id,
+            kind: enrichMap.get(d.surface_id)?.kind ?? null,
+            status: enrichMap.get(d.surface_id)?.status ?? null,
+            distance: d.distance,
+            via: d.via,
+          }))
+
+          return mcpResponse({
+            success: true,
+            data: {
+              start: { id: surface.id, canonical_id: surface.canonical_id, kind: surface.kind },
+              dependents: result,
+              total: result.length,
+              hops: effectiveHops,
+            },
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "list_stale_surfaces",
+      "List surfaces flagged for revalidation (the operator's 'what do I need to look at?' view). Returns surfaces ordered by oldest last_verified_at first.",
+      {
+        status: z.enum(["needs_revalidation", "stale"]).optional().describe("Status filter (default: needs_revalidation)"),
+        kind: z.string().optional().describe("Filter by surface kind"),
+        limit: z.number().int().min(1).max(200).optional().describe("Max rows (default 50)"),
+      },
+      async ({ status, kind, limit }) => {
+        try {
+          const userId = getMcpUserId()
+          const effectiveStatus = status ?? "needs_revalidation"
+          const effectiveLimit = Math.min(limit ?? 50, 200)
+
+          const rows = await sql`
+            SELECT id, canonical_id, kind, status, last_verified_at, last_verified_method,
+                   auto_detected_by, project_id, updated_at, metadata
+            FROM surfaces
+            WHERE user_id = ${userId}
+              AND deleted_at IS NULL
+              AND status = ${effectiveStatus}
+              ${kind ? sql`AND kind = ${kind}` : sql``}
+            ORDER BY last_verified_at ASC NULLS FIRST
+            LIMIT ${effectiveLimit}
+          `
+
+          const countRow = await sql`
+            SELECT COUNT(*)::int AS cnt, MIN(last_verified_at) AS oldest
+            FROM surfaces
+            WHERE user_id = ${userId}
+              AND deleted_at IS NULL
+              AND status = ${effectiveStatus}
+              ${kind ? sql`AND kind = ${kind}` : sql``}
+          `
+
+          return mcpResponse({
+            success: true,
+            data: {
+              surfaces: rows,
+              total: countRow[0]?.cnt ?? 0,
+              oldest_last_verified_at: countRow[0]?.oldest ?? null,
+              next_actions: [
+                "Call catalog_scan_now({ scope: 'targeted', files: [<file_path>] }) to re-scan specific files",
+                "Call mark_stale to flag additional surfaces for review",
+              ],
+            },
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ---- Admin tier (write — agent declarations) ----
+
+    server.tool(
+      "register_surface",
+      "Declare a new surface in the catalog (agent-declaration path — highest trust). Compute content_hash from signature and INSERT. On UNIQUE conflict returns 409 with the existing surface id so agent can PATCH instead.",
+      {
+        canonical_id: z.string().describe("Stable human-readable ID (e.g. 'route:GET /api/skills', 'db:skills', 'tool:catalog_list')"),
+        kind: z.string().describe("Surface kind — must be a SURFACE_KINDS value"),
+        project_id: z.string().optional().describe("Optional project UUID scope"),
+        location: z.record(z.unknown()).optional().describe("Location descriptor (file_path, line_start, url_pattern, table_name, etc.)"),
+        signature: z.record(z.unknown()).optional().describe("Canonical signature for drift detection (shape varies by kind)"),
+        first_seen_commit_sha: z.string().optional().describe("Git commit SHA where this surface first appeared"),
+        rationale: z.string().describe("Why this surface exists — required for the 5W+H envelope"),
+      },
+      async ({ canonical_id, kind, project_id, location, signature, first_seen_commit_sha, rationale }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          const { SURFACE_KINDS } = await import("@/lib/catalog/types")
+          if (!(SURFACE_KINDS as readonly string[]).includes(kind)) {
+            return mcpError(`Invalid kind '${kind}'. Must be one of: ${SURFACE_KINDS.join(", ")}`)
+          }
+
+          const { computeContentHash } = await import("@/lib/catalog/hash")
+          const contentHash = computeContentHash(signature ?? {})
+
+          const { buildEnvelopeForWrite, envelopeForSql } = await import("@/lib/api/envelope-helpers")
+          const envelopeResult = buildEnvelopeForWrite(
+            { rationale, project_id: project_id ?? null },
+            { userId, projectId: project_id },
+            { type: "surface", title: canonical_id, summary: `${kind} surface: ${canonical_id}`, rationale },
+            "legacy"
+          )
+          const envelopeSql = envelopeResult.ok ? envelopeForSql(envelopeResult.envelope) : "{}"
+
+          const now = new Date().toISOString()
+
+          // Check for existing surface with same canonical_id
+          const existing = await sql`
+            SELECT id, canonical_id, kind, status
+            FROM surfaces
+            WHERE canonical_id = ${canonical_id} AND user_id = ${userId} AND deleted_at IS NULL
+            LIMIT 1
+          `
+          if (existing[0]) {
+            return mcpResponse({
+              success: false,
+              data: {
+                conflict: true,
+                http_status: 409,
+                existing_id: existing[0].id,
+                existing_canonical_id: existing[0].canonical_id,
+                existing_kind: existing[0].kind,
+                existing_status: existing[0].status,
+                message: "Surface already exists. Use PATCH /api/catalog/surfaces/:id to update, or call declare_dependency to link it.",
+              },
+            })
+          }
+
+          const [row] = await sql`
+            INSERT INTO surfaces (
+              canonical_id, kind, project_id, location, signature,
+              content_hash, first_seen_commit_sha, last_seen_commit_sha,
+              status, auto_detected_by, last_verified_at, last_verified_method,
+              user_id, created_at, updated_at,
+              documentation_5wh, metadata
+            ) VALUES (
+              ${canonical_id},
+              ${kind},
+              ${project_id ?? null},
+              ${JSON.stringify(location ?? {})}::jsonb,
+              ${JSON.stringify(signature ?? {})}::jsonb,
+              ${contentHash},
+              ${first_seen_commit_sha ?? null},
+              ${first_seen_commit_sha ?? null},
+              'fresh',
+              'agent_artifact',
+              ${now},
+              'agent_artifact',
+              ${userId},
+              ${now},
+              ${now},
+              ${envelopeSql}::jsonb,
+              ${JSON.stringify({ envelope_origin: "mcp_register_surface" })}::jsonb
+            )
+            RETURNING id, canonical_id, kind, status, content_hash, created_at
+          `
+
+          return mcpResponse({
+            success: true,
+            data: {
+              created: true,
+              surface: row,
+              next_actions: [
+                "Call declare_dependency to link this surface to others it depends on or is depended on by",
+                "Call catalog_get({ canonical_id_or_id: '" + canonical_id + "' }) to see the full row",
+              ],
+            },
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "declare_dependency",
+      "Declare a typed edge between two known surfaces (agent-declaration path). Resolves both surfaces by canonical_id or UUID, rejects self-loops, inserts the edge.",
+      {
+        from: z.string().describe("UUID or canonical_id of the source surface"),
+        to: z.string().describe("UUID or canonical_id of the target surface"),
+        kind: z.string().describe("Dependency kind — must be a DEPENDENCY_KINDS value (reads_from, writes_to, calls, renders, mounts_at, imports, extends, mirrors, gated_by, declares, fires_event, uses_env, integrates_with)"),
+        confidence: z.number().min(0).max(1).optional().describe("Confidence score 0-1 (default 1.00 for agent declarations)"),
+        rationale: z.string().describe("Why this dependency exists — required for the 5W+H envelope"),
+      },
+      async ({ from, to, kind, confidence, rationale }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          const { DEPENDENCY_KINDS } = await import("@/lib/catalog/types")
+          if (!(DEPENDENCY_KINDS as readonly string[]).includes(kind)) {
+            return mcpError(`Invalid kind '${kind}'. Must be one of: ${DEPENDENCY_KINDS.join(", ")}`)
+          }
+
+          // Resolve both surfaces
+          const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
+
+          const [fromRows, toRows] = await Promise.all([
+            isUuid(from)
+              ? sql`SELECT id, canonical_id FROM surfaces WHERE id = ${from}::uuid AND user_id = ${userId} AND deleted_at IS NULL LIMIT 1`
+              : sql`SELECT id, canonical_id FROM surfaces WHERE canonical_id = ${from} AND user_id = ${userId} AND deleted_at IS NULL LIMIT 1`,
+            isUuid(to)
+              ? sql`SELECT id, canonical_id FROM surfaces WHERE id = ${to}::uuid AND user_id = ${userId} AND deleted_at IS NULL LIMIT 1`
+              : sql`SELECT id, canonical_id FROM surfaces WHERE canonical_id = ${to} AND user_id = ${userId} AND deleted_at IS NULL LIMIT 1`,
+          ])
+
+          if (!fromRows[0]) return mcpError(`Source surface not found: ${from}`)
+          if (!toRows[0]) return mcpError(`Target surface not found: ${to}`)
+
+          const fromSurface = fromRows[0]
+          const toSurface = toRows[0]
+
+          if (fromSurface.id === toSurface.id) return mcpError("Self-loops are not allowed: from and to resolve to the same surface")
+
+          // Check for existing dep
+          const existingDep = await sql`
+            SELECT id FROM surface_dependencies
+            WHERE from_surface_id = ${fromSurface.id}::uuid
+              AND to_surface_id = ${toSurface.id}::uuid
+              AND kind = ${kind}
+              AND user_id = ${userId}
+              AND deleted_at IS NULL
+            LIMIT 1
+          `
+          if (existingDep[0]) {
+            return mcpResponse({
+              success: false,
+              data: {
+                conflict: true,
+                http_status: 409,
+                existing_id: existingDep[0].id,
+                message: "Dependency already exists.",
+              },
+            })
+          }
+
+          const now = new Date().toISOString()
+          const effectiveConfidence = confidence ?? 1.0
+
+          const [row] = await sql`
+            INSERT INTO surface_dependencies (
+              from_surface_id, to_surface_id, kind, confidence,
+              auto_detected_by, user_id, created_at, updated_at,
+              documentation_5wh, metadata
+            ) VALUES (
+              ${fromSurface.id}::uuid,
+              ${toSurface.id}::uuid,
+              ${kind},
+              ${effectiveConfidence},
+              'agent_artifact',
+              ${userId},
+              ${now},
+              ${now},
+              ${JSON.stringify({ why: { rationale } })}::jsonb,
+              ${JSON.stringify({ envelope_origin: "mcp_declare_dependency" })}::jsonb
+            )
+            RETURNING id, from_surface_id, to_surface_id, kind, confidence, created_at
+          `
+
+          return mcpResponse({
+            success: true,
+            data: {
+              created: true,
+              dependency: {
+                ...row,
+                from_canonical_id: fromSurface.canonical_id,
+                to_canonical_id: toSurface.canonical_id,
+              },
+              next_actions: [
+                "Call analyze_impact({ surface_canonical_ids: ['" + (fromSurface.canonical_id as string) + "'] }) to see the blast radius",
+              ],
+            },
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "mark_stale",
+      "Flip a surface's status to needs_revalidation when an agent suspects drift but can't verify. Appends reason to metadata.stale_reasons[] and writes a catalog_scan_events row with scan_type='skipped'.",
+      {
+        canonical_id_or_id: z.string().describe("UUID or canonical_id of the surface to mark stale"),
+        reason: z.string().describe("Why this surface might be out of date — appended to metadata.stale_reasons[]"),
+      },
+      async ({ canonical_id_or_id, reason }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(canonical_id_or_id)
+          const surfaceRows = isUuid
+            ? await sql`SELECT id, canonical_id, status FROM surfaces WHERE id = ${canonical_id_or_id}::uuid AND user_id = ${userId} AND deleted_at IS NULL LIMIT 1`
+            : await sql`SELECT id, canonical_id, status FROM surfaces WHERE canonical_id = ${canonical_id_or_id} AND user_id = ${userId} AND deleted_at IS NULL LIMIT 1`
+
+          if (!surfaceRows[0]) return mcpError("Surface not found")
+          const surface = surfaceRows[0]
+
+          const now = new Date().toISOString()
+
+          // Update status and append to stale_reasons via JSONB || operator
+          await sql`
+            UPDATE surfaces
+            SET status = 'needs_revalidation',
+                updated_at = ${now},
+                metadata = metadata || jsonb_build_object('stale_reasons',
+                  COALESCE(metadata->'stale_reasons', '[]'::jsonb) || ${JSON.stringify([reason])}::jsonb
+                )
+            WHERE id = ${surface.id}::uuid AND user_id = ${userId}
+          `
+
+          // Write a skipped catalog_scan_events row for observability
+          const { logScanEvent } = await import("@/lib/catalog/audit-logger")
+          const eventId = await logScanEvent({
+            userId,
+            scanType: "skipped",
+            skipReason: reason,
+            surfacesModified: [surface.id as string],
+            triggeredBy: "agent_artifact_listener",
+          })
+
+          return mcpResponse({
+            success: true,
+            data: {
+              marked: true,
+              surface_id: surface.id,
+              canonical_id: surface.canonical_id,
+              current_status: "needs_revalidation",
+              scan_event_id: eventId,
+              next_actions: [
+                "Call list_stale_surfaces() to see all surfaces pending revalidation",
+                "Call catalog_scan_now({ scope: 'targeted', files: [<file_path>] }) to re-scan and clear stale status",
+              ],
+            },
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ---- Workflow tools ----
+
+    server.tool(
+      "catalog_scan_now",
+      "Trigger a catalog scan manually (full or targeted). Calls the AST scanner, diffs against current DB state, applies inserts/updates/deprecations, and writes a catalog_scan_events audit row.",
+      {
+        scope: z.enum(["full", "targeted"]).describe("'full' scans the whole project tree; 'targeted' scans only the specified files"),
+        files: z.array(z.string()).optional().describe("Relative file paths to scan — required when scope='targeted'"),
+        project_root: z.string().optional().describe("Absolute path to the project root (default: process.cwd())"),
+        commit_sha: z.string().optional().describe("Git commit SHA to stamp on scan surfaces"),
+        branch: z.string().optional().describe("Branch name to stamp on scan surfaces"),
+      },
+      async ({ scope, files, project_root, commit_sha, branch }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          if (scope === "targeted" && (!files || files.length === 0)) {
+            return mcpError("scope='targeted' requires a non-empty 'files' array")
+          }
+
+          const projectRoot = project_root ?? process.cwd()
+          const scanStart = Date.now()
+
+          let scanResult
+          let skipReason: string | null = null
+
+          try {
+            const { scanPaths } = await import("@/lib/catalog/scan")
+            scanResult = await scanPaths({
+              projectRoot,
+              files: scope === "targeted" ? files : undefined,
+              commitSha: commit_sha,
+              branch,
+            })
+          } catch (scanError: unknown) {
+            skipReason = scanError instanceof Error ? scanError.message : "Unknown scan error"
+            const { logScanEvent } = await import("@/lib/catalog/audit-logger")
+            const eventId = await logScanEvent({
+              userId,
+              scanType: "skipped",
+              scannedFiles: files ?? [],
+              skipReason,
+              triggeredBy: "manual_mcp_call",
+              scanDurationMs: Date.now() - scanStart,
+            })
+            return mcpError(`Scan failed: ${skipReason}. Audit event logged: ${eventId}`)
+          }
+
+          // Fetch existing surfaces for diff
+          const existingSurfaces = await sql`
+            SELECT id, canonical_id, kind, project_id, location, signature,
+                   content_hash, status, auto_detected_by, last_verified_at,
+                   last_verified_method, first_seen_commit_sha, last_seen_commit_sha,
+                   deprecated_in_commit_sha, user_id, created_at, updated_at, deleted_at,
+                   metadata, documentation_5wh
+            FROM surfaces
+            WHERE user_id = ${userId} AND deleted_at IS NULL
+          `
+
+          const existingDeps = await sql`
+            SELECT id, from_surface_id, to_surface_id, kind, confidence,
+                   auto_detected_by, first_seen_commit_sha, last_seen_commit_sha,
+                   deprecated_in_commit_sha, user_id, created_at, updated_at, deleted_at,
+                   documentation_5wh, metadata
+            FROM surface_dependencies
+            WHERE user_id = ${userId} AND deleted_at IS NULL
+          `
+
+          const { diffScanAgainstCurrent } = await import("@/lib/catalog/persist")
+
+          // Cast DB rows to the expected types
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const diff = diffScanAgainstCurrent({
+            scanResult,
+            existingSurfaces: existingSurfaces as any[],
+            existingDependencies: existingDeps as any[],
+          })
+
+          const { computeContentHash } = await import("@/lib/catalog/hash")
+
+          const now = new Date().toISOString()
+          const autoDetectedBy = `scan_${scope}` as const
+          const surfacesAdded: string[] = []
+          const surfacesModified: string[] = []
+          const surfacesRemoved: string[] = []
+
+          // Apply inserts
+          for (const detected of diff.surfacesToInsert) {
+            const hash = computeContentHash(detected.signature)
+            const [row] = await sql`
+              INSERT INTO surfaces (
+                canonical_id, kind, location, signature, content_hash,
+                first_seen_commit_sha, last_seen_commit_sha,
+                status, auto_detected_by, last_verified_at, last_verified_method,
+                user_id, created_at, updated_at, documentation_5wh, metadata
+              ) VALUES (
+                ${detected.canonical_id}, ${detected.kind},
+                ${JSON.stringify(detected.location ?? {})}::jsonb,
+                ${JSON.stringify(detected.signature ?? {})}::jsonb,
+                ${hash},
+                ${commit_sha ?? null}, ${commit_sha ?? null},
+                'needs_revalidation',
+                ${autoDetectedBy},
+                ${now}, ${autoDetectedBy},
+                ${userId}, ${now}, ${now},
+                '{}'::jsonb,
+                ${JSON.stringify({ envelope_origin: "catalog_scan_now", scan_scope: scope })}::jsonb
+              )
+              ON CONFLICT (canonical_id, user_id) DO NOTHING
+              RETURNING id
+            `
+            if (row) surfacesAdded.push(row.id as string)
+          }
+
+          // Apply updates
+          for (const { existing_id, detected } of diff.surfacesToUpdate) {
+            const hash = computeContentHash(detected.signature)
+            await sql`
+              UPDATE surfaces
+              SET signature = ${JSON.stringify(detected.signature ?? {})}::jsonb,
+                  content_hash = ${hash},
+                  last_seen_commit_sha = ${commit_sha ?? null},
+                  status = 'needs_revalidation',
+                  auto_detected_by = ${autoDetectedBy},
+                  last_verified_at = ${now},
+                  last_verified_method = ${autoDetectedBy},
+                  updated_at = ${now}
+              WHERE id = ${existing_id}::uuid AND user_id = ${userId}
+            `
+            surfacesModified.push(existing_id)
+          }
+
+          // Apply deprecations (only for full scans — persist.ts already guards this)
+          for (const surfaceId of diff.surfacesToDeprecate) {
+            await sql`
+              UPDATE surfaces
+              SET status = 'deprecated',
+                  deprecated_in_commit_sha = ${commit_sha ?? null},
+                  deleted_at = ${now},
+                  updated_at = ${now}
+              WHERE id = ${surfaceId}::uuid AND user_id = ${userId}
+            `
+            surfacesRemoved.push(surfaceId)
+          }
+
+          // Insert detected dependencies (upsert via ON CONFLICT DO NOTHING)
+          for (const dep of diff.dependenciesToInsert) {
+            const fromRow = existingSurfaces.find((s) => (s as { canonical_id: string }).canonical_id === dep.from_canonical_id)
+            const toRow = existingSurfaces.find((s) => (s as { canonical_id: string }).canonical_id === dep.to_canonical_id)
+            if (!fromRow || !toRow) continue
+            await sql`
+              INSERT INTO surface_dependencies (
+                from_surface_id, to_surface_id, kind, confidence,
+                auto_detected_by, user_id, created_at, updated_at,
+                documentation_5wh, metadata
+              ) VALUES (
+                ${(fromRow as { id: string }).id}::uuid,
+                ${(toRow as { id: string }).id}::uuid,
+                ${dep.kind},
+                ${dep.confidence ?? 1.0},
+                ${autoDetectedBy},
+                ${userId}, ${now}, ${now},
+                '{}'::jsonb,
+                ${JSON.stringify({ scan_scope: scope })}::jsonb
+              )
+              ON CONFLICT DO NOTHING
+            `
+          }
+
+          // Write audit event
+          const { logScanEvent } = await import("@/lib/catalog/audit-logger")
+          const eventId = await logScanEvent({
+            userId,
+            commitSha: commit_sha,
+            branch,
+            scanType: scope === "full" ? "full" : "targeted",
+            scannedFiles: scanResult.scanned_files,
+            surfacesAdded,
+            surfacesModified,
+            surfacesRemoved,
+            scanDurationMs: Date.now() - scanStart,
+            triggeredBy: "manual_mcp_call",
+          })
+
+          return mcpResponse({
+            success: true,
+            data: {
+              scan_event_id: eventId,
+              scan_type: scope,
+              scanned_files_count: scanResult.scanned_files.length,
+              surfaces_added: surfacesAdded.length,
+              surfaces_modified: surfacesModified.length,
+              surfaces_removed: surfacesRemoved.length,
+              warnings: scanResult.warnings,
+              next_actions: [
+                "Call catalog_list({ status: 'needs_revalidation' }) to review modified surfaces",
+                "Call list_stale_surfaces() for a prioritized view sorted by oldest last_verified_at",
+              ],
+            },
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "analyze_impact",
+      "Given a list of surfaces being changed, return the full blast radius and any change conflicts. The centerpiece impact query: calls graph.calculateBlastRadius() and graph.detectChangeConflicts() over the user's catalog.",
+      {
+        surface_canonical_ids: z.array(z.string()).describe("canonical_ids of surfaces being changed (e.g. ['db:skills', 'route:GET /api/skills'])"),
+        hops: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional().describe("Max dependency hops for blast radius (default 2)"),
+      },
+      async ({ surface_canonical_ids, hops }) => {
+        try {
+          const userId = getMcpUserId()
+          const effectiveHops = (hops ?? 2) as 1 | 2 | 3
+
+          if (!surface_canonical_ids || surface_canonical_ids.length === 0) {
+            return mcpError("surface_canonical_ids must be a non-empty array")
+          }
+
+          // Resolve input canonical_ids to surface rows
+          const inputRows = await sql`
+            SELECT id, canonical_id, kind, status
+            FROM surfaces
+            WHERE canonical_id = ANY(${surface_canonical_ids})
+              AND user_id = ${userId}
+              AND deleted_at IS NULL
+          `
+
+          const notFound = surface_canonical_ids.filter((cid) => !inputRows.find((r) => r.canonical_id === cid))
+          if (notFound.length > 0) {
+            return mcpError(`Surface(s) not found in catalog: ${notFound.join(", ")}. Call register_surface first.`)
+          }
+
+          // Fetch all deps for user
+          const allDeps = await sql`
+            SELECT sd.from_surface_id, sd.to_surface_id, sd.kind, sd.confidence
+            FROM surface_dependencies sd
+            WHERE sd.user_id = ${userId} AND sd.deleted_at IS NULL
+          `
+
+          // Build uuid → canonical_id map for all referenced surfaces
+          const referencedIds = new Set<string>()
+          for (const d of allDeps) {
+            referencedIds.add(d.from_surface_id as string)
+            referencedIds.add(d.to_surface_id as string)
+          }
+          for (const r of inputRows) referencedIds.add(r.id as string)
+
+          const idList = Array.from(referencedIds)
+          const surfaceMapRows = idList.length > 0
+            ? await sql`SELECT id, canonical_id, kind, status FROM surfaces WHERE id = ANY(${idList}::uuid[]) AND user_id = ${userId}`
+            : []
+
+          const uuidToSurface = new Map<string, { canonical_id: string; kind: string; status: string }>()
+          const canonicalToUuid = new Map<string, string>()
+          for (const r of surfaceMapRows) {
+            uuidToSurface.set(r.id as string, { canonical_id: r.canonical_id as string, kind: r.kind as string, status: r.status as string })
+            canonicalToUuid.set(r.canonical_id as string, r.id as string)
+          }
+
+          // Convert deps to canonical_id form for graph functions
+          const canonicalDeps = allDeps.map((d) => ({
+            from_canonical_id: uuidToSurface.get(d.from_surface_id as string)?.canonical_id ?? (d.from_surface_id as string),
+            to_canonical_id: uuidToSurface.get(d.to_surface_id as string)?.canonical_id ?? (d.to_surface_id as string),
+            confidence: d.confidence as number ?? 1.0,
+          }))
+
+          const { calculateBlastRadius, detectChangeConflicts, findDependents: findDependentsImpact } = await import("@/lib/catalog/graph")
+
+          const blastRadius = calculateBlastRadius(surface_canonical_ids, canonicalDeps)
+          const conflicts = detectChangeConflicts(surface_canonical_ids, canonicalDeps)
+
+          // Enrich blast radius with surface metadata
+          const allAffectedCanonicals = [...blastRadius.direct, ...blastRadius.transitive]
+          const affectedRows = allAffectedCanonicals.length > 0
+            ? await sql`SELECT id, canonical_id, kind, status FROM surfaces WHERE canonical_id = ANY(${allAffectedCanonicals}) AND user_id = ${userId} AND deleted_at IS NULL`
+            : []
+          const affectedMap = new Map<string, { id: string; kind: string; status: string }>()
+          for (const r of affectedRows) {
+            affectedMap.set(r.canonical_id as string, { id: r.id as string, kind: r.kind as string, status: r.status as string })
+          }
+
+          const enrichedDirect = blastRadius.direct.map((cid) => ({
+            id: affectedMap.get(cid)?.id ?? null,
+            canonical_id: cid,
+            kind: affectedMap.get(cid)?.kind ?? null,
+            status: affectedMap.get(cid)?.status ?? null,
+          }))
+
+          const enrichedTransitive = blastRadius.transitive.map((cid) => {
+            // Compute distance by finding shortest path from any input surface
+            let distance = 2
+            for (const inputRow of inputRows) {
+              const path = findDependentsImpact(inputRow.canonical_id as string, canonicalDeps, effectiveHops)
+              const found = path.find((p) => p.surface_id === cid)
+              if (found) { distance = found.distance; break }
+            }
+            return {
+              id: affectedMap.get(cid)?.id ?? null,
+              canonical_id: cid,
+              kind: affectedMap.get(cid)?.kind ?? null,
+              status: affectedMap.get(cid)?.status ?? null,
+              distance,
+            }
+          })
+
+          return mcpResponse({
+            success: true,
+            data: {
+              inputs: inputRows.map((r) => ({ canonical_id: r.canonical_id, id: r.id, kind: r.kind })),
+              blast_radius: {
+                direct: enrichedDirect,
+                transitive: enrichedTransitive,
+                total: blastRadius.total,
+                confidence_weighted_score: blastRadius.confidence_weighted_score,
+              },
+              conflicts: conflicts.map((c) => ({
+                pair: c.pair,
+                shared_dependents: c.shared_dependents.map((cid) => ({
+                  canonical_id: cid,
+                  id: affectedMap.get(cid)?.id ?? null,
+                  kind: affectedMap.get(cid)?.kind ?? null,
+                })),
+              })),
+              next_actions: [
+                "Call catalog_get({ canonical_id_or_id: '<canonical_id>' }) for full details on any affected surface",
+                "Call list_stale_surfaces() to see surfaces that may already need revalidation",
+                blastRadius.total > 0
+                  ? `High impact: ${blastRadius.total} surfaces affected. Call mark_stale on key dependents before shipping.`
+                  : "Low impact change — no downstream surfaces found.",
+              ],
+            },
+          })
         } catch (error: unknown) {
           return mcpError(error instanceof Error ? error.message : "Unknown error")
         }
