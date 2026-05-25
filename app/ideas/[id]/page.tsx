@@ -13,6 +13,7 @@ import { useUser } from "@stackframe/stack"
 import { formatDistanceToNow } from "date-fns"
 import { DashboardLayout } from "@/components/navigation"
 import { EnvelopePanel } from "@/components/library/EnvelopePanel"
+import { CrossLinkPanel } from "@/components/cross-links/CrossLinkPanel"
 import { toast } from "sonner"
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -1638,18 +1639,6 @@ function RelatedTab({ ideaId }: { ideaId: string }) {
     }
   }, [fetchRelationships])
 
-  if (loading) return <LoadingRows />
-  if (error)
-    return (
-      <p className="j-muted" style={{ fontSize: 13 }}>
-        Error: {error}
-      </p>
-    )
-  if (relationships.length === 0)
-    return (
-      <EmptyState msg="No relationships yet. Use Merge, Branch, or Evolve actions to link ideas." />
-    )
-
   const REL_PILL: Record<string, string> = {
     parent_child: "j-proj",
     evolved_into: "j-pos",
@@ -1661,42 +1650,46 @@ function RelatedTab({ ideaId }: { ideaId: string }) {
   }
 
   return (
-    <div className="j-col" style={{ gap: 8 }}>
-      {relationships.map((r) => {
-        const isFrom = r.from_idea_id === ideaId
-        const otherId = isFrom ? r.to_idea_id : r.from_idea_id
-        const direction = isFrom ? "→" : "←"
-        return (
-          <div key={r.id} className="j-card j-tight">
-            <div className="j-row" style={{ gap: 10 }}>
-              <span
-                className={`j-pill ${REL_PILL[r.relationship_type] || "j-ghost"}`}
-              >
-                {r.relationship_type.replace(/_/g, " ")}
-              </span>
-              <span
-                className="j-muted"
-                style={{ fontSize: 13, fontFamily: "monospace" }}
-              >
-                {direction}
-              </span>
-              <Link href={`/ideas/${otherId}`} onClick={(e) => e.stopPropagation()}>
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: "var(--j-accent)",
-                    fontFamily: "monospace",
-                    textDecoration: "underline",
-                    cursor: "pointer",
-                  }}
-                >
-                  {otherId.slice(0, 12)}…
-                </span>
-              </Link>
-            </div>
+    <div className="j-col" style={{ gap: 16 }}>
+      {/* Idea-to-idea relationships (legacy idea_relationships table) */}
+      <div>
+        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "var(--j-muted, #94a3b8)", marginBottom: 8 }}>
+          Idea relationships
+        </div>
+        {loading ? (
+          <LoadingRows />
+        ) : error ? (
+          <p className="j-muted" style={{ fontSize: 13 }}>Error: {error}</p>
+        ) : relationships.length === 0 ? (
+          <EmptyState msg="No idea-to-idea relationships yet. Use Merge, Branch, or Evolve actions to link ideas." />
+        ) : (
+          <div className="j-col" style={{ gap: 8 }}>
+            {relationships.map((r) => {
+              const isFrom = r.from_idea_id === ideaId
+              const otherId = isFrom ? r.to_idea_id : r.from_idea_id
+              const direction = isFrom ? "→" : "←"
+              return (
+                <div key={r.id} className="j-card j-tight">
+                  <div className="j-row" style={{ gap: 10 }}>
+                    <span className={`j-pill ${REL_PILL[r.relationship_type] || "j-ghost"}`}>
+                      {r.relationship_type.replace(/_/g, " ")}
+                    </span>
+                    <span className="j-muted" style={{ fontSize: 13, fontFamily: "monospace" }}>{direction}</span>
+                    <Link href={`/ideas/${otherId}`} onClick={(e) => e.stopPropagation()}>
+                      <span style={{ fontSize: 12, color: "var(--j-accent)", fontFamily: "monospace", textDecoration: "underline", cursor: "pointer" }}>
+                        {otherId.slice(0, 12)}…
+                      </span>
+                    </Link>
+                  </div>
+                </div>
+              )
+            })}
           </div>
-        )
-      })}
+        )}
+      </div>
+
+      {/* Polymorphic cross-links to any entity (F2) */}
+      <CrossLinkPanel fromEntityType="idea" fromEntityId={ideaId} />
     </div>
   )
 }
