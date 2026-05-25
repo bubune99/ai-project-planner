@@ -69,6 +69,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Catalog webhooks (Idea H Wave 4): receive POSTs from GitHub / Vercel.
+  // These can NOT carry a Bearer API key (GitHub doesn't know one) — they
+  // authenticate via HMAC signature verification done in the handler itself.
+  // GET on these routes returns a healthcheck JSON, also public.
+  if (pathname.startsWith("/api/catalog/webhooks/")) {
+    return NextResponse.next();
+  }
+
   // Skip middleware for public routes
   if (isPublicRoute(pathname)) {
     return NextResponse.next();
