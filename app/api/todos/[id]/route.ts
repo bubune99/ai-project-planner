@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectOwnership } from '@/lib/auth/auth-utils'
 import type { Todo } from '@/lib/types'
+import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -165,6 +166,25 @@ export async function PATCH(
     const body = await request.json()
     const { title, description, status, priority, dueDate, projectId, ideaId, transactionId, metadata } = body
 
+    // Fetch existing todo row for envelope merge
+    const existingTodo = await sql`SELECT documentation_5wh, project_id FROM todos WHERE id = ${id} AND user_id = ${userId}`
+    const mergeResult = mergeEnvelopeForPatch(
+      existingTodo[0]?.documentation_5wh,
+      body,
+      {
+        userId,
+        projectId: (projectId !== undefined ? projectId : existingTodo[0]?.project_id) ?? undefined,
+        agentId: undefined,
+      },
+      {
+        type: 'todo',
+        title: title || undefined,
+        summary: description || body.summary,
+        rationale: body?.documentation_5wh?.why?.rationale || 'Update via PATCH /api/todos/[id]',
+      }
+    )
+    if (!mergeResult.ok) return mergeResult.response
+
     // Verify ownership for cross-domain links
     if (projectId !== undefined && projectId !== null) {
       const hasProjectAccess = await verifyProjectOwnership(projectId, userId)
@@ -218,6 +238,7 @@ export async function PATCH(
           WHEN ${metadata !== undefined} THEN ${metadata ? JSON.stringify(metadata) : '{}'}::jsonb
           ELSE metadata
         END,
+        documentation_5wh = ${envelopeForSql(mergeResult.envelope)}::jsonb,
         updated_at = NOW()
       WHERE id = ${id}
         AND user_id = ${userId}

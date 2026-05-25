@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db/client"
+import { getAuthContext } from "@/lib/auth/auth-utils"
+import { buildEnvelopeForWrite, envelopeForSql } from "@/lib/api/envelope-helpers"
 
 export const dynamic = "force-dynamic"
 
@@ -34,12 +36,33 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       )
     }
 
+    // Get auth context for envelope (non-fatal: ADR endpoints historically lack auth gate)
+    const authContext = await getAuthContext().catch(() => null)
+    let envelopeSql: string | null = null
+    if (authContext?.userId) {
+      const envelopeResult = buildEnvelopeForWrite(
+        body,
+        { userId: authContext.userId, projectId: id, agentId: undefined },
+        {
+          type: 'decision',
+          title,
+          summary: context?.slice(0, 200),
+          rationale: decision?.slice(0, 500),
+        },
+        'legacy'
+      )
+      if (envelopeResult.ok) {
+        envelopeSql = envelopeForSql(envelopeResult.envelope)
+      }
+    }
+
     const [adr] = await sql`
       INSERT INTO architecture_decisions (
-        project_id, title, context, decision, consequences, alternatives_considered, status
+        project_id, title, context, decision, consequences, alternatives_considered, status, documentation_5wh
       ) VALUES (
         ${id}, ${title}, ${context}, ${decision}, ${consequences || null},
-        ${alternatives_considered ? JSON.stringify(alternatives_considered) : null}, 'proposed'
+        ${alternatives_considered ? JSON.stringify(alternatives_considered) : null}, 'proposed',
+        ${envelopeSql}::jsonb
       )
       RETURNING *
     `

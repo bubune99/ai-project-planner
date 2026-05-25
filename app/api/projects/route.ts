@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import type { ProjectSummary } from '@/lib/types'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { buildEnvelopeForWrite, envelopeForSql, stampEnvelopeOrigin } from '@/lib/api/envelope-helpers'
 
 export const dynamic = "force-dynamic"
 
@@ -199,6 +200,30 @@ export async function POST(request: NextRequest) {
     `
 
     const project = result[0]
+
+    // Build 5W+H envelope post-insert so we can use the project's own id as where.project_id.
+    // The project row IS the entity — there's no external projectId in the request body.
+    const envelopeResult = buildEnvelopeForWrite(
+      { ...body, project_id: project.id },
+      { userId, projectId: project.id, agentId: undefined },
+      {
+        type: 'project',
+        title: name,
+        summary: description || name,
+        rationale: body?.documentation_5wh?.why?.rationale,
+      },
+      'legacy'
+    )
+    // Non-fatal: if envelope fails, log and continue without it (project was already created)
+    if (envelopeResult.ok) {
+      await sql`
+        UPDATE projects
+        SET
+          documentation_5wh = ${envelopeForSql(envelopeResult.envelope)}::jsonb,
+          metadata = ${JSON.stringify(stampEnvelopeOrigin(metadata ?? null, envelopeResult.origin))}::jsonb
+        WHERE id = ${project.id}
+      `
+    }
 
     // Create initial ideation phase
     await sql`

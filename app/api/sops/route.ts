@@ -2,6 +2,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectOwnership } from '@/lib/auth/auth-utils'
+import { buildEnvelopeForWrite, envelopeForSql, stampEnvelopeOrigin } from '@/lib/api/envelope-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -106,6 +107,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Build 5W+H envelope (legacy mode)
+    const envelopeResult = buildEnvelopeForWrite(
+      body,
+      { userId, projectId: projectId || undefined, agentId: undefined },
+      {
+        type: 'sop',
+        title: title?.trim(),
+        summary: content?.slice(0, 200) || title?.trim(),
+        rationale: body?.documentation_5wh?.why?.rationale,
+      },
+      'legacy'
+    )
+    if (!envelopeResult.ok) return envelopeResult.response
+
     const maxOrder = await sql`
       SELECT COALESCE(MAX(order_index), -1) + 1 AS next_order
       FROM sops WHERE user_id = ${userId} AND deleted_at IS NULL
@@ -113,7 +128,7 @@ export async function POST(request: NextRequest) {
     const nextOrder = maxOrder[0]?.next_order ?? 0
 
     const result = await sql`
-      INSERT INTO sops (user_id, project_id, title, content, category, status, order_index)
+      INSERT INTO sops (user_id, project_id, title, content, category, status, order_index, documentation_5wh)
       VALUES (
         ${userId},
         ${projectId || null},
@@ -121,7 +136,8 @@ export async function POST(request: NextRequest) {
         ${content ?? ''},
         ${category?.trim() || null},
         ${safeStatus},
-        ${nextOrder}
+        ${nextOrder},
+        ${envelopeForSql(envelopeResult.envelope)}::jsonb
       )
       RETURNING *
     `

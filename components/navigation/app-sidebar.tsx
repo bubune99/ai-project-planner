@@ -43,6 +43,7 @@ const NAV_SECTIONS: NavSection[] = [
       { title: "Calendar", href: "/calendar", icon: "cal" },
       { title: "AI Chat", href: "/chat", icon: "msg" },
       { title: "SOPs", href: "/sops", icon: "sop" },
+      { title: "Library", href: "/library", icon: "library" },
     ],
   },
   {

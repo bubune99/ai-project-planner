@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
 import type { FinanceTransaction } from '@/lib/types'
+import { buildEnvelopeForWrite, envelopeForSql } from '@/lib/api/envelope-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -195,12 +196,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Build 5W+H envelope (legacy mode, non-fatal: transactions are user-scoped, no project_id)
+    const envelopeResult = buildEnvelopeForWrite(
+      body,
+      { userId, projectId: undefined, agentId: undefined },
+      {
+        type: 'finance_transaction',
+        title: description || `${transactionType} ${amount} ${currency || 'USD'}`,
+        summary: description || `${transactionType} transaction of ${amount} ${currency || 'USD'}`,
+        rationale: body?.documentation_5wh?.why?.rationale,
+      },
+      'legacy'
+    )
+    const hasEnvelope = envelopeResult.ok
+
     const result = await sql`
       INSERT INTO finance_transactions (
         user_id, account_id, transaction_type, amount, currency,
         category_id, description, merchant, notes, transaction_date,
         posted_date, transfer_to_account_id, tags, external_id,
-        location_name, location_lat, location_lng, is_pending, metadata
+        location_name, location_lat, location_lng, is_pending, metadata,
+        documentation_5wh
       ) VALUES (
         ${userId},
         ${accountId},
@@ -220,7 +236,8 @@ export async function POST(request: NextRequest) {
         ${locationLat || null},
         ${locationLng || null},
         ${isPending || false},
-        ${metadata ? JSON.stringify(metadata) : '{}'}
+        ${metadata ? JSON.stringify(metadata) : '{}'},
+        ${hasEnvelope ? envelopeForSql(envelopeResult.envelope) : null}::jsonb
       )
       RETURNING *
     `

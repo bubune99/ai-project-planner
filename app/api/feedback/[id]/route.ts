@@ -7,6 +7,7 @@ import { NextRequest } from "next/server";
 import { sql } from "@/lib/db/client";
 import { successResponse, errorResponse, ErrorCodes } from "@/lib/api-utils";
 import { getAuthContext } from "@/lib/auth/auth-utils";
+import { mergeEnvelopeForPatch, envelopeForSql } from "@/lib/api/envelope-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -33,13 +34,29 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
 
     const resolving = b.status && ["fixed", "wont_fix", "duplicate"].includes(b.status);
 
+    // Merge 5W+H envelope (non-fatal: feedback may lack project_id)
+    const existingFeedback = await sql`SELECT documentation_5wh, project_id FROM feedback WHERE id = ${id}`;
+    const mergeResult = mergeEnvelopeForPatch(
+      existingFeedback[0]?.documentation_5wh,
+      b,
+      { userId: auth.userId, projectId: existingFeedback[0]?.project_id ?? undefined, agentId: undefined },
+      {
+        type: 'feedback',
+        title: b.title || undefined,
+        summary: b.comment || b.summary,
+        rationale: b?.documentation_5wh?.why?.rationale || `Triage: status=${b.status || 'unchanged'} priority=${b.priority || 'unchanged'}`,
+      }
+    );
+    const hasEnvelope = mergeResult.ok;
+
     const [updated] = await sql`
       UPDATE feedback SET
-        status      = COALESCE(${b.status || null}, status),
-        priority    = COALESCE(${b.priority || null}, priority),
-        resolved_at = CASE WHEN ${resolving} THEN NOW() ELSE resolved_at END,
-        resolved_by = CASE WHEN ${resolving} THEN ${auth.userId}::uuid ELSE resolved_by END,
-        updated_at  = NOW()
+        status            = COALESCE(${b.status || null}, status),
+        priority          = COALESCE(${b.priority || null}, priority),
+        resolved_at       = CASE WHEN ${resolving} THEN NOW() ELSE resolved_at END,
+        resolved_by       = CASE WHEN ${resolving} THEN ${auth.userId}::uuid ELSE resolved_by END,
+        documentation_5wh = COALESCE(${hasEnvelope ? envelopeForSql(mergeResult.envelope) : null}::jsonb, documentation_5wh),
+        updated_at        = NOW()
       WHERE id = ${id}
       RETURNING id, status, priority, resolved_at
     `;

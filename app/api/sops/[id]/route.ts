@@ -2,6 +2,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectOwnership } from '@/lib/auth/auth-utils'
+import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,16 +71,36 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       if (!hasAccess) return errorResponse(ErrorCodes.FORBIDDEN, 'No access to that project', 403)
     }
 
+    // Fetch existing envelope for merge
+    const existingSop = await sql`SELECT documentation_5wh, project_id FROM sops WHERE id = ${params.id} AND user_id = ${userId}`
+    const mergeResult = mergeEnvelopeForPatch(
+      existingSop[0]?.documentation_5wh,
+      body,
+      {
+        userId,
+        projectId: (projectId !== undefined ? projectId : existingSop[0]?.project_id) ?? undefined,
+        agentId: undefined,
+      },
+      {
+        type: 'sop',
+        title: title || undefined,
+        summary: content?.slice(0, 200) || body.summary,
+        rationale: body?.documentation_5wh?.why?.rationale || 'Update via PATCH /api/sops/[id]',
+      }
+    )
+    if (!mergeResult.ok) return mergeResult.response
+
     // COALESCE keeps the existing value when a field is omitted (passed null).
     // category/project_id follow the same rule: omit to keep, send a value to change.
     const result = await sql`
       UPDATE sops SET
-        title      = COALESCE(${title ?? null}, title),
-        content    = COALESCE(${content ?? null}, content),
-        category   = COALESCE(${category !== undefined ? (category?.trim() || null) : null}, category),
-        status     = COALESCE(${status ?? null}, status),
-        project_id = COALESCE(${projectId !== undefined ? (projectId || null) : null}, project_id),
-        updated_at = NOW()
+        title             = COALESCE(${title ?? null}, title),
+        content           = COALESCE(${content ?? null}, content),
+        category          = COALESCE(${category !== undefined ? (category?.trim() || null) : null}, category),
+        status            = COALESCE(${status ?? null}, status),
+        project_id        = COALESCE(${projectId !== undefined ? (projectId || null) : null}, project_id),
+        documentation_5wh = ${envelopeForSql(mergeResult.envelope)}::jsonb,
+        updated_at        = NOW()
       WHERE id = ${params.id} AND user_id = ${userId} AND deleted_at IS NULL
       RETURNING *
     `

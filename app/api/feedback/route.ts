@@ -12,6 +12,7 @@ import { NextRequest } from "next/server";
 import { sql } from "@/lib/db/client";
 import { successResponse, errorResponse, ErrorCodes } from "@/lib/api-utils";
 import { getAuthContext } from "@/lib/auth/auth-utils";
+import { buildEnvelopeForWrite, envelopeForSql } from "@/lib/api/envelope-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -52,11 +53,32 @@ export async function POST(request: NextRequest) {
 
     const auth = await getAuthContext().catch(() => null);
 
+    // Build 5W+H envelope (legacy mode, non-fatal). Feedback can arrive unauthenticated.
+    // userId defaults to a sentinel when unauthed; projectId may be absent.
+    let envelopeSql: string | null = null;
+    if (auth?.userId) {
+      const envelopeResult = buildEnvelopeForWrite(
+        b,
+        { userId: auth.userId, projectId: b.projectId || undefined, agentId: undefined },
+        {
+          type: 'feedback',
+          title: b.title || b.comment?.slice(0, 80),
+          summary: b.comment?.trim(),
+          rationale: b?.documentation_5wh?.why?.rationale,
+        },
+        'legacy'
+      );
+      if (envelopeResult.ok) {
+        envelopeSql = envelopeForSql(envelopeResult.envelope);
+      }
+    }
+
     const [created] = await sql`
       INSERT INTO feedback (
         source, project_id, url, route, selector, target_rect, annotations,
         title, comment, screenshot, env, commit_sha,
-        reporter_user_id, reporter_name, reporter_email
+        reporter_user_id, reporter_name, reporter_email,
+        documentation_5wh
       ) VALUES (
         ${b.source || "unknown"},
         ${b.projectId || null},
@@ -72,7 +94,8 @@ export async function POST(request: NextRequest) {
         ${b.commitSha || null},
         ${auth?.userId || null},
         ${b.reporterName || null},
-        ${b.reporterEmail || null}
+        ${b.reporterEmail || null},
+        ${envelopeSql}::jsonb
       )
       RETURNING id, created_at, status
     `;

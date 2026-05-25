@@ -8,6 +8,7 @@
 import { sql } from "@/lib/db/client";
 import { type NextRequest, NextResponse } from "next/server";
 import { getAuthContext, verifyProjectOwnership } from "@/lib/auth/auth-utils";
+import { buildEnvelopeForWrite, envelopeForSql, stampEnvelopeOrigin } from "@/lib/api/envelope-helpers";
 
 export const dynamic = "force-dynamic"
 
@@ -176,6 +177,20 @@ export async function POST(request: NextRequest) {
         : {}),
     };
 
+    // Build 5W+H envelope (legacy mode). projectId is required and already verified above.
+    const envelopeResult = buildEnvelopeForWrite(
+      body,
+      { userId, projectId, agentId: undefined },
+      {
+        type: 'progress_note',
+        title: title || `${note_type} note by ${author_name}`,
+        summary: content?.slice(0, 200),
+        rationale: body?.documentation_5wh?.why?.rationale,
+      },
+      'legacy'
+    );
+    if (!envelopeResult.ok) return envelopeResult.response;
+
     const result = await sql`
       INSERT INTO progress_notes (
         project_id,
@@ -186,7 +201,8 @@ export async function POST(request: NextRequest) {
         note_type,
         title,
         content,
-        metadata
+        metadata,
+        documentation_5wh
       ) VALUES (
         ${projectId},
         ${stepId || null},
@@ -196,7 +212,8 @@ export async function POST(request: NextRequest) {
         ${note_type},
         ${title || null},
         ${content},
-        ${JSON.stringify(enrichedMetadata)}::jsonb
+        ${JSON.stringify(stampEnvelopeOrigin(enrichedMetadata, envelopeResult.origin))}::jsonb,
+        ${envelopeForSql(envelopeResult.envelope)}::jsonb
       )
       RETURNING *
     `;

@@ -654,6 +654,19 @@ body::before {
   .j-card-head > .j-card-actions { flex: 1 1 100%; }
 }
 
+/* ---------- Ideas Kanban — mobile responsive ---------- */
+@media (max-width: 768px) {
+  #kanban-mobile-tabs { display: flex !important; width: 100%; overflow-x: auto; }
+  #kanban-desktop     { display: none !important; }
+  #kanban-mobile      { display: block !important; }
+}
+
+/* Pulse animation reused for kanban skeletons */
+@keyframes j-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
 /* ---------- TOUCH / HOVER refinements ---------- */
 @media (hover: none) and (pointer: coarse) {
   .j-nav-item:hover { background: transparent; color: oklch(0.860 0 0); }

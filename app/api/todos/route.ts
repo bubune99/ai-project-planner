@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectOwnership } from '@/lib/auth/auth-utils'
 import type { Todo } from '@/lib/types'
+import { buildEnvelopeForWrite, envelopeForSql, stampEnvelopeOrigin } from '@/lib/api/envelope-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -304,6 +305,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Build 5W+H envelope (legacy mode: auto-derives all starred fields)
+    // projectId is optional for todos; pass it when provided so the envelope has a where.project_id
+    const envelopeResult = buildEnvelopeForWrite(
+      body,
+      { userId, projectId: projectId || undefined, agentId: undefined },
+      {
+        type: 'todo',
+        title: title?.trim(),
+        summary: description?.trim() || title?.trim(),
+        rationale: body?.documentation_5wh?.why?.rationale,
+      },
+      'legacy'
+    )
+    if (!envelopeResult.ok) return envelopeResult.response
+
     // Get the next order_index for the user
     const maxOrder = await sql`
       SELECT COALESCE(MAX(order_index), -1) + 1 as next_order
@@ -324,7 +340,8 @@ export async function POST(request: NextRequest) {
         priority,
         due_date,
         order_index,
-        metadata
+        metadata,
+        documentation_5wh
       ) VALUES (
         ${userId},
         ${projectId || null},
@@ -335,7 +352,8 @@ export async function POST(request: NextRequest) {
         ${priority || 'medium'},
         ${dueDate || null},
         ${nextOrder},
-        ${metadata ? JSON.stringify(metadata) : '{}'}
+        ${JSON.stringify(stampEnvelopeOrigin(metadata ?? null, envelopeResult.origin))}::jsonb,
+        ${envelopeForSql(envelopeResult.envelope)}::jsonb
       )
       RETURNING *
     `

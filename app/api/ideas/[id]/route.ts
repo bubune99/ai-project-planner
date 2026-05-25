@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
 import type { IdeaLifecycle } from '@/lib/db/schema'
+import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -230,6 +231,21 @@ export async function PATCH(
     const body = await request.json()
     const { title, description, category, tags, lifecycle, visibility, canvasSettings, metadata } = body
 
+    // Fetch existing envelope + project context for merge
+    const existingRow = await sql`SELECT documentation_5wh, promoted_to_project_id FROM ideas WHERE id = ${id} AND user_id = ${userId}`
+    const mergeResult = mergeEnvelopeForPatch(
+      existingRow[0]?.documentation_5wh,
+      body,
+      { userId, projectId: existingRow[0]?.promoted_to_project_id ?? undefined, agentId: undefined },
+      {
+        type: 'idea',
+        title: title || undefined,
+        summary: description || body.summary,
+        rationale: body?.documentation_5wh?.why?.rationale || 'Update via PATCH /api/ideas/[id]',
+      }
+    )
+    if (!mergeResult.ok) return mergeResult.response
+
     // Build update query dynamically
     const updates: string[] = []
     const values: any[] = []
@@ -281,11 +297,12 @@ export async function PATCH(
       return errorResponse(ErrorCodes.VALIDATION_ERROR, 'No fields to update', 400)
     }
 
-    // Execute update using sql template
+    // Execute update — always write the merged envelope alongside field changes
     const result = await sql`
       UPDATE ideas
       SET
         ${sql.unsafe(updates.join(', '))},
+        documentation_5wh = ${envelopeForSql(mergeResult.envelope)}::jsonb,
         updated_at = NOW()
       WHERE id = ${id} AND user_id = ${userId}
       RETURNING *

@@ -2,6 +2,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -97,7 +98,7 @@ export async function PATCH(
 
     // Verify ownership
     const existing = await sql`
-      SELECT id FROM finance_transactions
+      SELECT id, documentation_5wh FROM finance_transactions
       WHERE id = ${id} AND user_id = ${userId}
     `
 
@@ -119,19 +120,34 @@ export async function PATCH(
       metadata
     } = body
 
+    // Merge 5W+H envelope (non-fatal: transactions have no project_id)
+    const mergeResult = mergeEnvelopeForPatch(
+      existing[0]?.documentation_5wh,
+      body,
+      { userId, projectId: undefined, agentId: undefined },
+      {
+        type: 'finance_transaction',
+        title: description || undefined,
+        summary: description || body.summary,
+        rationale: body?.documentation_5wh?.why?.rationale || 'Update via PATCH /api/finance/transactions/[id]',
+      }
+    )
+    const hasEnvelope = mergeResult.ok
+
     await sql`
       UPDATE finance_transactions SET
-        category_id = COALESCE(${categoryId}, category_id),
-        description = COALESCE(${description}, description),
-        merchant = COALESCE(${merchant}, merchant),
-        notes = COALESCE(${notes}, notes),
-        transaction_date = COALESCE(${transactionDate}, transaction_date),
-        posted_date = COALESCE(${postedDate}, posted_date),
-        tags = COALESCE(${tags}, tags),
-        location_name = COALESCE(${locationName}, location_name),
-        is_pending = COALESCE(${isPending}, is_pending),
-        is_reconciled = COALESCE(${isReconciled}, is_reconciled),
-        metadata = COALESCE(${metadata ? JSON.stringify(metadata) : null}::jsonb, metadata)
+        category_id       = COALESCE(${categoryId}, category_id),
+        description       = COALESCE(${description}, description),
+        merchant          = COALESCE(${merchant}, merchant),
+        notes             = COALESCE(${notes}, notes),
+        transaction_date  = COALESCE(${transactionDate}, transaction_date),
+        posted_date       = COALESCE(${postedDate}, posted_date),
+        tags              = COALESCE(${tags}, tags),
+        location_name     = COALESCE(${locationName}, location_name),
+        is_pending        = COALESCE(${isPending}, is_pending),
+        is_reconciled     = COALESCE(${isReconciled}, is_reconciled),
+        metadata          = COALESCE(${metadata ? JSON.stringify(metadata) : null}::jsonb, metadata),
+        documentation_5wh = COALESCE(${hasEnvelope ? envelopeForSql(mergeResult.envelope) : null}::jsonb, documentation_5wh)
       WHERE id = ${id}
     `
 

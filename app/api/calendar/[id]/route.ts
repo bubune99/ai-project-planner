@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
 import type { CalendarEvent } from '@/lib/types'
+import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -134,6 +135,20 @@ export async function PATCH(
       metadata
     } = body
 
+    // Merge 5W+H envelope (non-fatal: calendar events may lack project_id)
+    const mergeResult = mergeEnvelopeForPatch(
+      existing[0]?.documentation_5wh,
+      body,
+      { userId, projectId: undefined, agentId: undefined },
+      {
+        type: 'calendar_event',
+        title: title || undefined,
+        summary: description || body.summary,
+        rationale: body?.documentation_5wh?.why?.rationale || 'Update via PATCH /api/calendar/[id]',
+      }
+    )
+    const hasEnvelope = mergeResult.ok
+
     await sql`
       UPDATE calendar_events SET
         title = COALESCE(${title}, title),
@@ -160,7 +175,8 @@ export async function PATCH(
         is_private = COALESCE(${isPrivate}, is_private),
         category_id = COALESCE(${categoryId}, category_id),
         tags = COALESCE(${tags}, tags),
-        metadata = COALESCE(${metadata ? JSON.stringify(metadata) : null}::jsonb, metadata)
+        metadata = COALESCE(${metadata ? JSON.stringify(metadata) : null}::jsonb, metadata),
+        documentation_5wh = COALESCE(${hasEnvelope ? envelopeForSql(mergeResult.envelope) : null}::jsonb, documentation_5wh)
       WHERE id = ${id}
     `
 

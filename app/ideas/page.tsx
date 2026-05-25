@@ -1,10 +1,9 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useRouter } from "next/navigation"
 import { useUser } from "@stackframe/stack"
 import { DashboardLayout } from "@/components/navigation"
-import { IdeaList } from "@/components/ideas"
+import { IdeasKanban } from "@/components/ideas"
 import {
   Dialog,
   DialogContent,
@@ -17,15 +16,13 @@ import { Label } from "@/components/ui/label"
 import type { Idea, IdeaLifecycle, IdeaLifecycleCounts } from "@/lib/types"
 
 export default function IdeasPage() {
-  const router = useRouter()
   const user = useUser()
   const [ideas, setIdeas] = useState<Idea[]>([])
   const [counts, setCounts] = useState<IdeaLifecycleCounts | undefined>()
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedLifecycle, setSelectedLifecycle] = useState<IdeaLifecycle | null>(null)
-  const [searchQuery, setSearchQuery] = useState("")
 
+  // Create dialog
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [newIdea, setNewIdea] = useState({
@@ -33,16 +30,16 @@ export default function IdeasPage() {
     description: "",
     category: "",
     tags: "",
+    lifecycle: "seed" as IdeaLifecycle,
   })
 
+  // ── Fetch all ideas (no lifecycle filter — kanban shows all) ───────────
   const fetchIdeas = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
-      const params = new URLSearchParams()
-      if (selectedLifecycle) params.set("lifecycle", selectedLifecycle)
-      if (searchQuery) params.set("search", searchQuery)
-      const res = await fetch(`/api/ideas?${params.toString()}`)
+      // Fetch all lifecycles including archived for kanban
+      const res = await fetch("/api/ideas?includeArchived=true")
       if (!res.ok) throw new Error("Failed to fetch ideas")
       const data = await res.json()
       setIdeas(data.data || [])
@@ -60,7 +57,7 @@ export default function IdeasPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [selectedLifecycle, searchQuery])
+  }, [])
 
   useEffect(() => {
     if (user) {
@@ -68,6 +65,7 @@ export default function IdeasPage() {
     }
   }, [user, fetchIdeas])
 
+  // ── Create ─────────────────────────────────────────────────────────────
   const handleCreate = async () => {
     if (!newIdea.title.trim()) return
     try {
@@ -79,13 +77,22 @@ export default function IdeasPage() {
           title: newIdea.title.trim(),
           description: newIdea.description.trim() || null,
           category: newIdea.category.trim() || null,
-          tags: newIdea.tags.split(",").map(t => t.trim()).filter(Boolean),
+          tags: newIdea.tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
         }),
       })
       if (!res.ok) throw new Error("Failed to create idea")
+      const data = await res.json()
+      // Optimistically add to local state so it appears immediately
+      if (data.data) {
+        setIdeas((prev) => [data.data, ...prev])
+      } else {
+        fetchIdeas()
+      }
       setIsCreateOpen(false)
-      setNewIdea({ title: "", description: "", category: "", tags: "" })
-      fetchIdeas()
+      setNewIdea({ title: "", description: "", category: "", tags: "", lifecycle: "seed" })
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred")
     } finally {
@@ -93,49 +100,41 @@ export default function IdeasPage() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this idea?")) return
-    try {
-      const res = await fetch(`/api/ideas/${id}`, { method: "DELETE" })
-      if (!res.ok) throw new Error("Failed to delete idea")
-      fetchIdeas()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
-    }
+  // ── Lifecycle change (from kanban DnD) ─────────────────────────────────
+  const handleLifecycleChange = async (id: string, lifecycle: IdeaLifecycle) => {
+    const res = await fetch(`/api/ideas/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lifecycle }),
+    })
+    if (!res.ok) throw new Error("Failed to update idea lifecycle")
+    // Update local state to reflect confirmed server response
+    setIdeas((prev) =>
+      prev.map((idea) => (idea.id === id ? { ...idea, lifecycle } : idea))
+    )
   }
 
-  const handleArchive = async (id: string) => {
-    try {
-      const idea = ideas.find(i => i.id === id)
-      const newLifecycle = idea?.lifecycle === "archived" ? "seed" : "archived"
-      const res = await fetch(`/api/ideas/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lifecycle: newLifecycle }),
-      })
-      if (!res.ok) throw new Error("Failed to update idea")
-      fetchIdeas()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
-    }
-  }
-
-  const handleIdeaClick = (idea: Idea) => {
-    router.push(`/ideas/${idea.id}`)
-  }
+  // ── Counts derived from ideas ──────────────────────────────────────────
+  const total = ideas.length
+  const exploringCount = ideas.filter((i) => i.lifecycle === "exploring").length
 
   if (!user) {
     return (
       <DashboardLayout>
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 300 }}>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: 300,
+          }}
+        >
           <div className="j-dot-pulse" />
         </div>
       </DashboardLayout>
     )
   }
-
-  const total = counts ? Object.values(counts).reduce((s, n) => s + n, 0) : ideas.length
-  const hotCount = counts?.exploring ?? 0
 
   return (
     <DashboardLayout>
@@ -143,32 +142,37 @@ export default function IdeasPage() {
         {/* Header strip */}
         <div className="j-row j-between">
           <div className="j-row j-gap-2">
-            <span className="j-pill j-idea" style={{ fontSize: 12 }}>💡 {total} ideas</span>
-            {hotCount > 0 && <span className="j-pill j-warn">{hotCount} exploring</span>}
+            <span className="j-pill j-idea" style={{ fontSize: 12 }}>
+              💡 {total} ideas
+            </span>
+            {exploringCount > 0 && (
+              <span className="j-pill j-warn">{exploringCount} exploring</span>
+            )}
           </div>
-          <button className="j-btn j-btn-primary" onClick={() => setIsCreateOpen(true)}>+ New idea</button>
+          <button
+            className="j-btn j-btn-primary"
+            onClick={() => setIsCreateOpen(true)}
+          >
+            + New idea
+          </button>
         </div>
 
         {/* Error */}
         {error && (
           <div className="j-card" style={{ textAlign: "center", padding: 24 }}>
             <p style={{ color: "var(--j-neg)", marginBottom: 12 }}>{error}</p>
-            <button className="j-btn j-btn-ghost" onClick={fetchIdeas}>Try again</button>
+            <button className="j-btn j-btn-ghost" onClick={fetchIdeas}>
+              Try again
+            </button>
           </div>
         )}
 
-        {/* Idea list */}
+        {/* Kanban board */}
         {!error && (
-          <IdeaList
+          <IdeasKanban
             ideas={ideas}
-            counts={counts}
             isLoading={isLoading}
-            selectedLifecycle={selectedLifecycle}
-            onLifecycleChange={setSelectedLifecycle}
-            onSearch={setSearchQuery}
-            onIdeaClick={handleIdeaClick}
-            onDelete={handleDelete}
-            onArchive={handleArchive}
+            onLifecycleChange={handleLifecycleChange}
             onCreate={() => setIsCreateOpen(true)}
           />
         )}
@@ -185,32 +189,70 @@ export default function IdeasPage() {
           </DialogHeader>
           <div className="j-col j-gap-3" style={{ paddingTop: 8, paddingBottom: 8 }}>
             <div className="j-col" style={{ gap: 6 }}>
-              <Label htmlFor="title" className="text-white" style={{ fontSize: 12 }}>Title *</Label>
+              <Label htmlFor="title" className="text-white" style={{ fontSize: 12 }}>
+                Title *
+              </Label>
               <input
                 id="title"
                 placeholder="What's your idea?"
-                style={{ width: "100%", background: "oklch(1 0 0 / 0.04)", border: "1px solid var(--j-ring)", borderRadius: 8, padding: "8px 12px", color: "oklch(0.860 0 0)", fontSize: 13, fontFamily: "inherit", outline: "none" }}
+                style={{
+                  width: "100%",
+                  background: "oklch(1 0 0 / 0.04)",
+                  border: "1px solid var(--j-ring)",
+                  borderRadius: 8,
+                  padding: "8px 12px",
+                  color: "oklch(0.860 0 0)",
+                  fontSize: 13,
+                  fontFamily: "inherit",
+                  outline: "none",
+                }}
                 value={newIdea.title}
                 onChange={(e) => setNewIdea({ ...newIdea, title: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && handleCreate()}
               />
             </div>
             <div className="j-col" style={{ gap: 6 }}>
-              <Label htmlFor="description" className="text-white" style={{ fontSize: 12 }}>Description</Label>
+              <Label htmlFor="description" className="text-white" style={{ fontSize: 12 }}>
+                Description
+              </Label>
               <textarea
                 id="description"
-                placeholder="Describe your idea in more detail..."
-                rows={4}
-                style={{ width: "100%", background: "oklch(1 0 0 / 0.04)", border: "1px solid var(--j-ring)", borderRadius: 8, padding: "8px 12px", color: "oklch(0.860 0 0)", fontSize: 13, resize: "vertical", fontFamily: "inherit", outline: "none" }}
+                placeholder="Describe your idea in more detail…"
+                rows={3}
+                style={{
+                  width: "100%",
+                  background: "oklch(1 0 0 / 0.04)",
+                  border: "1px solid var(--j-ring)",
+                  borderRadius: 8,
+                  padding: "8px 12px",
+                  color: "oklch(0.860 0 0)",
+                  fontSize: 13,
+                  resize: "vertical",
+                  fontFamily: "inherit",
+                  outline: "none",
+                }}
                 value={newIdea.description}
                 onChange={(e) => setNewIdea({ ...newIdea, description: e.target.value })}
               />
             </div>
             <div className="j-grid j-cols-2">
               <div className="j-col" style={{ gap: 6 }}>
-                <Label htmlFor="category" className="text-white" style={{ fontSize: 12 }}>Category</Label>
+                <Label htmlFor="category" className="text-white" style={{ fontSize: 12 }}>
+                  Category
+                </Label>
                 <select
                   id="category"
-                  style={{ background: "oklch(1 0 0 / 0.04)", border: "1px solid var(--j-ring)", borderRadius: 8, padding: "8px 12px", color: "oklch(0.860 0 0)", fontSize: 13, fontFamily: "inherit", outline: "none" }}
+                  style={{
+                    background: "oklch(1 0 0 / 0.04)",
+                    border: "1px solid var(--j-ring)",
+                    borderRadius: 8,
+                    padding: "8px 12px",
+                    color: "oklch(0.860 0 0)",
+                    fontSize: 13,
+                    fontFamily: "inherit",
+                    outline: "none",
+                    width: "100%",
+                  }}
                   value={newIdea.category}
                   onChange={(e) => setNewIdea({ ...newIdea, category: e.target.value })}
                 >
@@ -224,24 +266,65 @@ export default function IdeasPage() {
                 </select>
               </div>
               <div className="j-col" style={{ gap: 6 }}>
-                <Label htmlFor="tags" className="text-white" style={{ fontSize: 12 }}>Tags</Label>
+                <Label htmlFor="tags" className="text-white" style={{ fontSize: 12 }}>
+                  Tags
+                </Label>
                 <input
                   id="tags"
                   placeholder="tag1, tag2, tag3"
-                  style={{ width: "100%", background: "oklch(1 0 0 / 0.04)", border: "1px solid var(--j-ring)", borderRadius: 8, padding: "8px 12px", color: "oklch(0.860 0 0)", fontSize: 13, fontFamily: "inherit", outline: "none" }}
+                  style={{
+                    width: "100%",
+                    background: "oklch(1 0 0 / 0.04)",
+                    border: "1px solid var(--j-ring)",
+                    borderRadius: 8,
+                    padding: "8px 12px",
+                    color: "oklch(0.860 0 0)",
+                    fontSize: 13,
+                    fontFamily: "inherit",
+                    outline: "none",
+                  }}
                   value={newIdea.tags}
                   onChange={(e) => setNewIdea({ ...newIdea, tags: e.target.value })}
                 />
               </div>
             </div>
+            <div className="j-col" style={{ gap: 6 }}>
+              <Label htmlFor="lifecycle" className="text-white" style={{ fontSize: 12 }}>
+                Start in column
+              </Label>
+              <select
+                id="lifecycle"
+                style={{
+                  background: "oklch(1 0 0 / 0.04)",
+                  border: "1px solid var(--j-ring)",
+                  borderRadius: 8,
+                  padding: "8px 12px",
+                  color: "oklch(0.860 0 0)",
+                  fontSize: 13,
+                  fontFamily: "inherit",
+                  outline: "none",
+                  width: "100%",
+                }}
+                value={newIdea.lifecycle}
+                onChange={(e) =>
+                  setNewIdea({ ...newIdea, lifecycle: e.target.value as IdeaLifecycle })
+                }
+              >
+                <option value="seed">Seed</option>
+                <option value="exploring">Exploring</option>
+                <option value="refined">Refined</option>
+              </select>
+            </div>
           </div>
           <DialogFooter>
-            <button className="j-btn j-btn-ghost" onClick={() => setIsCreateOpen(false)}>Cancel</button>
+            <button className="j-btn j-btn-ghost" onClick={() => setIsCreateOpen(false)}>
+              Cancel
+            </button>
             <button
               className="j-btn j-btn-primary"
               onClick={handleCreate}
               disabled={!newIdea.title.trim() || isCreating}
-              style={{ opacity: (!newIdea.title.trim() || isCreating) ? 0.5 : 1 }}
+              style={{ opacity: !newIdea.title.trim() || isCreating ? 0.5 : 1 }}
             >
               {isCreating ? "Creating…" : "+ Create idea"}
             </button>

@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
 import type { CalendarEvent } from '@/lib/types'
+import { buildEnvelopeForWrite, envelopeForSql } from '@/lib/api/envelope-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -146,13 +147,27 @@ export async function POST(request: NextRequest) {
       return errorResponse(ErrorCodes.VALIDATION_ERROR, 'Start time is required', 400)
     }
 
+    // Build 5W+H envelope (legacy mode, non-fatal: calendar events are user-scoped, project optional)
+    const envelopeResult = buildEnvelopeForWrite(
+      body,
+      { userId, projectId: undefined, agentId: undefined },
+      {
+        type: 'calendar_event',
+        title: title?.trim(),
+        summary: description || title?.trim(),
+        rationale: body?.documentation_5wh?.why?.rationale,
+      },
+      'legacy'
+    )
+    const hasEnvelope = envelopeResult.ok
+
     const result = await sql`
       INSERT INTO calendar_events (
         user_id, title, description, start_time, end_time, is_all_day,
         timezone, source, source_id, source_metadata, is_recurring,
         recurrence_rule, location_name, location_address, location_lat,
         location_lng, location_url, attendees, reminders, color, icon,
-        status, is_private, category_id, tags, metadata
+        status, is_private, category_id, tags, metadata, documentation_5wh
       ) VALUES (
         ${userId},
         ${title.trim()},
@@ -179,7 +194,8 @@ export async function POST(request: NextRequest) {
         ${isPrivate || false},
         ${categoryId || null},
         ${tags || []},
-        ${metadata ? JSON.stringify(metadata) : '{}'}
+        ${metadata ? JSON.stringify(metadata) : '{}'},
+        ${hasEnvelope ? envelopeForSql(envelopeResult.envelope) : null}::jsonb
       )
       RETURNING *
     `

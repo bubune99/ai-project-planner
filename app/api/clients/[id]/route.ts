@@ -2,6 +2,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -110,6 +111,22 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       return errorResponse(ErrorCodes.VALIDATION_ERROR, 'Invalid status', 400)
     }
 
+    // Fetch existing envelope for merge
+    const existingClient = await sql`SELECT documentation_5wh FROM clients WHERE id = ${params.id} AND user_id = ${userId}`
+    const mergeResult = mergeEnvelopeForPatch(
+      existingClient[0]?.documentation_5wh,
+      body,
+      { userId, projectId: undefined, agentId: undefined },
+      {
+        type: 'client',
+        title: name || undefined,
+        summary: notes || body.summary,
+        rationale: body?.documentation_5wh?.why?.rationale || 'Update via PATCH /api/clients/[id]',
+      }
+    )
+    // Non-fatal: clients may have no project_id; if merge fails due to missing project_id, skip envelope
+    const hasEnvelope = mergeResult.ok
+
     // COALESCE keeps the existing value when a field is omitted (passed null).
     const result = await sql`
       UPDATE clients SET
@@ -120,6 +137,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         status            = COALESCE(${status ?? null}, status),
         billing_reference = COALESCE(${billingReference !== undefined ? (billingReference?.trim() || null) : null}, billing_reference),
         notes             = COALESCE(${notes !== undefined ? (notes?.trim() || null) : null}, notes),
+        documentation_5wh = COALESCE(${hasEnvelope ? envelopeForSql(mergeResult.envelope) : null}::jsonb, documentation_5wh),
         updated_at        = NOW()
       WHERE id = ${params.id} AND user_id = ${userId} AND deleted_at IS NULL
       RETURNING *

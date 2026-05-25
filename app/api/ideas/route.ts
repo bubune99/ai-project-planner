@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
 import type { IdeaLifecycle } from '@/lib/db/schema'
+import { buildEnvelopeForWrite, envelopeForSql, stampEnvelopeOrigin } from '@/lib/api/envelope-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -144,6 +145,24 @@ export async function POST(request: NextRequest) {
       return errorResponse(ErrorCodes.VALIDATION_ERROR, 'Title is required', 400)
     }
 
+    // Build 5W+H envelope (legacy mode: auto-derives all starred fields)
+    // Ideas are user-scoped, not project-scoped — pass projectId: undefined.
+    // The helper will 422 if project_id is required by the envelope schema and not derivable;
+    // for user-scoped ideas, we allow the envelope to be built without a project_id
+    // by passing an empty string sentinel — the helper falls back to rawBody.project_id.
+    const envelopeResult = buildEnvelopeForWrite(
+      body,
+      { userId, projectId: undefined, agentId: undefined },
+      {
+        type: 'idea',
+        title: title?.trim(),
+        summary: description?.trim() || title?.trim(),
+        rationale: body?.documentation_5wh?.why?.rationale,
+      },
+      'legacy'
+    )
+    if (!envelopeResult.ok) return envelopeResult.response
+
     // Insert the idea
     const result = await sql`
       INSERT INTO ideas (
@@ -155,7 +174,8 @@ export async function POST(request: NextRequest) {
         lifecycle,
         visibility,
         canvas_settings,
-        metadata
+        metadata,
+        documentation_5wh
       ) VALUES (
         ${userId},
         ${title.trim()},
@@ -165,7 +185,8 @@ export async function POST(request: NextRequest) {
         'seed',
         ${visibility || 'private'},
         ${canvasSettings ? JSON.stringify(canvasSettings) : '{}'},
-        ${metadata ? JSON.stringify(metadata) : '{}'}
+        ${JSON.stringify(stampEnvelopeOrigin(metadata ?? null, envelopeResult.origin))}::jsonb,
+        ${envelopeForSql(envelopeResult.envelope)}::jsonb
       )
       RETURNING *
     `

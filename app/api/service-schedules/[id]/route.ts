@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectOwnership } from '@/lib/auth/auth-utils'
 import { advanceDate, isValidFrequency, type RecurringFrequency } from '@/lib/service-schedule'
+import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -110,19 +111,36 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       if (!hasAccess) return errorResponse(ErrorCodes.FORBIDDEN, 'No access to that project', 403)
     }
 
+    // Merge 5W+H envelope
+    const effectiveProjectId = (projectId !== undefined ? projectId : existing.project_id) ?? undefined
+    const mergeResult = mergeEnvelopeForPatch(
+      existing.documentation_5wh,
+      body,
+      { userId, projectId: effectiveProjectId, agentId: undefined },
+      {
+        type: 'service_schedule',
+        title: title || undefined,
+        summary: description || body.summary,
+        rationale: body?.documentation_5wh?.why?.rationale || 'Update via PATCH /api/service-schedules/[id]',
+      }
+    )
+    // Non-fatal: if no project_id, skip envelope update
+    const hasEnvelope = mergeResult.ok
+
     const result = await sql`
       UPDATE service_schedules SET
-        title           = COALESCE(${title?.trim() ?? null}, title),
-        description     = COALESCE(${description !== undefined ? (description?.trim() || null) : null}, description),
-        frequency       = COALESCE(${frequency ?? null}, frequency),
-        next_occurrence = COALESCE(${nextOccurrence ?? null}, next_occurrence),
-        project_id      = COALESCE(${projectId !== undefined ? (projectId || null) : null}, project_id),
-        sop_id          = COALESCE(${sopId !== undefined ? (sopId || null) : null}, sop_id),
-        amount          = COALESCE(${amount !== undefined && amount !== '' ? amount : null}, amount),
-        currency        = COALESCE(${currency ? String(currency).toUpperCase().slice(0, 3) : null}, currency),
-        end_date        = COALESCE(${endDate !== undefined ? (endDate || null) : null}, end_date),
-        is_active       = COALESCE(${typeof isActive === 'boolean' ? isActive : null}, is_active),
-        updated_at      = NOW()
+        title             = COALESCE(${title?.trim() ?? null}, title),
+        description       = COALESCE(${description !== undefined ? (description?.trim() || null) : null}, description),
+        frequency         = COALESCE(${frequency ?? null}, frequency),
+        next_occurrence   = COALESCE(${nextOccurrence ?? null}, next_occurrence),
+        project_id        = COALESCE(${projectId !== undefined ? (projectId || null) : null}, project_id),
+        sop_id            = COALESCE(${sopId !== undefined ? (sopId || null) : null}, sop_id),
+        amount            = COALESCE(${amount !== undefined && amount !== '' ? amount : null}, amount),
+        currency          = COALESCE(${currency ? String(currency).toUpperCase().slice(0, 3) : null}, currency),
+        end_date          = COALESCE(${endDate !== undefined ? (endDate || null) : null}, end_date),
+        is_active         = COALESCE(${typeof isActive === 'boolean' ? isActive : null}, is_active),
+        documentation_5wh = COALESCE(${hasEnvelope ? envelopeForSql(mergeResult.envelope) : null}::jsonb, documentation_5wh),
+        updated_at        = NOW()
       WHERE id = ${params.id} AND user_id = ${userId} AND deleted_at IS NULL
       RETURNING *
     `

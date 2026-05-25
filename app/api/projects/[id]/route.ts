@@ -2,6 +2,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest, NextResponse } from 'next/server'
 import { successResponse, errorResponse } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectOwnership } from '@/lib/auth/auth-utils'
+import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
 
 export const dynamic = "force-dynamic"
 
@@ -140,6 +141,21 @@ export async function PATCH(
     const body = await request.json()
     const { name, description, status, priority, due_date, github_repo_url, metadata } = body
 
+    // Fetch existing envelope for merge
+    const existingProject = await sql`SELECT documentation_5wh FROM projects WHERE id = ${id} AND user_id = ${userId}`
+    const mergeResult = mergeEnvelopeForPatch(
+      existingProject[0]?.documentation_5wh,
+      body,
+      { userId, projectId: id, agentId: undefined },
+      {
+        type: 'project',
+        title: name || undefined,
+        summary: description || body.summary,
+        rationale: body?.documentation_5wh?.why?.rationale || 'Update via PATCH /api/projects/[id]',
+      }
+    )
+    if (!mergeResult.ok) return mergeResult.response
+
     const result = await sql`
       UPDATE projects
       SET
@@ -150,6 +166,7 @@ export async function PATCH(
         due_date = COALESCE(${due_date || null}, due_date),
         github_repo_url = COALESCE(${github_repo_url || null}, github_repo_url),
         metadata = COALESCE(${metadata ? JSON.stringify(metadata) : null}::jsonb, metadata),
+        documentation_5wh = ${envelopeForSql(mergeResult.envelope)}::jsonb,
         updated_at = NOW()
       WHERE id = ${id}
         AND user_id = ${userId}

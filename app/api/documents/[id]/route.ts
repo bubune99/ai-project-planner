@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
 import { deleteFromR2 } from "@/lib/storage/r2-client";
 import { getAuthContext } from "@/lib/auth/auth-utils";
+import { mergeEnvelopeForPatch, envelopeForSql } from "@/lib/api/envelope-helpers";
 
 export const dynamic = "force-dynamic"
 
@@ -179,13 +180,29 @@ export async function PATCH(
     const body = await request.json();
     const { title, description, category } = body;
 
+    // Fetch existing envelope + project_id for merge
+    const existingDoc = await sql`SELECT documentation_5wh, project_id FROM documents WHERE id = ${id} AND user_id = ${userId} AND deleted_at IS NULL`;
+    const mergeResult = mergeEnvelopeForPatch(
+      existingDoc[0]?.documentation_5wh,
+      body,
+      { userId, projectId: existingDoc[0]?.project_id ?? undefined, agentId: undefined },
+      {
+        type: 'document',
+        title: title || undefined,
+        summary: description || body.summary,
+        rationale: body?.documentation_5wh?.why?.rationale || 'Update via PATCH /api/documents/[id]',
+      }
+    );
+    const hasEnvelope = mergeResult.ok;
+
     const result = await sql`
       UPDATE documents
       SET
-        title = COALESCE(${title || null}, title),
-        description = COALESCE(${description || null}, description),
-        category = COALESCE(${category || null}, category),
-        updated_at = NOW()
+        title             = COALESCE(${title || null}, title),
+        description       = COALESCE(${description || null}, description),
+        category          = COALESCE(${category || null}, category),
+        documentation_5wh = COALESCE(${hasEnvelope ? envelopeForSql(mergeResult.envelope) : null}::jsonb, documentation_5wh),
+        updated_at        = NOW()
       WHERE id = ${id}
         AND user_id = ${userId}
         AND deleted_at IS NULL

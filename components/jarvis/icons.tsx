@@ -35,6 +35,7 @@ const PATHS: Record<string, string> = {
   activity: "M22 12h-4l-3 9L9 3l-3 9H2",
   trending: "M23 6l-9.5 9.5-5-5L1 18",
   sop: "M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-3 7h3m-6 4h6m-3-8v8",
+  library: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5zm8-7.5h4m-4-4h4M8 8h.01M8 12h.01M8 16h.01",
 }
 
 export type IconName = keyof typeof PATHS

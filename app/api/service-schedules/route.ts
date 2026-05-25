@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectOwnership } from '@/lib/auth/auth-utils'
 import { isValidFrequency } from '@/lib/service-schedule'
+import { buildEnvelopeForWrite, envelopeForSql } from '@/lib/api/envelope-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -143,9 +144,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Build 5W+H envelope (legacy mode). Service schedules are linked to a client, optionally to a project.
+    const envelopeResult = buildEnvelopeForWrite(
+      body,
+      { userId, projectId: projectId || undefined, agentId: undefined },
+      {
+        type: 'service_schedule',
+        title: title?.trim(),
+        summary: description?.trim() || title?.trim(),
+        rationale: body?.documentation_5wh?.why?.rationale,
+      },
+      'legacy'
+    )
+    // Non-fatal: store without envelope if project_id is missing (client-only schedules)
+    const hasEnvelope = envelopeResult.ok
+
     const result = await sql`
       INSERT INTO service_schedules
-        (user_id, client_id, project_id, sop_id, title, description, frequency, next_occurrence, end_date, amount, currency)
+        (user_id, client_id, project_id, sop_id, title, description, frequency, next_occurrence, end_date, amount, currency, documentation_5wh)
       VALUES (
         ${userId},
         ${clientId},
@@ -157,7 +173,8 @@ export async function POST(request: NextRequest) {
         ${nextOccurrence},
         ${endDate || null},
         ${amount != null && amount !== '' ? amount : null},
-        ${(currency || 'USD').toUpperCase().slice(0, 3)}
+        ${(currency || 'USD').toUpperCase().slice(0, 3)},
+        ${hasEnvelope ? envelopeForSql(envelopeResult.envelope) : null}::jsonb
       )
       RETURNING *
     `

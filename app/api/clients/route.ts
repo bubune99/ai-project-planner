@@ -2,6 +2,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { buildEnvelopeForWrite, envelopeForSql } from '@/lib/api/envelope-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -112,8 +113,24 @@ export async function POST(request: NextRequest) {
     }
     const safeStatus = ['active', 'paused', 'churned', 'prospect'].includes(status) ? status : 'active'
 
+    // Build 5W+H envelope (legacy mode). Clients are user-scoped, not project-scoped.
+    // If no project_id is derivable the helper will 422. Pass undefined so it checks body.
+    const envelopeResult = buildEnvelopeForWrite(
+      body,
+      { userId, projectId: undefined, agentId: undefined },
+      {
+        type: 'client',
+        title: name?.trim(),
+        summary: notes?.trim() || `${name?.trim()}${company?.trim() ? ` (${company.trim()})` : ''}`,
+        rationale: body?.documentation_5wh?.why?.rationale,
+      },
+      'legacy'
+    )
+    // Non-fatal for clients: if no project_id provided, store without envelope rather than 422
+    const hasEnvelope = envelopeResult.ok
+
     const result = await sql`
-      INSERT INTO clients (user_id, name, company, contact_email, contact_phone, status, billing_reference, notes)
+      INSERT INTO clients (user_id, name, company, contact_email, contact_phone, status, billing_reference, notes, documentation_5wh)
       VALUES (
         ${userId},
         ${name.trim()},
@@ -122,7 +139,8 @@ export async function POST(request: NextRequest) {
         ${contactPhone?.trim() || null},
         ${safeStatus},
         ${billingReference?.trim() || null},
-        ${notes?.trim() || null}
+        ${notes?.trim() || null},
+        ${hasEnvelope ? envelopeForSql(envelopeResult.envelope) : null}::jsonb
       )
       RETURNING *
     `
