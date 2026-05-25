@@ -1,5 +1,5 @@
 /**
- * Catalog AST scanner — Idea H Wave 1.
+ * Catalog AST scanner - Idea H Wave 1.
  *
  * Scans the planner's own codebase and emits DetectedSurface + DetectedDependency
  * records for every surface kind the planner cares about.
@@ -8,21 +8,21 @@
  * detectCircularDependencies patterns). MA's repo is NOT imported at runtime;
  * this is an independent copy of the relevant logic.
  *
- * No DB calls here — the caller (persist.ts or an API route) does the DB work.
+ * No DB calls here - the caller (persist.ts or an API route) does the DB work.
  *
  * Surface kinds detected:
- *   db_table, db_column, db_enum, db_matview  — SQL migration files
- *   api_route                                  — app/api/**/route.ts(x)
- *   mcp_tool                                   — app/mcp/route.ts (server.tool calls)
- *   middleware                                 — middleware.ts at root
- *   ui_page                                    — app/**/page.tsx
- *   ui_component                               — components/**/*.tsx default/named exports
- *   env_var                                    — .env* files
- *   config_file                                — next.config.*, vercel.json, tailwind.config.*
- *   type_export                                — export type/interface in lib/**/*.ts
- *   zod_schema                                 — exported z.object/z.ZodObject vars
- *   react_hook                                 — exported use* functions in lib/**/*.ts(x)
- *   webhook_endpoint                           — api_route sub-kind; adds is_webhook to sig
+ *   db_table, db_column, db_enum, db_matview  - SQL migration files
+ *   api_route                                  - app/api/[...]/route.ts(x)
+ *   mcp_tool                                   - app/mcp/route.ts (server.tool calls)
+ *   middleware                                 - middleware.ts at root
+ *   ui_page                                    - app/[...]/page.tsx
+ *   ui_component                               - components/[...]/*.tsx default/named exports
+ *   env_var                                    - .env* files
+ *   config_file                                - next.config.*, vercel.json, tailwind.config.*
+ *   type_export                                - export type/interface in lib/[...]/*.ts
+ *   zod_schema                                 - exported z.object/z.ZodObject vars
+ *   react_hook                                 - exported use* functions in lib/[...]/*.ts(x)
+ *   webhook_endpoint                           - api_route sub-kind; adds is_webhook to sig
  *
  * Deferred to v2: nav_link, feature_flag, helper, integration
  */
@@ -66,9 +66,9 @@ export interface ScanOptions {
    * If omitted, the scanner does a full-tree discovery.
    */
   files?: string[]
-  /** Git commit SHA for first/last_seen stamping — passed through to warnings only; callers embed in DetectedSurface via persist layer */
+  /** Git commit SHA for first/last_seen stamping - passed through to warnings only; callers embed in DetectedSurface via persist layer */
   commitSha?: string
-  /** Branch name — same */
+  /** Branch name - same */
   branch?: string
 }
 
@@ -247,16 +247,16 @@ async function discoverAllFiles(projectRoot: string): Promise<string[]> {
   const skipDirPatterns = Array.from(SKIP_DIRS).map((d) => `!**/${d}/**`)
   const patterns = [
     "lib/db/migrations/*.sql",
-    "app/api/**/route.ts",
-    "app/api/**/route.tsx",
-    "app/mcp/**/*.ts",
-    "app/mcp/**/*.tsx",
+    "app/api/[...]/route.ts",
+    "app/api/[...]/route.tsx",
+    "app/mcp/[...]/*.ts",
+    "app/mcp/[...]/*.tsx",
     "middleware.ts",
     "middleware.tsx",
-    "app/**/page.tsx",
-    "app/**/page.ts",
-    "components/**/*.tsx",
-    "components/**/*.ts",
+    "app/[...]/page.tsx",
+    "app/[...]/page.ts",
+    "components/[...]/*.tsx",
+    "components/[...]/*.ts",
     ".env",
     ".env.*",
     "next.config.js",
@@ -268,8 +268,8 @@ async function discoverAllFiles(projectRoot: string): Promise<string[]> {
     "tailwind.config.js",
     "tailwind.config.mjs",
     "tailwind.config.ts",
-    "lib/**/*.ts",
-    "lib/**/*.tsx",
+    "lib/[...]/*.ts",
+    "lib/[...]/*.tsx",
     ...skipDirPatterns,
   ]
 
@@ -282,7 +282,7 @@ async function discoverAllFiles(projectRoot: string): Promise<string[]> {
 }
 
 // ============================================================================
-// SQL migration scanner — db_table, db_column, db_enum, db_matview
+// SQL migration scanner - db_table, db_column, db_enum, db_matview
 // ============================================================================
 
 interface ScannerResult {
@@ -500,7 +500,7 @@ function extractFromClauseTables(sql: string): string[] {
 }
 
 // ============================================================================
-// API route scanner — api_route (+ webhook_endpoint subkind)
+// API route scanner - api_route (+ webhook_endpoint subkind)
 // ============================================================================
 
 const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] as const
@@ -610,7 +610,7 @@ function hasBodyValidation(source: string): boolean {
 }
 
 // ============================================================================
-// MCP tool scanner — mcp_tool
+// MCP tool scanner - mcp_tool
 // ============================================================================
 
 function scanMcpRoute(
@@ -640,10 +640,7 @@ function scanMcpRoute(
         const nameArg = args[0]
         const descArg = args[1]
 
-        if (
-          ts.isStringLiteral(nameArg) ||
-          (ts.isNoSubstitutionTemplateLiteral && ts.isStringLiteral(nameArg))
-        ) {
+        if (ts.isStringLiteral(nameArg)) {
           const toolName = (nameArg as ts.StringLiteral).text
           const description = ts.isStringLiteral(descArg)
             ? (descArg as ts.StringLiteral).text
@@ -661,7 +658,7 @@ function scanMcpRoute(
             kind: "mcp_tool",
             location: { file_path: rel },
             signature: {
-              description: description.slice(0, 200), // truncate — descriptions can be long
+              description: description.slice(0, 200), // truncate - descriptions can be long
               input_arg_names: inputArgNames,
             },
           })
@@ -832,10 +829,12 @@ interface ComponentExport {
 function extractComponentExports(stmt: ts.Statement): ComponentExport[] {
   const results: ComponentExport[] = []
 
+  // ts.Statement doesn't have modifiers in the base type; cast to access them
+  const stmtWithMods = stmt as ts.Statement & { modifiers?: ts.NodeArray<ts.ModifierLike> }
   const hasExport =
-    stmt.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ?? false
+    stmtWithMods.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ?? false
   const isDefault =
-    stmt.modifiers?.some((m) => m.kind === ts.SyntaxKind.DefaultKeyword) ?? false
+    stmtWithMods.modifiers?.some((m) => m.kind === ts.SyntaxKind.DefaultKeyword) ?? false
 
   if (ts.isFunctionDeclaration(stmt) && stmt.name) {
     const name = stmt.name.text
@@ -912,7 +911,7 @@ function scanEnvFile(
       kind: "env_var",
       location: { file_path: rel },
       signature: {
-        // NEVER emit the value — security rule
+        // NEVER emit the value - security rule
         required: true,
         has_default: hasDefault,
       },
@@ -977,7 +976,7 @@ function scanConfigFile(
 }
 
 // ============================================================================
-// Lib TS scanner — type_export, zod_schema, react_hook
+// Lib TS scanner - type_export, zod_schema, react_hook
 // ============================================================================
 
 function scanLibTs(
@@ -996,8 +995,9 @@ function scanLibTs(
   if (!sourceFile) return { surfaces, deps }
 
   for (const stmt of sourceFile.statements) {
+    const stmtWithMods = stmt as ts.Statement & { modifiers?: ts.NodeArray<ts.ModifierLike> }
     const hasExport =
-      stmt.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ?? false
+      stmtWithMods.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ?? false
 
     if (!hasExport) continue
 
@@ -1126,7 +1126,7 @@ function checkZodStrictPassthrough(node: ts.Expression): boolean {
 }
 
 // ============================================================================
-// Import edge detection — imports edges across files
+// Import edge detection - imports edges across files
 // ============================================================================
 
 function detectImportEdges(
@@ -1209,7 +1209,7 @@ function resolveImportToCanonical(importPath: string, fromFile: string): string 
 }
 
 // ============================================================================
-// Mirror detection — api_route ↔ mcp_tool with similar names
+// Mirror detection - api_route ↔ mcp_tool with similar names
 // ============================================================================
 
 function detectMirrors(
