@@ -3643,11 +3643,9 @@ const handler = createMcpHandler(
         try {
           const userId = getMcpUserId()
           const table = type === "skill" ? "skills" : type === "feature_template" ? "feature_templates" : "protocols"
-
-          const rows = await sql.unsafe(
-            `SELECT * FROM ${table} WHERE id = $1 AND deleted_at IS NULL AND (user_id = $2 OR visibility IN ('public'))`,
-            [id, userId]
-          )
+          // sql.unsafe() returns a SQL fragment for safe interpolation, NOT a query executor.
+          const tableFragment = sql.unsafe(table)
+          const rows = await sql`SELECT * FROM ${tableFragment} WHERE id = ${id}::uuid AND deleted_at IS NULL AND (user_id = ${userId}::uuid OR visibility IN ('public'))`
 
           if (!rows[0]) return mcpError(`${type} not found or access denied`)
 
@@ -3749,13 +3747,11 @@ const handler = createMcpHandler(
           const mapping = tableMap[entity_type]
           if (!mapping) return mcpError(`Unknown entity_type: ${entity_type}`)
 
-          // Neon serverless v1.x: sql.unsafe(text, params) returns { rows, rowCount }
-          // (not an array). Pull .rows then index.
-          const result = await sql.unsafe(
-            `SELECT documentation_5wh FROM ${mapping.table} WHERE id = $1 AND user_id = $2 LIMIT 1`,
-            [entity_id, userId]
-          )
-          const row = (result as { rows?: Array<Record<string, unknown>> }).rows?.[0] ?? (result as Array<Record<string, unknown>>)[0]
+          // Neon serverless: sql.unsafe(str) returns a SQL fragment for interpolation
+          // into a template literal — NOT a query executor. Use it for the table name.
+          const tableFragment = sql.unsafe(mapping.table)
+          const rows = await sql`SELECT documentation_5wh FROM ${tableFragment} WHERE id = ${entity_id}::uuid AND user_id = ${userId}::uuid LIMIT 1`
+          const row = rows[0]
 
           if (!row) return mcpError(`${entity_type} not found or access denied`)
 
@@ -4726,10 +4722,11 @@ const handler = createMcpHandler(
           const userId = getMcpUserId()
 
           // Get spec version
-          // Neon serverless v1.x: sql.unsafe returns { rows, rowCount } — pull .rows
+          // sql.unsafe() returns a SQL fragment for safe interpolation of the table name
           const table = spec_source_type === "skill" ? "skills" : spec_source_type === "feature_template" ? "feature_templates" : "protocols"
-          const specResult = await sql.unsafe(`SELECT version FROM ${table} WHERE id = $1 AND user_id = $2`, [spec_source_id, userId])
-          const spec = (specResult as { rows?: Array<Record<string, unknown>> }).rows?.[0] ?? (specResult as Array<Record<string, unknown>>)[0]
+          const tableFragment = sql.unsafe(table)
+          const specRows = await sql`SELECT version FROM ${tableFragment} WHERE id = ${spec_source_id}::uuid AND user_id = ${userId}::uuid`
+          const spec = specRows[0]
           if (!spec) return mcpError(`${spec_source_type} not found or access denied`)
 
           const now = new Date().toISOString()
@@ -4751,15 +4748,14 @@ const handler = createMcpHandler(
           // Increment counters on the source spec
           const isSuccess = outcome === "success"
           const isFailure = outcome === "failure"
-          await sql.unsafe(
-            `UPDATE ${table}
-             SET usage_count = usage_count + 1,
-                 success_count = success_count + $1,
-                 failure_count = failure_count + $2,
-                 last_used_at = NOW()
-             WHERE id = $3`,
-            [isSuccess ? 1 : 0, isFailure ? 1 : 0, spec_source_id]
-          )
+          await sql`
+            UPDATE ${tableFragment}
+               SET usage_count = usage_count + 1,
+                   success_count = success_count + ${isSuccess ? 1 : 0},
+                   failure_count = failure_count + ${isFailure ? 1 : 0},
+                   last_used_at = NOW()
+             WHERE id = ${spec_source_id}::uuid
+          `
 
           return mcpResponse({ success: true, data: { recorded: true, spec_application: row } })
         } catch (error: unknown) {
@@ -4880,10 +4876,6 @@ const handler = createMcpHandler(
         try {
           const userId = getMcpUserId()
 
-          // Helper for Neon v1.x sql.unsafe — returns {rows} not array
-          const unsafeRows = (r: unknown): Array<Record<string, unknown>> =>
-            (r as { rows?: Array<Record<string, unknown>> }).rows ?? (r as Array<Record<string, unknown>>)
-
           if (scope === "entity") {
             if (!entity_type || !entity_id) return mcpError("entity_type and entity_id required for entity scope")
 
@@ -4896,10 +4888,8 @@ const handler = createMcpHandler(
             const tbl = tableMap[entity_type]
             if (!tbl) return mcpError(`Unknown entity_type: ${entity_type}`)
 
-            const rows = unsafeRows(await sql.unsafe(
-              `SELECT documentation_5wh FROM ${tbl} WHERE id = $1 AND user_id = $2 LIMIT 1`,
-              [entity_id, userId]
-            ))
+            const tblFragment = sql.unsafe(tbl)
+            const rows = await sql`SELECT documentation_5wh FROM ${tblFragment} WHERE id = ${entity_id}::uuid AND user_id = ${userId}::uuid LIMIT 1`
             if (!rows[0]) return mcpError(`${entity_type} not found`)
 
             const envelope = rows[0].documentation_5wh
@@ -4921,14 +4911,14 @@ const handler = createMcpHandler(
             const targetTable = table
             if (!targetTable) return mcpError("table param required for tables scope")
 
-            const rows = unsafeRows(await sql.unsafe(
-              `SELECT COUNT(*)::int AS total,
-                      COUNT(*) FILTER (WHERE documentation_5wh != '{}'::jsonb)::int AS with_envelope,
-                      COUNT(*) FILTER (WHERE documentation_5wh = '{}'::jsonb)::int AS empty_envelope,
-                      COUNT(*) FILTER (WHERE documentation_5wh->'why'->>'rationale' IS NOT NULL AND documentation_5wh->'why'->>'rationale' != '')::int AS with_rationale
-               FROM ${targetTable} WHERE user_id = $1`,
-              [userId]
-            ))
+            const targetFragment = sql.unsafe(targetTable)
+            const rows = await sql`
+              SELECT COUNT(*)::int AS total,
+                     COUNT(*) FILTER (WHERE documentation_5wh != '{}'::jsonb)::int AS with_envelope,
+                     COUNT(*) FILTER (WHERE documentation_5wh = '{}'::jsonb)::int AS empty_envelope,
+                     COUNT(*) FILTER (WHERE documentation_5wh->'why'->>'rationale' IS NOT NULL AND documentation_5wh->'why'->>'rationale' != '')::int AS with_rationale
+              FROM ${targetFragment} WHERE user_id = ${userId}::uuid
+            `
 
             return mcpResponse({ success: true, data: { table: targetTable, ...rows[0] } })
           }
@@ -4938,12 +4928,12 @@ const handler = createMcpHandler(
           const summaryRows = await Promise.all(
             summaryTables.map(async (t) => {
               try {
-                const r = unsafeRows(await sql.unsafe(
-                  `SELECT COUNT(*)::int AS total,
-                          COUNT(*) FILTER (WHERE documentation_5wh != '{}'::jsonb)::int AS with_envelope
-                   FROM ${t} WHERE user_id = $1`,
-                  [userId]
-                ))
+                const tFragment = sql.unsafe(t)
+                const r = await sql`
+                  SELECT COUNT(*)::int AS total,
+                         COUNT(*) FILTER (WHERE documentation_5wh != '{}'::jsonb)::int AS with_envelope
+                  FROM ${tFragment} WHERE user_id = ${userId}::uuid
+                `
                 return { table: t, total: (r[0]?.total as number) ?? 0, with_envelope: (r[0]?.with_envelope as number) ?? 0 }
               } catch {
                 return { table: t, total: 0, with_envelope: 0, error: "table not accessible" }
