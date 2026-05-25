@@ -3317,6 +3317,1481 @@ const handler = createMcpHandler(
         }
       }
     )
+    // ==========================================
+    // TIER 1: INQUIRY — Read-only library tools
+    // ==========================================
+
+    server.tool(
+      "library_list_skills",
+      "List skills from the prompt library. Filter by category, status, or search term.",
+      {
+        category: z.string().optional().describe("Filter by category (e.g. 'database', 'api', 'auth', 'payments', 'ui', 'testing', 'devops')"),
+        status: z.enum(["draft", "active", "deprecated"]).optional().describe("Filter by lifecycle status (default: active)"),
+        search: z.string().optional().describe("Search term matched against name, title, description"),
+        limit: z.number().optional().describe("Max results (default 20, max 100)"),
+      },
+      async ({ category, status, search, limit }) => {
+        try {
+          const userId = getMcpUserId()
+          const actualLimit = Math.min(limit ?? DEFAULT_LIMIT, MAX_LIMIT)
+          const statusFilter = status ?? "active"
+          const searchPattern = search ? `%${search}%` : null
+
+          const rows = await sql`
+            SELECT id, name, title, category, description, status, version,
+                   prerequisites, provides, usage_count, success_count, failure_count,
+                   created_at, visibility
+            FROM skills
+            WHERE deleted_at IS NULL
+              AND (user_id = ${userId} OR visibility IN ('public'))
+              AND status = ${statusFilter}
+              AND (${category}::text IS NULL OR category = ${category})
+              AND (${searchPattern}::text IS NULL
+                   OR name ILIKE ${searchPattern}
+                   OR title ILIKE ${searchPattern}
+                   OR description ILIKE ${searchPattern})
+            ORDER BY usage_count DESC, title ASC
+            LIMIT ${actualLimit}
+          `
+
+          return mcpResponse({
+            success: true,
+            data: {
+              skills: rows.map((r: Record<string, unknown>) => ({
+                id: r.id,
+                name: r.name,
+                title: r.title,
+                category: r.category,
+                description: truncate(r.description as string, 150),
+                status: r.status,
+                version: r.version,
+                prerequisites: r.prerequisites,
+                provides: r.provides,
+                usage_count: r.usage_count,
+                success_count: r.success_count,
+                failure_count: r.failure_count,
+                visibility: r.visibility,
+              })),
+              count: rows.length,
+            },
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "library_list_templates",
+      "List feature templates from the prompt library. Filter by category, status, or search term.",
+      {
+        category: z.string().optional().describe("Filter by category (e.g. 'auth', 'payments', 'commerce', 'communication')"),
+        status: z.enum(["draft", "active", "deprecated"]).optional().describe("Filter by lifecycle status (default: active)"),
+        search: z.string().optional().describe("Search term matched against name, title, description"),
+        limit: z.number().optional().describe("Max results (default 20, max 100)"),
+      },
+      async ({ category, status, search, limit }) => {
+        try {
+          const userId = getMcpUserId()
+          const actualLimit = Math.min(limit ?? DEFAULT_LIMIT, MAX_LIMIT)
+          const statusFilter = status ?? "active"
+          const searchPattern = search ? `%${search}%` : null
+
+          const rows = await sql`
+            SELECT id, name, title, category, description, status, version,
+                   required_skills, applicable_protocols, insertion_strategy,
+                   parallelism_hint, usage_count, success_count, failure_count,
+                   created_at, visibility
+            FROM feature_templates
+            WHERE deleted_at IS NULL
+              AND (user_id = ${userId} OR visibility IN ('public'))
+              AND status = ${statusFilter}
+              AND (${category}::text IS NULL OR category = ${category})
+              AND (${searchPattern}::text IS NULL
+                   OR name ILIKE ${searchPattern}
+                   OR title ILIKE ${searchPattern}
+                   OR description ILIKE ${searchPattern})
+            ORDER BY usage_count DESC, title ASC
+            LIMIT ${actualLimit}
+          `
+
+          return mcpResponse({
+            success: true,
+            data: {
+              templates: rows.map((r: Record<string, unknown>) => ({
+                id: r.id,
+                name: r.name,
+                title: r.title,
+                category: r.category,
+                description: truncate(r.description as string, 150),
+                status: r.status,
+                version: r.version,
+                required_skills: r.required_skills,
+                applicable_protocols: r.applicable_protocols,
+                insertion_strategy: r.insertion_strategy,
+                parallelism_hint: r.parallelism_hint,
+                usage_count: r.usage_count,
+                success_count: r.success_count,
+                failure_count: r.failure_count,
+                visibility: r.visibility,
+              })),
+              count: rows.length,
+            },
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "library_list_protocols",
+      "List protocols from the prompt library. Filter by category, trigger_event, or status.",
+      {
+        category: z.string().optional().describe("Filter by category (e.g. 'security', 'data-integrity', 'deployment', 'testing')"),
+        trigger_event: z.string().optional().describe("Filter by trigger event (e.g. 'before_migration', 'before_deploy')"),
+        status: z.enum(["draft", "active", "deprecated"]).optional().describe("Filter by lifecycle status (default: active)"),
+        limit: z.number().optional().describe("Max results (default 20, max 100)"),
+      },
+      async ({ category, trigger_event, status, limit }) => {
+        try {
+          const userId = getMcpUserId()
+          const actualLimit = Math.min(limit ?? DEFAULT_LIMIT, MAX_LIMIT)
+          const statusFilter = status ?? "active"
+
+          const rows = await sql`
+            SELECT id, name, title, category, description, trigger_event,
+                   violation_severity, applies_to_types, status, version,
+                   triggered_count, violated_count, blocked_count, created_at, visibility
+            FROM protocols
+            WHERE deleted_at IS NULL
+              AND (user_id = ${userId} OR visibility IN ('public'))
+              AND status = ${statusFilter}
+              AND (${category}::text IS NULL OR category = ${category})
+              AND (${trigger_event}::text IS NULL OR trigger_event = ${trigger_event})
+            ORDER BY triggered_count DESC, title ASC
+            LIMIT ${actualLimit}
+          `
+
+          return mcpResponse({
+            success: true,
+            data: {
+              protocols: rows.map((r: Record<string, unknown>) => ({
+                id: r.id,
+                name: r.name,
+                title: r.title,
+                category: r.category,
+                description: truncate(r.description as string, 150),
+                trigger_event: r.trigger_event,
+                violation_severity: r.violation_severity,
+                applies_to_types: r.applies_to_types,
+                status: r.status,
+                version: r.version,
+                triggered_count: r.triggered_count,
+                violated_count: r.violated_count,
+                blocked_count: r.blocked_count,
+                visibility: r.visibility,
+              })),
+              count: rows.length,
+            },
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "library_get",
+      "Get full details and 5W+H envelope for a skill, feature_template, or protocol.",
+      {
+        type: z.enum(["skill", "feature_template", "protocol"]).describe("Entity type"),
+        id: z.string().describe("UUID of the entity"),
+      },
+      async ({ type, id }) => {
+        try {
+          const userId = getMcpUserId()
+          const table = type === "skill" ? "skills" : type === "feature_template" ? "feature_templates" : "protocols"
+
+          const rows = await sql.unsafe(
+            `SELECT * FROM ${table} WHERE id = $1 AND deleted_at IS NULL AND (user_id = $2 OR visibility IN ('public'))`,
+            [id, userId]
+          )
+
+          if (!rows[0]) return mcpError(`${type} not found or access denied`)
+
+          return mcpResponse({ success: true, data: { [type]: rows[0] } })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "library_search",
+      "Fuzzy search across skills, feature_templates, and protocols by name/title/description.",
+      {
+        query: z.string().describe("Search term"),
+        types: z.array(z.enum(["skill", "feature_template", "protocol"])).optional().describe("Entity types to search (default: all three)"),
+        limit: z.number().optional().describe("Max results per type (default 10)"),
+      },
+      async ({ query, types, limit }) => {
+        try {
+          const userId = getMcpUserId()
+          const actualLimit = Math.min(limit ?? 10, 50)
+          const pattern = `%${query}%`
+          const searchTypes = types ?? ["skill", "feature_template", "protocol"]
+
+          const results: Record<string, unknown[]> = {}
+
+          if (searchTypes.includes("skill")) {
+            results.skills = await sql`
+              SELECT id, name, title, category, description, status, version, usage_count
+              FROM skills
+              WHERE deleted_at IS NULL AND (user_id = ${userId} OR visibility IN ('public'))
+                AND status = 'active'
+                AND (name ILIKE ${pattern} OR title ILIKE ${pattern} OR description ILIKE ${pattern})
+              ORDER BY usage_count DESC
+              LIMIT ${actualLimit}
+            `
+          }
+
+          if (searchTypes.includes("feature_template")) {
+            results.feature_templates = await sql`
+              SELECT id, name, title, category, description, status, version, usage_count
+              FROM feature_templates
+              WHERE deleted_at IS NULL AND (user_id = ${userId} OR visibility IN ('public'))
+                AND status = 'active'
+                AND (name ILIKE ${pattern} OR title ILIKE ${pattern} OR description ILIKE ${pattern})
+              ORDER BY usage_count DESC
+              LIMIT ${actualLimit}
+            `
+          }
+
+          if (searchTypes.includes("protocol")) {
+            results.protocols = await sql`
+              SELECT id, name, title, category, description, trigger_event, status, version
+              FROM protocols
+              WHERE deleted_at IS NULL AND (user_id = ${userId} OR visibility IN ('public'))
+                AND status = 'active'
+                AND (name ILIKE ${pattern} OR title ILIKE ${pattern} OR description ILIKE ${pattern})
+              ORDER BY triggered_count DESC
+              LIMIT ${actualLimit}
+            `
+          }
+
+          return mcpResponse({ success: true, data: results })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "get_5wh",
+      "Return the 5W+H documentation envelope for any entity, plus a completeness score.",
+      {
+        entity_type: z.string().describe("Entity type (e.g. 'skill', 'feature_template', 'protocol', 'work_order', 'idea', 'todo')"),
+        entity_id: z.string().describe("UUID of the entity"),
+      },
+      async ({ entity_type, entity_id }) => {
+        try {
+          const userId = getMcpUserId()
+
+          // Resolve table from entity_type
+          const tableMap: Record<string, { table: string; userCol?: string }> = {
+            skill: { table: "skills" },
+            feature_template: { table: "feature_templates" },
+            protocol: { table: "protocols" },
+            work_order: { table: "work_orders" },
+            work_order_step: { table: "work_order_steps" },
+            prompt: { table: "prompts" },
+            idea: { table: "ideas" },
+            todo: { table: "todos" },
+            project: { table: "projects" },
+            decision: { table: "architecture_decisions" },
+            attempted_solution: { table: "attempted_solutions" },
+            entity_relation: { table: "entity_relations" },
+            spec_application: { table: "spec_applications" },
+          }
+
+          const mapping = tableMap[entity_type]
+          if (!mapping) return mcpError(`Unknown entity_type: ${entity_type}`)
+
+          const rows = await sql.unsafe(
+            `SELECT documentation_5wh FROM ${mapping.table} WHERE id = $1 AND user_id = $2 LIMIT 1`,
+            [entity_id, userId]
+          )
+
+          if (!rows[0]) return mcpError(`${entity_type} not found or access denied`)
+
+          const envelope = rows[0].documentation_5wh
+
+          if (!envelope || Object.keys(envelope as object).length === 0) {
+            return mcpResponse({
+              success: true,
+              data: { envelope: null, score: 0, filled: [], empty: [], note: "No envelope stored yet" },
+            })
+          }
+
+          // Import and use auditCompleteness
+          const { auditCompleteness, validateEnvelope } = await import("@/lib/validation/documentation-5wh")
+          try {
+            const parsed = validateEnvelope(envelope)
+            const audit = auditCompleteness(parsed)
+            return mcpResponse({ success: true, data: { envelope: parsed, ...audit } })
+          } catch {
+            return mcpResponse({
+              success: true,
+              data: { envelope, score: 0, filled: [], empty: [], note: "Envelope stored but failed validation" },
+            })
+          }
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "find_attempts",
+      "Find attempted solutions (prior-art lookup). Pass entity_type+entity_id for entity-scoped lookup, or omit entity_id for recent cross-entity attempts.",
+      {
+        entity_type: z.string().optional().describe("Entity type to scope lookup (e.g. 'work_order_step', 'idea')"),
+        entity_id: z.string().optional().describe("Entity UUID — omit for general prior-art lookup"),
+        outcome: z.enum(["failed", "abandoned", "superseded", "inconclusive"]).optional().describe("Filter by outcome"),
+        search: z.string().optional().describe("Search against approach text"),
+        limit: z.number().optional().describe("Max results (default 20)"),
+      },
+      async ({ entity_type, entity_id, outcome, search, limit }) => {
+        try {
+          const userId = getMcpUserId()
+          const actualLimit = Math.min(limit ?? DEFAULT_LIMIT, MAX_LIMIT)
+          const searchPattern = search ? `%${search}%` : null
+
+          const rows = await sql`
+            SELECT id, entity_type, entity_id, approach, outcome, failure_mode,
+                   root_cause, lessons_learned, prevention_strategy, tried_at, created_at
+            FROM attempted_solutions
+            WHERE deleted_at IS NULL
+              AND user_id = ${userId}
+              AND (${entity_type}::text IS NULL OR entity_type = ${entity_type})
+              AND (${entity_id}::text IS NULL OR entity_id = ${entity_id}::uuid)
+              AND (${outcome}::text IS NULL OR outcome = ${outcome})
+              AND (${searchPattern}::text IS NULL OR approach ILIKE ${searchPattern})
+            ORDER BY tried_at DESC
+            LIMIT ${actualLimit}
+          `
+
+          return mcpResponse({ success: true, data: { attempts: rows, count: rows.length } })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "find_related",
+      "Return the entity_relations neighborhood for an entity (up to 2 hops).",
+      {
+        entity_type: z.string().describe("Entity type (e.g. 'skill', 'feature_template', 'work_order')"),
+        entity_id: z.string().describe("Entity UUID"),
+        hops: z.union([z.literal(1), z.literal(2)]).optional().describe("Neighborhood depth — 1 or 2 hops (default: 1)"),
+        relation_types: z.array(z.string()).optional().describe("Filter by relation types (e.g. ['supersedes','derives_from'])"),
+      },
+      async ({ entity_type, entity_id, hops, relation_types }) => {
+        try {
+          const userId = getMcpUserId()
+          const depth = hops ?? 1
+
+          let edgeRows: Record<string, unknown>[]
+
+          if (depth === 2) {
+            edgeRows = await sql`
+              WITH RECURSIVE neighborhood AS (
+                SELECT * FROM entity_relations
+                WHERE user_id = ${userId} AND deleted_at IS NULL
+                  AND ((from_entity_type = ${entity_type} AND from_entity_id = ${entity_id}::uuid)
+                    OR (to_entity_type = ${entity_type} AND to_entity_id = ${entity_id}::uuid))
+                UNION
+                SELECT er.* FROM entity_relations er
+                INNER JOIN neighborhood n ON
+                    (er.from_entity_type = n.to_entity_type AND er.from_entity_id = n.to_entity_id)
+                 OR (er.to_entity_type = n.from_entity_type AND er.to_entity_id = n.from_entity_id)
+                WHERE er.user_id = ${userId} AND er.deleted_at IS NULL
+              )
+              SELECT DISTINCT id, from_entity_type, from_entity_id, to_entity_type, to_entity_id,
+                     relation_type, confidence, created_at
+              FROM neighborhood
+              WHERE (${relation_types}::text[] IS NULL OR relation_type = ANY(${relation_types ?? null}::text[]))
+              LIMIT 200
+            `
+          } else {
+            edgeRows = await sql`
+              SELECT id, from_entity_type, from_entity_id, to_entity_type, to_entity_id,
+                     relation_type, confidence, created_at
+              FROM entity_relations
+              WHERE user_id = ${userId} AND deleted_at IS NULL
+                AND ((from_entity_type = ${entity_type} AND from_entity_id = ${entity_id}::uuid)
+                  OR (to_entity_type = ${entity_type} AND to_entity_id = ${entity_id}::uuid))
+                AND (${relation_types}::text[] IS NULL OR relation_type = ANY(${relation_types ?? null}::text[]))
+              ORDER BY created_at DESC
+              LIMIT 100
+            `
+          }
+
+          return mcpResponse({
+            success: true,
+            data: {
+              edges: edgeRows.map((r) => ({
+                id: r.id,
+                from: { type: r.from_entity_type, id: r.from_entity_id },
+                to: { type: r.to_entity_type, id: r.to_entity_id },
+                relation_type: r.relation_type,
+                confidence: r.confidence,
+                created_at: r.created_at,
+              })),
+              count: edgeRows.length,
+            },
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "get_knowledge_graph",
+      "Return graph-ready JSON from entity_relations. Optionally center on a focus entity (2-hop neighborhood).",
+      {
+        projectId: z.string().optional().describe("Filter edges to entities in a project (via where.project_id in 5wh — soft filter)"),
+        entityTypes: z.array(z.string()).optional().describe("Limit to these entity types on either side of an edge"),
+        focusEntityType: z.string().optional().describe("Center graph on this entity type"),
+        focusEntityId: z.string().optional().describe("Center graph on this entity UUID"),
+        limit: z.number().optional().describe("Max edges (default 200, max 500)"),
+      },
+      async ({ entityTypes, focusEntityType, focusEntityId, limit }) => {
+        try {
+          const userId = getMcpUserId()
+          const actualLimit = Math.min(limit ?? 200, 500)
+
+          let edgeRows: Record<string, unknown>[]
+
+          if (focusEntityType && focusEntityId) {
+            edgeRows = await sql`
+              WITH RECURSIVE neighborhood AS (
+                SELECT * FROM entity_relations
+                WHERE user_id = ${userId} AND deleted_at IS NULL
+                  AND ((from_entity_type = ${focusEntityType} AND from_entity_id = ${focusEntityId}::uuid)
+                    OR (to_entity_type = ${focusEntityType} AND to_entity_id = ${focusEntityId}::uuid))
+                UNION
+                SELECT er.* FROM entity_relations er
+                INNER JOIN neighborhood n ON
+                    (er.from_entity_type = n.to_entity_type AND er.from_entity_id = n.to_entity_id)
+                 OR (er.to_entity_type = n.from_entity_type AND er.to_entity_id = n.from_entity_id)
+                WHERE er.user_id = ${userId} AND er.deleted_at IS NULL
+              )
+              SELECT DISTINCT * FROM neighborhood LIMIT ${actualLimit}
+            `
+          } else {
+            edgeRows = await sql`
+              SELECT * FROM entity_relations
+              WHERE user_id = ${userId} AND deleted_at IS NULL
+                AND (${entityTypes}::text[] IS NULL
+                     OR from_entity_type = ANY(${entityTypes ?? null}::text[])
+                     OR to_entity_type = ANY(${entityTypes ?? null}::text[]))
+              ORDER BY created_at DESC
+              LIMIT ${actualLimit}
+            `
+          }
+
+          const nodeKeys = new Set<string>()
+          for (const r of edgeRows) {
+            nodeKeys.add(`${r.from_entity_type}::${r.from_entity_id}`)
+            nodeKeys.add(`${r.to_entity_type}::${r.to_entity_id}`)
+          }
+
+          const edges = edgeRows.map((r) => ({
+            id: r.id,
+            source: r.from_entity_id,
+            target: r.to_entity_id,
+            sourceType: r.from_entity_type,
+            targetType: r.to_entity_type,
+            type: r.relation_type,
+            confidence: Number(r.confidence),
+            createdAt: r.created_at,
+          }))
+
+          const byType: Record<string, number> = {}
+          const nodeList = Array.from(nodeKeys).map((key) => {
+            const parts = key.split("::")
+            const t = parts[0]
+            const id = parts[1]
+            byType[t] = (byType[t] ?? 0) + 1
+            return { id, type: t }
+          })
+
+          return mcpResponse({
+            success: true,
+            data: {
+              nodes: nodeList,
+              edges,
+              counts: { nodes: nodeList.length, edges: edges.length, byType },
+            },
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ==========================================
+    // TIER 2: ADMIN — Create/update/promote tools
+    // ==========================================
+
+    server.tool(
+      "library_create_skill",
+      "Create a new skill in the prompt library with a 5W+H envelope.",
+      {
+        name: z.string().describe("Short kebab-case slug (e.g. 'drizzle-migration')"),
+        title: z.string().describe("Display name (e.g. 'Drizzle Migration')"),
+        description: z.string().describe("What this skill is about"),
+        body: z.string().describe("The actual instruction/prompt body (markdown)"),
+        category: z.string().optional().describe("Category (e.g. 'database', 'api', 'auth', 'payments', 'ui', 'testing', 'devops')"),
+        prerequisites: z.array(z.string()).optional().describe("Skill names that must be in scope before this one"),
+        provides: z.array(z.string()).optional().describe("Capability tags this skill provides"),
+        rationale: z.string().describe("Why this skill exists — required for the 5W+H envelope"),
+        projectId: z.string().optional().describe("Optional project scope (null = global user skill)"),
+        visibility: z.enum(["private", "project", "public"]).optional().describe("Visibility (default: private)"),
+      },
+      async ({ name, title, description, body, category, prerequisites, provides, rationale, projectId, visibility }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          const { buildEnvelopeForWrite, envelopeForSql, stampEnvelopeOrigin } = await import("@/lib/api/envelope-helpers")
+          const envelopeResult = buildEnvelopeForWrite(
+            { rationale, project_id: projectId },
+            { userId, projectId },
+            { type: "skill", title, summary: description, rationale },
+            "legacy"
+          )
+          if (!envelopeResult.ok) {
+            return mcpError("Failed to build 5W+H envelope")
+          }
+
+          const metadata = stampEnvelopeOrigin({}, envelopeResult.origin)
+          metadata.envelope_origin = "mcp_library_create_skill"
+
+          const [row] = await sql`
+            INSERT INTO skills (
+              name, title, category, description, body,
+              prerequisites, provides,
+              status, version, user_id, project_id, visibility,
+              documentation_5wh, metadata
+            ) VALUES (
+              ${name}, ${title}, ${category ?? null}, ${description}, ${body},
+              ${prerequisites ?? []}, ${provides ?? []},
+              'active', 1, ${userId}, ${projectId ?? null}, ${visibility ?? "private"},
+              ${envelopeForSql(envelopeResult.envelope)}::jsonb, ${JSON.stringify(metadata)}::jsonb
+            )
+            RETURNING id, name, title, status, version, created_at
+          `
+
+          return mcpResponse({ success: true, data: { created: true, skill: row } })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "library_create_template",
+      "Create a new feature template in the prompt library.",
+      {
+        name: z.string().describe("Short kebab-case slug (e.g. 'stripe-subscription-checkout')"),
+        title: z.string().describe("Display name"),
+        description: z.string().describe("What this template does"),
+        steps: z.array(z.object({
+          order: z.number().optional(),
+          title: z.string(),
+          skill_ref: z.string().optional(),
+          acceptance: z.array(z.string()).optional(),
+          instructions: z.string().optional(),
+          prerequisites: z.array(z.string()).optional(),
+          provides: z.array(z.string()).optional(),
+          requires: z.array(z.string()).optional(),
+        })).describe("Template steps — each step has a title and optional skill_ref"),
+        required_skills: z.array(z.string()).optional().describe("Skill names referenced across steps"),
+        category: z.string().optional().describe("Category (e.g. 'auth', 'payments', 'commerce')"),
+        default_acceptance_criteria: z.array(z.string()).optional().describe("Default AC applied to all derived work orders"),
+        applicable_protocols: z.array(z.string()).optional().describe("Protocol names that apply to this template"),
+        default_prompts: z.array(z.object({
+          trigger_event: z.string(),
+          body: z.string(),
+          version: z.number().optional(),
+        })).optional().describe("Embedded prompt bodies keyed by trigger_event"),
+        rationale: z.string().describe("Why this template exists — required for 5W+H envelope"),
+        projectId: z.string().optional().describe("Optional project scope"),
+        visibility: z.enum(["private", "project", "public"]).optional(),
+      },
+      async ({ name, title, description, steps, required_skills, category, default_acceptance_criteria, applicable_protocols, default_prompts, rationale, projectId, visibility }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          const { buildEnvelopeForWrite, envelopeForSql, stampEnvelopeOrigin } = await import("@/lib/api/envelope-helpers")
+          const envelopeResult = buildEnvelopeForWrite(
+            { rationale, project_id: projectId },
+            { userId, projectId },
+            { type: "feature_template", title, summary: description, rationale },
+            "legacy"
+          )
+          if (!envelopeResult.ok) return mcpError("Failed to build 5W+H envelope")
+
+          const metadata = stampEnvelopeOrigin({}, envelopeResult.origin)
+          metadata.envelope_origin = "mcp_library_create_template"
+
+          const [row] = await sql`
+            INSERT INTO feature_templates (
+              name, title, category, description, steps,
+              required_skills, default_acceptance_criteria, applicable_protocols, default_prompts,
+              status, version, user_id, project_id, visibility,
+              documentation_5wh, metadata
+            ) VALUES (
+              ${name}, ${title}, ${category ?? null}, ${description}, ${JSON.stringify(steps ?? [])}::jsonb,
+              ${required_skills ?? []}, ${default_acceptance_criteria ?? []},
+              ${applicable_protocols ?? []}, ${JSON.stringify(default_prompts ?? [])}::jsonb,
+              'active', 1, ${userId}, ${projectId ?? null}, ${visibility ?? "private"},
+              ${envelopeForSql(envelopeResult.envelope)}::jsonb, ${JSON.stringify(metadata)}::jsonb
+            )
+            RETURNING id, name, title, status, version, created_at
+          `
+
+          return mcpResponse({ success: true, data: { created: true, template: row } })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "library_create_protocol",
+      "Create a new enforcement protocol in the prompt library.",
+      {
+        name: z.string().describe("Short kebab-case slug (e.g. 'always-validate-migration-safety')"),
+        title: z.string().describe("Display name"),
+        description: z.string().describe("What this protocol enforces"),
+        trigger_event: z.string().describe("When this protocol fires (e.g. 'before_migration', 'before_deploy')"),
+        rule_body: z.string().describe("The enforced text / prompt body (markdown)"),
+        violation_severity: z.enum(["info", "warning", "error", "fatal"]).optional().describe("Severity on violation (default: warning)"),
+        applies_to_types: z.array(z.string()).optional().describe("Entity types this applies to"),
+        rationale: z.string().describe("Why this protocol exists — required for 5W+H envelope"),
+        projectId: z.string().optional().describe("Optional project scope"),
+        visibility: z.enum(["private", "project", "public"]).optional(),
+      },
+      async ({ name, title, description, trigger_event, rule_body, violation_severity, applies_to_types, rationale, projectId, visibility }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          const { buildEnvelopeForWrite, envelopeForSql, stampEnvelopeOrigin } = await import("@/lib/api/envelope-helpers")
+          const envelopeResult = buildEnvelopeForWrite(
+            { rationale, project_id: projectId },
+            { userId, projectId },
+            { type: "protocol", title, summary: description, rationale },
+            "legacy"
+          )
+          if (!envelopeResult.ok) return mcpError("Failed to build 5W+H envelope")
+
+          const metadata = stampEnvelopeOrigin({}, envelopeResult.origin)
+          metadata.envelope_origin = "mcp_library_create_protocol"
+
+          const [row] = await sql`
+            INSERT INTO protocols (
+              name, title, category, description, trigger_event, rule_body,
+              violation_severity, applies_to_types,
+              status, version, user_id, project_id, visibility,
+              documentation_5wh, metadata
+            ) VALUES (
+              ${name}, ${title}, ${null}, ${description}, ${trigger_event}, ${rule_body},
+              ${violation_severity ?? "warning"}, ${applies_to_types ?? []},
+              'active', 1, ${userId}, ${projectId ?? null}, ${visibility ?? "private"},
+              ${envelopeForSql(envelopeResult.envelope)}::jsonb, ${JSON.stringify(metadata)}::jsonb
+            )
+            RETURNING id, name, title, trigger_event, violation_severity, status, version, created_at
+          `
+
+          return mcpResponse({ success: true, data: { created: true, protocol: row } })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "entity_link",
+      "Create a typed entity_relation link between two entities.",
+      {
+        from_entity_type: z.string().describe("Source entity type (e.g. 'work_order', 'skill', 'idea')"),
+        from_entity_id: z.string().describe("Source entity UUID"),
+        to_entity_type: z.string().describe("Target entity type"),
+        to_entity_id: z.string().describe("Target entity UUID"),
+        relation_type: z.enum([
+          "supersedes", "derives_from", "related_to", "conflicts_with",
+          "implements", "blocks", "part_of", "references", "promoted_from",
+          "addresses", "inspired_by"
+        ]).describe("Typed relation"),
+        confidence: z.number().min(0).max(1).optional().describe("Confidence score 0–1 (default: 1.0)"),
+        rationale: z.string().describe("Why this link exists — required for 5W+H envelope"),
+      },
+      async ({ from_entity_type, from_entity_id, to_entity_type, to_entity_id, relation_type, confidence, rationale }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          const { buildEnvelopeForWrite, envelopeForSql, stampEnvelopeOrigin } = await import("@/lib/api/envelope-helpers")
+          const envelopeResult = buildEnvelopeForWrite(
+            { rationale },
+            { userId },
+            { type: "entity_relation", title: `${from_entity_type} → ${to_entity_type}`, summary: rationale, rationale },
+            "legacy"
+          )
+          if (!envelopeResult.ok) return mcpError("Failed to build 5W+H envelope")
+
+          const metadata = stampEnvelopeOrigin({}, envelopeResult.origin)
+          metadata.envelope_origin = "mcp_entity_link"
+
+          const [row] = await sql`
+            INSERT INTO entity_relations (
+              from_entity_type, from_entity_id, to_entity_type, to_entity_id,
+              relation_type, confidence, user_id, created_by_type, created_by_id,
+              documentation_5wh, metadata
+            ) VALUES (
+              ${from_entity_type}, ${from_entity_id}::uuid, ${to_entity_type}, ${to_entity_id}::uuid,
+              ${relation_type}, ${confidence ?? 1.0}, ${userId}, 'agent', 'mcp',
+              ${envelopeForSql(envelopeResult.envelope)}::jsonb, ${JSON.stringify(metadata)}::jsonb
+            )
+            ON CONFLICT (from_entity_type, from_entity_id, to_entity_type, to_entity_id, relation_type, user_id)
+            DO UPDATE SET confidence = EXCLUDED.confidence, updated_at = NOW()
+            RETURNING id, relation_type, confidence, created_at
+          `
+
+          return mcpResponse({ success: true, data: { created: true, relation: row } })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "record_attempt",
+      "Record a failed/abandoned/superseded approach as an attempted_solution for prior-art tracking.",
+      {
+        entity_type: z.string().describe("Type of the entity this attempt applies to (e.g. 'work_order_step', 'idea', 'todo')"),
+        entity_id: z.string().describe("UUID of the entity"),
+        approach: z.string().describe("One-line summary of what was tried"),
+        outcome: z.enum(["failed", "abandoned", "superseded", "inconclusive"]).describe("How this attempt ended"),
+        lessons_learned: z.string().describe("What we now know (required — no point recording without learnings)"),
+        failure_mode: z.string().optional().describe("How it failed (e.g. 'timeout', 'wrong-output', 'crash')"),
+        root_cause: z.string().optional().describe("Diagnosed reason for failure"),
+        prevention_strategy: z.string().optional().describe("How to avoid this in future"),
+        rationale: z.string().describe("Context for why this attempt was made — required for 5W+H envelope"),
+        projectId: z.string().optional().describe("Optional project scope"),
+      },
+      async ({ entity_type, entity_id, approach, outcome, lessons_learned, failure_mode, root_cause, prevention_strategy, rationale, projectId }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          const { buildEnvelopeForWrite, envelopeForSql, stampEnvelopeOrigin } = await import("@/lib/api/envelope-helpers")
+          const envelopeResult = buildEnvelopeForWrite(
+            { rationale, project_id: projectId },
+            { userId, projectId },
+            { type: "attempted_solution", title: approach, summary: lessons_learned, rationale },
+            "legacy"
+          )
+          if (!envelopeResult.ok) return mcpError("Failed to build 5W+H envelope")
+
+          const metadata = stampEnvelopeOrigin({}, envelopeResult.origin)
+          metadata.envelope_origin = "mcp_record_attempt"
+
+          const [row] = await sql`
+            INSERT INTO attempted_solutions (
+              entity_type, entity_id, approach, outcome, lessons_learned,
+              failure_mode, root_cause, prevention_strategy,
+              user_id, project_id, attempted_by_type, attempted_by_id,
+              documentation_5wh, metadata
+            ) VALUES (
+              ${entity_type}, ${entity_id}::uuid, ${approach}, ${outcome}, ${lessons_learned},
+              ${failure_mode ?? null}, ${root_cause ?? null}, ${prevention_strategy ?? null},
+              ${userId}, ${projectId ?? null}, 'agent', 'mcp',
+              ${envelopeForSql(envelopeResult.envelope)}::jsonb, ${JSON.stringify(metadata)}::jsonb
+            )
+            RETURNING id, entity_type, entity_id, outcome, created_at
+          `
+
+          return mcpResponse({ success: true, data: { created: true, attempt: row } })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "compose_work_order",
+      "Compose and insert a work order (from a feature_template or ad-hoc steps). Returns the composed plan with all steps inserted.",
+      {
+        project_id: z.string().describe("Project UUID this work order belongs to"),
+        title: z.string().describe("Work order title"),
+        description: z.string().optional().describe("Work order description"),
+        source_template_id: z.string().optional().describe("UUID of a feature_template to compose from"),
+        ad_hoc_steps: z.array(z.object({
+          title: z.string(),
+          description: z.string().optional(),
+          step_type: z.enum(["task", "checkpoint", "gate", "protocol_check", "verification"]).optional(),
+          prerequisites: z.array(z.string()).optional(),
+          provides: z.array(z.string()).optional(),
+          requires: z.array(z.string()).optional(),
+          instructions: z.string().optional(),
+          acceptance_criteria: z.array(z.string()).optional(),
+          required_capabilities: z.array(z.string()).optional(),
+        })).optional().describe("Ad-hoc steps if not using a template"),
+        insertion_strategy: z.enum(["atomic", "extends", "replaces", "enriches"]).optional().describe("Insertion strategy (default: atomic)"),
+        auto_approve: z.boolean().optional().describe("Immediately set status to 'approved' (default: false = 'proposed')"),
+      },
+      async ({ project_id, title, description, source_template_id, ad_hoc_steps, insertion_strategy, auto_approve }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          // Verify project access
+          const access = await verifyMcpProjectAccess(project_id)
+          if (!access.hasAccess) return mcpError("Project not found or access denied")
+          if (!access.canWrite) return mcpError("No write access to this project")
+
+          let plan: Awaited<ReturnType<typeof import("@/lib/work-orders/compose").composeFromTemplate>>
+          let sourceType: string = "ad_hoc"
+          let sourceTemplateVersion: number | null = null
+
+          if (source_template_id) {
+            const { composeFromTemplate } = await import("@/lib/work-orders/compose")
+            plan = await composeFromTemplate(source_template_id, userId)
+            sourceType = "feature_template"
+
+            // Get template version
+            const [tmpl] = await sql`SELECT version FROM feature_templates WHERE id = ${source_template_id} LIMIT 1`
+            sourceTemplateVersion = tmpl?.version ?? 1
+          } else if (ad_hoc_steps && ad_hoc_steps.length > 0) {
+            const { composeFromSpecs } = await import("@/lib/work-orders/compose")
+            plan = composeFromSpecs(ad_hoc_steps.map(s => ({
+              title: s.title,
+              description: s.description,
+              step_type: s.step_type ?? "task",
+              prerequisites: s.prerequisites ?? [],
+              provides: s.provides ?? [],
+              requires: s.requires ?? [],
+              instructions: s.instructions,
+              acceptance_criteria: s.acceptance_criteria ?? [],
+              required_capabilities: s.required_capabilities ?? [],
+            })))
+          } else {
+            return mcpError("Provide either source_template_id or ad_hoc_steps")
+          }
+
+          const { buildEnvelopeForWrite, envelopeForSql, stampEnvelopeOrigin } = await import("@/lib/api/envelope-helpers")
+          const envelopeResult = buildEnvelopeForWrite(
+            { project_id },
+            { userId, projectId: project_id },
+            { type: "work_order", title, summary: description ?? title, rationale: `Composed via MCP compose_work_order` },
+            "legacy"
+          )
+          if (!envelopeResult.ok) return mcpError("Failed to build 5W+H envelope")
+
+          const metadata = stampEnvelopeOrigin({}, envelopeResult.origin)
+          metadata.envelope_origin = "mcp_compose_work_order"
+
+          const initialStatus = auto_approve ? "approved" : "proposed"
+
+          // Insert work order
+          const [wo] = await sql`
+            INSERT INTO work_orders (
+              title, description, source_type, source_template_id, source_template_version,
+              insertion_strategy, parallelism_recommended, status,
+              user_id, project_id, created_by_type, created_by_id,
+              approved_at, documentation_5wh, metadata
+            ) VALUES (
+              ${title}, ${description ?? null}, ${sourceType}, ${source_template_id ?? null}, ${sourceTemplateVersion},
+              ${insertion_strategy ?? "atomic"}, ${plan.max_parallelism},
+              ${initialStatus}, ${userId}, ${project_id}, 'agent', 'mcp',
+              ${auto_approve ? new Date().toISOString() : null},
+              ${envelopeForSql(envelopeResult.envelope)}::jsonb, ${JSON.stringify(metadata)}::jsonb
+            )
+            RETURNING id, title, status, created_at
+          `
+
+          // Insert steps
+          const insertedSteps: Record<string, unknown>[] = []
+          for (const step of plan.steps) {
+            const [s] = await sql`
+              INSERT INTO work_order_steps (
+                work_order_id, step_order, level, parallel_group,
+                title, description, step_type, source_skill_id, source_skill_version,
+                prerequisites, provides, requires, instructions, acceptance_criteria,
+                required_capabilities, status, documentation_5wh, metadata
+              ) VALUES (
+                ${wo.id}, ${step.step_order}, ${step.level}, ${step.parallel_group ?? null},
+                ${step.title}, ${step.description ?? null}, ${step.step_type ?? "task"},
+                ${step.source_skill_id ?? null}, ${step.source_skill_version ?? null},
+                ${step.prerequisites ?? []}, ${step.provides ?? []}, ${step.requires ?? []},
+                ${step.instructions ?? null}, ${step.acceptance_criteria ?? []},
+                ${step.required_capabilities ?? []},
+                ${step.level === 0 ? "ready" : "pending"},
+                ${envelopeForSql(envelopeResult.envelope)}::jsonb,
+                ${JSON.stringify({ envelope_origin: "mcp_compose_work_order" })}::jsonb
+              )
+              RETURNING id, title, step_order, level, status
+            `
+            insertedSteps.push(s)
+          }
+
+          // Increment usage_count on template
+          if (source_template_id) {
+            await sql`UPDATE feature_templates SET usage_count = usage_count + 1, last_used_at = NOW() WHERE id = ${source_template_id}`
+          }
+
+          return mcpResponse({
+            success: true,
+            data: {
+              work_order: { id: wo.id, title: wo.title, status: wo.status, created_at: wo.created_at },
+              steps: insertedSteps,
+              plan_meta: {
+                max_parallelism: plan.max_parallelism,
+                cycles_detected: plan.cycles_detected,
+                warnings: plan.warnings,
+              },
+            },
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "work_order_claim_step",
+      "Claim a ready work_order_step. Returns JIT instructions for the claimed step.",
+      {
+        work_order_id: z.string().describe("Work order UUID"),
+        step_id: z.string().describe("Step UUID to claim"),
+        agent_id: z.string().describe("Agent identifier claiming this step"),
+        agent_type: z.enum(["user", "agent", "system"]).optional().describe("Agent type (default: agent)"),
+      },
+      async ({ work_order_id, step_id, agent_id, agent_type }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          // Verify step belongs to the work order and is in 'ready' status
+          const [step] = await sql`
+            SELECT s.*, wo.project_id, wo.status as wo_status
+            FROM work_order_steps s
+            JOIN work_orders wo ON wo.id = s.work_order_id
+            WHERE s.id = ${step_id}::uuid
+              AND s.work_order_id = ${work_order_id}::uuid
+              AND wo.user_id = ${userId}
+          `
+          if (!step) return mcpError("Step not found or access denied")
+          if (step.status !== "ready" && step.status !== "pending") {
+            return mcpError(`Step is not available to claim (current status: ${step.status})`)
+          }
+          if (step.wo_status === "cancelled" || step.wo_status === "failed") {
+            return mcpError(`Work order is in terminal state: ${step.wo_status}`)
+          }
+
+          const now = new Date().toISOString()
+
+          // Claim the step
+          await sql`
+            UPDATE work_order_steps
+            SET status = 'claimed', claimed_by_type = ${agent_type ?? "agent"}, claimed_by_id = ${agent_id},
+                claimed_at = ${now}, updated_at = ${now}
+            WHERE id = ${step_id}::uuid
+          `
+
+          // Ensure work order is in_progress
+          await sql`
+            UPDATE work_orders
+            SET status = CASE WHEN status = 'approved' THEN 'in_progress' ELSE status END,
+                started_at = CASE WHEN started_at IS NULL THEN ${now} ELSE started_at END,
+                updated_at = ${now}
+            WHERE id = ${work_order_id}::uuid
+          `
+
+          // Log claim check-in
+          await sql`
+            INSERT INTO work_order_check_ins (step_id, work_order_id, event_type, message, by_type, by_id, user_id)
+            VALUES (${step_id}::uuid, ${work_order_id}::uuid, 'claim', ${`Step claimed by ${agent_id}`}, ${agent_type ?? "agent"}, ${agent_id}, ${userId})
+          `
+
+          return mcpResponse({
+            success: true,
+            data: {
+              claimed: true,
+              step: {
+                id: step.id,
+                title: step.title,
+                step_type: step.step_type,
+                level: step.level,
+                instructions: step.instructions,
+                acceptance_criteria: step.acceptance_criteria,
+                required_capabilities: step.required_capabilities,
+              },
+            },
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "work_order_check_in",
+      "Fire a check-in event on a work_order_step. On completion, auto-promotes newly-ready steps. On failure/blocker, returns matching prior_art from attempted_solutions.",
+      {
+        work_order_id: z.string().describe("Work order UUID"),
+        step_id: z.string().describe("Step UUID"),
+        event_type: z.enum(["claim", "progress", "blocker", "protocol_violation", "retry", "completion", "failure", "release"]).describe("Event type"),
+        message: z.string().optional().describe("Human-readable message for this event"),
+        payload: z.record(z.unknown()).optional().describe("Structured event data"),
+        outcome_summary: z.string().optional().describe("Required on completion/failure — summary of what happened"),
+        outcome_artifacts: z.array(z.object({
+          kind: z.string(),
+          ref: z.string(),
+          url: z.string().optional(),
+        })).optional().describe("Artifacts produced on completion"),
+      },
+      async ({ work_order_id, step_id, event_type, message, payload, outcome_summary, outcome_artifacts }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          const [step] = await sql`
+            SELECT s.*, wo.project_id
+            FROM work_order_steps s
+            JOIN work_orders wo ON wo.id = s.work_order_id
+            WHERE s.id = ${step_id}::uuid AND s.work_order_id = ${work_order_id}::uuid AND wo.user_id = ${userId}
+          `
+          if (!step) return mcpError("Step not found or access denied")
+
+          const now = new Date().toISOString()
+
+          // Insert check-in event
+          const [checkin] = await sql`
+            INSERT INTO work_order_check_ins (step_id, work_order_id, event_type, message, payload, by_type, by_id, user_id)
+            VALUES (${step_id}::uuid, ${work_order_id}::uuid, ${event_type}, ${message ?? null},
+                    ${JSON.stringify(payload ?? {})}::jsonb, 'agent', ${step.claimed_by_id ?? "mcp"}, ${userId})
+            RETURNING id
+          `
+
+          let newStepStatus = step.status
+          const promotedSteps: unknown[] = []
+          let priorArt: unknown[] = []
+
+          if (event_type === "completion") {
+            // Mark step complete
+            await sql`
+              UPDATE work_order_steps
+              SET status = 'completed', completed_at = ${now}, updated_at = ${now},
+                  outcome_summary = ${outcome_summary ?? null},
+                  outcome_artifacts = ${JSON.stringify(outcome_artifacts ?? [])}::jsonb
+              WHERE id = ${step_id}::uuid
+            `
+            newStepStatus = "completed"
+
+            // Promote steps whose prerequisites are now all completed
+            const pendingSteps = await sql`
+              SELECT s.id, s.prerequisites, s.title
+              FROM work_order_steps s
+              WHERE s.work_order_id = ${work_order_id}::uuid AND s.status = 'pending'
+            `
+
+            for (const pending of pendingSteps) {
+              const prereqIds: string[] = Array.isArray(pending.prerequisites) ? pending.prerequisites : []
+              if (prereqIds.length === 0) continue
+
+              const completedPrereqs = await sql`
+                SELECT COUNT(*)::int AS n FROM work_order_steps
+                WHERE id = ANY(${prereqIds}::uuid[]) AND status = 'completed'
+              `
+              if (completedPrereqs[0].n === prereqIds.length) {
+                await sql`UPDATE work_order_steps SET status = 'ready', updated_at = ${now} WHERE id = ${pending.id}::uuid`
+                promotedSteps.push({ id: pending.id, title: pending.title, new_status: "ready" })
+              }
+            }
+
+            // Check if work order is fully complete
+            const remaining = await sql`
+              SELECT COUNT(*)::int AS n FROM work_order_steps
+              WHERE work_order_id = ${work_order_id}::uuid AND status NOT IN ('completed', 'skipped')
+            `
+            if (remaining[0].n === 0) {
+              await sql`UPDATE work_orders SET status = 'completed', completed_at = ${now}, updated_at = ${now} WHERE id = ${work_order_id}::uuid`
+            }
+          } else if (event_type === "failure" || event_type === "blocker") {
+            // Mark step with appropriate status
+            const targetStatus = event_type === "failure" ? "failed" : "blocked"
+            await sql`
+              UPDATE work_order_steps
+              SET status = ${targetStatus}, updated_at = ${now},
+                  blocked_reason = ${message ?? null},
+                  outcome_summary = ${outcome_summary ?? null}
+              WHERE id = ${step_id}::uuid
+            `
+            newStepStatus = targetStatus
+
+            // Prior-art lookup: find matching attempted_solutions
+            priorArt = await sql`
+              SELECT id, entity_type, entity_id, approach, outcome, failure_mode, root_cause, lessons_learned, prevention_strategy, tried_at
+              FROM attempted_solutions
+              WHERE deleted_at IS NULL AND user_id = ${userId}
+                AND (entity_type = 'work_order_step' OR entity_type = ${step.step_type ?? "task"})
+                AND approach ILIKE ${`%${(step.title as string).split(" ").slice(0, 3).join(" ")}%`}
+              ORDER BY tried_at DESC
+              LIMIT 5
+            `
+          } else if (event_type === "progress" || event_type === "retry") {
+            await sql`UPDATE work_order_steps SET status = 'in_progress', updated_at = ${now} WHERE id = ${step_id}::uuid`
+            newStepStatus = "in_progress"
+          }
+
+          return mcpResponse({
+            success: true,
+            data: {
+              check_in_id: checkin.id,
+              step_status: newStepStatus,
+              promoted_steps: promotedSteps,
+              ...(priorArt.length > 0 ? { prior_art: priorArt } : {}),
+            },
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ==========================================
+    // TIER 3: REFLECTION — Score, audit, learn
+    // ==========================================
+
+    server.tool(
+      "record_spec_outcome",
+      "Record an outcome for a spec_application (skill/template/protocol applied to an entity). Increments the source spec's counters.",
+      {
+        spec_source_type: z.enum(["skill", "feature_template", "protocol"]).describe("Type of spec that was applied"),
+        spec_source_id: z.string().describe("UUID of the spec (skill, feature_template, or protocol)"),
+        applied_to_type: z.string().describe("Entity type the spec was applied to (e.g. 'work_order', 'work_order_step')"),
+        applied_to_id: z.string().describe("UUID of the entity the spec was applied to"),
+        outcome: z.enum(["success", "failure", "partial", "abandoned"]).describe("Outcome of the application"),
+        notes: z.string().optional().describe("Optional notes on the outcome"),
+      },
+      async ({ spec_source_type, spec_source_id, applied_to_type, applied_to_id, outcome, notes }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          // Get spec version
+          const table = spec_source_type === "skill" ? "skills" : spec_source_type === "feature_template" ? "feature_templates" : "protocols"
+          const [spec] = await sql.unsafe(`SELECT version FROM ${table} WHERE id = $1 AND user_id = $2`, [spec_source_id, userId])
+          if (!spec) return mcpError(`${spec_source_type} not found or access denied`)
+
+          const now = new Date().toISOString()
+
+          // Insert spec_application
+          const [row] = await sql`
+            INSERT INTO spec_applications (
+              spec_source_type, spec_source_id, spec_source_version,
+              applied_to_type, applied_to_id, outcome, outcome_notes, outcome_recorded_at,
+              user_id, metadata
+            ) VALUES (
+              ${spec_source_type}, ${spec_source_id}::uuid, ${spec.version},
+              ${applied_to_type}, ${applied_to_id}::uuid, ${outcome}, ${notes ?? null}, ${now},
+              ${userId}, ${JSON.stringify({ envelope_origin: "mcp_record_spec_outcome" })}::jsonb
+            )
+            RETURNING id, outcome, created_at
+          `
+
+          // Increment counters on the source spec
+          const isSuccess = outcome === "success"
+          const isFailure = outcome === "failure"
+          await sql.unsafe(
+            `UPDATE ${table}
+             SET usage_count = usage_count + 1,
+                 success_count = success_count + $1,
+                 failure_count = failure_count + $2,
+                 last_used_at = NOW()
+             WHERE id = $3`,
+            [isSuccess ? 1 : 0, isFailure ? 1 : 0, spec_source_id]
+          )
+
+          return mcpResponse({ success: true, data: { recorded: true, spec_application: row } })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "score_template",
+      "Return outcome scoring for a feature_template (usage, success, failure counts and recent spec_applications).",
+      {
+        feature_template_id: z.string().describe("Feature template UUID"),
+      },
+      async ({ feature_template_id }) => {
+        try {
+          const userId = getMcpUserId()
+
+          const [tmpl] = await sql`
+            SELECT id, name, title, usage_count, success_count, failure_count, last_used_at
+            FROM feature_templates
+            WHERE id = ${feature_template_id}::uuid AND deleted_at IS NULL
+              AND (user_id = ${userId} OR visibility IN ('public'))
+          `
+          if (!tmpl) return mcpError("Feature template not found or access denied")
+
+          const successRate = tmpl.usage_count > 0
+            ? (tmpl.success_count as number) / (tmpl.usage_count as number)
+            : null
+
+          const recentOutcomes = await sql`
+            SELECT id, outcome, outcome_notes, applied_to_type, applied_at
+            FROM spec_applications
+            WHERE spec_source_type = 'feature_template' AND spec_source_id = ${feature_template_id}::uuid
+            ORDER BY applied_at DESC
+            LIMIT 10
+          `
+
+          return mcpResponse({
+            success: true,
+            data: {
+              id: tmpl.id,
+              name: tmpl.name,
+              title: tmpl.title,
+              usage_count: tmpl.usage_count,
+              success_count: tmpl.success_count,
+              failure_count: tmpl.failure_count,
+              success_rate: successRate,
+              last_used_at: tmpl.last_used_at,
+              recent_outcomes: recentOutcomes,
+            },
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "score_prompt",
+      "Return outcome scoring for a prompt from the prompt_outcomes materialized view. Refreshes the view if stale.",
+      {
+        prompt_id: z.string().describe("Prompt UUID"),
+        refresh: z.boolean().optional().describe("Force REFRESH MATERIALIZED VIEW CONCURRENTLY before reading (default: false)"),
+      },
+      async ({ prompt_id, refresh }) => {
+        try {
+          const userId = getMcpUserId()
+
+          if (refresh) {
+            await sql`REFRESH MATERIALIZED VIEW CONCURRENTLY prompt_outcomes`
+          }
+
+          const [row] = await sql`
+            SELECT po.*, p.body, p.purpose, p.status, p.applies_to_types, p.trigger_event
+            FROM prompt_outcomes po
+            JOIN prompts p ON p.id = po.prompt_id
+            WHERE po.prompt_id = ${prompt_id}::uuid
+              AND p.user_id = ${userId}
+          `
+
+          if (!row) return mcpError("Prompt not found or not accessible (may be private to another user)")
+
+          return mcpResponse({
+            success: true,
+            data: {
+              prompt_id: row.prompt_id,
+              name: row.name,
+              purpose: row.purpose,
+              trigger_event: row.trigger_event,
+              version: row.version,
+              fire_count: row.fire_count,
+              helpful_count: row.helpful_count,
+              unhelpful_count: row.unhelpful_count,
+              failure_count: row.failure_count,
+              pending_count: row.pending_count,
+              helpfulness_rate: row.helpfulness_rate,
+              last_fired_at: row.last_fired_at,
+              status: row.status,
+            },
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "audit_5wh",
+      "Audit 5W+H envelope coverage. Scope: summary (all tables), tables (per-table breakdown), or entity (single entity).",
+      {
+        scope: z.enum(["summary", "tables", "entity"]).describe("Audit scope"),
+        table: z.string().optional().describe("Required when scope='tables' to drill into a specific table"),
+        entity_type: z.string().optional().describe("Required when scope='entity'"),
+        entity_id: z.string().optional().describe("Required when scope='entity'"),
+      },
+      async ({ scope, table, entity_type, entity_id }) => {
+        try {
+          const userId = getMcpUserId()
+
+          if (scope === "entity") {
+            if (!entity_type || !entity_id) return mcpError("entity_type and entity_id required for entity scope")
+
+            const tableMap: Record<string, string> = {
+              skill: "skills", feature_template: "feature_templates", protocol: "protocols",
+              work_order: "work_orders", work_order_step: "work_order_steps", prompt: "prompts",
+              idea: "ideas", todo: "todos", project: "projects", decision: "architecture_decisions",
+              attempted_solution: "attempted_solutions", entity_relation: "entity_relations",
+            }
+            const tbl = tableMap[entity_type]
+            if (!tbl) return mcpError(`Unknown entity_type: ${entity_type}`)
+
+            const rows = await sql.unsafe(
+              `SELECT documentation_5wh FROM ${tbl} WHERE id = $1 AND user_id = $2 LIMIT 1`,
+              [entity_id, userId]
+            )
+            if (!rows[0]) return mcpError(`${entity_type} not found`)
+
+            const envelope = rows[0].documentation_5wh
+            if (!envelope || Object.keys(envelope as object).length === 0) {
+              return mcpResponse({ success: true, data: { envelope: null, score: 0, filled: [], empty: [], note: "No envelope" } })
+            }
+
+            const { auditCompleteness, validateEnvelope } = await import("@/lib/validation/documentation-5wh")
+            try {
+              const parsed = validateEnvelope(envelope)
+              const audit = auditCompleteness(parsed)
+              return mcpResponse({ success: true, data: audit })
+            } catch {
+              return mcpResponse({ success: true, data: { score: 0, filled: [], empty: [], note: "Invalid envelope" } })
+            }
+          }
+
+          if (scope === "tables") {
+            const targetTable = table
+            if (!targetTable) return mcpError("table param required for tables scope")
+
+            const rows = await sql.unsafe(
+              `SELECT COUNT(*)::int AS total,
+                      COUNT(*) FILTER (WHERE documentation_5wh != '{}'::jsonb)::int AS with_envelope,
+                      COUNT(*) FILTER (WHERE documentation_5wh = '{}'::jsonb)::int AS empty_envelope,
+                      COUNT(*) FILTER (WHERE documentation_5wh->'why'->>'rationale' IS NOT NULL AND documentation_5wh->'why'->>'rationale' != '')::int AS with_rationale
+               FROM ${targetTable} WHERE user_id = $1`,
+              [userId]
+            )
+
+            return mcpResponse({ success: true, data: { table: targetTable, ...rows[0] } })
+          }
+
+          // summary scope — aggregate across key tables
+          const summaryTables = ["skills", "feature_templates", "protocols", "work_orders", "prompts", "attempted_solutions", "entity_relations"]
+          const summaryRows = await Promise.all(
+            summaryTables.map(async (t) => {
+              try {
+                const r = await sql.unsafe(
+                  `SELECT COUNT(*)::int AS total,
+                          COUNT(*) FILTER (WHERE documentation_5wh != '{}'::jsonb)::int AS with_envelope
+                   FROM ${t} WHERE user_id = $1`,
+                  [userId]
+                )
+                return { table: t, total: r[0]?.total ?? 0, with_envelope: r[0]?.with_envelope ?? 0 }
+              } catch {
+                return { table: t, total: 0, with_envelope: 0, error: "table not accessible" }
+              }
+            })
+          )
+
+          const total = summaryRows.reduce((s, r) => s + r.total, 0)
+          const covered = summaryRows.reduce((s, r) => s + r.with_envelope, 0)
+
+          return mcpResponse({
+            success: true,
+            data: {
+              total_entities: total,
+              covered_entities: covered,
+              coverage_pct: total > 0 ? Math.round((covered / total) * 100) : 0,
+              by_table: summaryRows,
+            },
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "record_prompt_fire",
+      "Record that a prompt fired (prompt_fires row). Used by the check-in loop or by external agents self-reporting.",
+      {
+        prompt_id: z.string().describe("UUID of the prompt that fired"),
+        fired_for_type: z.string().describe("Entity type the prompt fired for (e.g. 'work_order_step', 'work_order')"),
+        fired_for_id: z.string().describe("UUID of the entity the prompt fired for"),
+        trigger_event: z.string().describe("Event that triggered the prompt"),
+        check_in_id: z.string().optional().describe("UUID of the work_order_check_in that caused this fire"),
+        outcome: z.enum(["pending", "helpful", "unhelpful", "caused_failure", "unscored"]).optional().describe("Outcome (default: pending — score later)"),
+        outcome_notes: z.string().optional().describe("Notes on outcome"),
+      },
+      async ({ prompt_id, fired_for_type, fired_for_id, trigger_event, check_in_id, outcome, outcome_notes }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          // Get prompt version
+          const [prompt] = await sql`
+            SELECT id, version FROM prompts
+            WHERE id = ${prompt_id}::uuid AND deleted_at IS NULL
+              AND (user_id = ${userId} OR visibility IN ('public'))
+          `
+          if (!prompt) return mcpError("Prompt not found or access denied")
+
+          const now = new Date().toISOString()
+          const recordedOutcome = outcome ?? "pending"
+
+          const checkinUuid = check_in_id ?? null
+          const [row] = await sql`
+            INSERT INTO prompt_fires (
+              prompt_id, prompt_version, fired_for_type, fired_for_id, trigger_event,
+              check_in_id, outcome, outcome_notes, outcome_recorded_at,
+              user_id, fired_at
+            ) VALUES (
+              ${prompt_id}::uuid, ${prompt.version}, ${fired_for_type}, ${fired_for_id}::uuid, ${trigger_event},
+              ${checkinUuid}::uuid,
+              ${recordedOutcome},
+              ${outcome_notes ?? null},
+              ${recordedOutcome !== "pending" ? now : null},
+              ${userId}, ${now}
+            )
+            RETURNING id, outcome, fired_at
+          `
+
+          // Bump prompt fire_count
+          await sql`UPDATE prompts SET fire_count = fire_count + 1, last_fired_at = ${now} WHERE id = ${prompt_id}::uuid`
+
+          return mcpResponse({ success: true, data: { recorded: true, prompt_fire: row } })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
   },
   {},
   {
