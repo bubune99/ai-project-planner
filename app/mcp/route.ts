@@ -2069,13 +2069,15 @@ const handler = createMcpHandler(
     )
 
     // ==========================================
-    // Tool: Record failed attempt
+    // Tool: Record failed attempt against a legacy MLP decision episode
+    // (renamed from 'record_attempt' to avoid collision with the entity-scoped
+    // record_attempt that targets the attempted_solutions table further below)
     // ==========================================
     server.tool(
-      "record_attempt",
-      "Record a failed attempt or lesson learned for a decision. Helps prevent repeating mistakes.",
+      "record_mlp_attempt",
+      "Record a failed attempt against a legacy MLP decision episode (mlp_why_attempts table). For entity-scoped failure capture use record_attempt instead.",
       {
-        decisionId: z.string().describe("Decision episode ID"),
+        decisionId: z.string().describe("Decision episode ID (mlp_why_decisions.id)"),
         problem: z.string().describe("The problem encountered"),
         approachTried: z.string().describe("What approach was tried"),
         failureMode: z.string().describe("How it failed"),
