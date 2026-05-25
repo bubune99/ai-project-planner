@@ -3749,14 +3749,17 @@ const handler = createMcpHandler(
           const mapping = tableMap[entity_type]
           if (!mapping) return mcpError(`Unknown entity_type: ${entity_type}`)
 
-          const rows = await sql.unsafe(
+          // Neon serverless v1.x: sql.unsafe(text, params) returns { rows, rowCount }
+          // (not an array). Pull .rows then index.
+          const result = await sql.unsafe(
             `SELECT documentation_5wh FROM ${mapping.table} WHERE id = $1 AND user_id = $2 LIMIT 1`,
             [entity_id, userId]
           )
+          const row = (result as { rows?: Array<Record<string, unknown>> }).rows?.[0] ?? (result as Array<Record<string, unknown>>)[0]
 
-          if (!rows[0]) return mcpError(`${entity_type} not found or access denied`)
+          if (!row) return mcpError(`${entity_type} not found or access denied`)
 
-          const envelope = rows[0].documentation_5wh
+          const envelope = row.documentation_5wh
 
           if (!envelope || Object.keys(envelope as object).length === 0) {
             return mcpResponse({
@@ -4360,8 +4363,14 @@ const handler = createMcpHandler(
             RETURNING id, title, status, created_at
           `
 
-          // Insert steps
+          // Two-phase insert so prerequisite UUIDs can be resolved:
+          // 1) insert each step with prerequisites = '{}' (no UUIDs known yet)
+          // 2) walk plan.steps[i].prerequisite_indices → look up inserted step UUIDs by step_order
+          //    → UPDATE the row's prerequisites column with the resolved UUID[]
+          // Without this, work_order_check_in('completion') cannot auto-promote downstream
+          // steps because the recompute query has no UUIDs to match against.
           const insertedSteps: Record<string, unknown>[] = []
+          const stepIdsByOrder: Record<number, string> = {}
           for (const step of plan.steps) {
             const [s] = await sql`
               INSERT INTO work_order_steps (
@@ -4373,7 +4382,7 @@ const handler = createMcpHandler(
                 ${wo.id}, ${step.step_order}, ${step.level}, ${step.parallel_group ?? null},
                 ${step.title}, ${step.description ?? null}, ${step.step_type ?? "task"},
                 ${step.source_skill_id ?? null}, ${step.source_skill_version ?? null},
-                ${step.prerequisites ?? []}, ${step.provides ?? []}, ${step.requires ?? []},
+                ${[]}::uuid[], ${step.provides ?? []}, ${step.requires ?? []},
                 ${step.instructions ?? null}, ${step.acceptance_criteria ?? []},
                 ${step.required_capabilities ?? []},
                 ${step.level === 0 ? "ready" : "pending"},
@@ -4383,6 +4392,23 @@ const handler = createMcpHandler(
               RETURNING id, title, step_order, level, status
             `
             insertedSteps.push(s)
+            stepIdsByOrder[step.step_order] = s.id as string
+          }
+
+          // Second pass: resolve prerequisite_indices → step UUIDs and update each row
+          for (const step of plan.steps) {
+            const idxs = (step as { prerequisite_indices?: number[] }).prerequisite_indices ?? []
+            if (idxs.length === 0) continue
+            const prereqIds = idxs
+              .map((idx) => stepIdsByOrder[idx])
+              .filter((id): id is string => Boolean(id))
+            if (prereqIds.length === 0) continue
+            await sql`
+              UPDATE work_order_steps
+                 SET prerequisites = ${prereqIds}::uuid[],
+                     updated_at = NOW()
+               WHERE id = ${stepIdsByOrder[step.step_order]}::uuid
+            `
           }
 
           // Increment usage_count on template
@@ -4700,8 +4726,10 @@ const handler = createMcpHandler(
           const userId = getMcpUserId()
 
           // Get spec version
+          // Neon serverless v1.x: sql.unsafe returns { rows, rowCount } — pull .rows
           const table = spec_source_type === "skill" ? "skills" : spec_source_type === "feature_template" ? "feature_templates" : "protocols"
-          const [spec] = await sql.unsafe(`SELECT version FROM ${table} WHERE id = $1 AND user_id = $2`, [spec_source_id, userId])
+          const specResult = await sql.unsafe(`SELECT version FROM ${table} WHERE id = $1 AND user_id = $2`, [spec_source_id, userId])
+          const spec = (specResult as { rows?: Array<Record<string, unknown>> }).rows?.[0] ?? (specResult as Array<Record<string, unknown>>)[0]
           if (!spec) return mcpError(`${spec_source_type} not found or access denied`)
 
           const now = new Date().toISOString()
@@ -4852,6 +4880,10 @@ const handler = createMcpHandler(
         try {
           const userId = getMcpUserId()
 
+          // Helper for Neon v1.x sql.unsafe — returns {rows} not array
+          const unsafeRows = (r: unknown): Array<Record<string, unknown>> =>
+            (r as { rows?: Array<Record<string, unknown>> }).rows ?? (r as Array<Record<string, unknown>>)
+
           if (scope === "entity") {
             if (!entity_type || !entity_id) return mcpError("entity_type and entity_id required for entity scope")
 
@@ -4864,10 +4896,10 @@ const handler = createMcpHandler(
             const tbl = tableMap[entity_type]
             if (!tbl) return mcpError(`Unknown entity_type: ${entity_type}`)
 
-            const rows = await sql.unsafe(
+            const rows = unsafeRows(await sql.unsafe(
               `SELECT documentation_5wh FROM ${tbl} WHERE id = $1 AND user_id = $2 LIMIT 1`,
               [entity_id, userId]
-            )
+            ))
             if (!rows[0]) return mcpError(`${entity_type} not found`)
 
             const envelope = rows[0].documentation_5wh
@@ -4889,14 +4921,14 @@ const handler = createMcpHandler(
             const targetTable = table
             if (!targetTable) return mcpError("table param required for tables scope")
 
-            const rows = await sql.unsafe(
+            const rows = unsafeRows(await sql.unsafe(
               `SELECT COUNT(*)::int AS total,
                       COUNT(*) FILTER (WHERE documentation_5wh != '{}'::jsonb)::int AS with_envelope,
                       COUNT(*) FILTER (WHERE documentation_5wh = '{}'::jsonb)::int AS empty_envelope,
                       COUNT(*) FILTER (WHERE documentation_5wh->'why'->>'rationale' IS NOT NULL AND documentation_5wh->'why'->>'rationale' != '')::int AS with_rationale
                FROM ${targetTable} WHERE user_id = $1`,
               [userId]
-            )
+            ))
 
             return mcpResponse({ success: true, data: { table: targetTable, ...rows[0] } })
           }
@@ -4906,13 +4938,13 @@ const handler = createMcpHandler(
           const summaryRows = await Promise.all(
             summaryTables.map(async (t) => {
               try {
-                const r = await sql.unsafe(
+                const r = unsafeRows(await sql.unsafe(
                   `SELECT COUNT(*)::int AS total,
                           COUNT(*) FILTER (WHERE documentation_5wh != '{}'::jsonb)::int AS with_envelope
                    FROM ${t} WHERE user_id = $1`,
                   [userId]
-                )
-                return { table: t, total: r[0]?.total ?? 0, with_envelope: r[0]?.with_envelope ?? 0 }
+                ))
+                return { table: t, total: (r[0]?.total as number) ?? 0, with_envelope: (r[0]?.with_envelope as number) ?? 0 }
               } catch {
                 return { table: t, total: 0, with_envelope: 0, error: "table not accessible" }
               }
