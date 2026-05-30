@@ -77,6 +77,30 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // OAuth 2.1 authorization server (MCP custom connectors):
+  // - /.well-known/oauth-*  : RFC 8414 / 9728 discovery (public)
+  // - /api/oauth/*          : RFC 7591 registration + token exchange (public;
+  //                           token endpoint is PKCE-secured)
+  // - /oauth/authorize      : consent page; does its OWN Stack Auth session gate
+  //                           so it controls the sign-in return URL (a middleware
+  //                           redirect here would drop the OAuth query params).
+  if (
+    pathname.startsWith("/.well-known/oauth-") ||
+    pathname.startsWith("/api/oauth/") ||
+    pathname === "/oauth/authorize"
+  ) {
+    return NextResponse.next();
+  }
+
+  // MCP endpoint owns its own auth (Bearer aipp_). On a missing/invalid key it
+  // returns 401 WITH a WWW-Authenticate header pointing at the protected-resource
+  // metadata — which is how OAuth-capable MCP clients (Claude Desktop) discover
+  // the auth server. If middleware redirected this to /sign-in, the client could
+  // never begin the OAuth handshake.
+  if (pathname === "/mcp" || pathname === "/sse" || pathname === "/message") {
+    return NextResponse.next();
+  }
+
   // Skip middleware for public routes
   if (isPublicRoute(pathname)) {
     return NextResponse.next();
