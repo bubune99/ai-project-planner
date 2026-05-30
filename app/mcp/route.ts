@@ -6076,16 +6076,29 @@ async function handleWithAuth(request: NextRequest) {
   const context = await authenticateRequest(request)
 
   if (!context) {
+    // Emit RFC 9728 WWW-Authenticate so OAuth-capable MCP clients (Claude
+    // Desktop's "Add custom connector") can discover the authorization server
+    // and start the OAuth 2.1 + PKCE flow. Non-OAuth clients still read the body.
+    let resourceMetadata =
+      "https://v0-ai-project-planner-eight.vercel.app/.well-known/oauth-protected-resource/mcp"
+    try {
+      resourceMetadata = `${new URL(request.url).origin}/.well-known/oauth-protected-resource/mcp`
+    } catch {
+      /* fall back to canonical prod origin */
+    }
     return new Response(
       JSON.stringify({
         error: "Unauthorized",
         message:
           "Invalid or missing API key. Use Authorization: Bearer aipp_xxxxx header.",
-        hint: "Generate an API key from your dashboard settings.",
+        hint: "Generate an API key from your dashboard settings, or connect via OAuth.",
       }),
       {
         status: 401,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "WWW-Authenticate": `Bearer resource_metadata="${resourceMetadata}"`,
+        },
       }
     )
   }
