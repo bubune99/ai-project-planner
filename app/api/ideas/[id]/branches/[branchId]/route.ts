@@ -187,8 +187,11 @@ export async function PATCH(
       return errorResponse(ErrorCodes.NOT_FOUND, 'Branch not found', 404)
     }
 
-    // Build update
+    // Build update — parameterized ($N + values) to avoid SQL injection and
+    // apostrophe-breakage from inlining user input into the SQL text.
     const updates: string[] = []
+    const values: unknown[] = []
+    let p = 1
 
     if (name !== undefined) {
       // Check if new name already exists (exclude current branch)
@@ -199,7 +202,8 @@ export async function PATCH(
       if (nameCheck.length > 0) {
         return errorResponse(ErrorCodes.VALIDATION_ERROR, 'Branch name already exists', 400)
       }
-      updates.push(`name = '${name.trim()}'`)
+      updates.push(`name = $${p++}`)
+      values.push(name.trim())
     }
 
     if (isActive !== undefined) {
@@ -211,23 +215,27 @@ export async function PATCH(
           WHERE idea_id = ${id} AND id != ${branchId}
         `
       }
-      updates.push(`is_active = ${isActive}`)
+      updates.push(`is_active = $${p++}`)
+      values.push(isActive)
     }
 
     if (snapshot !== undefined) {
-      updates.push(`snapshot = '${JSON.stringify(snapshot)}'::jsonb`)
+      updates.push(`snapshot = $${p++}::jsonb`)
+      values.push(JSON.stringify(snapshot))
     }
 
     if (updates.length === 0) {
       return errorResponse(ErrorCodes.VALIDATION_ERROR, 'No fields to update', 400)
     }
 
-    const result = await sql`
-      UPDATE idea_branches
-      SET ${sql.unsafe(updates.join(', '))}, updated_at = NOW()
-      WHERE id = ${branchId} AND idea_id = ${id}
-      RETURNING *
-    `
+    const branchParam = p++
+    const ideaParam = p++
+    values.push(branchId, id)
+    const result = await sql.query(
+      `UPDATE idea_branches SET ${updates.join(', ')}, updated_at = NOW() ` +
+      `WHERE id = $${branchParam} AND idea_id = $${ideaParam} RETURNING *`,
+      values
+    )
 
     return successResponse(transformBranch(result[0]))
   } catch (error: any) {

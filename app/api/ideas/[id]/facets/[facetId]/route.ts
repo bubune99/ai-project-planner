@@ -118,38 +118,49 @@ export async function PATCH(
     const body = await request.json()
     const { name, data, positionX, positionY, orderIndex, metadata } = body
 
-    // Build update
+    // Build update — parameterized ($N + values) to avoid SQL injection and
+    // apostrophe-breakage from inlining user input into the SQL text.
     const updates: string[] = []
+    const values: unknown[] = []
+    let p = 1
 
     if (name !== undefined) {
-      updates.push(`name = '${name}'`)
+      updates.push(`name = $${p++}`)
+      values.push(name)
     }
     if (data !== undefined) {
-      updates.push(`data = '${JSON.stringify(data)}'::jsonb`)
+      updates.push(`data = $${p++}::jsonb`)
+      values.push(JSON.stringify(data))
     }
     if (positionX !== undefined) {
-      updates.push(`position_x = ${positionX}`)
+      updates.push(`position_x = $${p++}`)
+      values.push(positionX)
     }
     if (positionY !== undefined) {
-      updates.push(`position_y = ${positionY}`)
+      updates.push(`position_y = $${p++}`)
+      values.push(positionY)
     }
     if (orderIndex !== undefined) {
-      updates.push(`order_index = ${orderIndex}`)
+      updates.push(`order_index = $${p++}`)
+      values.push(orderIndex)
     }
     if (metadata !== undefined) {
-      updates.push(`metadata = '${JSON.stringify(metadata)}'::jsonb`)
+      updates.push(`metadata = $${p++}::jsonb`)
+      values.push(JSON.stringify(metadata))
     }
 
     if (updates.length === 0) {
       return errorResponse(ErrorCodes.VALIDATION_ERROR, 'No fields to update', 400)
     }
 
-    const result = await sql`
-      UPDATE idea_facets
-      SET ${sql.unsafe(updates.join(', '))}, updated_at = NOW()
-      WHERE id = ${facetId} AND idea_id = ${id}
-      RETURNING *
-    `
+    const facetParam = p++
+    const ideaParam = p++
+    values.push(facetId, id)
+    const result = await sql.query(
+      `UPDATE idea_facets SET ${updates.join(', ')}, updated_at = NOW() ` +
+      `WHERE id = $${facetParam} AND idea_id = $${ideaParam} RETURNING *`,
+      values
+    )
 
     if (result.length === 0) {
       return errorResponse(ErrorCodes.NOT_FOUND, 'Facet not found', 404)

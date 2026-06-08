@@ -155,7 +155,11 @@ export async function PATCH(
     const { message, status, currentFacetId, validatedFacetIds, validationScore, blockers, recommendations } = body
 
     // Build update
+    // Build update — parameterized ($N + values) to avoid SQL injection and
+    // apostrophe-breakage from inlining user input / ARRAY[...] literals.
     const updates: string[] = []
+    const values: unknown[] = []
+    let p = 1
 
     // Add new message if provided
     if (message) {
@@ -165,7 +169,8 @@ export async function PATCH(
         timestamp: new Date().toISOString()
       }
       const updatedMessages = [...existingMessages, newMessage]
-      updates.push(`messages = '${JSON.stringify(updatedMessages)}'::jsonb`)
+      updates.push(`messages = $${p++}::jsonb`)
+      values.push(JSON.stringify(updatedMessages))
     }
 
     // Update status
@@ -174,7 +179,8 @@ export async function PATCH(
       if (!validStatuses.includes(status)) {
         return errorResponse(ErrorCodes.VALIDATION_ERROR, 'Invalid status', 400)
       }
-      updates.push(`status = '${status}'`)
+      updates.push(`status = $${p++}`)
+      values.push(status)
 
       // Set completed_at if completing
       if (status === 'completed') {
@@ -194,13 +200,15 @@ export async function PATCH(
         if (facetCheck.length === 0) {
           return errorResponse(ErrorCodes.VALIDATION_ERROR, 'Invalid facet ID', 400)
         }
-        updates.push(`current_facet_id = '${currentFacetId}'`)
+        updates.push(`current_facet_id = $${p++}::uuid`)
+        values.push(currentFacetId)
       }
     }
 
     // Update validated facet IDs
     if (validatedFacetIds !== undefined) {
-      updates.push(`validated_facet_ids = ARRAY[${validatedFacetIds.map((id: string) => `'${id}'::uuid`).join(', ')}]`)
+      updates.push(`validated_facet_ids = $${p++}::uuid[]`)
+      values.push(validatedFacetIds)
     }
 
     // Update validation score
@@ -208,29 +216,34 @@ export async function PATCH(
       if (validationScore < 0 || validationScore > 100) {
         return errorResponse(ErrorCodes.VALIDATION_ERROR, 'Validation score must be between 0 and 100', 400)
       }
-      updates.push(`validation_score = ${validationScore}`)
+      updates.push(`validation_score = $${p++}`)
+      values.push(validationScore)
     }
 
     // Update blockers
     if (blockers !== undefined) {
-      updates.push(`blockers = ARRAY[${blockers.map((b: string) => `'${b.replace(/'/g, "''")}'`).join(', ')}]`)
+      updates.push(`blockers = $${p++}::text[]`)
+      values.push(blockers)
     }
 
     // Update recommendations
     if (recommendations !== undefined) {
-      updates.push(`recommendations = ARRAY[${recommendations.map((r: string) => `'${r.replace(/'/g, "''")}'`).join(', ')}]`)
+      updates.push(`recommendations = $${p++}::text[]`)
+      values.push(recommendations)
     }
 
     if (updates.length === 0) {
       return errorResponse(ErrorCodes.VALIDATION_ERROR, 'No fields to update', 400)
     }
 
-    const result = await sql`
-      UPDATE idea_validations
-      SET ${sql.unsafe(updates.join(', '))}, updated_at = NOW()
-      WHERE id = ${validationId} AND idea_id = ${id}
-      RETURNING *
-    `
+    const validationParam = p++
+    const ideaParam = p++
+    values.push(validationId, id)
+    const result = await sql.query(
+      `UPDATE idea_validations SET ${updates.join(', ')}, updated_at = NOW() ` +
+      `WHERE id = $${validationParam} AND idea_id = $${ideaParam} RETURNING *`,
+      values
+    )
 
     return successResponse(transformValidation(result[0]))
   } catch (error: any) {
