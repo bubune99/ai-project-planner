@@ -68,7 +68,7 @@ export async function GET(
       SELECT
         b.*,
         pb.name as parent_branch_name,
-        u.display_name as creator_name
+        u.name as creator_name
       FROM idea_branches b
       LEFT JOIN idea_branches pb ON b.parent_branch_id = pb.id
       LEFT JOIN users u ON b.created_by = u.id
