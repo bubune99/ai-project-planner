@@ -28,6 +28,7 @@ function transformIdea(row: any) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
+    documentation_5wh: row.documentation_5wh || {},
     // Additional joined data
     projectName: row.project_name,
     facetCount: parseInt(row.facet_count || '0'),
@@ -297,16 +298,25 @@ export async function PATCH(
       return errorResponse(ErrorCodes.VALIDATION_ERROR, 'No fields to update', 400)
     }
 
-    // Execute update — always write the merged envelope alongside field changes
-    const result = await sql`
-      UPDATE ideas
-      SET
-        ${sql.unsafe(updates.join(', '))},
-        documentation_5wh = ${envelopeForSql(mergeResult.envelope)}::jsonb,
-        updated_at = NOW()
-      WHERE id = ${id} AND user_id = ${userId}
-      RETURNING *
-    `
+    // Execute update — always write the merged envelope alongside field changes.
+    // Build ONE parameterized statement and run it via sql.query(text, params) so
+    // every $N binds to `values`. The previous tagged-template form injected the
+    // SET clause via sql.unsafe() (raw text) while ALSO interpolating the envelope,
+    // which made the tagged template auto-assign $1 to the envelope — colliding with
+    // the `$1` in the injected `column = $1` text → Postgres "inconsistent types
+    // deduced for parameter $1", and `values` was never bound at all.
+    const envParam = paramIndex++
+    const idParam = paramIndex++
+    const userParam = paramIndex++
+    values.push(envelopeForSql(mergeResult.envelope), id, userId)
+
+    const queryText =
+      `UPDATE ideas SET ${updates.join(', ')}, ` +
+      `documentation_5wh = $${envParam}::jsonb, updated_at = NOW() ` +
+      `WHERE id = $${idParam} AND user_id = $${userParam} ` +
+      `RETURNING *`
+
+    const result = await sql.query(queryText, values)
 
     if (result.length === 0) {
       return errorResponse(ErrorCodes.NOT_FOUND, 'Idea not found', 404)

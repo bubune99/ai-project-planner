@@ -4,10 +4,9 @@ import {
   useState,
   useEffect,
   useCallback,
-  use,
   useRef,
 } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useUser } from "@stackframe/stack"
 import { formatDistanceToNow } from "date-fns"
@@ -1696,12 +1695,9 @@ function RelatedTab({ ideaId }: { ideaId: string }) {
 
 // ── Main page ──────────────────────────────────────────────────────────────
 
-export default function IdeaDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}) {
-  const { id: ideaId } = use(params)
+export default function IdeaDetailPage() {
+  const params = useParams<{ id: string }>()
+  const ideaId = params.id
   const router = useRouter()
   const searchParams = useSearchParams()
   const user = useUser()
