@@ -4712,6 +4712,15 @@ const handler = createMcpHandler(
           } else if (event_type === "progress" || event_type === "retry") {
             await sql`UPDATE work_order_steps SET status = 'in_progress', updated_at = ${now} WHERE id = ${step_id}::uuid`
             newStepStatus = "in_progress"
+          } else if (event_type === "release") {
+            // Return the step to the pool: clear the claim and any blocker so it can be re-claimed
+            await sql`
+              UPDATE work_order_steps
+              SET status = 'ready', claimed_by_type = NULL, claimed_by_id = NULL, claimed_at = NULL,
+                  blocked_reason = NULL, updated_at = ${now}
+              WHERE id = ${step_id}::uuid
+            `
+            newStepStatus = "ready"
           }
 
           // Build next_actions per event type — the agent's "go back" contract
