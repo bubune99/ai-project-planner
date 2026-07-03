@@ -3668,7 +3668,10 @@ const handler = createMcpHandler(
         try {
           const userId = getMcpUserId()
           const actualLimit = Math.min(limit ?? 10, 50)
-          const pattern = `%${query}%`
+          // Tokenize: any-term OR match ranked by matched-term count, so natural
+          // multi-word queries widen results instead of requiring the full phrase
+          const terms = query.trim().split(/\s+/).filter(Boolean).slice(0, 8)
+          const patterns = (terms.length > 0 ? terms : [query]).map((t) => `%${t}%`)
           const searchTypes = types ?? ["skill", "feature_template", "protocol"]
 
           const results: Record<string, unknown[]> = {}
@@ -3679,8 +3682,10 @@ const handler = createMcpHandler(
               FROM skills
               WHERE deleted_at IS NULL AND (user_id = ${userId} OR visibility IN ('public'))
                 AND status = 'active'
-                AND (name ILIKE ${pattern} OR title ILIKE ${pattern} OR description ILIKE ${pattern})
-              ORDER BY usage_count DESC
+                AND (name ILIKE ANY(${patterns}::text[]) OR title ILIKE ANY(${patterns}::text[]) OR description ILIKE ANY(${patterns}::text[]))
+              ORDER BY (SELECT COUNT(*) FROM unnest(${patterns}::text[]) p
+                        WHERE name ILIKE p OR title ILIKE p OR description ILIKE p) DESC,
+                       usage_count DESC
               LIMIT ${actualLimit}
             `
           }
@@ -3691,8 +3696,10 @@ const handler = createMcpHandler(
               FROM feature_templates
               WHERE deleted_at IS NULL AND (user_id = ${userId} OR visibility IN ('public'))
                 AND status = 'active'
-                AND (name ILIKE ${pattern} OR title ILIKE ${pattern} OR description ILIKE ${pattern})
-              ORDER BY usage_count DESC
+                AND (name ILIKE ANY(${patterns}::text[]) OR title ILIKE ANY(${patterns}::text[]) OR description ILIKE ANY(${patterns}::text[]))
+              ORDER BY (SELECT COUNT(*) FROM unnest(${patterns}::text[]) p
+                        WHERE name ILIKE p OR title ILIKE p OR description ILIKE p) DESC,
+                       usage_count DESC
               LIMIT ${actualLimit}
             `
           }
@@ -3703,8 +3710,10 @@ const handler = createMcpHandler(
               FROM protocols
               WHERE deleted_at IS NULL AND (user_id = ${userId} OR visibility IN ('public'))
                 AND status = 'active'
-                AND (name ILIKE ${pattern} OR title ILIKE ${pattern} OR description ILIKE ${pattern})
-              ORDER BY triggered_count DESC
+                AND (name ILIKE ANY(${patterns}::text[]) OR title ILIKE ANY(${patterns}::text[]) OR description ILIKE ANY(${patterns}::text[]))
+              ORDER BY (SELECT COUNT(*) FROM unnest(${patterns}::text[]) p
+                        WHERE name ILIKE p OR title ILIKE p OR description ILIKE p) DESC,
+                       triggered_count DESC
               LIMIT ${actualLimit}
             `
           }
