@@ -679,7 +679,77 @@ export function JarvisDashboard() {
         </div>
       </div>
       <QuickCapture />
+      <AgentActivity />
       <CatalogHealth />
+    </div>
+  )
+}
+
+// ── Agent activity panel (recent work-order check-ins across all projects) ────
+
+type AgentCheckIn = {
+  id: string
+  event_type: string
+  step_title: string | null
+  message: string | null
+  agent_id: string | null
+  created_at: string
+  work_order_title: string | null
+  project_id: string | null
+  project_name: string | null
+}
+
+const AGENT_EVENT_TONE: Record<string, string> = {
+  claim: "j-info", progress: "j-proj", blocker: "j-warn",
+  protocol_violation: "j-neg", retry: "j-warn", completion: "j-pos",
+  failure: "j-neg", release: "j-muted",
+}
+
+function AgentActivity() {
+  const [items, setItems] = useState<AgentCheckIn[] | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    getJson("/api/agent-activity?limit=8")
+      .then((data) => { if (!cancelled) setItems(Array.isArray(data) ? data : []) })
+      .catch(() => { if (!cancelled) setItems([]) })
+    return () => { cancelled = true }
+  }, [])
+
+  if (items === null) return null
+  if (items.length === 0) return null
+
+  return (
+    <div className="j-card j-tight" data-testid="agent-activity">
+      <div className="j-card-head">
+        <p className="j-card-title">Agent activity</p>
+        <p className="j-card-sub">Latest work-order check-ins across all projects</p>
+      </div>
+      <div className="j-col j-gap-2" style={{ marginTop: 8 }}>
+        {items.map((it) => (
+          <div key={it.id} className="j-row" style={{ gap: 10, alignItems: "flex-start" }}>
+            <span className={`j-pill ${AGENT_EVENT_TONE[it.event_type] || "j-ghost"}`} style={{ fontSize: 10, marginTop: 1, flexShrink: 0 }}>
+              {it.event_type.replace("_", " ")}
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {it.message || it.step_title || "Check-in"}
+              </div>
+              <div className="j-muted" style={{ fontSize: 10.5, marginTop: 1 }}>
+                {it.agent_id ? `${it.agent_id} · ` : ""}
+                {it.project_name ? (
+                  <Link href={`/project/${it.project_id}`} style={{ color: "var(--j-accent)", textDecoration: "none" }}>
+                    {it.project_name}
+                  </Link>
+                ) : "—"}
+              </div>
+            </div>
+            <span className="j-muted" style={{ fontSize: 10.5, whiteSpace: "nowrap", flexShrink: 0 }}>
+              {relTime(it.created_at)}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

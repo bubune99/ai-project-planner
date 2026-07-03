@@ -8,6 +8,8 @@ import { KanbanView } from "@/components/views/KanbanView"
 import { FlowView } from "@/components/views/FlowView"
 import { DocsView } from "@/components/views/DocsView"
 import { transformStepsToPhases, transformStepsToFlow } from "@/lib/data-transforms"
+import { WorkOrdersFacet } from "@/components/project/work-orders-facet"
+import { ActivityFeed } from "@/components/project/activity-feed"
 import type { Task, KanbanTask } from "@/lib/types"
 
 const STATUS_LABEL: Record<string, string> = {
@@ -36,6 +38,7 @@ const HEALTH_CLASS: Record<string, string> = {
 const TABS = [
   { id: "overview",   label: "Overview" },
   { id: "tasks",      label: "Tasks" },
+  { id: "work",       label: "Work" },
   { id: "roadmap",    label: "Roadmap" },
   { id: "gantt",      label: "Gantt" },
   { id: "flow",       label: "Flow" },
@@ -64,7 +67,7 @@ interface ProjectData {
 
 // ─── Overview ────────────────────────────────────────────────────────────────
 
-function OverviewFacet({ project, progressNotes }: { project: any; progressNotes: any[] }) {
+function OverviewFacet({ project, projectId }: { project: any; projectId: string }) {
   const health = project.health || "good"
   const kpis = [
     { l: "Progress",      v: `${project.progress || 0}%`,                                   t: project.progress >= 80 ? "j-pos" : project.progress >= 40 ? "j-info" : "j-muted" },
@@ -98,32 +101,7 @@ function OverviewFacet({ project, progressNotes }: { project: any; progressNotes
         </div>
       )}
 
-      <div className="j-card" style={{ padding: 0 }}>
-        <div className="j-row j-between" style={{ padding: "12px 16px", borderBottom: "1px solid var(--j-hairline)" }}>
-          <h3 className="j-card-title">Recent activity</h3>
-        </div>
-        {(progressNotes || []).slice(0, 8).map((note: any) => (
-          <div key={note.id} className="j-row" style={{ gap: 12, padding: "12px 16px", borderBottom: "1px solid var(--j-hairline)" }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--j-accent)", marginTop: 4, flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 500 }}>{note.title || "Update"}</div>
-              {note.content && (
-                <div className="j-muted" style={{ fontSize: 11, marginTop: 2 }}>
-                  {typeof note.content === "string" ? note.content.slice(0, 100) : ""}
-                </div>
-              )}
-            </div>
-            <span className="j-muted" style={{ fontSize: 11, whiteSpace: "nowrap" }}>
-              {note.created_at ? new Date(note.created_at).toLocaleDateString() : ""}
-            </span>
-          </div>
-        ))}
-        {(!progressNotes || progressNotes.length === 0) && (
-          <div style={{ padding: 32, textAlign: "center" }}>
-            <p className="j-muted" style={{ fontSize: 13, margin: 0 }}>No activity yet.</p>
-          </div>
-        )}
-      </div>
+      <ActivityFeed projectId={projectId} />
     </div>
   )
 }
@@ -1517,7 +1495,7 @@ export default function ProjectDashboardPage() {
     )
   }
 
-  const { project, steps, progressNotes } = projectData
+  const { project, steps } = projectData
   const statusClass = STATUS_CLASS[project.status] || "j-muted"
   const healthClass = HEALTH_CLASS[project.health] || "j-info"
 
@@ -1586,12 +1564,13 @@ export default function ProjectDashboardPage() {
 
       {/* Facet content — full-width; per-facet cards can self-constrain */}
       <div style={{ padding: "24px 32px" }}>
-        {activeTab === "overview"  && <OverviewFacet  project={project} progressNotes={progressNotes || []} />}
+        {activeTab === "overview"  && <OverviewFacet  project={project} projectId={projectId} />}
         {activeTab === "tasks"     && (
           <div style={{ height: "calc(100vh - 200px)" }}>
             <KanbanView projectId={projectId} onTaskSelect={() => {}} />
           </div>
         )}
+        {activeTab === "work"      && <WorkOrdersFacet projectId={projectId} />}
         {activeTab === "roadmap"   && <RoadmapFacet   phases={phases} />}
         {activeTab === "gantt"     && (
           <div style={{ height: "calc(100vh - 200px)" }}>

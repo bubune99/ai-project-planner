@@ -47,6 +47,8 @@ function transformWorkOrder(row: Record<string, unknown>) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     metadata: row.metadata ?? {},
+    totalSteps: row.total_steps != null ? Number(row.total_steps) : undefined,
+    completedSteps: row.completed_steps != null ? Number(row.completed_steps) : undefined,
   }
 }
 
@@ -66,8 +68,10 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(sp.get('limit') ?? '50', 10) || 50, 200)
     const offset = parseInt(sp.get('offset') ?? '0', 10) || 0
 
-    const rows = await sql`
-      SELECT wo.*
+    const rows = (await sql`
+      SELECT wo.*,
+        (SELECT COUNT(*) FROM work_order_steps s WHERE s.work_order_id = wo.id) AS total_steps,
+        (SELECT COUNT(*) FROM work_order_steps s WHERE s.work_order_id = wo.id AND s.status = 'completed') AS completed_steps
       FROM work_orders wo
       WHERE wo.user_id = ${userId}
         AND wo.deleted_at IS NULL
@@ -75,16 +79,16 @@ export async function GET(request: NextRequest) {
         AND (${projectId}::uuid IS NULL OR wo.project_id = ${projectId})
       ORDER BY wo.created_at DESC
       LIMIT ${limit} OFFSET ${offset}
-    `
+    `) as Record<string, unknown>[]
 
-    const countRows = await sql`
+    const countRows = (await sql`
       SELECT COUNT(*) AS total
       FROM work_orders
       WHERE user_id = ${userId}
         AND deleted_at IS NULL
         AND (${status}::text IS NULL OR status = ${status})
         AND (${projectId}::uuid IS NULL OR project_id = ${projectId})
-    `
+    `) as Record<string, unknown>[]
 
     return successResponse(
       rows.map(transformWorkOrder),
@@ -140,10 +144,10 @@ export async function POST(request: NextRequest) {
         plan = await composeFromTemplate(sourceTemplateId, userId)
         sourceType = 'feature_template'
         // Fetch the template version for recording
-        const tvRows = await sql`
+        const tvRows = (await sql`
           SELECT version FROM feature_templates WHERE id = ${sourceTemplateId} AND deleted_at IS NULL
-        `
-        sourceTemplateVersion = tvRows[0]?.version ?? null
+        `) as Record<string, unknown>[]
+        sourceTemplateVersion = (tvRows[0]?.version as number | undefined) ?? null
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown error'
         return errorResponse(ErrorCodes.VALIDATION_ERROR, `Template composition failed: ${msg}`, 400)
@@ -321,7 +325,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch final work order row
-    const woRows = await sql`SELECT * FROM work_orders WHERE id = ${workOrderId}`
+    const woRows = (await sql`SELECT * FROM work_orders WHERE id = ${workOrderId}`) as Record<string, unknown>[]
     const workOrder = transformWorkOrder(woRows[0])
 
     return successResponse(
