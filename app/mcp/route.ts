@@ -4473,22 +4473,24 @@ const handler = createMcpHandler(
               AND wo.user_id = ${userId}
           `
           if (!step) return mcpError("Step not found or access denied")
-          if (step.status !== "ready" && step.status !== "pending") {
-            return mcpError(`Step is not available to claim (current status: ${step.status})`)
-          }
           if (step.wo_status === "cancelled" || step.wo_status === "failed") {
             return mcpError(`Work order is in terminal state: ${step.wo_status}`)
           }
 
           const now = new Date().toISOString()
 
-          // Claim the step
-          await sql`
+          // Atomic claim: only a 'ready' step can be claimed (pending = prerequisites
+          // unmet), and the status guard in the UPDATE prevents double-claims
+          const claimedRows = await sql`
             UPDATE work_order_steps
             SET status = 'claimed', claimed_by_type = ${agent_type ?? "agent"}, claimed_by_id = ${agent_id},
                 claimed_at = ${now}, updated_at = ${now}
-            WHERE id = ${step_id}::uuid
+            WHERE id = ${step_id}::uuid AND status = 'ready'
+            RETURNING id
           `
+          if (claimedRows.length === 0) {
+            return mcpError(`Step is not available to claim (current status: ${step.status})`)
+          }
 
           // Ensure work order is in_progress
           await sql`
