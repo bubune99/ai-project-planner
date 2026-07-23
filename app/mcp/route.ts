@@ -541,8 +541,7 @@ const handler = createMcpHandler(
           const [resolvedId, error] = resolveProjectId(projectId)
           if (!resolvedId) return mcpError(error!)
 
-          const hasAccess = await requireMcpProjectWriteAccess(resolvedId)
-          if (!hasAccess) return mcpError("No write access to this project")
+          await requireMcpProjectWriteAccess(resolvedId)
 
           const updates: Record<string, unknown> = {}
           if (name !== undefined) updates.name = name
