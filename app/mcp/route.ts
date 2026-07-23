@@ -530,9 +530,9 @@ const handler = createMcpHandler(
         description: z.string().optional().describe("New description"),
         projectType: z.enum(["product","client-software","client-physical","client-service","internal","research"]).optional().describe("Project type"),
         tags: z.array(z.string()).optional().describe("Replace tags array"),
-        status: z.enum(["planning","in-progress","on-hold","completed","cancelled"]).optional().describe("Project status"),
+        status: z.enum(["planning","in-progress","review","completed","on-hold"]).optional().describe("Project status"),
         priority: z.enum(["low","medium","high","critical"]).optional().describe("Project priority"),
-        health: z.enum(["on-track","at-risk","blocked"]).optional().describe("Project health"),
+        health: z.enum(["excellent","good","attention","critical"]).optional().describe("Project health"),
         githubRepoUrl: z.string().optional().describe("GitHub repository URL"),
       },
       async ({ projectId, name, description, projectType, tags, status, priority, health, githubRepoUrl }) => {
