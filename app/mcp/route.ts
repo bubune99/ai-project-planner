@@ -558,7 +558,7 @@ const handler = createMcpHandler(
           const setClauses = Object.keys(updates)
           const values = Object.values(updates)
 
-          const [updated] = await sql(
+          const [updated] = await sql.query(
             `UPDATE projects SET ${setClauses.map((k, i) => `${k} = $${i + 2}`).join(", ")}, updated_at = NOW() WHERE id = $1 RETURNING id, name, project_type, tags, status, priority, health`,
             [resolvedId, ...values]
           )
