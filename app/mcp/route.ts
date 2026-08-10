@@ -727,14 +727,15 @@ const handler = createMcpHandler(
     // ==========================================
     server.tool(
       "get_project_tasks",
-      "Get tasks for a project. Uses active project if projectId not specified.",
+      "Get tasks for a project. Uses active project if projectId not specified. Set includeSubtasks to nest child tasks under their parents.",
       {
         projectId: z.string().optional().describe("Project ID (uses active project if not specified)"),
         brief: z.boolean().optional().describe("Return only id, title, status, agent"),
-        status: z.enum(["pending", "in-progress", "completed", "blocked"]).optional().describe("Filter by status"),
+        status: z.string().optional().describe("Filter by status key (built-in: pending/in-progress/completed/blocked/paused/failed, or a custom project status key)"),
+        includeSubtasks: z.boolean().optional().describe("Nest subtasks under their parent tasks"),
         limit: z.number().optional().describe("Limit results"),
       },
-      async ({ projectId, brief, status, limit }) => {
+      async ({ projectId, brief, status, includeSubtasks, limit }) => {
         try {
           const [resolvedId, error] = resolveProjectId(projectId)
           if (!resolvedId) return mcpError(error!)
@@ -747,7 +748,8 @@ const handler = createMcpHandler(
           // Build dynamic query based on status filter
           const tasks = status
             ? await sql`
-                SELECT ps.id, ps.title, ps.status, ps.assigned_agent, ps.order_index
+                SELECT ps.id, ps.title, ps.status, ps.assigned_agent, ps.order_index,
+                       ps.parent_task_id, ps.progress, ps.priority, ps.tags
                 FROM project_steps ps
                 WHERE ps.project_id = ${resolvedId}
                   AND ps.status = ${status}
@@ -756,7 +758,8 @@ const handler = createMcpHandler(
                 LIMIT ${actualLimit}
               `
             : await sql`
-                SELECT ps.id, ps.title, ps.status, ps.assigned_agent, ps.order_index
+                SELECT ps.id, ps.title, ps.status, ps.assigned_agent, ps.order_index,
+                       ps.parent_task_id, ps.progress, ps.priority, ps.tags
                 FROM project_steps ps
                 WHERE ps.project_id = ${resolvedId}
                   AND ps.deleted_at IS NULL
@@ -764,11 +767,206 @@ const handler = createMcpHandler(
                 LIMIT ${actualLimit}
               `
 
+          if (includeSubtasks) {
+            const parents = tasks.filter(t => !t.parent_task_id)
+            const children = tasks.filter(t => !!t.parent_task_id)
+            const nested = parents.map(p => ({
+              id: p.id,
+              title: truncate(p.title as string, 80),
+              status: p.status,
+              agent: p.assigned_agent,
+              progress: p.progress,
+              priority: p.priority,
+              tags: p.tags,
+              subtasks: children
+                .filter(c => c.parent_task_id === p.id)
+                .map(c => ({ id: c.id, title: truncate(c.title as string, 80), status: c.status, progress: c.progress })),
+            }))
+            return mcpResponse({ tasks: nested, count: parents.length, subtaskCount: children.length })
+          }
+
           const data = brief
             ? tasks.map(taskBrief)
             : tasks.map(t => ({ ...t, title: truncate(t.title as string, 80) }))
 
           return mcpResponse({ tasks: data, count: tasks.length })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ==========================================
+    // Tool: Create task (supports subtasks)
+    // ==========================================
+    server.tool(
+      "create_task",
+      "Create a task (project step). Pass parentTaskId to create a SUBTASK of an existing task — use this to decompose high-level work into tracked children. Requires write access.",
+      {
+        projectId: z.string().optional().describe("Project ID (uses active project if not specified)"),
+        title: z.string().describe("Task title"),
+        description: z.string().optional(),
+        status: z.string().optional().describe("Status key (default 'pending'; built-in or custom project status)"),
+        priority: z.enum(["low", "medium", "high"]).optional(),
+        parentTaskId: z.string().optional().describe("Parent task ID — makes this a subtask"),
+        tags: z.array(z.string()).optional(),
+        dueDate: z.string().optional().describe("Due date, ISO 8601"),
+        estimatedHours: z.number().optional(),
+        phase: z.string().optional(),
+      },
+      async ({ projectId, title, description, status, priority, parentTaskId, tags, dueDate, estimatedHours, phase }) => {
+        try {
+          requireMcpScope("write")
+          const [resolvedId, error] = resolveProjectId(projectId)
+          if (!resolvedId) return mcpError(error!)
+          await requireMcpProjectWriteAccess(resolvedId)
+
+          const statusKey = status || "pending"
+          const BUILTIN = ["pending", "in-progress", "completed", "blocked", "paused", "failed"]
+          if (!BUILTIN.includes(statusKey)) {
+            const custom = await sql`
+              SELECT 1 FROM project_statuses
+              WHERE project_id = ${resolvedId} AND key = ${statusKey} AND deleted_at IS NULL
+            `
+            if (custom.length === 0) return mcpError(`Invalid status: ${statusKey}`)
+          }
+          if (parentTaskId) {
+            const [parent] = await sql`
+              SELECT id FROM project_steps
+              WHERE id = ${parentTaskId} AND project_id = ${resolvedId} AND deleted_at IS NULL
+            `
+            if (!parent) return mcpError("Parent task not found in this project")
+          }
+
+          const [maxRow] = await sql`
+            SELECT COALESCE(MAX(order_index), 0) AS max_order
+            FROM project_steps WHERE project_id = ${resolvedId} AND deleted_at IS NULL
+          `
+          const [task] = await sql`
+            INSERT INTO project_steps (
+              project_id, title, description, status, phase, stage,
+              estimated_hours, priority, order_index, parent_task_id, tags, end_date
+            ) VALUES (
+              ${resolvedId}, ${title}, ${description || ""}, ${statusKey}, ${phase || ""}, ${""},
+              ${estimatedHours ?? 0}, ${priority || null}, ${(maxRow.max_order || 0) + 1},
+              ${parentTaskId || null},
+              ${(tags || []).map(t => String(t).trim()).filter(Boolean).slice(0, 20)}::text[],
+              ${dueDate || null}
+            )
+            RETURNING id, title, status, parent_task_id
+          `
+          return mcpResponse({
+            created: true,
+            id: task.id,
+            title: task.title,
+            status: task.status,
+            isSubtask: !!task.parent_task_id,
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ==========================================
+    // Tool: Update task
+    // ==========================================
+    server.tool(
+      "update_task",
+      "Update a task/subtask: status, progress, title, description, priority, tags, due date. Requires write access.",
+      {
+        taskId: z.string().describe("The task ID"),
+        title: z.string().optional(),
+        description: z.string().optional(),
+        status: z.string().optional().describe("Status key (built-in or custom project status)"),
+        priority: z.enum(["low", "medium", "high"]).nullable().optional(),
+        progress: z.number().min(0).max(100).optional(),
+        tags: z.array(z.string()).optional().describe("Replaces the full tag list"),
+        dueDate: z.string().nullable().optional(),
+      },
+      async ({ taskId, title, description, status, priority, progress, tags, dueDate }) => {
+        try {
+          requireMcpScope("write")
+          const [step] = await sql`
+            SELECT project_id FROM project_steps WHERE id = ${taskId} AND deleted_at IS NULL
+          `
+          if (!step) return mcpError("Task not found")
+          await requireMcpProjectWriteAccess(step.project_id)
+
+          let statusKind: string | null = null
+          if (status) {
+            const BUILTIN = ["pending", "in-progress", "completed", "blocked", "paused", "failed"]
+            if (!BUILTIN.includes(status)) {
+              const custom = await sql`
+                SELECT 1 FROM project_statuses
+                WHERE project_id = ${step.project_id} AND key = ${status} AND deleted_at IS NULL
+              `
+              if (custom.length === 0) return mcpError(`Invalid status: ${status}`)
+            }
+            const [kindRow] = await sql`SELECT step_status_kind(${step.project_id}::uuid, ${status}) AS kind`
+            statusKind = kindRow?.kind ?? null
+          }
+          const setPriority = priority !== undefined
+          const setTags = Array.isArray(tags)
+          const setDue = dueDate !== undefined
+          const cleanTags = setTags ? tags!.map(t => String(t).trim()).filter(Boolean).slice(0, 20) : null
+
+          const [task] = await sql`
+            UPDATE project_steps
+            SET title = COALESCE(${title || null}, title),
+                description = COALESCE(${description || null}, description),
+                status = COALESCE(${status || null}, status),
+                priority = CASE WHEN ${setPriority} THEN ${priority ?? null} ELSE priority END,
+                progress = COALESCE(${progress ?? null}, progress),
+                tags = CASE WHEN ${setTags} THEN ${cleanTags}::text[] ELSE tags END,
+                end_date = CASE WHEN ${setDue} THEN ${dueDate ?? null}::timestamp ELSE end_date END,
+                completed_at = CASE WHEN ${statusKind === "done"} THEN NOW()
+                                    WHEN ${statusKind !== null && statusKind !== "done"} THEN NULL
+                                    ELSE completed_at END,
+                updated_at = NOW()
+            WHERE id = ${taskId} AND deleted_at IS NULL
+            RETURNING id, title, status, progress, parent_task_id
+          `
+          return mcpResponse({
+            updated: true,
+            id: task.id,
+            status: task.status,
+            progress: task.progress,
+            isSubtask: !!task.parent_task_id,
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ==========================================
+    // Tool: Add task comment
+    // ==========================================
+    server.tool(
+      "add_task_comment",
+      "Add a comment to a task — use to leave progress notes, findings, or handoff context visible in the board UI. Requires write access.",
+      {
+        taskId: z.string().describe("The task ID"),
+        body: z.string().describe("Comment text (markdown ok)"),
+        authorLabel: z.string().optional().describe("Display label, e.g. the agent name (default 'agent')"),
+      },
+      async ({ taskId, body, authorLabel }) => {
+        try {
+          requireMcpScope("write")
+          const [step] = await sql`
+            SELECT project_id FROM project_steps WHERE id = ${taskId} AND deleted_at IS NULL
+          `
+          if (!step) return mcpError("Task not found")
+          await requireMcpProjectWriteAccess(step.project_id)
+
+          const userId = getMcpUserId()
+          const [comment] = await sql`
+            INSERT INTO step_comments (step_id, project_id, user_id, body, author_label)
+            VALUES (${taskId}, ${step.project_id}, ${userId}, ${body.trim()}, ${authorLabel || "agent"})
+            RETURNING id, created_at
+          `
+          return mcpResponse({ commented: true, id: comment.id })
         } catch (error: unknown) {
           return mcpError(error instanceof Error ? error.message : "Unknown error")
         }

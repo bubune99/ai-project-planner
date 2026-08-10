@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import type { BoardStep, StepStatus } from "@/lib/types"
+import type { BoardStep } from "@/lib/types"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -12,8 +12,10 @@ import { Calendar as CalendarPicker } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
+  ArrowUpRight,
   CalendarIcon,
   CheckCircle2,
+  CornerLeftUp,
   Link2,
   Pencil,
   PlayCircle,
@@ -23,23 +25,33 @@ import {
   X,
 } from "lucide-react"
 import { format } from "date-fns"
-import { AGENT_AVATAR, STATUS_COLUMNS, STATUS_LABELS, normalizeChecklist } from "./kanban-config"
+import {
+  AGENT_AVATAR,
+  doneKeyOf,
+  normalizeChecklist,
+  openKeyOf,
+  statusMapOf,
+  tagColor,
+  type ProjectStatus,
+} from "./kanban-config"
+import { StepActivityPanel, StepTimer } from "./StepActivityPanel"
 
 interface TaskDetailModalProps {
   step: BoardStep | null
   subtasks: BoardStep[]
   allSteps: BoardStep[]
   phases: string[]
+  statuses: ProjectStatus[]
   open: boolean
   onClose: () => void
   onPatch: (stepId: string, patch: Record<string, unknown>) => Promise<void>
   onCreateSubtask: (parentId: string, title: string) => Promise<void>
   onDelete: (step: BoardStep) => void
   onEditFull: (step: BoardStep) => void
+  onOpenStep: (step: BoardStep) => void
 }
 
 const NONE = "__none__"
-const statusDot = Object.fromEntries(STATUS_COLUMNS.map((c) => [c.key, c.dotClass]))
 
 function DateField({
   label,
@@ -84,12 +96,14 @@ export function TaskDetailModal({
   subtasks,
   allSteps,
   phases,
+  statuses,
   open,
   onClose,
   onPatch,
   onCreateSubtask,
   onDelete,
   onEditFull,
+  onOpenStep,
 }: TaskDetailModalProps) {
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
@@ -98,6 +112,7 @@ export function TaskDetailModal({
   const [progress, setProgress] = useState(0)
   const [newChecklistItem, setNewChecklistItem] = useState("")
   const [newSubtask, setNewSubtask] = useState("")
+  const [newTag, setNewTag] = useState("")
 
   useEffect(() => {
     if (step) {
@@ -111,18 +126,28 @@ export function TaskDetailModal({
 
   if (!step) return null
 
+  const statusMap = statusMapOf(statuses)
+  const current = statusMap[step.status]
+  const kind = current?.kind ?? "open"
   const patch = (body: Record<string, unknown>) => onPatch(step.id, body)
   const checklist = normalizeChecklist(step.tasks)
   const criteria = Array.isArray(step.acceptance_criteria) ? step.acceptance_criteria : []
   const deps = Array.isArray(step.dependencies) ? step.dependencies : []
+  const tags = Array.isArray(step.tags) ? step.tags : []
   const stepTitle = (id: string) => allSteps.find((s) => s.id === id)?.title ?? "Unknown step"
+  const parent = step.parent_task_id ? allSteps.find((s) => s.id === step.parent_task_id) : null
+  const allTags = Array.from(new Set(allSteps.flatMap((s) => (Array.isArray(s.tags) ? s.tags : []))))
 
   const advance =
-    step.status === "in-progress"
-      ? { label: "Mark complete", icon: CheckCircle2, next: "completed" as StepStatus }
-      : step.status === "completed"
-        ? { label: "Reopen", icon: RotateCcw, next: "pending" as StepStatus }
-        : { label: "Start", icon: PlayCircle, next: "in-progress" as StepStatus }
+    kind === "active"
+      ? { label: "Mark complete", icon: CheckCircle2, next: doneKeyOf(statuses) }
+      : kind === "done"
+        ? { label: "Reopen", icon: RotateCcw, next: openKeyOf(statuses) }
+        : {
+            label: "Start",
+            icon: PlayCircle,
+            next: statuses.find((s) => s.kind === "active")?.key ?? "in-progress",
+          }
 
   const toggleChecklistItem = (index: number) => {
     const next = checklist.map((c, i) => (i === index ? { ...c, done: !c.done } : c))
@@ -152,23 +177,47 @@ export function TaskDetailModal({
     setNewSubtask("")
   }
 
+  const addTag = (raw?: string) => {
+    const t = (raw ?? newTag).trim()
+    if (!t || tags.includes(t)) {
+      setNewTag("")
+      return
+    }
+    patch({ tags: [...tags, t] })
+    setNewTag("")
+  }
+
+  const removeTag = (t: string) => patch({ tags: tags.filter((x) => x !== t) })
+
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
+          {parent && (
+            <button
+              onClick={() => onOpenStep(parent)}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground w-fit"
+            >
+              <CornerLeftUp className="w-3 h-3" />
+              {parent.title}
+            </button>
+          )}
           <div className="flex items-center gap-2 pr-8">
             {/* Status pill + advance */}
             <Select value={step.status} onValueChange={(v) => patch({ status: v })}>
-              <SelectTrigger className="w-[150px] h-8">
-                <span className={`w-2 h-2 rounded-full mr-1.5 ${statusDot[step.status]}`} />
-                <SelectValue />
+              <SelectTrigger className="w-[160px] h-8">
+                <span
+                  className="w-2 h-2 rounded-full mr-1.5 shrink-0"
+                  style={{ backgroundColor: current?.color ?? "#87909e" }}
+                />
+                <SelectValue placeholder={step.status} />
               </SelectTrigger>
               <SelectContent>
-                {STATUS_COLUMNS.map((c) => (
-                  <SelectItem key={c.key} value={c.key}>
+                {statuses.map((s) => (
+                  <SelectItem key={s.key} value={s.key}>
                     <span className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${c.dotClass}`} />
-                      {c.label}
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
+                      {s.label}
                     </span>
                   </SelectItem>
                 ))}
@@ -230,24 +279,42 @@ export function TaskDetailModal({
                 Subtasks{" "}
                 {subtasks.length > 0 && (
                   <span className="normal-case font-normal">
-                    · {subtasks.filter((s) => s.status === "completed").length}/{subtasks.length}
+                    · {subtasks.filter((s) => (statusMap[s.status]?.kind ?? "open") === "done").length}/
+                    {subtasks.length}
                   </span>
                 )}
               </h4>
               <div className="space-y-1">
-                {subtasks.map((sub) => (
-                  <div key={sub.id} className="flex items-center gap-2 text-sm group/sub rounded px-1.5 py-1 hover:bg-accent/40">
-                    <Checkbox
-                      checked={sub.status === "completed"}
-                      onCheckedChange={(checked) =>
-                        onPatch(sub.id, { status: checked ? "completed" : "pending" })
-                      }
-                    />
-                    <span className={sub.status === "completed" ? "line-through text-muted-foreground" : ""}>
-                      {sub.title}
-                    </span>
-                  </div>
-                ))}
+                {subtasks.map((sub) => {
+                  const subDone = (statusMap[sub.status]?.kind ?? "open") === "done"
+                  return (
+                    <div
+                      key={sub.id}
+                      className="flex items-center gap-2 text-sm group/sub rounded px-1.5 py-1 hover:bg-accent/40"
+                    >
+                      <Checkbox
+                        checked={subDone}
+                        onCheckedChange={(checked) =>
+                          onPatch(sub.id, { status: checked ? doneKeyOf(statuses) : openKeyOf(statuses) })
+                        }
+                      />
+                      <span
+                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: statusMap[sub.status]?.color ?? "#87909e" }}
+                      />
+                      <span className={`flex-1 ${subDone ? "line-through text-muted-foreground" : ""}`}>
+                        {sub.title}
+                      </span>
+                      <button
+                        onClick={() => onOpenStep(sub)}
+                        title="Open subtask"
+                        className="opacity-0 group-hover/sub:opacity-100 text-muted-foreground hover:text-foreground"
+                      >
+                        <ArrowUpRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )
+                })}
                 <div className="flex gap-1.5 items-center pt-1">
                   <Input
                     value={newSubtask}
@@ -342,6 +409,9 @@ export function TaskDetailModal({
                 </div>
               </div>
             )}
+
+            {/* Comments + Activity */}
+            <StepActivityPanel projectId={step.project_id} stepId={step.id} />
           </div>
 
           {/* Meta sidebar */}
@@ -405,6 +475,39 @@ export function TaskDetailModal({
               </div>
             )}
 
+            {/* Tags */}
+            <div>
+              <span className="text-xs text-muted-foreground block mb-1">Tags</span>
+              <div className="flex flex-wrap gap-1 mb-1.5 empty:mb-0">
+                {tags.map((t) => (
+                  <span
+                    key={t}
+                    className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                    style={{ backgroundColor: tagColor(t) + "26", color: tagColor(t) }}
+                  >
+                    {t}
+                    <button onClick={() => removeTag(t)} className="hover:opacity-70">
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <Input
+                value={newTag}
+                list="kanban-tag-options"
+                placeholder="Add tag…"
+                className="h-7 text-xs"
+                onChange={(e) => setNewTag(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addTag()}
+                onBlur={() => newTag.trim() && addTag()}
+              />
+              <datalist id="kanban-tag-options">
+                {allTags.filter((t) => !tags.includes(t)).map((t) => (
+                  <option key={t} value={t} />
+                ))}
+              </datalist>
+            </div>
+
             <DateField label="Start" value={step.start_date} onChange={(iso) => patch({ start_date: iso })} />
             <DateField label="Due" value={step.end_date} onChange={(iso) => patch({ end_date: iso })} />
 
@@ -440,6 +543,8 @@ export function TaskDetailModal({
               />
             </div>
 
+            <StepTimer projectId={step.project_id} stepId={step.id} />
+
             <div>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-muted-foreground">Progress</span>
@@ -461,7 +566,7 @@ export function TaskDetailModal({
             <div className="pt-2 border-t border-border space-y-1 text-[11px] text-muted-foreground">
               <div>Created {format(new Date(step.created_at), "MMM d, yyyy")}</div>
               {step.completed_at && <div>Completed {format(new Date(step.completed_at), "MMM d, yyyy")}</div>}
-              <div>Status: {STATUS_LABELS[step.status]}</div>
+              <div>Status: {current?.label ?? step.status}</div>
             </div>
           </div>
         </div>

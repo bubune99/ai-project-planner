@@ -1,7 +1,19 @@
-import type { BoardStep, StepStatus } from "@/lib/types"
+import type { BoardStep } from "@/lib/types"
 
 export type GroupBy = "status" | "priority" | "agent" | "phase"
 export type SortBy = "manual" | "priority" | "due" | "estimate" | "title"
+
+export type StatusKind = "open" | "active" | "done" | "closed"
+
+/** A row from project_statuses, or one of the built-in defaults. */
+export interface ProjectStatus {
+  id?: string
+  key: string
+  label: string
+  color: string // hex
+  kind: StatusKind
+  order_index?: number
+}
 
 export interface ColumnDef {
   key: string
@@ -9,6 +21,8 @@ export interface ColumnDef {
   /** Tailwind bg-* class for the header pill + column accents */
   pillClass: string
   dotClass: string
+  /** Hex color — used instead of the classes when set (custom statuses) */
+  colorHex?: string
   /** Columns that can't receive drops (no way to persist the value) */
   isDropDisabled?: boolean
   /** Hidden unless it has cards (e.g. paused/failed) */
@@ -17,14 +31,54 @@ export interface ColumnDef {
 
 export const NONE_KEY = "__none__"
 
-export const STATUS_COLUMNS: ColumnDef[] = [
-  { key: "pending", label: "To Do", pillClass: "bg-zinc-500/15 text-zinc-300", dotClass: "bg-zinc-400" },
-  { key: "in-progress", label: "In Progress", pillClass: "bg-blue-500/15 text-blue-400", dotClass: "bg-blue-500" },
-  { key: "blocked", label: "Blocked", pillClass: "bg-red-500/15 text-red-400", dotClass: "bg-red-500" },
-  { key: "paused", label: "Paused", pillClass: "bg-amber-500/15 text-amber-400", dotClass: "bg-amber-500", hideWhenEmpty: true },
-  { key: "failed", label: "Failed", pillClass: "bg-rose-600/15 text-rose-400", dotClass: "bg-rose-600", hideWhenEmpty: true },
-  { key: "completed", label: "Complete", pillClass: "bg-green-500/15 text-green-400", dotClass: "bg-green-500" },
+/** Built-in pipeline, used when a project has no custom statuses. */
+export const DEFAULT_STATUSES: ProjectStatus[] = [
+  { key: "pending", label: "To Do", color: "#87909e", kind: "open" },
+  { key: "in-progress", label: "In Progress", color: "#3b82f6", kind: "active" },
+  { key: "blocked", label: "Blocked", color: "#ef4444", kind: "closed" },
+  { key: "paused", label: "Paused", color: "#f59e0b", kind: "open" },
+  { key: "failed", label: "Failed", color: "#e11d48", kind: "closed" },
+  { key: "completed", label: "Complete", color: "#22c55e", kind: "done" },
 ]
+
+/** Palette offered when creating/recoloring a status column. */
+export const STATUS_PALETTE = [
+  "#87909e", "#3b82f6", "#0f9d9f", "#8b5cf6", "#ec4899",
+  "#f59e0b", "#ef4444", "#22c55e", "#06b6d4", "#a3e635",
+]
+
+export function statusColumns(statuses: ProjectStatus[], usingDefaults: boolean): ColumnDef[] {
+  return statuses.map((s) => ({
+    key: s.key,
+    label: s.label,
+    pillClass: "text-foreground/80",
+    dotClass: "",
+    colorHex: s.color,
+    // Only the rarely-used built-ins auto-hide; custom columns always show
+    hideWhenEmpty: usingDefaults && (s.key === "paused" || s.key === "failed"),
+  }))
+}
+
+export function statusMapOf(statuses: ProjectStatus[]): Record<string, ProjectStatus> {
+  return Object.fromEntries(statuses.map((s) => [s.key, s]))
+}
+
+/** The status key quick-complete should move a step to (first done-kind). */
+export function doneKeyOf(statuses: ProjectStatus[]): string {
+  return statuses.find((s) => s.kind === "done")?.key ?? "completed"
+}
+
+/** The status key a reopened/new step should get (first open-kind). */
+export function openKeyOf(statuses: ProjectStatus[]): string {
+  return statuses.find((s) => s.kind === "open")?.key ?? "pending"
+}
+
+/** Deterministic tag color from its name. */
+export function tagColor(name: string): string {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+  return STATUS_PALETTE[h % STATUS_PALETTE.length]
+}
 
 export const PRIORITY_COLUMNS: ColumnDef[] = [
   { key: "high", label: "High", pillClass: "bg-red-500/15 text-red-400", dotClass: "bg-red-500" },
@@ -73,9 +127,14 @@ export function phaseColumns(steps: BoardStep[]): ColumnDef[] {
   return cols
 }
 
-export function columnsFor(groupBy: GroupBy, steps: BoardStep[]): ColumnDef[] {
+export function columnsFor(
+  groupBy: GroupBy,
+  steps: BoardStep[],
+  statuses: ProjectStatus[],
+  usingDefaultStatuses: boolean
+): ColumnDef[] {
   switch (groupBy) {
-    case "status": return STATUS_COLUMNS
+    case "status": return statusColumns(statuses, usingDefaultStatuses)
     case "priority": return PRIORITY_COLUMNS
     case "agent": return AGENT_COLUMNS
     case "phase": return phaseColumns(steps)
@@ -128,15 +187,6 @@ export function sortSteps(steps: BoardStep[], sortBy: SortBy): BoardStep[] {
       break
   }
   return sorted
-}
-
-export const STATUS_LABELS: Record<StepStatus, string> = {
-  pending: "To Do",
-  "in-progress": "In Progress",
-  completed: "Complete",
-  blocked: "Blocked",
-  paused: "Paused",
-  failed: "Failed",
 }
 
 export const PRIORITY_BORDER: Record<string, string> = {

@@ -6,15 +6,25 @@ import { KanbanColumn } from "./KanbanColumn"
 import { KanbanToolbar, EMPTY_FILTERS, type BoardFilters } from "./KanbanToolbar"
 import { TaskDetailModal } from "./TaskDetailModal"
 import { StepFormModal } from "@/components/steps/StepFormModal"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { DragDropContext, type DropResult } from "@hello-pangea/dnd"
+import { Plus } from "lucide-react"
 import { toast } from "sonner"
 import {
   columnsFor,
+  doneKeyOf,
   groupKeyOf,
+  openKeyOf,
   patchForMove,
   sortSteps,
+  statusMapOf,
+  DEFAULT_STATUSES,
+  STATUS_PALETTE,
   type GroupBy,
+  type ProjectStatus,
   type SortBy,
+  type StatusKind,
 } from "./kanban-config"
 
 interface KanbanViewProps {
@@ -27,10 +37,17 @@ interface BoardPrefs {
   groupBy: GroupBy
   sortBy: SortBy
   showCompleted: boolean
+  expandSubtasks: boolean
   collapsed: string[]
 }
 
-const DEFAULT_PREFS: BoardPrefs = { groupBy: "status", sortBy: "manual", showCompleted: true, collapsed: [] }
+const DEFAULT_PREFS: BoardPrefs = {
+  groupBy: "status",
+  sortBy: "manual",
+  showCompleted: true,
+  expandSubtasks: false,
+  collapsed: [],
+}
 
 function loadPrefs(projectId: string): BoardPrefs {
   if (typeof window === "undefined") return DEFAULT_PREFS
@@ -44,6 +61,7 @@ function loadPrefs(projectId: string): BoardPrefs {
 
 export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewProps) {
   const [steps, setSteps] = useState<BoardStep[]>([])
+  const [customStatuses, setCustomStatuses] = useState<ProjectStatus[]>([])
   const [fetching, setFetching] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [filters, setFilters] = useState<BoardFilters>(EMPTY_FILTERS)
@@ -51,6 +69,12 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
   const [detailStepId, setDetailStepId] = useState<string | null>(null)
   const [formStep, setFormStep] = useState<BoardStep | null>(null)
   const [showStepForm, setShowStepForm] = useState(false)
+  const [addingGroup, setAddingGroup] = useState(false)
+  const [newGroupLabel, setNewGroupLabel] = useState("")
+
+  const usingDefaults = customStatuses.length === 0
+  const statuses = usingDefaults ? DEFAULT_STATUSES : customStatuses
+  const statusMap = useMemo(() => statusMapOf(statuses), [statuses])
 
   const savePrefs = useCallback(
     (next: Partial<BoardPrefs>) => {
@@ -65,10 +89,25 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
     [projectId]
   )
 
+  const refetchStatuses = useCallback(async (): Promise<ProjectStatus[]> => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/statuses`)
+      const data = await res.json()
+      const rows = Array.isArray(data.statuses) ? data.statuses : []
+      setCustomStatuses(rows)
+      return rows
+    } catch {
+      return []
+    }
+  }, [projectId])
+
   const refetch = useCallback(async () => {
     try {
-      const res = await fetch(`/api/projects/${projectId}/steps`)
-      const data = await res.json()
+      const [stepsRes] = await Promise.all([
+        fetch(`/api/projects/${projectId}/steps`),
+        refetchStatuses(),
+      ])
+      const data = await stepsRes.json()
       if (Array.isArray(data.steps)) setSteps(data.steps)
     } catch (err) {
       console.error("Failed to fetch steps:", err)
@@ -76,7 +115,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
     } finally {
       setFetching(false)
     }
-  }, [projectId])
+  }, [projectId, refetchStatuses])
 
   useEffect(() => {
     refetch()
@@ -86,6 +125,10 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
   const subtasksOf = useCallback((stepId: string) => steps.filter((s) => s.parent_task_id === stepId), [steps])
   const phases = useMemo(
     () => Array.from(new Set(steps.map((s) => s.phase).filter((p): p is string => !!p))),
+    [steps]
+  )
+  const allTags = useMemo(
+    () => Array.from(new Set(steps.flatMap((s) => (Array.isArray(s.tags) ? s.tags : [])))).sort(),
     [steps]
   )
 
@@ -105,7 +148,6 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
           const data = await res.json().catch(() => ({}))
           throw new Error(data.error || `HTTP ${res.status}`)
         }
-        // Sync server-computed fields (completed_at, progress triggers, …)
         const { step } = await res.json()
         if (step) setSteps((prev) => prev.map((s) => (s.id === step.id ? { ...s, ...step } : s)))
         onRefresh?.()
@@ -136,6 +178,87 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
     },
     [projectId, onRefresh]
   )
+
+  // ---- custom status management ----
+
+  /** Materialize the built-in pipeline as project rows before the first customization. */
+  const ensureCustomized = useCallback(async (): Promise<ProjectStatus[]> => {
+    if (!usingDefaults) return customStatuses
+    for (let i = 0; i < DEFAULT_STATUSES.length; i++) {
+      const d = DEFAULT_STATUSES[i]
+      await fetch(`/api/projects/${projectId}/statuses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: d.key, label: d.label, color: d.color, kind: d.kind, order_index: i }),
+      })
+    }
+    return refetchStatuses()
+  }, [usingDefaults, customStatuses, projectId, refetchStatuses])
+
+  const handleEditColumn = useCallback(
+    async (key: string, patch: { label?: string; color?: string; kind?: StatusKind }) => {
+      try {
+        const rows = await ensureCustomized()
+        const row = rows.find((s) => s.key === key)
+        if (!row?.id) throw new Error("Status not found")
+        const res = await fetch(`/api/projects/${projectId}/statuses/${row.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        await refetchStatuses()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to update column")
+      }
+    },
+    [ensureCustomized, projectId, refetchStatuses]
+  )
+
+  const handleDeleteColumn = useCallback(
+    async (key: string) => {
+      const count = parents.filter((s) => s.status === key).length
+      if (!window.confirm(`Delete this column?${count ? ` ${count} task(s) will move to the first column.` : ""}`)) return
+      try {
+        const rows = await ensureCustomized()
+        const row = rows.find((s) => s.key === key)
+        if (!row?.id) throw new Error("Status not found")
+        const fallback = rows.find((s) => s.key !== key && s.kind === "open") ?? rows.find((s) => s.key !== key)
+        const res = await fetch(
+          `/api/projects/${projectId}/statuses/${row.id}?reassign_to=${encodeURIComponent(fallback?.key ?? "pending")}`,
+          { method: "DELETE" }
+        )
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        await refetch()
+        toast.success("Column deleted")
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete column")
+      }
+    },
+    [parents, ensureCustomized, projectId, refetch]
+  )
+
+  const handleAddGroup = useCallback(async () => {
+    const label = newGroupLabel.trim()
+    if (!label) return
+    setAddingGroup(false)
+    setNewGroupLabel("")
+    try {
+      const rows = await ensureCustomized()
+      const res = await fetch(`/api/projects/${projectId}/statuses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label, color: STATUS_PALETTE[rows.length % STATUS_PALETTE.length], kind: "open" }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      await refetchStatuses()
+      toast.success(`Column "${label}" added`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add column")
+    }
+  }, [newGroupLabel, ensureCustomized, projectId, refetchStatuses])
+
+  // ---- step actions ----
 
   const handleQuickAdd = useCallback(
     async (columnKey: string, title: string) => {
@@ -173,12 +296,13 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
         await createStep({
           title: `${step.title} (copy)`,
           description: step.description || "",
-          status: "pending",
+          status: openKeyOf(statuses),
           phase: step.phase || undefined,
           stage: step.stage || undefined,
           priority: step.priority || undefined,
           assigned_agent: step.assigned_agent || undefined,
           estimated_hours: step.estimated_hours ? Number(step.estimated_hours) : undefined,
+          tags: step.tags,
           tasks: step.tasks,
           acceptance_criteria: step.acceptance_criteria,
         })
@@ -187,7 +311,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
         toast.error(err instanceof Error ? err.message : "Failed to duplicate")
       }
     },
-    [createStep]
+    [createStep, statuses]
   )
 
   const handleDelete = useCallback(
@@ -212,9 +336,10 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
 
   const handleToggleComplete = useCallback(
     (step: BoardStep) => {
-      patchStep(step.id, { status: step.status === "completed" ? "pending" : "completed" })
+      const kind = statusMap[step.status]?.kind ?? "open"
+      patchStep(step.id, { status: kind === "done" ? openKeyOf(statuses) : doneKeyOf(statuses) })
     },
-    [patchStep]
+    [patchStep, statusMap, statuses]
   )
 
   // ---- filtering / grouping ----
@@ -222,23 +347,24 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
   const visibleParents = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
     return parents.filter((s) => {
-      if (!prefs.showCompleted && s.status === "completed") return false
+      if (!prefs.showCompleted && (statusMap[s.status]?.kind ?? "open") === "done") return false
       if (q && !s.title.toLowerCase().includes(q) && !(s.description ?? "").toLowerCase().includes(q)) return false
       if (filters.priority !== "all" && (s.priority ?? "none") !== filters.priority) return false
       if (filters.agent !== "all" && (s.assigned_agent ?? "none") !== filters.agent) return false
       if (filters.phase !== "all" && (s.phase || "none") !== filters.phase) return false
+      if (filters.tag !== "all" && !(Array.isArray(s.tags) && s.tags.includes(filters.tag))) return false
       return true
     })
-  }, [parents, searchQuery, filters, prefs.showCompleted])
+  }, [parents, searchQuery, filters, prefs.showCompleted, statusMap])
 
   const columns = useMemo(() => {
-    const defs = columnsFor(prefs.groupBy, parents)
+    const defs = columnsFor(prefs.groupBy, parents, statuses, usingDefaults)
     return defs.filter((c) => {
-      if (prefs.groupBy === "status" && c.key === "completed" && !prefs.showCompleted) return false
+      if (prefs.groupBy === "status" && !prefs.showCompleted && statusMap[c.key]?.kind === "done") return false
       if (!c.hideWhenEmpty) return true
       return visibleParents.some((s) => groupKeyOf(s, prefs.groupBy) === c.key)
     })
-  }, [prefs.groupBy, prefs.showCompleted, parents, visibleParents])
+  }, [prefs.groupBy, prefs.showCompleted, parents, statuses, usingDefaults, statusMap, visibleParents])
 
   const columnSteps = useCallback(
     (key: string) =>
@@ -253,8 +379,6 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
 
   const persistColumnOrder = useCallback(
     async (orderedColumnIds: string[]) => {
-      // Rebuild the global order: keep non-column steps where they are,
-      // slot the column's members in their new relative order.
       const globalOrder = [...parents].sort((a, b) => a.order_index - b.order_index).map((s) => s.id)
       const inColumn = new Set(orderedColumnIds)
       const queue = [...orderedColumnIds]
@@ -287,7 +411,6 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
       if (source.droppableId === destination.droppableId && source.index === destination.index) return
 
       if (source.droppableId === destination.droppableId) {
-        // Reorder within a column — only meaningful under manual sort
         if (prefs.sortBy !== "manual") {
           toast.info("Switch sort to Manual to reorder cards")
           return
@@ -299,7 +422,6 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
         return
       }
 
-      // Cross-column: update the grouped field
       const patch = patchForMove(prefs.groupBy, destination.droppableId)
       if (!patch) return
       patchStep(draggableId, patch)
@@ -353,8 +475,11 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
           filters={filters}
           onFiltersChange={setFilters}
           phases={phases}
+          tags={allTags}
           showCompleted={prefs.showCompleted}
           onShowCompletedChange={(showCompleted) => savePrefs({ showCompleted })}
+          expandSubtasks={prefs.expandSubtasks}
+          onExpandSubtasksChange={(expandSubtasks) => savePrefs({ expandSubtasks })}
           onCreate={() => {
             setFormStep(null)
             setShowStepForm(true)
@@ -381,7 +506,13 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
                   column={column}
                   steps={columnSteps(column.key)}
                   subtasksOf={subtasksOf}
+                  statusMap={statusMap}
+                  expandSubtasks={prefs.expandSubtasks}
                   collapsed={prefs.collapsed.includes(column.key)}
+                  onEditColumn={prefs.groupBy === "status" ? handleEditColumn : undefined}
+                  onDeleteColumn={
+                    prefs.groupBy === "status" && statuses.length > 1 ? handleDeleteColumn : undefined
+                  }
                   onToggleCollapse={toggleCollapse}
                   onQuickAdd={handleQuickAdd}
                   onOpen={openDetail}
@@ -391,6 +522,39 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
                   onToggleComplete={handleToggleComplete}
                 />
               ))}
+
+              {/* Add group (custom status column) */}
+              {prefs.groupBy === "status" && (
+                <div className="shrink-0 w-[220px]">
+                  {addingGroup ? (
+                    <Input
+                      autoFocus
+                      value={newGroupLabel}
+                      placeholder="Column name, Enter to add"
+                      className="h-9 text-sm"
+                      onChange={(e) => setNewGroupLabel(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleAddGroup()
+                        if (e.key === "Escape") {
+                          setAddingGroup(false)
+                          setNewGroupLabel("")
+                        }
+                      }}
+                      onBlur={() => {
+                        if (!newGroupLabel.trim()) setAddingGroup(false)
+                      }}
+                    />
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start h-9 text-muted-foreground text-sm border border-dashed border-border/70"
+                      onClick={() => setAddingGroup(true)}
+                    >
+                      <Plus className="w-4 h-4 mr-1.5" /> Add group
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           </DragDropContext>
         )}
@@ -400,6 +564,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
           subtasks={detailStep ? subtasksOf(detailStep.id) : []}
           allSteps={steps}
           phases={phases}
+          statuses={statuses}
           open={!!detailStep}
           onClose={() => {
             setDetailStepId(null)
@@ -412,6 +577,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
             setDetailStepId(null)
             openEdit(step)
           }}
+          onOpenStep={(s) => setDetailStepId(s.id)}
         />
       </div>
 

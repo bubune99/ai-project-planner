@@ -2,18 +2,33 @@
 
 import { useState } from "react"
 import type { BoardStep } from "@/lib/types"
-import type { ColumnDef } from "./kanban-config"
+import { STATUS_PALETTE, type ColumnDef, type ProjectStatus, type StatusKind } from "./kanban-config"
 import { KanbanCard } from "./KanbanCard"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Droppable } from "@hello-pangea/dnd"
-import { ChevronsLeft, ChevronsRight, Loader2, Plus } from "lucide-react"
+import { ChevronsLeft, ChevronsRight, Loader2, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react"
 
 interface KanbanColumnProps {
   column: ColumnDef
   steps: BoardStep[]
   subtasksOf: (stepId: string) => BoardStep[]
+  statusMap: Record<string, ProjectStatus>
+  expandSubtasks: boolean
   collapsed: boolean
+  /** Column management callbacks — present only when grouping by status */
+  onEditColumn?: (key: string, patch: { label?: string; color?: string; kind?: StatusKind }) => void
+  onDeleteColumn?: (key: string) => void
   onToggleCollapse: (key: string) => void
   onQuickAdd: (columnKey: string, title: string) => Promise<void>
   onOpen: (step: BoardStep) => void
@@ -27,7 +42,11 @@ export function KanbanColumn({
   column,
   steps,
   subtasksOf,
+  statusMap,
+  expandSubtasks,
   collapsed,
+  onEditColumn,
+  onDeleteColumn,
   onToggleCollapse,
   onQuickAdd,
   onOpen,
@@ -39,6 +58,10 @@ export function KanbanColumn({
   const [adding, setAdding] = useState(false)
   const [newTitle, setNewTitle] = useState("")
   const [saving, setSaving] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const [renameValue, setRenameValue] = useState(column.label)
+
+  const kind = statusMap[column.key]?.kind
 
   const submitQuickAdd = async () => {
     const title = newTitle.trim()
@@ -52,6 +75,12 @@ export function KanbanColumn({
     }
   }
 
+  const submitRename = () => {
+    const label = renameValue.trim()
+    setRenaming(false)
+    if (label && label !== column.label) onEditColumn?.(column.key, { label })
+  }
+
   if (collapsed) {
     return (
       <button
@@ -60,7 +89,10 @@ export function KanbanColumn({
         title={`Expand ${column.label}`}
       >
         <ChevronsRight className="w-3.5 h-3.5 text-muted-foreground" />
-        <span className={`w-2 h-2 rounded-full ${column.dotClass}`} />
+        <span
+          className={`w-2 h-2 rounded-full ${column.dotClass}`}
+          style={column.colorHex ? { backgroundColor: column.colorHex } : undefined}
+        />
         <span
           className="text-xs font-semibold text-muted-foreground"
           style={{ writingMode: "vertical-rl" }}
@@ -75,12 +107,34 @@ export function KanbanColumn({
     <div className="flex flex-col shrink-0 w-[290px] max-h-full bg-accent/20 rounded-lg border border-border/50">
       {/* Column Header */}
       <div className="flex items-center gap-2 px-3 pt-3 pb-2">
-        <span
-          className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${column.pillClass}`}
-        >
-          <span className={`w-1.5 h-1.5 rounded-full ${column.dotClass}`} />
-          {column.label}
-        </span>
+        {renaming ? (
+          <Input
+            autoFocus
+            value={renameValue}
+            className="h-6 text-xs font-semibold"
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submitRename()
+              if (e.key === "Escape") setRenaming(false)
+            }}
+            onBlur={submitRename}
+          />
+        ) : (
+          <span
+            className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${column.pillClass}`}
+            style={
+              column.colorHex
+                ? { backgroundColor: column.colorHex + "26", color: column.colorHex }
+                : undefined
+            }
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${column.dotClass}`}
+              style={column.colorHex ? { backgroundColor: column.colorHex } : undefined}
+            />
+            {column.label}
+          </span>
+        )}
         <span className="text-xs text-muted-foreground">{steps.length}</span>
         <div className="flex-1" />
         <Button
@@ -93,6 +147,61 @@ export function KanbanColumn({
         >
           <Plus className="w-3.5 h-3.5" />
         </Button>
+        {onEditColumn && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" title="Column options">
+                <MoreHorizontal className="w-3.5 h-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem
+                onClick={() => {
+                  setRenameValue(column.label)
+                  setRenaming(true)
+                }}
+              >
+                <Pencil className="w-3.5 h-3.5 mr-2" /> Rename
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs">Color</DropdownMenuLabel>
+              <div className="flex flex-wrap gap-1.5 px-2 pb-1.5">
+                {STATUS_PALETTE.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => onEditColumn(column.key, { color: c })}
+                    className={`w-5 h-5 rounded-full border-2 ${
+                      column.colorHex === c ? "border-foreground" : "border-transparent"
+                    }`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs">Counts as</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={kind}
+                onValueChange={(v) => onEditColumn(column.key, { kind: v as StatusKind })}
+              >
+                <DropdownMenuRadioItem value="open">Not started</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="active">Active</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="done">Done</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="closed">Closed (not done)</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+              {onDeleteColumn && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => onDeleteColumn(column.key)}
+                    className="text-red-500 focus:text-red-500"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete column
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         <Button
           variant="ghost"
           size="icon"
@@ -120,6 +229,8 @@ export function KanbanColumn({
                 step={step}
                 index={index}
                 subtasks={subtasksOf(step.id)}
+                statusMap={statusMap}
+                expandSubtasks={expandSubtasks}
                 onOpen={onOpen}
                 onEdit={onEdit}
                 onDelete={onDelete}

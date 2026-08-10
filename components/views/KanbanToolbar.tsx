@@ -11,6 +11,7 @@ import {
   ArrowUpDown,
   Eye,
   EyeOff,
+  GitBranch,
   Layers,
   ListFilter,
   Plus,
@@ -22,6 +23,7 @@ export interface BoardFilters {
   priority: string // "all" | low|medium|high
   agent: string // "all" | v0|claude|gemini|gpt|none
   phase: string // "all" | <phase> | none
+  tag: string // "all" | <tag>
 }
 
 interface KanbanToolbarProps {
@@ -34,12 +36,15 @@ interface KanbanToolbarProps {
   filters: BoardFilters
   onFiltersChange: (f: BoardFilters) => void
   phases: string[]
+  tags: string[]
   showCompleted: boolean
   onShowCompletedChange: (v: boolean) => void
+  expandSubtasks: boolean
+  onExpandSubtasksChange: (v: boolean) => void
   onCreate: () => void
 }
 
-export const EMPTY_FILTERS: BoardFilters = { priority: "all", agent: "all", phase: "all" }
+export const EMPTY_FILTERS: BoardFilters = { priority: "all", agent: "all", phase: "all", tag: "all" }
 
 export function KanbanToolbar({
   searchQuery,
@@ -51,8 +56,11 @@ export function KanbanToolbar({
   filters,
   onFiltersChange,
   phases,
+  tags,
   showCompleted,
   onShowCompletedChange,
+  expandSubtasks,
+  onExpandSubtasksChange,
   onCreate,
 }: KanbanToolbarProps) {
   const activeFilterCount = Object.values(filters).filter((v) => v !== "all").length
@@ -181,6 +189,27 @@ export function KanbanToolbar({
               </SelectContent>
             </Select>
           </div>
+          {tags.length > 0 && (
+            <div>
+              <Label className="text-xs mb-1 block">Tag</Label>
+              <Select
+                value={filters.tag}
+                onValueChange={(v) => onFiltersChange({ ...filters, tag: v })}
+              >
+                <SelectTrigger className="h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All tags</SelectItem>
+                  {tags.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           {activeFilterCount > 0 && (
             <Button
               variant="ghost"
@@ -193,6 +222,18 @@ export function KanbanToolbar({
           )}
         </PopoverContent>
       </Popover>
+
+      {/* Expand/collapse subtasks on cards */}
+      <Button
+        variant={expandSubtasks ? "secondary" : "outline"}
+        size="sm"
+        className="h-8"
+        onClick={() => onExpandSubtasksChange(!expandSubtasks)}
+        title={expandSubtasks ? "Collapse subtasks on cards" : "Expand subtasks on cards"}
+      >
+        <GitBranch className="w-3.5 h-3.5 mr-1.5" />
+        Subtasks
+      </Button>
 
       {/* Show/hide completed */}
       <Button

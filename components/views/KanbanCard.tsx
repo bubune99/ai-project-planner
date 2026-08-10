@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import type { BoardStep } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -13,6 +14,8 @@ import {
 import {
   Calendar,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Clock,
   Copy,
   Flag,
@@ -24,12 +27,20 @@ import {
 } from "lucide-react"
 import { Draggable } from "@hello-pangea/dnd"
 import { format, isPast, isToday, isTomorrow } from "date-fns"
-import { AGENT_AVATAR, PRIORITY_BORDER, normalizeChecklist } from "./kanban-config"
+import {
+  AGENT_AVATAR,
+  PRIORITY_BORDER,
+  normalizeChecklist,
+  tagColor,
+  type ProjectStatus,
+} from "./kanban-config"
 
 interface KanbanCardProps {
   step: BoardStep
   index: number
   subtasks: BoardStep[]
+  statusMap: Record<string, ProjectStatus>
+  expandSubtasks: boolean
   onOpen: (step: BoardStep) => void
   onEdit: (step: BoardStep) => void
   onDelete: (step: BoardStep) => void
@@ -48,19 +59,26 @@ export function KanbanCard({
   step,
   index,
   subtasks,
+  statusMap,
+  expandSubtasks,
   onOpen,
   onEdit,
   onDelete,
   onDuplicate,
   onToggleComplete,
 }: KanbanCardProps) {
-  const doneSubtasks = subtasks.filter((s) => s.status === "completed").length
+  const [expanded, setExpanded] = useState(expandSubtasks)
+  useEffect(() => setExpanded(expandSubtasks), [expandSubtasks])
+
+  const kindOf = (s: BoardStep) => statusMap[s.status]?.kind ?? "open"
+  const isDone = kindOf(step) === "done"
+  const doneSubtasks = subtasks.filter((s) => kindOf(s) === "done").length
   const checklist = normalizeChecklist(step.tasks)
   const doneChecklist = checklist.filter((c) => c.done).length
-  const isDone = step.status === "completed"
   const overdue = !!step.end_date && !isDone && isPast(new Date(step.end_date)) && !isToday(new Date(step.end_date))
   const depCount = Array.isArray(step.dependencies) ? step.dependencies.length : 0
   const estimate = Number(step.estimated_hours ?? 0)
+  const tags = Array.isArray(step.tags) ? step.tags : []
 
   return (
     <Draggable draggableId={step.id} index={index}>
@@ -132,6 +150,21 @@ export function KanbanCard({
             <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{step.description}</p>
           )}
 
+          {/* Tags */}
+          {tags.length > 0 && (
+            <div className="flex items-center gap-1 flex-wrap mt-1.5">
+              {tags.map((t) => (
+                <span
+                  key={t}
+                  className="text-[10px] px-1.5 py-px rounded-full font-medium"
+                  style={{ backgroundColor: tagColor(t) + "26", color: tagColor(t) }}
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+
           {/* Chips */}
           <div className="flex items-center gap-1.5 flex-wrap mt-2 empty:mt-0">
             {step.priority && (
@@ -164,9 +197,17 @@ export function KanbanCard({
               </Badge>
             )}
             {subtasks.length > 0 && (
-              <Badge variant="outline" className="text-[10px] h-5 px-1.5">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setExpanded((v) => !v)
+                }}
+                className="inline-flex items-center gap-0.5 text-[10px] h-5 px-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                title={expanded ? "Collapse subtasks" : "Expand subtasks"}
+              >
+                {expanded ? <ChevronDown className="w-2.5 h-2.5" /> : <ChevronRight className="w-2.5 h-2.5" />}
                 ☑ {doneSubtasks}/{subtasks.length}
-              </Badge>
+              </button>
             )}
             {checklist.length > 0 && (
               <Badge variant="outline" className="text-[10px] h-5 px-1.5">
@@ -180,6 +221,39 @@ export function KanbanCard({
               </Badge>
             )}
           </div>
+
+          {/* Expanded subtasks */}
+          {expanded && subtasks.length > 0 && (
+            <div className="mt-2 border-t border-border/60 pt-1.5 space-y-0.5" onClick={(e) => e.stopPropagation()}>
+              {subtasks.map((sub) => {
+                const subDone = kindOf(sub) === "done"
+                return (
+                  <div
+                    key={sub.id}
+                    className="flex items-center gap-1.5 text-xs rounded px-1 py-0.5 hover:bg-accent/50 cursor-pointer"
+                    onClick={() => onOpen(sub)}
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onToggleComplete(sub)
+                      }}
+                      className={`shrink-0 ${subDone ? "text-green-500" : "text-muted-foreground/40 hover:text-green-500"}`}
+                    >
+                      <CheckCircle2 className="w-3 h-3" />
+                    </button>
+                    <span
+                      className="w-1.5 h-1.5 rounded-full shrink-0"
+                      style={{ backgroundColor: statusMap[sub.status]?.color ?? "#87909e" }}
+                    />
+                    <span className={`truncate ${subDone ? "line-through text-muted-foreground" : "text-foreground/90"}`}>
+                      {sub.title}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
           {/* Progress bar */}
           {step.progress > 0 && step.progress < 100 && (

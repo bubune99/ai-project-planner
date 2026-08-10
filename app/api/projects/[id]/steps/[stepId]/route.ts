@@ -144,14 +144,25 @@ export async function PATCH(
       dependencies,
     } = body;
 
-    // Validate against the DB CHECK constraints up front (400 beats a 500 from Postgres)
+    // Validate status: built-in values or a custom project status key
     const VALID_STATUSES = ["pending", "in-progress", "completed", "blocked", "paused", "failed"];
-    const status = rawStatus === "review" ? "in-progress" : rawStatus; // legacy clients sent "review", which the DB rejects
-    if (status && !VALID_STATUSES.includes(status)) {
-      return NextResponse.json(
-        { error: `Invalid status: ${rawStatus}. Allowed: ${VALID_STATUSES.join(", ")}` },
-        { status: 400 }
-      );
+    const status = rawStatus === "review" ? "in-progress" : rawStatus; // legacy clients sent "review"
+    let statusKind: string | null = null;
+    if (status) {
+      const [kindRow] = await sql`SELECT step_status_kind(${projectId}::uuid, ${status}) AS kind`;
+      statusKind = kindRow?.kind ?? null;
+      if (!VALID_STATUSES.includes(status)) {
+        const custom = await sql`
+          SELECT 1 FROM project_statuses
+          WHERE project_id = ${projectId} AND key = ${status} AND deleted_at IS NULL
+        `;
+        if (custom.length === 0) {
+          return NextResponse.json(
+            { error: `Invalid status: ${rawStatus}. Use a built-in status or a key from /statuses` },
+            { status: 400 }
+          );
+        }
+      }
     }
     const rawPriority = body.priority === "critical" ? "high" : body.priority;
     if (rawPriority != null && !["low", "medium", "high"].includes(rawPriority)) {
@@ -169,6 +180,8 @@ export async function PATCH(
     const setStart = has("start_date");
     const setEnd = has("end_date");
     const setOrder = has("order_index") && Number.isInteger(body.order_index);
+    const setTags = has("tags") && Array.isArray(body.tags);
+    const tags = setTags ? body.tags.map((t: unknown) => String(t).trim()).filter(Boolean).slice(0, 20) : null;
 
     const result = await sql`
       UPDATE project_steps
@@ -185,13 +198,16 @@ export async function PATCH(
         start_date = CASE WHEN ${setStart} THEN ${body.start_date ?? null}::timestamp ELSE start_date END,
         end_date = CASE WHEN ${setEnd} THEN ${body.end_date ?? null}::timestamp ELSE end_date END,
         order_index = CASE WHEN ${setOrder} THEN ${setOrder ? body.order_index : null}::integer ELSE order_index END,
+        tags = CASE WHEN ${setTags} THEN ${tags}::text[] ELSE tags END,
         tasks = COALESCE(${tasks ? JSON.stringify(tasks) : null}::jsonb, tasks),
         acceptance_criteria = COALESCE(${acceptance_criteria ? JSON.stringify(acceptance_criteria) : null}::jsonb, acceptance_criteria),
         progress = COALESCE(${progress ?? null}, progress),
         version_id = COALESCE(${version_id || null}, version_id),
         metadata = COALESCE(${metadata ? JSON.stringify(metadata) : null}::jsonb, metadata),
         updated_at = NOW(),
-        completed_at = CASE WHEN ${status} = 'completed' THEN NOW() ELSE completed_at END
+        completed_at = CASE WHEN ${statusKind === "done"} THEN NOW()
+                            WHEN ${statusKind !== null && statusKind !== "done"} THEN NULL
+                            ELSE completed_at END
       WHERE id = ${stepId}
         AND project_id = ${projectId}
         AND deleted_at IS NULL

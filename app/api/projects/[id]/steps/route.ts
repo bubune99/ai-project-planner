@@ -130,7 +130,7 @@ export async function POST(
       start_date,
       end_date,
       parent_task_id,
-      tasks = [],
+      tasks: stepTasks = [],
       acceptance_criteria = {},
       dependencies = [],
       version_id,
@@ -154,11 +154,20 @@ export async function POST(
     }
     const status = rawStatus;
     if (!VALID_STATUSES.includes(status)) {
-      return NextResponse.json(
-        { error: `Invalid status: ${rawStatus}. Allowed: ${VALID_STATUSES.join(", ")}` },
-        { status: 400 }
-      );
+      const custom = await sql`
+        SELECT 1 FROM project_statuses
+        WHERE project_id = ${projectId} AND key = ${status} AND deleted_at IS NULL
+      `;
+      if (custom.length === 0) {
+        return NextResponse.json(
+          { error: `Invalid status: ${rawStatus}. Use a built-in status or a key from /statuses` },
+          { status: 400 }
+        );
+      }
     }
+    const tags = Array.isArray(body.tags)
+      ? body.tags.map((t: unknown) => String(t).trim()).filter(Boolean).slice(0, 20)
+      : [];
 
     // Get the max order_index to append at the end
     const maxOrderResult = await sql`
@@ -175,15 +184,15 @@ export async function POST(
         project_id, title, description, status, phase, stage,
         estimated_hours, assigned_agent, priority, tasks,
         acceptance_criteria, version_id, metadata, order_index,
-        start_date, end_date, parent_task_id
+        start_date, end_date, parent_task_id, tags
       )
       VALUES (
         ${projectId}, ${title}, ${description || ""}, ${status}, ${phase || ""}, ${stage || ""},
         ${estimated_hours ?? 0}, ${assigned_agent || null}, ${priority},
-        ${JSON.stringify(tasks)}::jsonb,
+        ${JSON.stringify(stepTasks)}::jsonb,
         ${JSON.stringify(acceptance_criteria)}::jsonb, ${version_id || null},
         ${JSON.stringify(metadata)}::jsonb, ${maxOrder + 1},
-        ${start_date || null}, ${end_date || null}, ${parent_task_id || null}
+        ${start_date || null}, ${end_date || null}, ${parent_task_id || null}, ${tags}::text[]
       )
       RETURNING *
     `;

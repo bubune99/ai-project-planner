@@ -178,8 +178,9 @@ export interface BoardStep {
   project_id: string
   title: string
   description: string | null
-  status: StepStatus
+  status: string // built-in StepStatus or a custom project status key
   progress: number
+  tags: string[]
   phase: string | null
   stage: string | null
   estimated_hours: number | string | null
