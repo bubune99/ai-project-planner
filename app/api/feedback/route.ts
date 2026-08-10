@@ -53,24 +53,24 @@ export async function POST(request: NextRequest) {
 
     const auth = await getAuthContext().catch(() => null);
 
-    // Build 5W+H envelope (legacy mode, non-fatal). Feedback can arrive unauthenticated.
-    // userId defaults to a sentinel when unauthed; projectId may be absent.
+    // Build 5W+H envelope (legacy mode, non-fatal). Feedback can arrive
+    // unauthenticated, so fall back to a sentinel user. The column is NOT NULL
+    // (default '{}'), and an explicit NULL in the INSERT overrides the default —
+    // that combination silently killed every submission after migration 041.
     let envelopeSql: string | null = null;
-    if (auth?.userId) {
-      const envelopeResult = buildEnvelopeForWrite(
-        b,
-        { userId: auth.userId, projectId: b.projectId || undefined, agentId: undefined },
-        {
-          type: 'feedback',
-          title: b.title || b.comment?.slice(0, 80),
-          summary: b.comment?.trim(),
-          rationale: b?.documentation_5wh?.why?.rationale,
-        },
-        'legacy'
-      );
-      if (envelopeResult.ok) {
-        envelopeSql = envelopeForSql(envelopeResult.envelope);
-      }
+    const envelopeResult = buildEnvelopeForWrite(
+      b,
+      { userId: auth?.userId || "anonymous", projectId: b.projectId || undefined, agentId: undefined },
+      {
+        type: 'feedback',
+        title: b.title || b.comment?.slice(0, 80),
+        summary: b.comment?.trim(),
+        rationale: b?.documentation_5wh?.why?.rationale,
+      },
+      'legacy'
+    );
+    if (envelopeResult.ok) {
+      envelopeSql = envelopeForSql(envelopeResult.envelope);
     }
 
     const [created] = await sql`
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
         ${auth?.userId || null},
         ${b.reporterName || null},
         ${b.reporterEmail || null},
-        ${envelopeSql}::jsonb
+        COALESCE(${envelopeSql}::jsonb, '{}'::jsonb)
       )
       RETURNING id, created_at, status
     `;
