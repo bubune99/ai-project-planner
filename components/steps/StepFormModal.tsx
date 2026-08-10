@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { X, Plus } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 
 interface StepFormModalProps {
   open: boolean
@@ -23,7 +23,6 @@ interface StepFormModalProps {
 }
 
 export function StepFormModal({ open, onClose, projectId, step, availableSteps = [], onSuccess }: StepFormModalProps) {
-  const { toast } = useToast()
   const [loading, setLoading] = useState(false)
 
   const [formData, setFormData] = useState({
@@ -94,20 +93,13 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
         throw new Error("Failed to save step")
       }
 
-      toast({
-        title: step ? "Step updated" : "Step created",
-        description: step ? "The step has been updated successfully." : "A new step has been created.",
-      })
+      toast.success(step ? "Step updated" : "Step created")
 
       onSuccess?.()
       onClose()
     } catch (error) {
       console.error("[v0] Error saving step:", error)
-      toast({
-        title: "Error",
-        description: "Failed to save step. Please try again.",
-        variant: "destructive",
-      })
+      toast.error("Failed to save step. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -220,10 +212,12 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="pending">To Do</SelectItem>
                     <SelectItem value="in-progress">In Progress</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="completed">Complete</SelectItem>
                     <SelectItem value="blocked">Blocked</SelectItem>
+                    <SelectItem value="paused">Paused</SelectItem>
+                    <SelectItem value="failed">Failed</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -263,7 +257,6 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
                   <SelectItem value="low">Low</SelectItem>
                   <SelectItem value="medium">Medium</SelectItem>
                   <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="critical">Critical</SelectItem>
                 </SelectContent>
               </Select>
             </div>

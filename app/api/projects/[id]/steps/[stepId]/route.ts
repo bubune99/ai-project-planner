@@ -131,13 +131,11 @@ export async function PATCH(
     const {
       title,
       description,
-      status,
+      status: rawStatus,
       phase,
       stage,
       estimated_hours,
       actual_hours,
-      assigned_agent,
-      priority,
       tasks,
       acceptance_criteria,
       progress,
@@ -146,7 +144,32 @@ export async function PATCH(
       dependencies,
     } = body;
 
-    // Build dynamic update using COALESCE for each field
+    // Validate against the DB CHECK constraints up front (400 beats a 500 from Postgres)
+    const VALID_STATUSES = ["pending", "in-progress", "completed", "blocked", "paused", "failed"];
+    const status = rawStatus === "review" ? "in-progress" : rawStatus; // legacy clients sent "review", which the DB rejects
+    if (status && !VALID_STATUSES.includes(status)) {
+      return NextResponse.json(
+        { error: `Invalid status: ${rawStatus}. Allowed: ${VALID_STATUSES.join(", ")}` },
+        { status: 400 }
+      );
+    }
+    const rawPriority = body.priority === "critical" ? "high" : body.priority;
+    if (rawPriority != null && !["low", "medium", "high"].includes(rawPriority)) {
+      return NextResponse.json(
+        { error: `Invalid priority: ${body.priority}. Allowed: low, medium, high` },
+        { status: 400 }
+      );
+    }
+
+    // Fields that support explicit clearing: pass null in the body to unset them.
+    // (COALESCE alone can't distinguish "not provided" from "set to null".)
+    const has = (key: string) => Object.prototype.hasOwnProperty.call(body, key);
+    const setPriority = has("priority");
+    const setAgent = has("assigned_agent");
+    const setStart = has("start_date");
+    const setEnd = has("end_date");
+    const setOrder = has("order_index") && Number.isInteger(body.order_index);
+
     const result = await sql`
       UPDATE project_steps
       SET
@@ -157,8 +180,11 @@ export async function PATCH(
         stage = COALESCE(${stage || null}, stage),
         estimated_hours = COALESCE(${estimated_hours ?? null}, estimated_hours),
         actual_hours = COALESCE(${actual_hours ?? null}, actual_hours),
-        assigned_agent = COALESCE(${assigned_agent || null}, assigned_agent),
-        priority = COALESCE(${priority || null}, priority),
+        assigned_agent = CASE WHEN ${setAgent} THEN ${body.assigned_agent ?? null} ELSE assigned_agent END,
+        priority = CASE WHEN ${setPriority} THEN ${rawPriority ?? null} ELSE priority END,
+        start_date = CASE WHEN ${setStart} THEN ${body.start_date ?? null}::timestamp ELSE start_date END,
+        end_date = CASE WHEN ${setEnd} THEN ${body.end_date ?? null}::timestamp ELSE end_date END,
+        order_index = CASE WHEN ${setOrder} THEN ${setOrder ? body.order_index : null}::integer ELSE order_index END,
         tasks = COALESCE(${tasks ? JSON.stringify(tasks) : null}::jsonb, tasks),
         acceptance_criteria = COALESCE(${acceptance_criteria ? JSON.stringify(acceptance_criteria) : null}::jsonb, acceptance_criteria),
         progress = COALESCE(${progress ?? null}, progress),

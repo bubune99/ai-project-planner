@@ -2,7 +2,6 @@ import { DashboardLayout } from "@/components/navigation"
 import { DataStreamProvider } from "@/components/chatsdk/data-stream-provider"
 import { ChatHistoryPanel } from "@/components/chatsdk/chat-history-panel"
 import { SidebarProvider } from "@/components/chatsdk/ui/sidebar"
-import { Toaster } from "sonner"
 
 export default function ChatLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -20,7 +19,7 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
           </div>
         </DataStreamProvider>
       </SidebarProvider>
-      <Toaster position="top-center" />
+      {/* Toaster is mounted globally in app/layout.tsx */}
     </DashboardLayout>
   )
 }

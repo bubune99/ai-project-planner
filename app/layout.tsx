@@ -8,6 +8,7 @@ import { stackServerApp } from "@/lib/auth/stack-auth"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister"
 import { FeedbackWidget } from "@/components/feedback/FeedbackWidget"
+import { Toaster } from "sonner"
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -49,6 +50,7 @@ export default function RootLayout({
             </StackTheme>
           </StackProvider>
         </ThemeProvider>
+        <Toaster position="top-center" theme="dark" richColors />
         <Analytics />
         <ServiceWorkerRegister />
         <FeedbackWidget source="ai-project-planner" />

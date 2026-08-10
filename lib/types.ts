@@ -167,6 +167,39 @@ export interface KanbanTask {
   tags?: string[]
 }
 
+// Raw project_steps row as served by GET /api/projects/[id]/steps.
+// Statuses/priorities mirror the DB CHECK constraints — no UI-side remapping.
+export type StepStatus = "pending" | "in-progress" | "completed" | "blocked" | "paused" | "failed"
+export type StepPriority = "low" | "medium" | "high"
+export type AgentName = "v0" | "claude" | "gemini" | "gpt"
+
+export interface BoardStep {
+  id: string
+  project_id: string
+  title: string
+  description: string | null
+  status: StepStatus
+  progress: number
+  phase: string | null
+  stage: string | null
+  estimated_hours: number | string | null
+  actual_hours: number | string | null
+  order_index: number
+  priority: StepPriority | null
+  assigned_agent: AgentName | null
+  start_date: string | null
+  end_date: string | null
+  parent_task_id: string | null
+  is_subtask: boolean
+  tasks: Array<string | { title: string; done?: boolean }>
+  acceptance_criteria: Array<{ description: string; testCommand?: string; done?: boolean }>
+  dependencies: Array<{ depends_on_step_id: string; dependency_type: "hard" | "soft" }>
+  metadata: Record<string, unknown> | null
+  created_at: string
+  updated_at: string
+  completed_at: string | null
+}
+
 export interface Phase {
   id: string
   name: string

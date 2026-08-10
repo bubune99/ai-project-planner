@@ -11,6 +11,10 @@ import { getAuthContext, verifyProjectOwnership } from "@/lib/auth/auth-utils";
 
 export const dynamic = "force-dynamic"
 
+// Must mirror the project_steps_status_check / priority CHECK constraints
+const VALID_STATUSES = ["pending", "in-progress", "completed", "blocked", "paused", "failed"];
+const VALID_PRIORITIES = ["low", "medium", "high"];
+
 /**
  * GET /api/projects/[id]/steps
  * Get all steps for a project with dependencies
@@ -121,7 +125,11 @@ export async function POST(
       stage,
       estimated_hours,
       assigned_agent,
-      priority = "medium",
+      priority: rawPriority = "medium",
+      status: rawStatus = "pending",
+      start_date,
+      end_date,
+      parent_task_id,
       tasks = [],
       acceptance_criteria = {},
       dependencies = [],
@@ -132,6 +140,22 @@ export async function POST(
     if (!title) {
       return NextResponse.json(
         { error: "Title is required" },
+        { status: 400 }
+      );
+    }
+
+    // "critical" predates the DB constraint (low/medium/high) — fold it into high
+    const priority = rawPriority === "critical" ? "high" : rawPriority;
+    if (!VALID_PRIORITIES.includes(priority)) {
+      return NextResponse.json(
+        { error: `Invalid priority: ${rawPriority}. Allowed: ${VALID_PRIORITIES.join(", ")}` },
+        { status: 400 }
+      );
+    }
+    const status = rawStatus;
+    if (!VALID_STATUSES.includes(status)) {
+      return NextResponse.json(
+        { error: `Invalid status: ${rawStatus}. Allowed: ${VALID_STATUSES.join(", ")}` },
         { status: 400 }
       );
     }
@@ -148,16 +172,18 @@ export async function POST(
     // Create the step
     const result = await sql`
       INSERT INTO project_steps (
-        project_id, title, description, phase, stage,
+        project_id, title, description, status, phase, stage,
         estimated_hours, assigned_agent, priority, tasks,
-        acceptance_criteria, version_id, metadata, order_index
+        acceptance_criteria, version_id, metadata, order_index,
+        start_date, end_date, parent_task_id
       )
       VALUES (
-        ${projectId}, ${title}, ${description || null}, ${phase || null}, ${stage || null},
+        ${projectId}, ${title}, ${description || ""}, ${status}, ${phase || ""}, ${stage || ""},
         ${estimated_hours || null}, ${assigned_agent || null}, ${priority},
         ${JSON.stringify(tasks)}::jsonb,
         ${JSON.stringify(acceptance_criteria)}::jsonb, ${version_id || null},
-        ${JSON.stringify(metadata)}::jsonb, ${maxOrder + 1}
+        ${JSON.stringify(metadata)}::jsonb, ${maxOrder + 1},
+        ${start_date || null}, ${end_date || null}, ${parent_task_id || null}
       )
       RETURNING *
     `;
