@@ -26,7 +26,7 @@ export async function GET(
       SELECT c.id, c.parent_comment_id, c.body, c.user_id, c.author_label, c.created_at, c.updated_at,
              u.name AS user_name
       FROM step_comments c
-      LEFT JOIN users u ON u.id = c.user_id
+      LEFT JOIN users u ON u.id::text = c.user_id
       WHERE c.step_id = ${stepId} AND c.project_id = ${projectId} AND c.deleted_at IS NULL
       ORDER BY c.created_at ASC
     `;

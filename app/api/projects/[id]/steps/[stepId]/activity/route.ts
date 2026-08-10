@@ -24,7 +24,7 @@ export async function GET(
     const events = await sql`
       SELECT eh.id, eh.event_type, eh.description, eh.new_value, eh.created_at, u.name AS user_name
       FROM execution_history eh
-      LEFT JOIN users u ON u.id = eh.user_id
+      LEFT JOIN users u ON u.id::text = eh.user_id::text
       WHERE eh.project_id = ${projectId} AND eh.step_id = ${stepId}
       ORDER BY eh.created_at DESC
       LIMIT ${limit}
