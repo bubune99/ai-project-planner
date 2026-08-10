@@ -179,7 +179,7 @@ export async function POST(
       )
       VALUES (
         ${projectId}, ${title}, ${description || ""}, ${status}, ${phase || ""}, ${stage || ""},
-        ${estimated_hours || null}, ${assigned_agent || null}, ${priority},
+        ${estimated_hours ?? 0}, ${assigned_agent || null}, ${priority},
         ${JSON.stringify(tasks)}::jsonb,
         ${JSON.stringify(acceptance_criteria)}::jsonb, ${version_id || null},
         ${JSON.stringify(metadata)}::jsonb, ${maxOrder + 1},
