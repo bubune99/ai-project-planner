@@ -20,6 +20,13 @@ const phaseColors = {
   4: { bg: "bg-orange-500", dark: "bg-orange-600" },
 }
 
+/** Phases are user data and can be any number (or NaN from text phases) — cycle the palette instead of crashing. */
+function colorsFor(phase: number): { bg: string; dark: string } {
+  const keys = [1, 2, 3, 4] as const
+  const idx = Number.isFinite(phase) && phase > 0 ? ((phase - 1) % keys.length) + 1 : 1
+  return phaseColors[idx as keyof typeof phaseColors]
+}
+
 export function GanttTimeline({
   tasks,
   startDate,
@@ -100,7 +107,7 @@ export function GanttTimeline({
               {/* Phase tasks */}
               {phaseTasks.map((task) => {
                 const position = getTaskPosition(task)
-                const colors = phaseColors[task.phase as keyof typeof phaseColors]
+                const colors = colorsFor(Number(task.phase))
                 const isHovered = hoveredTask === task.id
                 const isSelected = selectedTaskId === task.id
                 const isDragged = draggedTask === task.id

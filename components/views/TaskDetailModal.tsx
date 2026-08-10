@@ -191,8 +191,8 @@ export function TaskDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+        <DialogHeader className="px-6 pt-5 pb-4 border-b border-border space-y-2">
           {parent && (
             <button
               onClick={() => onOpenStep(parent)}
@@ -202,10 +202,24 @@ export function TaskDetailModal({
               {parent.title}
             </button>
           )}
+          <DialogTitle asChild>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={() => {
+                const t = title.trim()
+                if (t && t !== step.title) patch({ title: t })
+              }}
+              className="text-xl font-semibold border-transparent bg-transparent shadow-none hover:border-input focus-visible:border-input px-2 -mx-2 h-auto py-1 mr-8"
+            />
+          </DialogTitle>
           <div className="flex items-center gap-2 pr-8">
             {/* Status pill + advance */}
             <Select value={step.status} onValueChange={(v) => patch({ status: v })}>
-              <SelectTrigger className="w-[160px] h-8">
+              <SelectTrigger
+                className="w-[170px] h-8 border-0 font-medium"
+                style={{ backgroundColor: (current?.color ?? "#87909e") + "26", color: current?.color ?? "#87909e" }}
+              >
                 <span
                   className="w-2 h-2 rounded-full mr-1.5 shrink-0"
                   style={{ backgroundColor: current?.color ?? "#87909e" }}
@@ -223,7 +237,7 @@ export function TaskDetailModal({
                 ))}
               </SelectContent>
             </Select>
-            <Button size="sm" className="h-8" onClick={() => patch({ status: advance.next })}>
+            <Button size="sm" variant="outline" className="h-8" onClick={() => patch({ status: advance.next })}>
               <advance.icon className="w-3.5 h-3.5 mr-1.5" />
               {advance.label}
             </Button>
@@ -234,29 +248,18 @@ export function TaskDetailModal({
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-red-500 hover:text-red-600"
+              className="h-8 w-8 text-muted-foreground hover:text-red-500"
               onClick={() => onDelete(step)}
               title="Delete"
             >
               <Trash2 className="w-4 h-4" />
             </Button>
           </div>
-          <DialogTitle asChild>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              onBlur={() => {
-                const t = title.trim()
-                if (t && t !== step.title) patch({ title: t })
-              }}
-              className="text-lg font-semibold border-transparent hover:border-input focus:border-input px-2 -mx-2 mt-1"
-            />
-          </DialogTitle>
         </DialogHeader>
 
-        <div className="grid md:grid-cols-[1fr_240px] gap-6">
+        <div className="grid md:grid-cols-[1fr_260px] gap-0">
           {/* Main column */}
-          <div className="space-y-5 min-w-0">
+          <div className="space-y-6 min-w-0 px-6 py-5">
             {/* Description */}
             <div>
               <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
@@ -415,7 +418,10 @@ export function TaskDetailModal({
           </div>
 
           {/* Meta sidebar */}
-          <div className="space-y-3 md:border-l md:border-border md:pl-5">
+          <div className="space-y-3 md:border-l md:border-border px-5 py-5 bg-accent/10">
+            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80 mb-1">
+              Details
+            </h4>
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs text-muted-foreground">Priority</span>
               <Select

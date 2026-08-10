@@ -43,29 +43,19 @@ const PHASE_COLORS: Record<string, string> = {
   Done: "var(--j-pos)",
 }
 
-function genMomentum(progress: number, seed: number): number[] {
-  return Array.from({ length: 14 }, (_, i) =>
-    Math.max(2, Math.min(100, Math.max(0, progress - 30) + i * 2.5 + Math.sin((i + seed) * 0.9) * 10))
-  )
-}
-
-function SparkRail({ values }: { values: number[] }) {
-  const max = Math.max(...values, 1)
-  return (
-    <div className="j-spark-rail" style={{ height: 24, width: 80 }}>
-      {values.map((v, i) => (
-        <span
-          key={i}
-          className={i >= values.length - 3 ? "j-hi" : ""}
-          style={{ height: `${(v / max) * 100}%` }}
-        />
-      ))}
-    </div>
-  )
+function lastActivityLabel(d?: Date | string | null): string {
+  if (!d) return "—"
+  const t = new Date(d).getTime()
+  if (!Number.isFinite(t)) return "—"
+  const days = Math.floor((Date.now() - t) / 86400000)
+  if (days <= 0) return "today"
+  if (days === 1) return "yesterday"
+  if (days < 30) return `${days}d ago`
+  const months = Math.floor(days / 30)
+  return months < 12 ? `${months}mo ago` : `${Math.floor(months / 12)}y ago`
 }
 
 function ProjectCard({ p, onClick }: { p: ProjectSummary; onClick: () => void }) {
-  const momentum = genMomentum(p.progress, p.id.charCodeAt(0))
   return (
     <div className="j-card" style={{ cursor: "pointer", display: "flex", flexDirection: "column" }} onClick={onClick}>
       <div style={{ marginBottom: 10 }}>
@@ -115,7 +105,10 @@ function ProjectCard({ p, onClick }: { p: ProjectSummary; onClick: () => void })
           <span className="j-num" style={{ fontSize: 12 }}>{p.completedTasks}/{p.totalTasks}</span>
           <span className="j-muted" style={{ fontSize: 10 }}>tasks · {p.activeAgents} agents</span>
         </div>
-        <SparkRail values={momentum} />
+        <div className="j-col" style={{ gap: 0, textAlign: "right" }}>
+          <span className="j-num" style={{ fontSize: 12 }}>{lastActivityLabel(p.lastActivity)}</span>
+          <span className="j-muted" style={{ fontSize: 10 }}>last activity</span>
+        </div>
       </div>
     </div>
   )
@@ -184,7 +177,6 @@ function ProjectsPortfolio({ projects, onOpen }: { projects: ProjectSummary[]; o
   return (
     <div className="j-col" style={{ gap: 8 }}>
       {projects.map(p => {
-        const momentum = genMomentum(p.progress, p.id.charCodeAt(0))
         const barColor = PHASE_COLORS[p.phase || ""] || "var(--j-accent)"
         return (
           <div
@@ -213,9 +205,9 @@ function ProjectsPortfolio({ projects, onOpen }: { projects: ProjectSummary[]; o
               <div className="j-progress"><span style={{ width: `${p.progress}%` }} /></div>
             </div>
 
-            <div style={{ flex: "0 0 100px" }}>
-              <SparkRail values={momentum} />
-              <div className="j-muted" style={{ fontSize: 9, marginTop: 2, letterSpacing: "0.04em" }}>14-day momentum</div>
+            <div style={{ flex: "0 0 100px", textAlign: "center" }}>
+              <div className="j-num" style={{ fontSize: 13 }}>{lastActivityLabel(p.lastActivity)}</div>
+              <div className="j-muted" style={{ fontSize: 10 }}>last activity</div>
             </div>
 
             <div style={{ flex: "0 0 90px", textAlign: "center" }}>
