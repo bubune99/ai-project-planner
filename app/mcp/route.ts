@@ -1255,7 +1255,8 @@ const handler = createMcpHandler(
             version: doc.version,
             contentMode: contentChanged ? applyMode : null,
             contentLength: doc.content_length,
-            fileSize: doc.file_size,
+            // file_size is BIGINT, which the Neon driver returns as a string.
+            fileSize: doc.file_size === null ? null : Number(doc.file_size),
             updatedAt: doc.updated_at,
             envelopeUpdated: merged.ok,
           })
