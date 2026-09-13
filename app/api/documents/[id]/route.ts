@@ -224,7 +224,7 @@ export async function PATCH(
         content           = COALESCE(${content}::text, content),
         file_size         = CASE WHEN ${content}::text IS NULL THEN file_size ELSE octet_length(${content}::text) END,
         documentation_5wh = COALESCE(${hasEnvelope ? envelopeForSql(mergeResult.envelope) : null}::jsonb, documentation_5wh),
-        version           = COALESCE(version, 1) + 1,
+        -- version is owned by document_content_version_trigger (migration 054)
         last_edited_by    = ${userId},
         updated_at        = NOW()
       WHERE id = ${id}

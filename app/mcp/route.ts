@@ -129,9 +129,16 @@ function mcpResponse(data: unknown) {
 /**
  * Standard MCP error response
  */
+/**
+ * Every tool failure goes through here, so this is the one place that decides
+ * how failures look on the wire. `isError: true` is the MCP protocol flag for
+ * a tool-level failure. Without it, clients that branch on the flag (rather
+ * than parsing the text) saw every planner error as a successful call.
+ */
 function mcpError(message: string) {
   return {
     content: [{ type: "text" as const, text: compactJson({ error: message }) }],
+    isError: true,
   }
 }
 
@@ -1070,14 +1077,37 @@ const handler = createMcpHandler(
       {
         documentId: z.string().describe("The document ID"),
         maxLength: z.number().optional().describe("Max content length (default 2000 chars, saves tokens)"),
+        version: z.number().int().positive().optional().describe("Read a past version instead of the current one (see list_document_versions)"),
       },
-      async ({ documentId, maxLength }) => {
+      async ({ documentId, maxLength, version }) => {
         try {
           // verifyMcpDocumentOwnership now includes collaborator access
           const hasAccess = await verifyMcpDocumentOwnership(documentId)
           if (!hasAccess) return mcpError("Document not found or access denied")
 
           const contentLimit = maxLength || 2000
+
+          if (version !== undefined) {
+            const [past] = await sql`
+              SELECT cv.version, cv.title, cv.content, cv.category, cv.doc_type, cv.edited_by, cv.superseded_by, cv.created_at, d.version AS current_version
+              FROM document_content_versions cv
+              JOIN documents d ON d.id = cv.document_id
+              WHERE cv.document_id = ${documentId} AND cv.version = ${version}
+            `
+            if (!past) return mcpError(`Version ${version} not found for this document (see list_document_versions)`)
+            return mcpResponse({
+              id: documentId,
+              version: past.version,
+              currentVersion: past.current_version,
+              title: past.title,
+              type: "page",
+              content: truncate(past.content as string, contentLimit),
+              truncated: past.content && (past.content as string).length > contentLimit,
+              editedBy: past.edited_by,
+              supersededBy: past.superseded_by,
+              supersededAt: past.created_at,
+            })
+          }
 
           const [doc] = await sql`
             SELECT d.id, d.title, d.content, d.blob_key, d.blob_url FROM documents d
@@ -1152,7 +1182,7 @@ const handler = createMcpHandler(
     // never touched content, so every correction became a new "addendum" doc.
     server.tool(
       "update_document",
-      "Edit an existing knowledge base page in place: change its title, category or type, and replace or append to its content. Use this instead of creating an addendum document. mode='append' adds text to the end without resending the whole document, and is safe against concurrent edits. mode='replace' (default) overwrites the body. Uploaded files can be renamed or recategorised but their content cannot be edited. Requires write access.",
+      "Edit an existing knowledge base page in place: change its title, category or type, and replace or append to its content. Use this instead of creating an addendum document. mode='append' adds text to the end without resending the whole document, and is safe against concurrent edits. mode='replace' (default) overwrites the body. Every change to title or content keeps the prior state as a numbered version, so an edit can be undone with restore_document_version. Uploaded files can be renamed or recategorised but their content cannot be edited. Requires write access.",
       {
         documentId: z.string().describe("The document ID"),
         title: z.string().optional().describe("New title"),
@@ -1239,7 +1269,9 @@ const handler = createMcpHandler(
                 ELSE octet_length(${newContent}::text)
               END,
               documentation_5wh = COALESCE(${envelopeJson}::jsonb, documentation_5wh),
-              version           = COALESCE(version, 1) + 1,
+              -- version is not set here: document_content_version_trigger
+              -- (migration 054) bumps it and snapshots the replaced state
+              -- whenever title or content actually changes.
               last_edited_by    = ${userId}
             WHERE id = ${documentId} AND deleted_at IS NULL
             RETURNING id, title, category, doc_type, version, file_size, length(content) AS content_length, updated_at
@@ -1259,6 +1291,118 @@ const handler = createMcpHandler(
             fileSize: doc.file_size === null ? null : Number(doc.file_size),
             updatedAt: doc.updated_at,
             envelopeUpdated: merged.ok,
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ==========================================
+    // Tool: List document versions
+    // ==========================================
+    server.tool(
+      "list_document_versions",
+      "List the past versions of a document, newest first. A version is recorded automatically every time the title or content changes, holding the state that was replaced. Read one with read_document({ documentId, version }); bring one back with restore_document_version.",
+      {
+        documentId: z.string().describe("The document ID"),
+        limit: z.number().int().positive().max(100).optional().describe("Max versions to return (default 20)"),
+      },
+      async ({ documentId, limit }) => {
+        try {
+          const hasAccess = await verifyMcpDocumentOwnership(documentId)
+          if (!hasAccess) return mcpError("Document not found or access denied")
+
+          const [doc] = await sql`
+            SELECT id, title, version, updated_at, last_edited_by
+            FROM documents WHERE id = ${documentId} AND deleted_at IS NULL
+          `
+          if (!doc) return mcpError("Document not found or access denied")
+
+          const rows = await sql`
+            SELECT version, title, octet_length(content) AS bytes, edited_by, superseded_by, created_at
+            FROM document_content_versions
+            WHERE document_id = ${documentId}
+            ORDER BY version DESC
+            LIMIT ${limit ?? 20}
+          `
+
+          return mcpResponse({
+            id: doc.id,
+            current: {
+              version: doc.version,
+              title: doc.title,
+              updatedAt: doc.updated_at,
+              editedBy: doc.last_edited_by,
+            },
+            versions: rows.map((r: Record<string, unknown>) => ({
+              version: r.version,
+              title: r.title,
+              // octet_length is INTEGER here, but keep the same Number() guard as fileSize
+              bytes: r.bytes === null ? null : Number(r.bytes),
+              editedBy: r.edited_by,
+              supersededBy: r.superseded_by,
+              supersededAt: r.created_at,
+            })),
+            count: rows.length,
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ==========================================
+    // Tool: Restore document version
+    // ==========================================
+    server.tool(
+      "restore_document_version",
+      "Restore a document's title and content from a past version. The state being replaced is itself kept as a new version, so a restore can be undone the same way. Category and type are left as they are. Requires write access.",
+      {
+        documentId: z.string().describe("The document ID"),
+        version: z.number().int().positive().describe("Version to restore (see list_document_versions)"),
+      },
+      async ({ documentId, version }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          const [existing] = await sql`
+            SELECT project_id FROM documents WHERE id = ${documentId} AND deleted_at IS NULL
+          `
+          if (!existing) return mcpError("Document not found or access denied")
+          try {
+            await requireMcpProjectWriteAccess(existing.project_id as string)
+          } catch (accessError: unknown) {
+            const reason = accessError instanceof Error ? accessError.message : ""
+            return mcpError(reason.includes("view-only") ? reason : "Document not found or access denied")
+          }
+
+          // One statement: the trigger snapshots the current state, then the
+          // restored title/content land. Past versions are never modified.
+          const [doc] = await sql`
+            UPDATE documents d
+            SET title          = cv.title,
+                content        = cv.content,
+                file_size      = CASE WHEN d.blob_key IS NULL THEN octet_length(cv.content) ELSE d.file_size END,
+                last_edited_by = ${userId}
+            FROM document_content_versions cv
+            WHERE cv.document_id = d.id
+              AND cv.version = ${version}
+              AND d.id = ${documentId}
+              AND d.deleted_at IS NULL
+            RETURNING d.id, d.title, d.version, d.file_size, d.updated_at
+          `
+          if (!doc) return mcpError(`Version ${version} not found for this document (see list_document_versions)`)
+
+          return mcpResponse({
+            restored: true,
+            id: doc.id,
+            restoredFromVersion: version,
+            title: doc.title,
+            version: doc.version,
+            fileSize: doc.file_size === null ? null : Number(doc.file_size),
+            updatedAt: doc.updated_at,
           })
         } catch (error: unknown) {
           return mcpError(error instanceof Error ? error.message : "Unknown error")
