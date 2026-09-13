@@ -3,6 +3,7 @@ import { sql } from "@/lib/db/client";
 import { deleteFromR2 } from "@/lib/storage/r2-client";
 import { getAuthContext } from "@/lib/auth/auth-utils";
 import { mergeEnvelopeForPatch, envelopeForSql } from "@/lib/api/envelope-helpers";
+import { decodeTitleEntities, decodeMarkdownAmpEntities } from "@/lib/text/decode-entities";
 
 export const dynamic = "force-dynamic"
 
@@ -159,7 +160,12 @@ export async function DELETE(
 
 /**
  * PATCH /api/documents/[id]
- * Update document metadata (title, description, category)
+ * Update a document's title, description, category, and (for pages) content.
+ *
+ * `content` replaces the body. Until 2026-09-13 this route could not change
+ * content at all, and neither could the MCP, so documents were write-once.
+ * Agents that need to add to a document should use MCP update_document with
+ * mode="append", which is atomic under concurrent edits.
  */
 export async function PATCH(
   request: NextRequest,
@@ -178,10 +184,24 @@ export async function PATCH(
     const { userId } = authContext;
     const { id } = await params;
     const body = await request.json();
-    const { title, description, category } = body;
+    const { description, category } = body;
+
+    // Some clients HTML-encode their payload; normalise at the boundary.
+    const title = typeof body.title === "string" ? decodeTitleEntities(body.title).trim() : undefined;
+    if (body.content !== undefined && typeof body.content !== "string") {
+      return NextResponse.json({ error: "content must be a string" }, { status: 400 });
+    }
+    const content = typeof body.content === "string" ? decodeMarkdownAmpEntities(body.content) : null;
 
     // Fetch existing envelope + project_id for merge
-    const existingDoc = await sql`SELECT documentation_5wh, project_id FROM documents WHERE id = ${id} AND user_id = ${userId} AND deleted_at IS NULL`;
+    const existingDoc = await sql`SELECT documentation_5wh, project_id, blob_key FROM documents WHERE id = ${id} AND user_id = ${userId} AND deleted_at IS NULL`;
+
+    if (content !== null && existingDoc[0]?.blob_key) {
+      return NextResponse.json(
+        { error: "This document is an uploaded file; its content cannot be edited" },
+        { status: 400 }
+      );
+    }
     const mergeResult = mergeEnvelopeForPatch(
       existingDoc[0]?.documentation_5wh,
       body,
@@ -201,7 +221,11 @@ export async function PATCH(
         title             = COALESCE(${title || null}, title),
         description       = COALESCE(${description || null}, description),
         category          = COALESCE(${category || null}, category),
+        content           = COALESCE(${content}::text, content),
+        file_size         = CASE WHEN ${content}::text IS NULL THEN file_size ELSE octet_length(${content}::text) END,
         documentation_5wh = COALESCE(${hasEnvelope ? envelopeForSql(mergeResult.envelope) : null}::jsonb, documentation_5wh),
+        version           = COALESCE(version, 1) + 1,
+        last_edited_by    = ${userId},
         updated_at        = NOW()
       WHERE id = ${id}
         AND user_id = ${userId}

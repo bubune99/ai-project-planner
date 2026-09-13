@@ -11,6 +11,7 @@
 import { createMcpHandler } from "mcp-handler"
 import { z } from "zod"
 import { sql } from "@/lib/db/client"
+import { decodeTitleEntities, decodeMarkdownAmpEntities } from "@/lib/text/decode-entities"
 import {
   createWorker,
   listWorkers,
@@ -1123,16 +1124,141 @@ const handler = createMcpHandler(
           // Check write access
           await requireMcpProjectWriteAccess(resolvedId)
 
+          // Some clients HTML-encode their payload before calling ("Product &amp;
+          // Thesis"). Normalise at the boundary — see lib/text/decode-entities.ts.
+          const cleanTitle = decodeTitleEntities(title)
+          const cleanContent = decodeMarkdownAmpEntities(content)
+
           // Calculate content size in bytes
-          const contentSize = Buffer.byteLength(content, 'utf8')
+          const contentSize = Buffer.byteLength(cleanContent, 'utf8')
 
           const [doc] = await sql`
             INSERT INTO documents(project_id, title, content, category, doc_type, blob_key, file_type, file_size, user_id)
-            VALUES(${resolvedId}, ${title}, ${content}, ${category || "general"}, ${docType || "general"}, NULL, 'text/markdown', ${contentSize}, ${userId})
+            VALUES(${resolvedId}, ${cleanTitle}, ${cleanContent}, ${category || "general"}, ${docType || "general"}, NULL, 'text/markdown', ${contentSize}, ${userId})
             RETURNING id, title
           `
 
           return mcpResponse({ created: true, id: doc.id, title: doc.title })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ==========================================
+    // Tool: Update document (Knowledge Base Page)
+    // ==========================================
+    // Documents were write-once: no MCP tool edited them and the REST PATCH
+    // never touched content, so every correction became a new "addendum" doc.
+    server.tool(
+      "update_document",
+      "Edit an existing knowledge base page in place: change its title, category or type, and replace or append to its content. Use this instead of creating an addendum document. mode='append' adds text to the end without resending the whole document, and is safe against concurrent edits. mode='replace' (default) overwrites the body. Uploaded files can be renamed or recategorised but their content cannot be edited. Requires write access.",
+      {
+        documentId: z.string().describe("The document ID"),
+        title: z.string().optional().describe("New title"),
+        content: z.string().optional().describe("Markdown. Replaces the body (mode=replace) or is added to the end (mode=append)"),
+        mode: z.enum(["replace", "append"]).optional().describe("How content is applied (default: replace)"),
+        category: z.string().optional().describe("New category"),
+        docType: z.enum(["architecture","api","ui_ux","requirements","testing","deployment","general"]).optional().describe("New document type"),
+      },
+      async ({ documentId, title, content, mode, category, docType }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+
+          if (title === undefined && content === undefined && category === undefined && docType === undefined) {
+            return mcpError("Nothing to update: pass at least one of title, content, category, docType")
+          }
+          if (mode !== undefined && content === undefined) {
+            return mcpError("mode applies to content: pass content along with mode")
+          }
+
+          const cleanTitle = title === undefined ? undefined : decodeTitleEntities(title).trim()
+          if (cleanTitle !== undefined && cleanTitle === "") {
+            return mcpError("title cannot be empty")
+          }
+          const cleanContent = content === undefined ? undefined : decodeMarkdownAmpEntities(content)
+          const applyMode = mode ?? "replace"
+
+          const [existing] = await sql`
+            SELECT id, project_id, blob_key, documentation_5wh
+            FROM documents
+            WHERE id = ${documentId} AND deleted_at IS NULL
+          `
+          if (!existing) return mcpError("Document not found or access denied")
+
+          // "No such document" and "no access to its project" return the same
+          // message, so document ids can't be probed. View-only collaborators
+          // already know the doc exists, so they get the specific reason.
+          try {
+            await requireMcpProjectWriteAccess(existing.project_id as string)
+          } catch (accessError: unknown) {
+            const reason = accessError instanceof Error ? accessError.message : ""
+            return mcpError(reason.includes("view-only") ? reason : "Document not found or access denied")
+          }
+
+          if (cleanContent !== undefined && existing.blob_key) {
+            return mcpError("This document is an uploaded file, so its content cannot be edited. Its title, category and type can still be changed.")
+          }
+
+          // Keep the 5W+H envelope's title in step with a rename.
+          const { mergeEnvelopeForPatch, envelopeForSql } = await import("@/lib/api/envelope-helpers")
+          const merged = mergeEnvelopeForPatch(
+            existing.documentation_5wh as Record<string, unknown>,
+            cleanTitle !== undefined ? { documentation_5wh: { what: { title: cleanTitle } } } : {},
+            { userId, projectId: existing.project_id as string },
+            { type: "document", title: cleanTitle, rationale: "Update via MCP update_document" },
+          )
+          const envelopeJson = merged.ok ? envelopeForSql(merged.envelope) : null
+
+          const newContent = cleanContent ?? null
+          const contentChanged = newContent !== null
+
+          // The next-content expression is written out twice (content and
+          // file_size) on purpose. Folding it into a CTE would read the row in
+          // one snapshot and write it in another, so two concurrent appends
+          // could both start from the same body and one would be lost. Inside a
+          // single UPDATE, Postgres re-evaluates SET against the latest row
+          // version, which is what makes append safe.
+          const [doc] = await sql`
+            UPDATE documents
+            SET
+              title             = COALESCE(${cleanTitle ?? null}, title),
+              category          = COALESCE(${category ?? null}, category),
+              doc_type          = COALESCE(${docType ?? null}, doc_type),
+              content = CASE
+                WHEN ${newContent}::text IS NULL THEN content
+                WHEN ${applyMode} = 'append' AND COALESCE(content, '') <> ''
+                  THEN regexp_replace(content, ${"\\s+$"}, '') || ${"\n\n"} || ${newContent}::text
+                ELSE ${newContent}::text
+              END,
+              file_size = CASE
+                WHEN ${newContent}::text IS NULL THEN file_size
+                WHEN ${applyMode} = 'append' AND COALESCE(content, '') <> ''
+                  THEN octet_length(regexp_replace(content, ${"\\s+$"}, '') || ${"\n\n"} || ${newContent}::text)
+                ELSE octet_length(${newContent}::text)
+              END,
+              documentation_5wh = COALESCE(${envelopeJson}::jsonb, documentation_5wh),
+              version           = COALESCE(version, 1) + 1,
+              last_edited_by    = ${userId}
+            WHERE id = ${documentId} AND deleted_at IS NULL
+            RETURNING id, title, category, doc_type, version, file_size, length(content) AS content_length, updated_at
+          `
+          if (!doc) return mcpError("Document not found or access denied")
+
+          return mcpResponse({
+            updated: true,
+            id: doc.id,
+            title: doc.title,
+            category: doc.category,
+            docType: doc.doc_type,
+            version: doc.version,
+            contentMode: contentChanged ? applyMode : null,
+            contentLength: doc.content_length,
+            fileSize: doc.file_size,
+            updatedAt: doc.updated_at,
+            envelopeUpdated: merged.ok,
+          })
         } catch (error: unknown) {
           return mcpError(error instanceof Error ? error.message : "Unknown error")
         }
