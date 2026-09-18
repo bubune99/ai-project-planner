@@ -13,6 +13,11 @@ import { z } from "zod"
 import { sql } from "@/lib/db/client"
 import { decodeTitleEntities, decodeMarkdownAmpEntities } from "@/lib/text/decode-entities"
 import {
+  fetchEntityEnvelope,
+  AUDITABLE_ENVELOPE_TABLES,
+  isAuditableEnvelopeTable,
+} from "@/lib/mcp/entity-envelope"
+import {
   createWorker,
   listWorkers,
   getWorker,
@@ -4204,35 +4209,16 @@ const handler = createMcpHandler(
         try {
           const userId = getMcpUserId()
 
-          // Resolve table from entity_type
-          const tableMap: Record<string, { table: string; userCol?: string }> = {
-            skill: { table: "skills" },
-            feature_template: { table: "feature_templates" },
-            protocol: { table: "protocols" },
-            work_order: { table: "work_orders" },
-            work_order_step: { table: "work_order_steps" },
-            prompt: { table: "prompts" },
-            idea: { table: "ideas" },
-            todo: { table: "todos" },
-            project: { table: "projects" },
-            decision: { table: "architecture_decisions" },
-            attempted_solution: { table: "attempted_solutions" },
-            entity_relation: { table: "entity_relations" },
-            spec_application: { table: "spec_applications" },
+          const lookup = await fetchEntityEnvelope(entity_type, entity_id, userId)
+          if (!lookup.ok) {
+            return mcpError(
+              lookup.reason === "unknown_type"
+                ? `Unknown entity_type: ${entity_type}. Known types: ${lookup.knownTypes.join(", ")}`
+                : `${entity_type} not found or access denied`
+            )
           }
 
-          const mapping = tableMap[entity_type]
-          if (!mapping) return mcpError(`Unknown entity_type: ${entity_type}`)
-
-          // Neon serverless: sql.unsafe(str) returns a SQL fragment for interpolation
-          // into a template literal — NOT a query executor. Use it for the table name.
-          const tableFragment = sql.unsafe(mapping.table)
-          const rows = await sql`SELECT documentation_5wh FROM ${tableFragment} WHERE id = ${entity_id}::uuid AND user_id = ${userId}::uuid LIMIT 1`
-          const row = rows[0]
-
-          if (!row) return mcpError(`${entity_type} not found or access denied`)
-
-          const envelope = row.documentation_5wh
+          const envelope = lookup.envelope
 
           if (!envelope || Object.keys(envelope as object).length === 0) {
             return mcpResponse({
@@ -5446,20 +5432,16 @@ const handler = createMcpHandler(
           if (scope === "entity") {
             if (!entity_type || !entity_id) return mcpError("entity_type and entity_id required for entity scope")
 
-            const tableMap: Record<string, string> = {
-              skill: "skills", feature_template: "feature_templates", protocol: "protocols",
-              work_order: "work_orders", work_order_step: "work_order_steps", prompt: "prompts",
-              idea: "ideas", todo: "todos", project: "projects", decision: "architecture_decisions",
-              attempted_solution: "attempted_solutions", entity_relation: "entity_relations",
+            const lookup = await fetchEntityEnvelope(entity_type, entity_id, userId)
+            if (!lookup.ok) {
+              return mcpError(
+                lookup.reason === "unknown_type"
+                  ? `Unknown entity_type: ${entity_type}. Known types: ${lookup.knownTypes.join(", ")}`
+                  : `${entity_type} not found`
+              )
             }
-            const tbl = tableMap[entity_type]
-            if (!tbl) return mcpError(`Unknown entity_type: ${entity_type}`)
 
-            const tblFragment = sql.unsafe(tbl)
-            const rows = await sql`SELECT documentation_5wh FROM ${tblFragment} WHERE id = ${entity_id}::uuid AND user_id = ${userId}::uuid LIMIT 1`
-            if (!rows[0]) return mcpError(`${entity_type} not found`)
-
-            const envelope = rows[0].documentation_5wh
+            const envelope = lookup.envelope
             if (!envelope || Object.keys(envelope as object).length === 0) {
               return mcpResponse({ success: true, data: { envelope: null, score: 0, filled: [], empty: [], note: "No envelope" } })
             }
@@ -5478,6 +5460,14 @@ const handler = createMcpHandler(
             const targetTable = table
             if (!targetTable) return mcpError("table param required for tables scope")
 
+            // targetTable reaches a SQL identifier position, where values cannot be
+            // parameterized. Only an exact allowlist match may be interpolated.
+            if (!isAuditableEnvelopeTable(targetTable)) {
+              return mcpError(
+                `Unknown table: ${targetTable}. Auditable tables: ${AUDITABLE_ENVELOPE_TABLES.join(", ")}`
+              )
+            }
+
             const targetFragment = sql.unsafe(targetTable)
             const rows = await sql`
               SELECT COUNT(*)::int AS total,
@@ -5491,7 +5481,10 @@ const handler = createMcpHandler(
           }
 
           // summary scope — aggregate across key tables
-          const summaryTables = ["skills", "feature_templates", "protocols", "work_orders", "prompts", "attempted_solutions", "entity_relations"]
+          // Derived from the envelope source map so new entity types are covered
+          // automatically — the previous hardcoded list silently omitted ideas,
+          // todos, projects and decisions from every coverage audit.
+          const summaryTables = AUDITABLE_ENVELOPE_TABLES
           const summaryRows = await Promise.all(
             summaryTables.map(async (t) => {
               try {
