@@ -45,7 +45,13 @@ const NAV_SECTIONS: NavSection[] = [
       { title: "SOPs", href: "/sops", icon: "sop" },
       { title: "Library", href: "/library", icon: "library" },
       { title: "Catalog", href: "/catalog", icon: "layers" },
-      { title: "Impact", href: "/impact", icon: "network" },
+      /*
+        "Impact" (/impact) hidden 2026-10-03. It is the Catalog Impact Graph —
+        Idea H wave 5 — and it reads from catalog surfaces, of which there are
+        none: the catalog scanner has never run, so the page opened onto an
+        empty graph nobody could place. The route and its 575 lines are kept;
+        restore this entry once the scanner has populated the catalog.
+      */
     ],
   },
   {

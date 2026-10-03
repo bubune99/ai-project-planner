@@ -1,14 +1,29 @@
 "use client"
 
+/*
+ * /todos — "My Work".
+ *
+ * Was a flat list of 364 todos, 358 of which were copies of tasks that already
+ * lived on project boards (migration 057 mirrored them into project_steps and
+ * nothing kept the pair in sync). It now reads GET /api/work, which returns each
+ * project step once plus only the todos that are NOT mirrors — personal work,
+ * and project todos created since the migration. See lib/work-items.ts.
+ *
+ * The layout follows the datatable pattern: one toolbar, one table, grouped by
+ * project. The old page had two tab bars for the same four views and rendered
+ * every row at 108px; the "Today" and "Upcoming" views were permanently empty
+ * because only 23 of 364 items carried a due date.
+ */
+
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useUser } from "@stackframe/stack"
+import { toast } from "sonner"
 import { DashboardLayout } from "@/components/navigation"
 
-import { TodoList } from "@/components/todos/TodoList"
 import { TodoQuickAdd } from "@/components/todos/TodoQuickAdd"
-import { TodoFilters } from "@/components/todos/TodoFilters"
 import { TodoEditModal } from "@/components/todos/TodoEditModal"
+import { WorkTable } from "@/components/work/WorkTable"
 import type { Todo, TodoPriority } from "@/lib/types"
 
 interface Project {
@@ -16,69 +31,21 @@ interface Project {
   name: string
 }
 
-interface TodoCounts {
-  today: number
-  upcoming: number
-  active: number
-  completed: number
-}
-
 export default function TodosPage() {
   const router = useRouter()
   const user = useUser()
 
-  // State
-  const [todos, setTodos] = useState<Todo[]>([])
   const [projects, setProjects] = useState<Project[]>([])
-  const [counts, setCounts] = useState<TodoCounts>({ today: 0, upcoming: 0, active: 0, completed: 0 })
-  const [isLoading, setIsLoading] = useState(true)
   const [isAdding, setIsAdding] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  // Filters
-  const [view, setView] = useState<"today" | "upcoming" | "all" | "completed">("all")
-  const [priorityFilter, setPriorityFilter] = useState("")
-  const [projectFilter, setProjectFilter] = useState("")
-  const [searchQuery, setSearchQuery] = useState("")
-
-  // Edit modal
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
-  // Fetch todos
-  const fetchTodos = useCallback(async () => {
-    try {
-      const params = new URLSearchParams()
-      params.set("view", view)
-      if (priorityFilter) params.set("priority", priorityFilter)
-      if (projectFilter === "unlinked") {
-        params.set("unlinked", "true")
-      } else if (projectFilter) {
-        params.set("projectId", projectFilter)
-      }
-      if (searchQuery) params.set("search", searchQuery)
-
-      const response = await fetch(`/api/todos?${params}`)
-      const data = await response.json()
-
-      if (data.success) {
-        setTodos(data.data)
-        if (data.meta?.counts) {
-          setCounts(data.meta.counts)
-        }
-      }
-    } catch (error) {
-      console.error("Failed to fetch todos:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [view, priorityFilter, projectFilter, searchQuery])
-
-  // Fetch projects for linking
   const fetchProjects = useCallback(async () => {
     try {
       const response = await fetch("/api/projects")
       const data = await response.json()
-
       if (data.success && Array.isArray(data.data)) {
         setProjects(data.data.map((p: any) => ({ id: p.id, name: p.name })))
       }
@@ -87,7 +54,6 @@ export default function TodosPage() {
     }
   }, [])
 
-  // Initial load
   useEffect(() => {
     if (!user) {
       router.push("/")
@@ -96,15 +62,13 @@ export default function TodosPage() {
     fetchProjects()
   }, [user, router, fetchProjects])
 
-  // Fetch todos when filters change
-  useEffect(() => {
-    if (user) {
-      fetchTodos()
-    }
-  }, [user, fetchTodos])
-
-  // Add todo
-  const handleAddTodo = async (newTodo: {
+  /*
+    Adding WITH a project creates a step on that project, so it appears on the
+    board immediately. Adding a project todo is exactly how the duplication
+    started: it lands in the todo list and never reaches the board. Adding
+    WITHOUT a project stays a personal todo.
+  */
+  const handleAdd = async (item: {
     title: string
     priority?: TodoPriority
     dueDate?: string
@@ -112,115 +76,56 @@ export default function TodosPage() {
   }) => {
     setIsAdding(true)
     try {
-      const response = await fetch("/api/todos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newTodo),
-      })
-      const data = await response.json()
-
-      if (data.success) {
-        // Refresh todos to get updated list and counts
-        fetchTodos()
+      const res = item.projectId
+        ? await fetch(`/api/projects/${item.projectId}/steps`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: item.title,
+              priority: item.priority ?? "medium",
+              ...(item.dueDate ? { end_date: item.dueDate } : {}),
+            }),
+          })
+        : await fetch("/api/todos", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(item),
+          })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body?.error?.message || body?.error || `HTTP ${res.status}`)
       }
+      const project = projects.find((p) => p.id === item.projectId)
+      toast.success(project ? `Added to ${project.name}` : "Added")
+      setRefreshKey((k) => k + 1)
     } catch (error) {
-      console.error("Failed to add todo:", error)
+      toast.error(error instanceof Error ? error.message : "Failed to add")
     } finally {
       setIsAdding(false)
     }
   }
 
-  // Toggle todo
-  const handleToggleTodo = async (id: string) => {
-    // Optimistic update
-    setTodos((prev) =>
-      prev.map((todo) =>
-        todo.id === id
-          ? { ...todo, status: todo.status === "completed" ? "pending" : "completed" }
-          : todo
-      )
-    )
-
+  const handleEditTodo = async (todoId: string) => {
     try {
-      const response = await fetch(`/api/todos/${id}/toggle`, {
-        method: "POST",
-      })
-      const data = await response.json()
-
-      if (data.success) {
-        // Refresh to get accurate counts
-        fetchTodos()
-      }
+      const res = await fetch(`/api/todos/${todoId}`)
+      const body = await res.json()
+      if (!res.ok || !body.success) throw new Error(body?.error?.message || `HTTP ${res.status}`)
+      setEditingTodo(body.data)
+      setIsEditModalOpen(true)
     } catch (error) {
-      console.error("Failed to toggle todo:", error)
-      // Revert on error
-      fetchTodos()
+      toast.error(error instanceof Error ? error.message : "Failed to open todo")
     }
   }
 
-  // Edit todo
-  const handleEditTodo = (todo: Todo) => {
-    setEditingTodo(todo)
-    setIsEditModalOpen(true)
-  }
-
-  // Save edited todo
   const handleSaveTodo = async (updates: Partial<Todo>) => {
     if (!editingTodo) return
-
-    try {
-      const response = await fetch(`/api/todos/${editingTodo.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
-      })
-      const data = await response.json()
-
-      if (data.success) {
-        fetchTodos()
-      }
-    } catch (error) {
-      console.error("Failed to update todo:", error)
-      throw error
-    }
-  }
-
-  // Delete todo
-  const handleDeleteTodo = async (id: string) => {
-    // Optimistic update
-    setTodos((prev) => prev.filter((todo) => todo.id !== id))
-
-    try {
-      const response = await fetch(`/api/todos/${id}`, {
-        method: "DELETE",
-      })
-      const data = await response.json()
-
-      if (data.success) {
-        fetchTodos()
-      }
-    } catch (error) {
-      console.error("Failed to delete todo:", error)
-      fetchTodos()
-    }
-  }
-
-  // Reorder todos
-  const handleReorderTodos = async (todoIds: string[]) => {
-    // Optimistic update
-    const reorderedTodos = todoIds.map((id) => todos.find((t) => t.id === id)!).filter(Boolean)
-    setTodos(reorderedTodos)
-
-    try {
-      await fetch("/api/todos/reorder", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ todoIds }),
-      })
-    } catch (error) {
-      console.error("Failed to reorder todos:", error)
-      fetchTodos()
-    }
+    const res = await fetch(`/api/todos/${editingTodo.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    setRefreshKey((k) => k + 1)
   }
 
   if (!user) {
@@ -236,73 +141,11 @@ export default function TodosPage() {
   return (
     <DashboardLayout>
       <div className="j-content j-col j-gap-4">
-        {/* Stat strip + view tabs */}
-        <div className="j-row j-between">
-          <div className="j-row j-gap-2">
-            {(["today","upcoming","all","completed"] as const).map(v => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={`j-pill ${view === v ? "j-proj" : "j-ghost"}`}
-                style={{ cursor: "pointer", border: "none", textTransform: "capitalize" }}
-              >
-                {v === "all" ? `All (${counts.active})` : v === "completed" ? `Done (${counts.completed})` : v === "today" ? `Today (${counts.today})` : `Upcoming (${counts.upcoming})`}
-              </button>
-            ))}
-          </div>
-          <div className="j-row j-gap-2">
-            <span className="j-muted" style={{ fontSize: 12 }}>{counts.active} active · {counts.completed} done</span>
-          </div>
-        </div>
-
-        {/* Quick add */}
         <div className="j-card">
-          <TodoQuickAdd
-            onAdd={handleAddTodo}
-            projects={projects}
-            isLoading={isAdding}
-          />
+          <TodoQuickAdd onAdd={handleAdd} projects={projects} isLoading={isAdding} />
         </div>
 
-        {/* Filters */}
-        <TodoFilters
-          view={view}
-          onViewChange={setView}
-          priorityFilter={priorityFilter}
-          onPriorityChange={setPriorityFilter}
-          projectFilter={projectFilter}
-          onProjectChange={setProjectFilter}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          projects={projects}
-          counts={counts}
-        />
-
-        {/* Todo list */}
-        <div className="j-card">
-          {isLoading ? (
-            <div style={{ padding: 32, textAlign: "center" }}>
-              <span className="j-muted" style={{ fontSize: 13 }}>Loading todos…</span>
-            </div>
-          ) : (
-            <TodoList
-              todos={todos}
-              onToggle={handleToggleTodo}
-              onEdit={handleEditTodo}
-              onDelete={handleDeleteTodo}
-              onReorder={handleReorderTodos}
-              emptyMessage={
-                view === "today"
-                  ? "No todos due today. Enjoy your day!"
-                  : view === "upcoming"
-                  ? "No upcoming todos in the next 7 days."
-                  : view === "completed"
-                  ? "No completed todos yet."
-                  : "No todos yet. Add one above to get started!"
-              }
-            />
-          )}
-        </div>
+        <WorkTable refreshKey={refreshKey} onEditTodo={handleEditTodo} />
       </div>
 
       <TodoEditModal

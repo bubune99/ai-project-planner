@@ -29,7 +29,6 @@
     "@codemirror/state": "^6.5.2",
     "@codemirror/theme-one-dark": "^6.1.3",
     "@codemirror/view": "^6.39.2",
-    "@hello-pangea/dnd": "latest",
     "@hookform/resolvers": "^3.10.0",
     "@modelcontextprotocol/sdk": "latest",
     "@neondatabase/serverless": "latest",
