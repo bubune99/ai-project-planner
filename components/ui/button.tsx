@@ -36,25 +36,37 @@ const buttonVariants = cva(
   },
 )
 
-function Button({
-  className,
-  variant,
-  size,
-  asChild = false,
-  ...props
-}: React.ComponentProps<'button'> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean
-  }) {
+/**
+ * forwardRef is REQUIRED here, not optional styling preference.
+ *
+ * This app runs React 18, where a plain function component cannot receive a
+ * ref. shadcn's newer React-19 template drops forwardRef because React 19
+ * passes ref as a normal prop. The consequence on React 18 is severe and
+ * silent: every `<DropdownMenuTrigger asChild><Button/>` (and Popover, Tooltip,
+ * Select…) hands Radix NO anchor element, so floating-ui measures a zero rect,
+ * positions the content at 0,0, then collision-flips it to a negative offset.
+ * The menu opens, is fully rendered and interactive — entirely off-screen.
+ *
+ * Measured on staging 2026-10-03, same page and same menu:
+ *   native <button> trigger  -> menu at 367,152  on screen
+ *   shadcn <Button> trigger  -> menu at 0,-362   off screen
+ */
+const Button = React.forwardRef<
+  HTMLButtonElement,
+  React.ComponentProps<'button'> &
+    VariantProps<typeof buttonVariants> & { asChild?: boolean }
+>(({ className, variant, size, asChild = false, ...props }, ref) => {
   const Comp = asChild ? Slot : 'button'
 
   return (
     <Comp
+      ref={ref}
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />
   )
-}
+})
+Button.displayName = 'Button'
 
 export { Button, buttonVariants }
