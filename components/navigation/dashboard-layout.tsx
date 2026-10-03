@@ -92,6 +92,14 @@ export function DashboardLayout({ children, noPad }: DashboardLayoutProps) {
       className={
         `j-app${effectiveCollapsed ? " j-collapsed" : ""}${mobileOpen ? " j-drawer-open" : ""}`
       }
+      /*
+        noPad pages (chat) own their scrolling. .j-app is min-height: 100vh with
+        no ceiling, so under noPad it grew to fit its content and the whole page
+        scrolled by about the topbar's height. Pin it to the viewport (dvh, so
+        mobile browser toolbars are accounted for); the page inside decides what
+        scrolls.
+      */
+      style={noPad ? { height: "100dvh", minHeight: 0, gridTemplateRows: "minmax(0, 1fr)", overflow: "hidden" } : undefined}
     >
       <AppSidebar
         collapsed={effectiveCollapsed}
@@ -107,7 +115,7 @@ export function DashboardLayout({ children, noPad }: DashboardLayoutProps) {
         />
       )}
 
-      <div className="j-main">
+      <div className="j-main" style={noPad ? { minHeight: 0, overflow: "hidden" } : undefined}>
         <header className="j-topbar">
           <div className="j-topbar-left">
             <button
