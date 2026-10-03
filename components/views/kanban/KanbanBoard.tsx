@@ -491,8 +491,26 @@ export const KanbanBoard = React.forwardRef<HTMLDivElement, KanbanBoardProps>(
 
     const originRef = React.useRef<Slot | null>(null);
 
-    const onCardKeyDown = (e: React.KeyboardEvent, task: KanbanTask) => {
+    const onCardKeyDown = (e: React.KeyboardEvent, task: KanbanTask, colId: string) => {
       const isGrabbed = grabbed === task.id;
+
+      /*
+        Enter opens, Space picks up.
+
+        Upstream treated them identically, which meant a card announced as a
+        button could never be activated from the keyboard — Enter picked it up
+        instead of opening it. Space-to-grab is the drag-and-drop convention and
+        Enter-to-activate is what role="button" promises; honouring both costs
+        nothing and gives a second route into the detail view.
+
+        While a card is held, Enter drops it — abandoning a grab to navigate
+        away would lose the move in progress.
+      */
+      if (e.key === "Enter" && !isGrabbed && onTaskOpen) {
+        e.preventDefault();
+        onTaskOpen(task, colId);
+        return;
+      }
 
       if (e.key === " " || e.key === "Enter") {
         e.preventDefault();
@@ -650,7 +668,7 @@ export const KanbanBoard = React.forwardRef<HTMLDivElement, KanbanBoardProps>(
                                 else cardRefs.current.delete(task.id);
                               }}
                               onPointerDown={(e) => startDrag(e, task, col.id, i)}
-                              onKeyDown={(e) => onCardKeyDown(e, task)}
+                              onKeyDown={(e) => onCardKeyDown(e, task, col.id)}
                               menu={renderCardMenu?.(task, col.id)}
                               onOpen={
                                 onTaskOpen
@@ -926,7 +944,11 @@ function Card({
       role="button"
       aria-roledescription="Draggable card"
       aria-grabbed={grabbed}
-      aria-label={`${task.title}. Press space to pick up.`}
+      aria-label={
+        onOpen
+          ? `${task.title}. Press enter to open, space to pick up.`
+          : `${task.title}. Press space to pick up.`
+      }
       onPointerDown={onPointerDown}
       onKeyDown={onKeyDown}
       onClick={onOpen}
