@@ -38,6 +38,7 @@ eq("created", summarizeResult('{"created":true,"id":"x"}'), { status: "ok", deta
 eq("named list", summarizeResult('{"projects":[1,2],"count":2}'), { status: "ok", detail: "2 projects" })
 eq("next_actions is not the result", summarizeResult('{"next_actions":[1],"tasks":[1,2,3]}'), { status: "ok", detail: "3 tasks" })
 eq("camelCase key humanised", summarizeResult('{"recentActivity":[1,2]}'), { status: "ok", detail: "2 recent activity" })
+eq("one item reads singular", summarizeResult('{"projects":[1]}'), { status: "ok", detail: "1 project" })
 eq("error text", summarizeResult("Error: Project not found"), { status: "error", detail: "Failed: Project not found" })
 eq("plain text is fine", summarizeResult("hello"), { status: "ok" })
 eq("non-string tolerated", summarizeResult(undefined), { status: "ok" })

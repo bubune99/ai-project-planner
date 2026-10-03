@@ -132,7 +132,10 @@ export function summarizeResult(text: unknown): { status: "ok" | "error"; detail
     if (o.created === true) return { status: "ok", detail: "Created" }
     if (o.updated === true) return { status: "ok", detail: "Updated" }
     for (const [k, val] of Object.entries(o)) {
-      if (Array.isArray(val) && k !== "next_actions") return { status: "ok", detail: `${val.length} ${humanKey(k)}` }
+      if (Array.isArray(val) && k !== "next_actions") {
+        const noun = humanKey(k)
+        return { status: "ok", detail: `${val.length} ${val.length === 1 ? noun.replace(/s$/, "") : noun}` }
+      }
     }
   }
   return { status: "ok" }
