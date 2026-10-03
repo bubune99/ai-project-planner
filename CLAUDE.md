@@ -89,6 +89,57 @@ pnpm start
 pnpm lint
 \`\`\`
 
+## Verification — do NOT start a dev server
+
+This repo lives on `/mnt/c`, reached through WSL's DrvFs bridge at **21.89 ms per
+`stat`** (0.0008 ms on ext4). `next build` exceeded 560 s without finishing and a
+whole-project `tsc --noEmit` takes 6+ minutes. `next dev` is therefore the most
+expensive verification path available, and `localhost` has no Hexclave session to
+sign in with.
+
+Use, in order:
+
+1. **The static suite** — `mcp__internal-code__*`, `mcp__ui-validation__*`,
+   `mcp__truth-seeker__*`. Seconds. See `~/.claude/rules/common/validation-suite.md`
+   for its **known defects** — it duplicate-reports 3×, mis-anchors line numbers,
+   and `validate_function_behavior` is broken by this repo's pinned tsx 4.21.0.
+2. **Execute the logic.** `lib/scheduling.ts` is the pattern: pure functions, no
+   React, dependencies injected, 23 assertions that run in seconds. If a rule
+   can't be executed without rendering, extract it.
+3. **The `staging` branch** — push it and verify the Vercel preview with
+   `mcp__field-trip__browser`. `.github/workflows/security.yml` already runs on
+   `[main, staging]`.
+4. **Production** (`v0-ai-project-planner-eight.vercel.app`) — only to confirm a
+   shipped change.
+
+A clean suite licenses you to proceed; it never proves the feature works. A Gantt
+chart that fabricated dates for 414 of 477 rows passed every static check here.
+
+**Vercel/Neon MCP caveat:** both MCP tokens are scoped to a different team than
+the one serving this project (`team_03avQDMAwaw3MDbkDtyo6faG`,
+`prj_09LYJD7w176maoMmL1AFgaJkR5Eh`). `list_projects` returns nothing for it. Use
+the Vercel CLI, and for the database use `scripts/migrate.ts`, which loads its own
+env — never source `.env`.
+
+## Two work-item stores — write to the right one
+
+`project_steps` is the project plan: every task/kanban/gantt/roadmap/progress view
+reads it, and only it supports dependencies, phases and subtasks. `todos` is a
+personal list with an optional project link.
+
+- Project work → **`create_task`** (or `/api/projects/:id/steps`)
+- Owner-only actions, waiting-on-someone, cross-domain → **`create_todo`**
+- A choice to be made → **`create_decision`**
+
+A project-linked todo does **not** appear in that project's views. `create_todo`
+returns a warning saying so when given a `projectId`. Migrations 056–058
+reconciled 432 pre-existing todos into steps; `project_steps.source_todo_id` and
+`todos.step_id` record the provenance.
+
+Note the Decisions tab reads `architecture_decisions` (ADRs, 8 rows) while
+`create_decision` writes `mlp_why_decisions` (80 rows) — they are different
+tables, which is why that tab looks unused.
+
 ## Architecture
 
 ### Tech Stack
