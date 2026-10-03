@@ -6,7 +6,20 @@ let _sql: ReturnType<typeof neon> | null = null
 let _pool: Pool | null = null
 
 function dbUrl(): string {
-  const url = process.env.DATABASE_URL
+  // The Neon-Vercel marketplace integration owns DATABASE_URL and scopes it to
+  // Production, Preview AND Development as one value, so a Preview deployment
+  // reads and WRITES production data. Vercel refuses a Preview-scoped override
+  // of that key ("already added to all Environments"), and removing it would
+  // take Production's with it.
+  //
+  // APP_DATABASE_URL is a separate, Preview-only key the integration does not
+  // manage. When present on a Preview deployment it points at the Neon
+  // `staging` branch instead. Production and local development are untouched:
+  // VERCEL_ENV is 'production' or undefined there, so this falls straight
+  // through to DATABASE_URL.
+  const url =
+    (process.env.VERCEL_ENV === 'preview' && process.env.APP_DATABASE_URL) ||
+    process.env.DATABASE_URL
   if (!url) throw new Error('DATABASE_URL environment variable is not set')
   return url
 }
