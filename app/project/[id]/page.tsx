@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from "react"
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { DashboardLayout } from "@/components/navigation"
 import { GanttView } from "@/components/views/GanttView"
@@ -42,11 +42,8 @@ const TABS = [
   { id: "ideas",      label: "Ideas" },
   { id: "finance",    label: "Finance" },
   { id: "agents",     label: "Agents" },
-  { id: "notes",      label: "Notes" },
   { id: "metrics",    label: "Metrics" },
-  { id: "risks",      label: "Risks" },
-  { id: "team",       label: "Team" },
-  { id: "links",      label: "Links" },
+  { id: "settings",   label: "Settings" },
 ]
 
 interface ProjectData {
@@ -61,7 +58,7 @@ interface ProjectData {
 
 // ─── Overview ────────────────────────────────────────────────────────────────
 
-function OverviewFacet({ project, projectId, phases }: { project: any; projectId: string; phases: any[] }) {
+function OverviewFacet({ project, projectId, phases, onProjectChange }: { project: any; projectId: string; phases: any[]; onProjectChange: () => void }) {
   const health = project.health || "good"
   const kpis = [
     { l: "Progress",      v: `${project.progress || 0}%`,                                   t: project.progress >= 80 ? "j-pos" : project.progress >= 40 ? "j-info" : "j-muted" },
@@ -97,6 +94,7 @@ function OverviewFacet({ project, projectId, phases }: { project: any; projectId
         </div>
       )}
 
+      <RisksFacet projectId={projectId} project={project} onChange={onProjectChange} compact />
       <ActivityFeed projectId={projectId} />
     </div>
   )
@@ -720,165 +718,6 @@ function AgentsFacet() {
   )
 }
 
-// ─── Notes ───────────────────────────────────────────────────────────────────
-
-const NOTE_TYPES = ["note", "progress", "decision", "blocker"] as const
-const NOTE_TYPE_TONE: Record<string, string> = {
-  note: "j-ghost", progress: "j-info", decision: "j-proj", blocker: "j-neg",
-}
-
-function NotesFacet({ projectId }: { projectId: string }) {
-  const [notes, setNotes] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [filter, setFilter] = useState<string>("")
-  const [form, setForm] = useState({ title: "", content: "", note_type: "note" as (typeof NOTE_TYPES)[number] })
-  const [saving, setSaving] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
-
-  const fetchNotes = useCallback(async () => {
-    setLoading(true)
-    try {
-      const r = await fetch(`/api/progress-notes?projectId=${projectId}&limit=100`)
-      const j = await r.json()
-      setNotes(Array.isArray(j.notes) ? j.notes : [])
-      setErr(null)
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "Failed to load notes")
-    } finally {
-      setLoading(false)
-    }
-  }, [projectId])
-
-  useEffect(() => { fetchNotes() }, [fetchNotes])
-
-  const create = async () => {
-    if (!form.content.trim()) { setErr("Note content is required"); return }
-    setSaving(true); setErr(null)
-    try {
-      const res = await fetch("/api/progress-notes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId,
-          author_type: "human",
-          author_name: "You",
-          note_type: form.note_type,
-          title: form.title.trim() || undefined,
-          content: form.content.trim(),
-        }),
-      })
-      const j = await res.json()
-      if (!res.ok) throw new Error(j.error || "Failed to create note")
-      setForm({ title: "", content: "", note_type: "note" })
-      setShowForm(false)
-      await fetchNotes()
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "Failed to create note")
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const filtered = filter ? notes.filter(n => n.note_type === filter) : notes
-  const count = (t: string) => notes.filter(n => n.note_type === t).length
-
-  return (
-    <div className="j-col j-gap-4">
-      <div className="j-row j-between j-wrap" style={{ gap: 12 }}>
-        <div className="j-row j-gap-2">
-          <span className={`j-tab${filter === "" ? " j-active" : ""}`} onClick={() => setFilter("")}>
-            All <b style={{ marginLeft: 6 }}>{notes.length}</b>
-          </span>
-          {NOTE_TYPES.map(t => (
-            <span key={t} className={`j-tab${filter === t ? " j-active" : ""}`} onClick={() => setFilter(t)}>
-              {t} <b style={{ marginLeft: 6 }}>{count(t)}</b>
-            </span>
-          ))}
-        </div>
-        <button className="j-btn j-btn-primary" onClick={() => { setShowForm(s => !s); setErr(null) }}>+ New note</button>
-      </div>
-
-      {showForm && (
-        <div className="j-card">
-          <div className="j-col j-gap-3">
-            <input
-              className="j-search"
-              placeholder="Title (optional)"
-              value={form.title}
-              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-            />
-            <div className="j-row j-gap-2">
-              <select
-                className="j-search"
-                value={form.note_type}
-                onChange={e => setForm(f => ({ ...f, note_type: e.target.value as (typeof NOTE_TYPES)[number] }))}
-              >
-                {NOTE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-            <textarea
-              placeholder="Note content (markdown supported)…"
-              value={form.content}
-              onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-              rows={6}
-              style={{
-                width: "100%", background: "oklch(1 0 0 / 0.04)", color: "oklch(0.985 0 0)",
-                border: "none", boxShadow: "0 0 0 1px var(--j-ring)", borderRadius: 8,
-                padding: 12, fontSize: 13, fontFamily: "var(--font-geist-mono, monospace)", resize: "vertical",
-              }}
-            />
-            {err && <div className="j-pill j-neg" style={{ alignSelf: "flex-start" }}>{err}</div>}
-            <div className="j-row j-gap-2">
-              <button className="j-btn j-btn-primary" onClick={create} disabled={saving}>
-                {saving ? "Saving…" : "Save note"}
-              </button>
-              <button className="j-btn j-btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="j-card"><span className="j-muted">Loading notes…</span></div>
-      ) : filtered.length === 0 ? (
-        <div className="j-card j-col" style={{ alignItems: "center", gap: 8, padding: 48, textAlign: "center" }}>
-          <p className="j-muted" style={{ fontSize: 13, margin: 0 }}>
-            {filter ? `No ${filter} notes yet.` : "No notes yet. Capture your first progress note."}
-          </p>
-        </div>
-      ) : (
-        <div className="j-grid j-cols-2">
-          {filtered.map(n => (
-            <div key={n.id} className="j-card">
-              <div className="j-row j-between" style={{ marginBottom: 8 }}>
-                <div className="j-row j-gap-2" style={{ minWidth: 0 }}>
-                  <h4 style={{ fontSize: 14, fontWeight: 500, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {n.title || (n.content || "").slice(0, 60)}
-                  </h4>
-                  <span className={`j-pill ${NOTE_TYPE_TONE[n.note_type] || "j-ghost"}`} style={{ fontSize: 9 }}>{n.note_type}</span>
-                </div>
-                <span className="j-muted" style={{ fontSize: 11, whiteSpace: "nowrap" }}>
-                  {n.created_at ? new Date(n.created_at).toLocaleDateString() : ""}
-                </span>
-              </div>
-              {n.content && (
-                <p className="j-muted" style={{ fontSize: 12.5, lineHeight: 1.55, margin: "0 0 6px", whiteSpace: "pre-wrap" }}>
-                  {n.content.length > 280 ? n.content.slice(0, 280) + "…" : n.content}
-                </p>
-              )}
-              {n.author_name && (
-                <span className="j-muted" style={{ fontSize: 11 }}>
-                  — {n.author_name}{n.author_type === "agent" ? " (agent)" : ""}
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ─── Calendar ────────────────────────────────────────────────────────────────
 
@@ -1302,7 +1141,7 @@ type Risk = {
 const RISK_SEV_TONE: Record<string, string> = { high: "j-neg", med: "j-warn", low: "j-info" }
 const RISK_STATUS_OPTIONS = ["open", "monitoring", "mitigating", "mitigated", "scheduled"] as const
 
-function RisksFacet({ projectId, project, onChange }: { projectId: string; project: any; onChange: () => void }) {
+function RisksFacet({ projectId, project, onChange, compact = false }: { projectId: string; project: any; onChange: () => void; compact?: boolean }) {
   const initialRisks: Risk[] = Array.isArray(project?.metadata?.risks) ? project.metadata.risks : []
   const [risks, setRisks] = useState<Risk[]>(initialRisks)
   const [showForm, setShowForm] = useState(false)
@@ -1370,19 +1209,21 @@ function RisksFacet({ projectId, project, onChange }: { projectId: string; proje
 
   return (
     <div className="j-col j-gap-4">
-      <div className="j-grid j-cols-4">
-        {[
-          ["High", counts.high, "j-neg"],
-          ["Medium", counts.med, "j-warn"],
-          ["Low", counts.low, "j-info"],
-          ["Mitigated", counts.mitigated, "j-pos"],
-        ].map(([l, v]) => (
-          <div key={l as string} className="j-card j-tight" style={{ padding: 14 }}>
-            <div className="j-eyebrow">{l}</div>
-            <div className="j-amount-lg" style={{ marginTop: 6 }}>{v as number}</div>
-          </div>
-        ))}
-      </div>
+      {!compact && (
+        <div className="j-grid j-cols-4">
+          {[
+            ["High", counts.high, "j-neg"],
+            ["Medium", counts.med, "j-warn"],
+            ["Low", counts.low, "j-info"],
+            ["Mitigated", counts.mitigated, "j-pos"],
+          ].map(([l, v]) => (
+            <div key={l as string} className="j-card j-tight" style={{ padding: 14 }}>
+              <div className="j-eyebrow">{l}</div>
+              <div className="j-amount-lg" style={{ marginTop: 6 }}>{v as number}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {showForm && (
         <div className="j-card">
@@ -1555,51 +1396,132 @@ function TeamFacet() {
   )
 }
 
-// ─── Links ───────────────────────────────────────────────────────────────────
+// ─── Settings ────────────────────────────────────────────────────────────────
+// One place for what describes the project rather than the work in it:
+// general details, the people on it, and where its code lives. Team and Links
+// were separate tabs; Links was six hard-coded placeholder links, identical on
+// every project. The real links are the repo URL and the bound workspace path.
+//
+// PATCH /api/projects/[id] COALESCEs every field, so a field can be changed but
+// not blanked — an emptied input is sent as "no change", and the hint says so.
 
-function LinksFacet() {
-  const links = [
-    { id: "l1", title: "GitHub · project repository",   kind: "Repo",       url: "github.com/...",        status: "main · open PRs"         },
-    { id: "l2", title: "Vercel deployment",             kind: "Deploy",     url: "vercel.app",            status: "live · last deploy 2h ago" },
-    { id: "l3", title: "Figma design file",             kind: "Design",     url: "figma.com/...",         status: "updated 1d ago"           },
-    { id: "l4", title: "Linear project board",          kind: "Tracker",    url: "linear.app/...",        status: "issues tracked"            },
-    { id: "l5", title: "Stripe dashboard",              kind: "Payments",   url: "dashboard.stripe.com", status: "connected"                 },
-    { id: "l6", title: "Sentry error monitoring",       kind: "Monitoring", url: "sentry.io/...",         status: "2 unresolved"              },
-  ]
+const PROJECT_STATUSES = ["planning", "in-progress", "on-hold", "completed"] as const
+const PROJECT_PRIORITIES = ["low", "medium", "high", "critical"] as const
+
+function SettingsFacet({ project, projectId, onChange }: { project: any; projectId: string; onChange: () => void }) {
+  const initial = useMemo(() => ({
+    name: project?.name ?? "",
+    description: project?.description ?? "",
+    status: project?.status ?? "planning",
+    priority: project?.priority ?? "medium",
+    due_date: project?.due_date ? String(project.due_date).slice(0, 10) : "",
+    github_repo_url: project?.github_repo_url ?? "",
+  }), [project])
+  const [form, setForm] = useState(initial)
+  const [saving, setSaving] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  useEffect(() => { setForm(initial) }, [initial])
+
+  const dirty = (Object.keys(form) as (keyof typeof form)[]).filter(k => form[k] !== initial[k])
+
+  const save = async () => {
+    if (!form.name.trim()) { setMsg({ ok: false, text: "Name is required" }); return }
+    setSaving(true); setMsg(null)
+    try {
+      const body: Record<string, string> = {}
+      for (const k of dirty) if (String(form[k]).trim()) body[k] = String(form[k]).trim()
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        throw new Error(j?.error?.message || j?.error || `HTTP ${res.status}`)
+      }
+      setMsg({ ok: true, text: "Saved" })
+      onChange()
+    } catch (e: unknown) {
+      setMsg({ ok: false, text: e instanceof Error ? e.message : "Failed to save" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const field = (label: string, id: string, control: ReactNode, hint?: string) => (
+    <div className="j-col" style={{ gap: 6 }}>
+      <label htmlFor={id} className="j-eyebrow">{label}</label>
+      {control}
+      {hint && <span className="j-muted" style={{ fontSize: 11 }}>{hint}</span>}
+    </div>
+  )
+  const withCurrent = (opts: readonly string[], cur: string) => (opts.includes(cur) ? opts : [cur, ...opts])
+
   return (
-    <div className="j-col j-gap-4">
-      <div className="j-row j-between">
-        <div className="j-row j-gap-2">
-          <span className="j-pill j-proj">All</span>
-          <span className="j-pill j-ghost">Repo</span>
-          <span className="j-pill j-ghost">Design</span>
-        </div>
-        <button className="j-btn j-btn-primary">+ Add link</button>
-      </div>
-      <div className="j-grid j-cols-2">
-        {links.map(l => (
-          <div key={l.id} className="j-card" style={{ cursor: "pointer" }}>
-            <div className="j-row j-between">
-              <div className="j-row j-gap-3" style={{ minWidth: 0 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 8, background: "oklch(1 0 0 / 0.05)", display: "grid", placeItems: "center", flexShrink: 0 }}>
-                  <span style={{ fontSize: 16 }}>↗</span>
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.title}</div>
-                  <div className="j-muted" style={{ fontSize: 11, marginTop: 2, fontFamily: "monospace" }}>{l.url}</div>
-                </div>
-              </div>
-            </div>
-            <div className="j-row j-between" style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--j-hairline)" }}>
-              <span className="j-pill j-ghost">{l.kind}</span>
-              <span className="j-muted" style={{ fontSize: 11 }}>{l.status}</span>
-            </div>
+    <div className="j-col j-gap-4" style={{ maxWidth: 760 }}>
+      <div className="j-card">
+        <div className="j-card-head"><div><h3 className="j-card-title">General</h3></div></div>
+        <div className="j-col" style={{ gap: 14 }}>
+          {field("Name", "ps-name",
+            <input id="ps-name" className="j-search" value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />)}
+          {field("Description", "ps-desc",
+            <textarea id="ps-desc" className="j-search" rows={3} style={{ resize: "vertical", height: "auto", padding: 10 }}
+              value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />)}
+          <div className="j-grid j-cols-3" style={{ gap: 12 }}>
+            {field("Status", "ps-status",
+              <select id="ps-status" className="j-search" value={form.status}
+                onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+                {withCurrent(PROJECT_STATUSES, form.status).map(s => <option key={s} value={s}>{s}</option>)}
+              </select>)}
+            {field("Priority", "ps-priority",
+              <select id="ps-priority" className="j-search" value={form.priority}
+                onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
+                {withCurrent(PROJECT_PRIORITIES, form.priority).map(p => <option key={p} value={p}>{p}</option>)}
+              </select>)}
+            {field("Due date", "ps-due",
+              <input id="ps-due" type="date" className="j-search" value={form.due_date}
+                onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} />)}
           </div>
-        ))}
+        </div>
+      </div>
+
+      <div className="j-card">
+        <div className="j-card-head"><div><h3 className="j-card-title">Links</h3></div></div>
+        <div className="j-col" style={{ gap: 14 }}>
+          {field("Repository", "ps-repo",
+            <input id="ps-repo" className="j-search" placeholder="https://github.com/owner/repo" value={form.github_repo_url}
+              onChange={e => setForm(f => ({ ...f, github_repo_url: e.target.value }))} />,
+            "Changing it works; clearing it is not supported yet.")}
+          {field("Workspace", "ps-ws",
+            <input id="ps-ws" className="j-search" readOnly value={project?.workspace_path || "Not bound"} style={{ opacity: 0.75 }} />,
+            "Set by agents with register_workspace — the local path this project's code lives at.")}
+        </div>
+      </div>
+
+      <div className="j-row" style={{ gap: 10, alignItems: "center" }}>
+        <button className="j-btn j-btn-primary" disabled={saving || dirty.length === 0} onClick={save}>
+          {saving ? "Saving…" : "Save changes"}
+        </button>
+        {dirty.length > 0 && !saving && (
+          <button className="j-btn j-btn-ghost" onClick={() => { setForm(initial); setMsg(null) }}>Discard</button>
+        )}
+        {msg && <span className={msg.ok ? "j-pos" : "j-neg"} style={{ fontSize: 12.5 }} role="status">{msg.text}</span>}
+      </div>
+
+      <div>
+        <h3 className="j-card-title" style={{ marginBottom: 10 }}>Team</h3>
+        <TeamFacet />
       </div>
     </div>
   )
 }
+
+
+// Tabs retired 2026-10-03, mapped to where their content now lives so links
+// already shared keep working: Notes joined the Overview activity feed, Risks
+// is a card on Overview, Team and Links are sections of Settings.
+const LEGACY_TABS: Record<string, string> = { notes: "overview", risks: "overview", team: "settings", links: "settings" }
 
 // ─── Task views ──────────────────────────────────────────────────────────────
 
@@ -1655,7 +1577,7 @@ export default function ProjectDashboardPage() {
   const searchParams = useSearchParams()
   const rawTab  = searchParams.get("tab") || "overview"
   const legacyView = rawTab === "gantt" ? "timeline" : rawTab === "calendar" ? "calendar" : null
-  const activeTab  = legacyView ? "tasks" : rawTab
+  const activeTab  = legacyView ? "tasks" : (LEGACY_TABS[rawTab] ?? rawTab)
   const taskView: TaskView = (legacyView || (TASK_VIEWS.some(v => v.id === searchParams.get("view")) ? searchParams.get("view") : "board")) as TaskView
   const focusStepId = searchParams.get("step")
   const setUrl = useCallback((next: Record<string, string | null>) => {
@@ -1795,7 +1717,7 @@ export default function ProjectDashboardPage() {
 
       {/* Facet content — full-width; per-facet cards can self-constrain */}
       <div style={{ padding: "24px 32px" }}>
-        {activeTab === "overview"  && <OverviewFacet  project={project} projectId={projectId} phases={phases} />}
+        {activeTab === "overview"  && <OverviewFacet  project={project} projectId={projectId} phases={phases} onProjectChange={() => fetchProjectData(true)} />}
         {activeTab === "tasks" && (
           <div className="j-col" style={{ gap: 12 }}>
             <TaskViewSwitcher view={taskView} onChange={setTaskView} />
@@ -1821,11 +1743,8 @@ export default function ProjectDashboardPage() {
         {activeTab === "ideas"     && <IdeasFacet projectId={projectId} />}
         {activeTab === "finance"   && <FinanceFacet />}
         {activeTab === "agents"    && <AgentsFacet />}
-        {activeTab === "notes"     && <NotesFacet projectId={projectId} />}
         {activeTab === "metrics"   && <MetricsFacet project={project} steps={steps} />}
-        {activeTab === "risks"     && <RisksFacet projectId={projectId} project={project} onChange={() => fetchProjectData(true)} />}
-        {activeTab === "team"      && <TeamFacet />}
-        {activeTab === "links"     && <LinksFacet />}
+        {activeTab === "settings"  && <SettingsFacet project={project} projectId={projectId} onChange={() => fetchProjectData(true)} />}
       </div>
     </div>
     </DashboardLayout>

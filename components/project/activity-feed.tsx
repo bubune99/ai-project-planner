@@ -7,6 +7,10 @@
  * creations/completions, and legacy progress notes (newest first). Replaces
  * the old progress-notes-only feed that went stale once real work moved to
  * the work-order check-in loop.
+ *
+ * It also carries the note composer. Notes had their own project tab — a
+ * second chronological stream beside this one, over a table this feed already
+ * reads. Posting here lands the note in the same list as everything else.
  */
 
 import { useEffect, useState } from "react"
@@ -53,8 +57,38 @@ const SOURCE_LABEL: Record<string, string> = {
   checkin: "agent", todo: "todo", note: "note",
 }
 
+const NOTE_TYPES = ["note", "progress", "decision", "blocker"] as const
+
 export function ActivityFeed({ projectId }: { projectId: string }) {
   const [items, setItems] = useState<FeedItem[] | null>(null)
+  const [reload, setReload] = useState(0)
+  const [draft, setDraft] = useState("")
+  const [noteType, setNoteType] = useState<(typeof NOTE_TYPES)[number]>("note")
+  const [posting, setPosting] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  const post = async () => {
+    const content = draft.trim()
+    if (!content) return
+    setPosting(true); setErr(null)
+    try {
+      const res = await fetch("/api/progress-notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ projectId, author_type: "human", author_name: "You", note_type: noteType, content }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        throw new Error(j?.error?.message || j?.error || `HTTP ${res.status}`)
+      }
+      setDraft(""); setNoteType("note"); setReload(r => r + 1)
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Failed to post note")
+    } finally {
+      setPosting(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -63,12 +97,35 @@ export function ActivityFeed({ projectId }: { projectId: string }) {
       .then((j) => { if (!cancelled) setItems(Array.isArray(j?.data) ? j.data : []) })
       .catch(() => { if (!cancelled) setItems([]) })
     return () => { cancelled = true }
-  }, [projectId])
+  }, [projectId, reload])
 
   return (
     <div className="j-card" style={{ padding: 0 }} data-testid="activity-feed">
       <div className="j-row j-between" style={{ padding: "12px 16px", borderBottom: "1px solid var(--j-hairline)" }}>
         <h3 className="j-card-title">Recent activity</h3>
+      </div>
+
+      <div className="j-col" style={{ gap: 8, padding: "12px 16px", borderBottom: "1px solid var(--j-hairline)" }}>
+        <textarea
+          aria-label="Post a note"
+          className="j-search"
+          rows={2}
+          placeholder="Post a note — progress, a decision, a blocker…"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) post() }}
+          style={{ resize: "vertical", height: "auto", padding: 10 }}
+        />
+        {draft.trim() && (
+          <div className="j-row" style={{ gap: 8, alignItems: "center" }}>
+            <select aria-label="Note type" className="j-search" style={{ width: "auto" }} value={noteType}
+              onChange={(e) => setNoteType(e.target.value as (typeof NOTE_TYPES)[number])}>
+              {NOTE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <button className="j-btn j-btn-primary" disabled={posting} onClick={post}>{posting ? "Posting…" : "Post"}</button>
+            {err && <span className="j-neg" style={{ fontSize: 12 }} role="alert">{err}</span>}
+          </div>
+        )}
       </div>
 
       {items === null ? (
