@@ -14,10 +14,13 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Droppable } from "@hello-pangea/dnd"
-import { ChevronsLeft, ChevronsRight, Loader2, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react"
+import { ChevronsLeft, ChevronsRight, CircleDot, Loader2, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react"
 
 interface KanbanColumnProps {
   column: ColumnDef
@@ -71,6 +74,98 @@ export function KanbanColumn({
 
   const kind = statusMap[column.key]?.kind
 
+  /** One menu, two triggers: the column title and the ... button. They were
+   *  diverging — the title offered a subset — which is its own kind of
+   *  confusion. */
+  const columnMenu = (align: "start" | "end") => {
+    // Narrowing from the `onEditColumn &&` guard at the call site does not reach
+    // into this closure, so re-establish it here.
+    if (!onEditColumn) return null
+    const editColumn = onEditColumn
+    const moveColumn = onMoveColumn
+    return (
+<DropdownMenuContent align={align} className="w-48">
+      {/* Grouped the way ClickUp groups a task menu: actions first,
+          configuration behind submenus, destructive isolated last.
+          Previously this was one flat stack where 7 colour swatches and
+          4 radios took up more room than every action combined. */}
+      <DropdownMenuItem
+        onClick={() => {
+          setRenameValue(column.label)
+          setRenaming(true)
+        }}
+      >
+        <Pencil className="mr-1" /> Rename
+      </DropdownMenuItem>
+
+      {moveColumn && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem disabled={isFirstColumn} onClick={() => moveColumn(column.key, -1)}>
+            <ChevronsLeft className="mr-1" /> Move left
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={isLastColumn} onClick={() => moveColumn(column.key, 1)}>
+            <ChevronsRight className="mr-1" /> Move right
+          </DropdownMenuItem>
+        </>
+      )}
+
+      <DropdownMenuSeparator />
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger>
+          <span
+            className="w-3 h-3 rounded-full border border-border mr-1 shrink-0"
+            style={column.colorHex ? { backgroundColor: column.colorHex } : undefined}
+          />
+          Colour
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent className="p-2">
+          <div className="flex flex-wrap gap-1.5 w-[132px]">
+            {STATUS_PALETTE.map((c) => (
+              <button
+                key={c}
+                aria-label={`Set column colour ${c}`}
+                onClick={() => editColumn(column.key, { color: c })}
+                className={`w-5 h-5 rounded-full border-2 transition-transform hover:scale-110 ${
+                  column.colorHex === c ? "border-foreground" : "border-transparent"
+                }`}
+                style={{ backgroundColor: c }}
+              />
+            ))}
+          </div>
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
+
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger>
+          <CircleDot className="mr-1" /> Counts as
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent>
+          <DropdownMenuRadioGroup
+            value={kind}
+            onValueChange={(v) => editColumn(column.key, { kind: v as StatusKind })}
+          >
+            <DropdownMenuRadioItem value="open">Not started</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="active">Active</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="done">Done</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="closed">Closed (not done)</DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
+
+      {onDeleteColumn && (
+        <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onClick={() => onDeleteColumn(column.key)}>
+            <Trash2 className="mr-1" /> Delete column
+          </DropdownMenuItem>
+        </>
+      )}
+    </DropdownMenuContent>
+    )
+  }
+
+
   const submitQuickAdd = async () => {
     const title = newTitle.trim()
     if (!title || saving) return
@@ -112,7 +207,7 @@ export function KanbanColumn({
   }
 
   return (
-    <div className="flex flex-col shrink-0 w-[290px] max-h-full bg-accent/20 rounded-lg border border-border/50">
+    <div className="flex flex-col shrink-0 w-[248px] min-h-0 max-h-full bg-accent/20 rounded-lg border border-border/50">
       {/* Column Header */}
       <div className="flex items-center gap-2 px-3 pt-3 pb-2">
         {renaming ? (
@@ -148,32 +243,7 @@ export function KanbanColumn({
                 {column.label}
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-52">
-              <DropdownMenuItem
-                onClick={() => {
-                  setRenameValue(column.label)
-                  setRenaming(true)
-                }}
-              >
-                <Pencil className="w-3.5 h-3.5 mr-2" /> Rename
-              </DropdownMenuItem>
-              {onMoveColumn && (
-                <>
-                  <DropdownMenuItem
-                    disabled={isFirstColumn}
-                    onClick={() => onMoveColumn(column.key, -1)}
-                  >
-                    <ChevronsLeft className="w-3.5 h-3.5 mr-2" /> Move left
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={isLastColumn}
-                    onClick={() => onMoveColumn(column.key, 1)}
-                  >
-                    <ChevronsRight className="w-3.5 h-3.5 mr-2" /> Move right
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
+            {columnMenu("start")}
           </DropdownMenu>
         ) : (
           <span
@@ -210,63 +280,7 @@ export function KanbanColumn({
                 <MoreHorizontal className="w-3.5 h-3.5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuItem
-                onClick={() => {
-                  setRenameValue(column.label)
-                  setRenaming(true)
-                }}
-              >
-                <Pencil className="w-3.5 h-3.5 mr-2" /> Rename
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {onMoveColumn && (
-                <>
-                  <DropdownMenuItem disabled={isFirstColumn} onClick={() => onMoveColumn(column.key, -1)}>
-                    <ChevronsLeft className="w-3.5 h-3.5 mr-2" /> Move left
-                  </DropdownMenuItem>
-                  <DropdownMenuItem disabled={isLastColumn} onClick={() => onMoveColumn(column.key, 1)}>
-                    <ChevronsRight className="w-3.5 h-3.5 mr-2" /> Move right
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
-              )}
-              <DropdownMenuLabel className="text-xs">Color</DropdownMenuLabel>
-              <div className="flex flex-wrap gap-1.5 px-2 pb-1.5">
-                {STATUS_PALETTE.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => onEditColumn(column.key, { color: c })}
-                    className={`w-5 h-5 rounded-full border-2 ${
-                      column.colorHex === c ? "border-foreground" : "border-transparent"
-                    }`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-xs">Counts as</DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                value={kind}
-                onValueChange={(v) => onEditColumn(column.key, { kind: v as StatusKind })}
-              >
-                <DropdownMenuRadioItem value="open">Not started</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="active">Active</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="done">Done</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="closed">Closed (not done)</DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
-              {onDeleteColumn && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => onDeleteColumn(column.key)}
-                    className="text-red-500 focus:text-red-500"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete column
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
+            {columnMenu("end")}
           </DropdownMenu>
         )}
         <Button
@@ -286,7 +300,7 @@ export function KanbanColumn({
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex-1 overflow-y-auto px-2 pb-2 min-h-[120px] rounded-lg transition-colors ${
+            className={`flex-1 overflow-y-auto px-2 pb-2 min-h-[44px] max-h-[calc(100vh-320px)] rounded-lg transition-colors ${
               snapshot.isDraggingOver ? "bg-blue-500/10 outline-dashed outline-2 outline-blue-500/60" : ""
             }`}
           >

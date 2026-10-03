@@ -531,7 +531,12 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
           </div>
         ) : (
           <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="flex-1 flex gap-3 overflow-x-auto items-start pb-4">
+            {/* Columns size to their content (ClickUp) rather than stretching.
+                Six full-height columns holding one card each is the same "small
+                thing in a big box" problem flagged on the calendar, so the BOARD
+                scrolls and a column only scrolls internally past its max-height.
+                min-h-0 is still required or the card list cannot resolve one. */}
+            <div className="flex-1 min-h-0 flex gap-2.5 overflow-auto items-start pb-4">
               {columns.map((column) => (
                 <KanbanColumn
                   key={`${prefs.groupBy}:${column.key}`}
@@ -560,7 +565,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
 
               {/* Add group (custom status column) */}
               {prefs.groupBy === "status" && (
-                <div className="shrink-0 w-[220px]">
+                <div className="shrink-0 w-[220px] self-start">
                   {addingGroup ? (
                     <Input
                       autoFocus

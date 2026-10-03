@@ -20,6 +20,7 @@ import {
   Copy,
   Flag,
   Link2,
+  Maximize2,
   MoreHorizontal,
   Pencil,
   Trash2,
@@ -122,23 +123,47 @@ export function KanbanCard({
                     <MoreHorizontal className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => onEdit(step)}>
-                    <Pencil className="w-3.5 h-3.5 mr-2" /> Edit
+                <DropdownMenuContent align="end" className="w-44">
+                  {/* Segmented quick-actions header, as ClickUp does: clipboard
+                      actions sit above the list instead of padding it out. */}
+                  <div className="flex gap-1 p-1">
+                    <button
+                      className="flex-1 rounded-sm border border-border px-1.5 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                      onClick={() => {
+                        const url = `${window.location.origin}${window.location.pathname}?step=${step.id}`
+                        navigator.clipboard?.writeText(url)
+                      }}
+                    >
+                      Copy link
+                    </button>
+                    <button
+                      className="flex-1 rounded-sm border border-border px-1.5 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                      onClick={() => navigator.clipboard?.writeText(step.id)}
+                    >
+                      Copy ID
+                    </button>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onOpen(step)}>
+                    <Maximize2 className="mr-1" /> Open
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onEdit(step)}>
+                    <Pencil className="mr-1" /> Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => onDuplicate(step)}>
-                    <Copy className="w-3.5 h-3.5 mr-2" /> Duplicate
+                    <Copy className="mr-1" /> Duplicate
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => onToggleComplete(step)}>
                     {isDone ? (
-                      <><Undo2 className="w-3.5 h-3.5 mr-2" /> Reopen</>
+                      <><Undo2 className="mr-1" /> Reopen</>
                     ) : (
-                      <><CheckCircle2 className="w-3.5 h-3.5 mr-2" /> Mark complete</>
+                      <><CheckCircle2 className="mr-1" /> Mark complete</>
                     )}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => onDelete(step)} className="text-red-500 focus:text-red-500">
-                    <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete
+                  <DropdownMenuItem variant="destructive" onClick={() => onDelete(step)}>
+                    <Trash2 className="mr-1" /> Delete
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
