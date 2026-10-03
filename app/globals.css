@@ -393,8 +393,13 @@ body::before {
 /* ---------- Calendar ---------- */
 .j-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
 .j-cal-day {
-  aspect-ratio: 1; border-radius: 6px; background: oklch(1 0 0 / 0.03);
-  display: flex; flex-direction: column; padding: 5px; font-size: 10px; position: relative;
+  /* aspect-ratio alone made every day a square of 1/7th the viewport width.
+     On a 3440px display that is a 435x435 box holding one line of text, which
+     is why a single scheduled step looked lost in it. Keep the square at normal
+     widths, but stop it growing past a readable day cell. */
+  aspect-ratio: 1; min-height: 88px; max-height: 150px; overflow: hidden;
+  border-radius: 6px; background: oklch(1 0 0 / 0.03);
+  display: flex; flex-direction: column; padding: 5px; font-size: 11px; position: relative;
 }
 .j-cal-day.j-outside { opacity: 0.3; }
 .j-cal-day.j-today { box-shadow: inset 0 0 0 1px var(--j-accent); }
