@@ -11,7 +11,7 @@ import { toDateInput } from "@/lib/scheduling"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { X, Plus } from "lucide-react"
+import { CalendarDays, CircleDot, Flag, GitBranch, Layers, Plus, Timer, User, X } from "lucide-react"
 import { toast } from "sonner"
 
 interface StepFormModalProps {
@@ -21,6 +21,37 @@ interface StepFormModalProps {
   step?: any // Existing step for editing
   availableSteps?: any[] // For dependency selection
   onSuccess?: () => void
+}
+
+/**
+ * One property row: a muted icon + label on the left, the control on the right.
+ * Modelled on a ClickUp task panel, where every field reads as a row and an
+ * unset one still shows its name with "Empty" beside it — so the shape of a
+ * task is legible at a glance instead of hidden behind collapsed sections.
+ */
+function Field({
+  icon,
+  label,
+  htmlFor,
+  children,
+}: {
+  icon: React.ReactNode
+  label: string
+  htmlFor: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex items-center gap-2 min-h-[32px]">
+      <Label
+        htmlFor={htmlFor}
+        className="flex items-center gap-1.5 w-[104px] shrink-0 text-xs font-normal text-muted-foreground [&_svg]:size-3.5 [&_svg]:opacity-70"
+      >
+        {icon}
+        {label}
+      </Label>
+      <div className="flex-1 min-w-0">{children}</div>
+    </div>
+  )
 }
 
 export function StepFormModal({ open, onClose, projectId, step, availableSteps = [], onSuccess }: StepFormModalProps) {
@@ -153,76 +184,32 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{step ? "Edit Step" : "Create New Step"}</DialogTitle>
+        <DialogHeader className="space-y-0">
+          <DialogTitle className="sr-only">{step ? "Edit step" : "New step"}</DialogTitle>
+          {/* The title IS the heading, as in a ClickUp task, rather than a
+              labelled form row competing with "Edit Step" above it. */}
+          <Input
+            id="title"
+            aria-label="Step title"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            placeholder="Untitled step"
+            required
+            className="!text-xl font-semibold h-auto px-0 py-1 border-0 shadow-none focus-visible:ring-0 bg-transparent"
+          />
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Title */}
-          <div>
-            <Label htmlFor="title">Title *</Label>
-            <Input
-              id="title"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="e.g., Set up authentication"
-              required
-            />
-          </div>
 
-          {/* Description */}
-          <div>
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Detailed description of what needs to be done..."
-              rows={3}
-            />
-          </div>
-
-          {/* Row: Phase, Stage, Status */}
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="phase">Phase</Label>
-              <Select value={formData.phase} onValueChange={(value) => setFormData({ ...formData, phase: value })}>
-                <SelectTrigger id="phase">
-                  <SelectValue placeholder="Select phase" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ideation">Ideation</SelectItem>
-                  <SelectItem value="architecture">Architecture</SelectItem>
-                  <SelectItem value="construction">Construction</SelectItem>
-                  <SelectItem value="testing">Testing</SelectItem>
-                  <SelectItem value="deployment">Deployment</SelectItem>
-                  <SelectItem value="maintenance">Maintenance</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="stage">Stage</Label>
-              <Select value={formData.stage} onValueChange={(value) => setFormData({ ...formData, stage: value })}>
-                <SelectTrigger id="stage">
-                  <SelectValue placeholder="Select stage" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="setup">Setup</SelectItem>
-                  <SelectItem value="development">Development</SelectItem>
-                  <SelectItem value="testing">Testing</SelectItem>
-                  <SelectItem value="review">Review</SelectItem>
-                  <SelectItem value="deployment">Deployment</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
+          {/* Property grid — label on the left, control on the right, two
+              columns, the way a ClickUp task reads. Replaces three separate
+              label-above-control rows that each consumed a full line. */}
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1">
             {step && (
-              <div>
-                <Label htmlFor="status">Status</Label>
-                <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                  <SelectTrigger id="status">
-                    <SelectValue placeholder="Select status" />
+              <Field icon={<CircleDot />} label="Status" htmlFor="status">
+                <Select value={formData.status} onValueChange={(v) => setFormData({ ...formData, status: v })}>
+                  <SelectTrigger id="status" className="h-7 border-0 bg-transparent px-2 hover:bg-accent focus:ring-0 text-xs">
+                    <SelectValue placeholder="Empty" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pending">To Do</SelectItem>
@@ -233,20 +220,13 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
                     <SelectItem value="failed">Failed</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
+              </Field>
             )}
-          </div>
 
-          {/* Row: Agent, Priority, Estimate */}
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="agent">Assigned Agent</Label>
-              <Select
-                value={formData.assigned_agent}
-                onValueChange={(value) => setFormData({ ...formData, assigned_agent: value })}
-              >
-                <SelectTrigger id="agent">
-                  <SelectValue placeholder="Select agent" />
+            <Field icon={<User />} label="Assigned agent" htmlFor="agent">
+              <Select value={formData.assigned_agent} onValueChange={(v) => setFormData({ ...formData, assigned_agent: v })}>
+                <SelectTrigger id="agent" className="h-7 border-0 bg-transparent px-2 hover:bg-accent focus:ring-0 text-xs">
+                  <SelectValue placeholder="Empty" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="v0">v0</SelectItem>
@@ -255,68 +235,106 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
                   <SelectItem value="gpt">GPT</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </Field>
 
-            <div>
-              <Label htmlFor="priority">Priority</Label>
-              <Select
-                value={formData.priority}
-                onValueChange={(value) => setFormData({ ...formData, priority: value })}
-              >
-                <SelectTrigger id="priority">
-                  <SelectValue placeholder="Select priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="estimated_hours">Estimated Hours</Label>
-              <Input
-                id="estimated_hours"
-                type="number"
-                step="0.5"
-                value={formData.estimated_hours}
-                onChange={(e) => setFormData({ ...formData, estimated_hours: e.target.value })}
-                placeholder="e.g., 4"
-              />
-            </div>
-          </div>
-
-          {/* Schedule — a step with no dates stays off the Gantt and the
-              calendar and waits in the Unscheduled rail. A due date alone is
-              enough to place it. */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="start_date">Start date</Label>
+            <Field icon={<CalendarDays />} label="Start date" htmlFor="start_date">
               <Input
                 id="start_date"
                 type="date"
                 value={formData.start_date}
                 max={formData.end_date || undefined}
                 onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                className="h-7 border-0 bg-transparent px-2 hover:bg-accent focus-visible:ring-0 text-xs"
               />
-            </div>
-            <div>
-              <Label htmlFor="end_date">Due date</Label>
+            </Field>
+
+            <Field icon={<CalendarDays />} label="Due date" htmlFor="end_date">
               <Input
                 id="end_date"
                 type="date"
                 value={formData.end_date}
                 min={formData.start_date || undefined}
                 onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                className="h-7 border-0 bg-transparent px-2 hover:bg-accent focus-visible:ring-0 text-xs"
               />
-            </div>
+            </Field>
+
+            <Field icon={<Flag />} label="Priority" htmlFor="priority">
+              <Select value={formData.priority} onValueChange={(v) => setFormData({ ...formData, priority: v })}>
+                <SelectTrigger id="priority" className="h-7 border-0 bg-transparent px-2 hover:bg-accent focus:ring-0 text-xs">
+                  <SelectValue placeholder="Empty" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+
+            <Field icon={<Timer />} label="Estimate (h)" htmlFor="estimated_hours">
+              <Input
+                id="estimated_hours"
+                type="number"
+                step="0.5"
+                value={formData.estimated_hours}
+                onChange={(e) => setFormData({ ...formData, estimated_hours: e.target.value })}
+                placeholder="Empty"
+                className="h-7 border-0 bg-transparent px-2 hover:bg-accent focus-visible:ring-0 text-xs"
+              />
+            </Field>
+
+            <Field icon={<Layers />} label="Phase" htmlFor="phase">
+              <Select value={formData.phase} onValueChange={(v) => setFormData({ ...formData, phase: v })}>
+                <SelectTrigger id="phase" className="h-7 border-0 bg-transparent px-2 hover:bg-accent focus:ring-0 text-xs">
+                  <SelectValue placeholder="Empty" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ideation">Ideation</SelectItem>
+                  <SelectItem value="architecture">Architecture</SelectItem>
+                  <SelectItem value="construction">Construction</SelectItem>
+                  <SelectItem value="testing">Testing</SelectItem>
+                  <SelectItem value="deployment">Deployment</SelectItem>
+                  <SelectItem value="maintenance">Maintenance</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+
+            <Field icon={<GitBranch />} label="Stage" htmlFor="stage">
+              <Select value={formData.stage} onValueChange={(v) => setFormData({ ...formData, stage: v })}>
+                <SelectTrigger id="stage" className="h-7 border-0 bg-transparent px-2 hover:bg-accent focus:ring-0 text-xs">
+                  <SelectValue placeholder="Empty" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="setup">Setup</SelectItem>
+                  <SelectItem value="development">Development</SelectItem>
+                  <SelectItem value="testing">Testing</SelectItem>
+                  <SelectItem value="review">Review</SelectItem>
+                  <SelectItem value="deployment">Deployment</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
           </div>
+
           {!formData.start_date && !formData.end_date && (
-            <p className="text-xs text-muted-foreground -mt-2">
+            <p className="text-xs text-muted-foreground">
               No dates: this step stays in the Unscheduled list and is not drawn on the timeline.
             </p>
           )}
+
+          {/* Description sits below the properties, as it does in a task view */}
+          <div>
+            <Label htmlFor="description" className="text-xs text-muted-foreground">Description</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Add a description..."
+              rows={3}
+              className="mt-1 text-sm"
+            />
+          </div>
 
           {/* Tasks/Checklist */}
           <div>
