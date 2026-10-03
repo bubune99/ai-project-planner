@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
 import useSWRInfinite from "swr/infinite"
-import { useSWRConfig } from "swr"
 import { getChatHistoryPaginationKey, type ChatHistory } from "./sidebar-history"
 
 type ChatEntry = {
@@ -40,19 +39,21 @@ export function ChatHistoryPanel() {
   const params = useParams()
   const activeChatId = params?.id as string | undefined
   const router = useRouter()
-  const { mutate } = useSWRConfig()
   const [deleteId, setDeleteId] = useState<string | null>(null)
   // Select mode: tick several chats and delete them together, or clear all.
   const [selecting, setSelecting] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const togglePick = (id: string) => setPicked(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
-  const refreshHistory = () => mutate(key => typeof key === "string" && key.startsWith("/api/history"), undefined, { revalidate: true })
+  // useSWRInfinite caches under a "$inf$/api/history…" key, so a global
+  // mutate matching keys that start with "/api/history" never hit it and the
+  // list kept showing deleted chats. The hook's own mutate always does.
+  const refreshHistory = () => { void reloadHistory() }
 
   // No fallbackData: with fallbackData: [] SWR treated the empty list as data
   // it already had and never fetched on mount — the panel stayed empty until
   // a sent message's onFinish forced a refresh, so past chats never showed.
-  const { data, setSize, isLoading } = useSWRInfinite<ChatHistory>(getChatHistoryPaginationKey, fetcher, {
+  const { data, setSize, isLoading, mutate: reloadHistory } = useSWRInfinite<ChatHistory>(getChatHistoryPaginationKey, fetcher, {
     revalidateOnMount: true,
   })
 
@@ -64,7 +65,7 @@ export function ChatHistoryPanel() {
     if (!confirm("Delete this conversation?")) return
     try {
       await fetch(`/api/chat?id=${id}`, { method: "DELETE" })
-      mutate(key => typeof key === "string" && key.startsWith("/api/history"), undefined, { revalidate: true })
+      refreshHistory()
       if (id === activeChatId) router.push("/chat")
       toast.success("Conversation deleted")
     } catch {
