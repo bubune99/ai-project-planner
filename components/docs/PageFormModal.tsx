@@ -95,7 +95,7 @@ export function PageFormModal({ projectId, isOpen, onClose, onSuccess, editPage,
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {editPage ? "Edit" : "Create"} {formData.doc_type === "chapter" ? "Chapter" : "Page"}

@@ -265,7 +265,7 @@ export function FeatureBacklog({ projectId }: FeatureBacklogProps) {
               Create Request
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-gray-900 border-white/10 max-w-2xl">
+          <DialogContent className="bg-gray-900 border-white/10 sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle className="text-white">Create Feature Request</DialogTitle>
             </DialogHeader>

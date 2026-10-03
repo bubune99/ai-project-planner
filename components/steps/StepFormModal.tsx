@@ -183,7 +183,7 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="space-y-0">
           <DialogTitle className="sr-only">{step ? "Edit step" : "New step"}</DialogTitle>
           {/* The title IS the heading, as in a ClickUp task, rather than a

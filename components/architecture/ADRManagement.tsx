@@ -181,7 +181,7 @@ export function ADRManagement({ projectId }: ADRManagementProps) {
               Create ADR
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-gray-900 border-white/10 max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="bg-gray-900 border-white/10 sm:max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-white">Create Architecture Decision Record</DialogTitle>
             </DialogHeader>
@@ -356,7 +356,7 @@ export function ADRManagement({ projectId }: ADRManagementProps) {
 
       {selectedADR && (
         <Dialog open={!!selectedADR} onOpenChange={() => setSelectedADR(null)}>
-          <DialogContent className="bg-gray-900 border-white/10 max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="bg-gray-900 border-white/10 sm:max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-white flex items-center gap-2">
                 {selectedADR.title}

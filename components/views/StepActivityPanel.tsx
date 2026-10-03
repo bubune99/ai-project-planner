@@ -130,7 +130,7 @@ export function StepActivityPanel({ projectId, stepId }: { projectId: string; st
           <div className="flex items-end gap-1.5">
             <Textarea
               value={draft}
-              rows={2}
+              rows={3}
               placeholder="Write a comment…  (⌘/Ctrl+Enter to send)"
               className="text-sm"
               onChange={(e) => setDraft(e.target.value)}

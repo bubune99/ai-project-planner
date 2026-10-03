@@ -191,7 +191,7 @@ export function TaskDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+      <DialogContent className="sm:max-w-5xl max-h-[88vh] overflow-y-auto p-0 gap-0">
         <DialogHeader className="px-6 pt-5 pb-4 border-b border-border space-y-2">
           {parent && (
             <button
@@ -257,7 +257,7 @@ export function TaskDetailModal({
           </div>
         </DialogHeader>
 
-        <div className="grid md:grid-cols-[1fr_260px] gap-0">
+        <div className="grid md:grid-cols-[minmax(0,1fr)_280px] gap-0">
           {/* Main column */}
           <div className="space-y-6 min-w-0 px-6 py-5">
             {/* Description */}
@@ -267,7 +267,7 @@ export function TaskDetailModal({
               </h4>
               <Textarea
                 value={description}
-                rows={3}
+                rows={7}
                 placeholder="Add a description…"
                 onChange={(e) => setDescription(e.target.value)}
                 onBlur={() => {

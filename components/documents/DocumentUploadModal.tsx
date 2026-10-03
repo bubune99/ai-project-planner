@@ -102,7 +102,7 @@ export function DocumentUploadModal({ projectId, isOpen, onClose, onSuccess }: D
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="bg-gray-900 border-white/10 max-w-2xl">
+      <DialogContent className="bg-gray-900 border-white/10 sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-white">Upload Document</DialogTitle>
         </DialogHeader>
