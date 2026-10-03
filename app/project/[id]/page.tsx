@@ -5,10 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { DashboardLayout } from "@/components/navigation"
 import { GanttView } from "@/components/views/GanttView"
 import { KanbanView } from "@/components/views/KanbanView"
-import { FlowView } from "@/components/views/FlowView"
 import { DocsView } from "@/components/views/DocsView"
-import { transformStepsToPhases, transformStepsToFlow } from "@/lib/data-transforms"
-import { WorkOrdersFacet } from "@/components/project/work-orders-facet"
+import { transformStepsToPhases } from "@/lib/data-transforms"
 import { ActivityFeed } from "@/components/project/activity-feed"
 import type { Task, KanbanTask } from "@/lib/types"
 
@@ -38,10 +36,8 @@ const HEALTH_CLASS: Record<string, string> = {
 const TABS = [
   { id: "overview",   label: "Overview" },
   { id: "tasks",      label: "Tasks" },
-  { id: "work",       label: "Work" },
   { id: "roadmap",    label: "Roadmap" },
   { id: "gantt",      label: "Gantt" },
-  { id: "flow",       label: "Flow" },
   { id: "docs",       label: "Docs" },
   { id: "decisions",  label: "Decisions" },
   { id: "ideas",      label: "Ideas" },
@@ -1568,12 +1564,6 @@ export default function ProjectDashboardPage() {
     catch { return [] }
   }, [projectData?.steps])
 
-  const { nodes: flowNodes, edges: flowEdges } = useMemo(() => {
-    if (!projectData?.steps) return { nodes: [], edges: [] }
-    try { return transformStepsToFlow(projectData.steps) }
-    catch { return { nodes: [], edges: [] } }
-  }, [projectData?.steps])
-
   if (loading) {
     return (
       <DashboardLayout>
@@ -1675,16 +1665,10 @@ export default function ProjectDashboardPage() {
             <KanbanView projectId={projectId} onTaskSelect={() => {}} />
           </div>
         )}
-        {activeTab === "work"      && <WorkOrdersFacet projectId={projectId} />}
         {activeTab === "roadmap"   && <RoadmapFacet   phases={phases} />}
         {activeTab === "gantt"     && (
           <div style={{ height: "calc(100vh - 200px)" }}>
             <GanttView projectId={projectId} onTaskSelect={() => {}} />
-          </div>
-        )}
-        {activeTab === "flow"      && (
-          <div style={{ height: "calc(100vh - 200px)" }}>
-            <FlowView nodes={flowNodes} edges={flowEdges} projectId={projectId} onTaskSelect={() => {}} onRefresh={() => fetchProjectData(true)} />
           </div>
         )}
         {activeTab === "docs"      && (
