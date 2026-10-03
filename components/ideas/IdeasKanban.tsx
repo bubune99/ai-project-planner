@@ -117,7 +117,15 @@ function KanbanCard({ idea, index, onClick }: KanbanCardProps) {
             transform: snapshot.isDragging
               ? `${provided.draggableProps.style?.transform ?? ""} rotate(1.5deg)`
               : provided.draggableProps.style?.transform,
-            transition: snapshot.isDragging ? "none" : "box-shadow 0.15s ease",
+            // dnd puts its own `transform` transition on the cards that shift
+            // out of the way. Replacing it made them snap instead of slide,
+            // which is most of why this board felt rougher than the project
+            // one. Compose with it rather than overwrite it.
+            transition: snapshot.isDragging
+              ? (provided.draggableProps.style?.transition ?? "none")
+              : [provided.draggableProps.style?.transition, "box-shadow 0.15s ease"]
+                  .filter(Boolean)
+                  .join(", "),
             userSelect: "none",
           }}
         >
@@ -301,14 +309,17 @@ function KanbanColumn({ col, ideas, onCardClick }: KanbanColumnProps) {
               flex: 1,
               minHeight: 120,
               borderRadius: 10,
-              padding: snapshot.isDraggingOver ? "6px" : "0",
+              // Constant geometry: changing padding or border WIDTH here
+              // resized the column mid-drag and forced dnd to re-measure.
+              padding: 6,
               background: snapshot.isDraggingOver
                 ? "oklch(1 0 0 / 0.025)"
                 : "transparent",
-              border: snapshot.isDraggingOver
-                ? `1px dashed var(${col.accentVar})`
-                : "1px solid transparent",
-              transition: "background 0.15s, border 0.15s",
+              border: "1px dashed transparent",
+              borderColor: snapshot.isDraggingOver
+                ? `var(${col.accentVar})`
+                : "transparent",
+              transition: "background 0.15s, border-color 0.15s",
             }}
           >
             {ideas.length === 0 && !snapshot.isDraggingOver ? (
@@ -553,6 +564,7 @@ export function IdeasKanban({
         >
           <Search size={13} style={{ color: "oklch(0.556 0 0)", flexShrink: 0 }} />
           <input
+          aria-label="Search ideas"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search ideas…"
@@ -584,6 +596,7 @@ export function IdeasKanban({
 
         {/* Category */}
         <select
+          aria-label="Filter by category"
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
           style={{
