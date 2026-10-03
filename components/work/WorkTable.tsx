@@ -306,10 +306,11 @@ export function WorkTable({ refreshKey = 0, onEditTodo }: WorkTableProps) {
                   onShowMore={() => setExpanded((p) => new Set(p).add(g.key))}
                 >
                   {!isCollapsed &&
-                    rows.map((w) => (
+                    rows.map((w, i) => (
                       <WorkRow
                         key={keyOf(w)}
                         item={w}
+                        striped={i % 2 === 1}
                         selected={selected.has(keyOf(w))}
                         onSelect={() => toggleOne(keyOf(w))}
                         onOpen={() => openItem(w)}
@@ -396,8 +397,11 @@ function WorkRow({
   onOpen,
   onToggleDone,
   doneView,
+  striped,
 }: {
   item: WorkItem
+  /** Alternate rows within a group, counted per group so the shading restarts under each header. */
+  striped: boolean
   selected: boolean
   onSelect: () => void
   onOpen: () => void
@@ -406,7 +410,7 @@ function WorkRow({
 }) {
   const due = dueText(item.dueDate)
   return (
-    <TableRow data-state={selected ? "selected" : undefined} className="group">
+    <TableRow data-state={selected ? "selected" : undefined} className={striped ? "group bg-white/[0.035]" : "group"}>
       <TableCell className="w-10">
         <Checkbox checked={selected} onCheckedChange={onSelect} aria-label={`Select ${item.title}`} />
       </TableCell>

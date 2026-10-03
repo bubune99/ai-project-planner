@@ -14,6 +14,7 @@ import { DashboardLayout } from "@/components/navigation"
 import { EnvelopePanel } from "@/components/library/EnvelopePanel"
 import { CrossLinkPanel } from "@/components/cross-links/CrossLinkPanel"
 import { toast } from "sonner"
+import { RichText } from "@/components/shared/RichText"
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -366,14 +367,11 @@ function OverviewTab({
             </div>
           </div>
         ) : (
-          <p
-            className="j-muted"
-            style={{ fontSize: 13, lineHeight: 1.6, margin: 0 }}
-          >
-            {idea.description || (
-              <span style={{ fontStyle: "italic" }}>No description yet. Click Edit to add one.</span>
-            )}
-          </p>
+          idea.description ? (
+            <RichText text={idea.description} />
+          ) : (
+            <p className="j-muted" style={{ fontSize: 13, margin: 0, fontStyle: "italic" }}>No description yet. Click Edit to add one.</p>
+          )
         )}
       </div>
 
