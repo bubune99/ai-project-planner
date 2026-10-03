@@ -57,13 +57,17 @@ const SOURCE_LABEL: Record<string, string> = {
   checkin: "agent", todo: "todo", note: "note",
 }
 
-const NOTE_TYPES = ["note", "progress", "decision", "blocker"] as const
+// Only types the live progress_notes table is known to accept. The CHECK in
+// migration 012 was widened in prod (rows hold milestone and update, which 012
+// does not list), but "note" is in neither: the old Notes tab defaulted to it,
+// so its default post always failed. Every type here has rows in prod.
+const NOTE_TYPES = ["update", "progress", "milestone", "decision", "blocker"] as const
 
 export function ActivityFeed({ projectId }: { projectId: string }) {
   const [items, setItems] = useState<FeedItem[] | null>(null)
   const [reload, setReload] = useState(0)
   const [draft, setDraft] = useState("")
-  const [noteType, setNoteType] = useState<(typeof NOTE_TYPES)[number]>("note")
+  const [noteType, setNoteType] = useState<(typeof NOTE_TYPES)[number]>("update")
   const [posting, setPosting] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -82,7 +86,7 @@ export function ActivityFeed({ projectId }: { projectId: string }) {
         const j = await res.json().catch(() => ({}))
         throw new Error(j?.error?.message || j?.error || `HTTP ${res.status}`)
       }
-      setDraft(""); setNoteType("note"); setReload(r => r + 1)
+      setDraft(""); setNoteType("update"); setReload(r => r + 1)
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Failed to post note")
     } finally {
