@@ -149,6 +149,21 @@ export interface GanttTask {
   dependencies: string[]
   phase: number | string
   status: "pending" | "in_progress" | "completed" | "blocked"
+  /** The step's own phase string ('ideation', 'imported', …). `phase` was being
+   *  parseInt'd, and since phases are words that always yielded NaN -> 1, so every
+   *  step collapsed into a single "Phase 1" group. Group on this instead. */
+  phaseLabel?: string
+}
+
+/** A step with no start_date and no end_date. It is deliberately NOT given a
+ *  position on the timeline — it waits in the Unscheduled rail until someone
+ *  gives it a date. */
+export interface UnscheduledStep {
+  id: string
+  title: string
+  status: string
+  priority: string | null
+  phase: string | null
 }
 
 export interface KanbanTask {

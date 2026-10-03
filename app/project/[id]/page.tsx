@@ -356,13 +356,16 @@ function IdeasFacet({ projectId }: { projectId: string }) {
       .catch(() => setLoading(false))
   }, [projectId])
 
+  // This used to POST /api/todos — so the button labelled "Promote to task"
+  // created a TODO, which never shows up in the project's task views. That is
+  // how 492 todos accumulated against zero project steps.
   const promoteToTask = async (ideaId: string, title: string) => {
     setPromoting(ideaId)
     try {
-      const res = await fetch("/api/todos", {
+      const res = await fetch(`/api/projects/${projectId}/steps`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, projectId, metadata: { sourceIdeaId: ideaId } }),
+        body: JSON.stringify({ title, description: title, metadata: { sourceIdeaId: ideaId } }),
       })
       if (res.ok) {
         setIdeas(prev => prev.map(i => i.id === ideaId ? { ...i, _promoted: true } : i))
@@ -800,6 +803,22 @@ function CalendarFacet({ projectId }: { projectId: string }) {
   const [form, setForm] = useState({ title: "", description: "", time: "09:00" })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  // Scheduled steps are shown alongside calendar_events. They are NOT copied
+  // into calendar_events: project_steps.end_date is the single source of truth,
+  // so scheduling in the Gantt or the step form shows up here with no sync.
+  const [scheduledSteps, setScheduledSteps] = useState<any[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/projects/${projectId}/steps`)
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled || !Array.isArray(d.steps)) return
+        setScheduledSteps(d.steps.filter((st: any) => st.end_date || st.start_date))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [projectId])
 
   // Compute month window (first/last day) for filtering
   const monthStart = useMemo(() => {
@@ -884,6 +903,14 @@ function CalendarFacet({ projectId }: { projectId: string }) {
     ;(eventsByDate[key] ||= []).push(ev)
   }
 
+  // Bucket by due date — that is the date a step "lands on".
+  const stepsByDate: Record<string, any[]> = {}
+  for (const st of scheduledSteps) {
+    const key = String(st.end_date || st.start_date || "").slice(0, 10)
+    if (!key) continue
+    ;(stepsByDate[key] ||= []).push(st)
+  }
+
   const goPrev = () => setNow(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))
   const goNext = () => setNow(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))
   const goToday = () => setNow(new Date())
@@ -895,7 +922,7 @@ function CalendarFacet({ projectId }: { projectId: string }) {
           <div>
             <h3 className="j-card-title">Project calendar</h3>
             <p className="j-card-sub">
-              {loading ? "Loading…" : `${events.length} event${events.length === 1 ? "" : "s"} this month · click a day to add one`}
+              {loading ? "Loading…" : `${events.length} event${events.length === 1 ? "" : "s"} · ${Object.values(stepsByDate).flat().length} scheduled step${Object.values(stepsByDate).flat().length === 1 ? "" : "s"} · click a day to add an event`}
             </p>
           </div>
           <div className="j-row j-gap-2">
@@ -950,6 +977,27 @@ function CalendarFacet({ projectId }: { projectId: string }) {
                   ))}
                   {dayEvents.length > 3 && (
                     <span className="j-muted" style={{ fontSize: 9 }}>+{dayEvents.length - 3} more</span>
+                  )}
+                  {(date ? (stepsByDate[date] || []) : []).slice(0, 3).map((st: any) => (
+                    <div
+                      key={st.id}
+                      title={`Step due: ${st.title}`}
+                      className="j-row j-gap-2"
+                      style={{
+                        padding: "2px 4px", borderRadius: 4,
+                        background: "transparent",
+                        boxShadow: "inset 0 0 0 1px var(--j-ring)",
+                        fontSize: 9,
+                        opacity: st.status === "completed" ? 0.5 : 1,
+                        textDecoration: st.status === "completed" ? "line-through" : undefined,
+                      }}
+                    >
+                      <span style={{ width: 4, height: 4, borderRadius: 1, background: "var(--j-warn, #d08c3c)", flexShrink: 0 }} />
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{st.title}</span>
+                    </div>
+                  ))}
+                  {date && (stepsByDate[date] || []).length > 3 && (
+                    <span className="j-muted" style={{ fontSize: 9 }}>+{(stepsByDate[date] || []).length - 3} more steps</span>
                   )}
                 </div>
               </div>

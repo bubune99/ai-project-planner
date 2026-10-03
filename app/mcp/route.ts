@@ -814,13 +814,16 @@ const handler = createMcpHandler(
     // ==========================================
     server.tool(
       "create_task",
-      "Create a task (project step). Pass parentTaskId to create a SUBTASK of an existing task — use this to decompose high-level work into tracked children. Requires write access.",
+      "DEFAULT for project work. Creates a project step — the unit the Kanban, Gantt, Flow, Roadmap, health and progress views all read, and the only one that supports dependencies, phases and subtasks. If the work belongs to a project, it belongs here, NOT in create_todo. Use create_todo only for personal items, owner-only actions (rotate a key, toggle a dashboard setting, make a call) and cross-domain links. Pass parentTaskId to create a SUBTASK. Requires write access.",
       {
         projectId: z.string().optional().describe("Project ID (uses active project if not specified)"),
         title: z.string().describe("Task title"),
         description: z.string().optional(),
         status: z.string().optional().describe("Status key (default 'pending'; built-in or custom project status)"),
-        priority: z.enum(["low", "medium", "high"]).optional(),
+        // 'urgent' was missing here while create_todo accepted it, so urgent
+        // project work could not be expressed as a task at all — a quiet reason
+        // agents routed 492 items to todos instead. Allowed by migration 056.
+        priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
         parentTaskId: z.string().optional().describe("Parent task ID — makes this a subtask"),
         tags: z.array(z.string()).optional(),
         dueDate: z.string().optional().describe("Due date, ISO 8601"),
@@ -860,7 +863,16 @@ const handler = createMcpHandler(
               project_id, title, description, status, phase, stage,
               estimated_hours, priority, order_index, parent_task_id, tags, end_date
             ) VALUES (
-              ${resolvedId}, ${title}, ${description || ""}, ${statusKey}, ${phase || ""}, ${""},
+              ${resolvedId}, ${title}, ${description || ""}, ${statusKey},
+              -- phase and stage are NOT NULL. Writing "" left every step in an
+              -- unnamed bucket, which made the Roadmap view useless. Fall back
+              -- to the project's own current_phase instead.
+              COALESCE(
+                NULLIF(${phase || ""}, ''),
+                (SELECT NULLIF(current_phase, '') FROM projects WHERE id = ${resolvedId}),
+                'planning'
+              ),
+              ${"backlog"},
               ${estimatedHours ?? 0}, ${priority || null}, ${(maxRow.max_order || 0) + 1},
               ${parentTaskId || null},
               ${(tags || []).map(t => String(t).trim()).filter(Boolean).slice(0, 20)}::text[],
@@ -1907,13 +1919,13 @@ const handler = createMcpHandler(
     // ==========================================
     server.tool(
       "create_todo",
-      "Create a new personal todo. Can optionally be linked to a project.",
+      "Personal todo. Use for items that are NOT project plan work: owner-only actions (rotate a credential, flip a dashboard setting, cancel a subscription), things waiting on another person, and cross-domain links to an idea or transaction. If the item is work on a project, call create_task instead — only project steps appear on the Kanban, Gantt, Roadmap and progress. If the item is a choice to be made, call create_decision.",
       {
         title: z.string().describe("Todo title"),
         description: z.string().optional().describe("Todo description"),
         priority: z.enum(["low", "medium", "high", "urgent"]).optional().describe("Priority level (default: medium)"),
         dueDate: z.string().optional().describe("Due date (ISO 8601 format)"),
-        projectId: z.string().optional().describe("Link to a project"),
+        projectId: z.string().optional().describe("Link to a project. NOTE: a project link does NOT make this appear in the project's task views — use create_task for that. Link a todo to a project only when it is a project-adjacent personal/owner item."),
       },
       async ({ title, description, priority = "medium", dueDate, projectId }) => {
         try {
@@ -1944,7 +1956,21 @@ const handler = createMcpHandler(
             id: todo.id,
             title: todo.title,
             priority: todo.priority,
-            due: todo.due_date
+            due: todo.due_date,
+            // A project-linked todo is invisible to every project view — the
+            // Overview KPIs, Kanban, Gantt and Roadmap all read project_steps.
+            // Say so at the write, not after someone notices "Tasks done 0/0".
+            ...(projectId
+              ? {
+                  warning:
+                    "This todo is linked to a project but will NOT appear in that project's task views, progress or roadmap — those read project steps.",
+                  next_actions: [
+                    "If this is project plan work, create it with create_task instead and delete this todo.",
+                    "If this is a choice to be made, record it with create_decision instead.",
+                    "If this is genuinely an owner-only or waiting-on-someone item, leave it as a todo — that is what todos are for.",
+                  ],
+                }
+              : {}),
           })
         } catch (error: unknown) {
           return mcpError(error instanceof Error ? error.message : "Unknown error")

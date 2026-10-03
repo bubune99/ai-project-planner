@@ -13,7 +13,10 @@ export const dynamic = "force-dynamic"
 
 // Must mirror the project_steps_status_check / priority CHECK constraints
 const VALID_STATUSES = ["pending", "in-progress", "completed", "blocked", "paused", "failed"];
-const VALID_PRIORITIES = ["low", "medium", "high"];
+// "urgent" added by migration 056 so tasks can express the same urgency
+// todos always could. Before that, urgent project work literally had no
+// valid task priority, which pushed it into the todo list instead.
+const VALID_PRIORITIES = ["low", "medium", "high", "urgent"];
 
 /**
  * GET /api/projects/[id]/steps
@@ -187,7 +190,15 @@ export async function POST(
         start_date, end_date, parent_task_id, tags
       )
       VALUES (
-        ${projectId}, ${title}, ${description || ""}, ${status}, ${phase || ""}, ${stage || ""},
+        ${projectId}, ${title}, ${description || ""}, ${status},
+        -- phase/stage are NOT NULL; writing "" dumped every step into an
+        -- unnamed bucket and made the Roadmap view empty-looking.
+        COALESCE(
+          NULLIF(${phase || ""}, ''),
+          (SELECT NULLIF(current_phase, '') FROM projects WHERE id = ${projectId}),
+          'planning'
+        ),
+        ${stage || "backlog"},
         ${estimated_hours ?? 0}, ${assigned_agent || null}, ${priority},
         ${JSON.stringify(stepTasks)}::jsonb,
         ${JSON.stringify(acceptance_criteria)}::jsonb, ${version_id || null},

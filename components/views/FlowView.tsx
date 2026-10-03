@@ -403,15 +403,18 @@ export function FlowView({
         </div>
       )}
 
+      {/* Props were `isOpen`/`editingStep`; StepFormModalProps declares
+          `open`/`step`. `open` arrived undefined, so this modal could never
+          render and the Flow view's add/edit step action silently did nothing. */}
       <StepFormModal
         projectId={projectId}
-        isOpen={isStepModalOpen}
+        open={isStepModalOpen}
         onClose={() => {
           setIsStepModalOpen(false)
           setEditingStep(null)
         }}
         onSuccess={handleStepSaved}
-        editingStep={editingStep}
+        step={editingStep}
       />
     </div>
   )

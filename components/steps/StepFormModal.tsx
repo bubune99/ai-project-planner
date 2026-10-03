@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { toDateInput } from "@/lib/scheduling"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
@@ -34,6 +35,10 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
     assigned_agent: "",
     priority: "medium",
     status: "pending",
+    // Dates were absent from this form entirely, which is why 414 steps had no
+    // schedule and the Gantt invented one for each of them.
+    start_date: "",
+    end_date: "",
     tasks: [] as string[],
     dependencies: [] as { depends_on_step_id: string; dependency_type: string }[],
   })
@@ -52,6 +57,8 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
         assigned_agent: step.assigned_agent || "",
         priority: step.priority || "medium",
         status: step.status || "pending",
+        start_date: toDateInput(step.start_date ?? step.startDate),
+        end_date: toDateInput(step.end_date ?? step.endDate),
         tasks: step.tasks || [],
         dependencies: step.dependencies || [],
       })
@@ -65,6 +72,8 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
         assigned_agent: "",
         priority: "medium",
         status: "pending",
+        start_date: "",
+        end_date: "",
         tasks: [],
         dependencies: [],
       })
@@ -86,6 +95,10 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
         body: JSON.stringify({
           ...formData,
           estimated_hours: formData.estimated_hours ? Number.parseFloat(formData.estimated_hours) : null,
+          // The PATCH route keys off property PRESENCE, so always send both:
+          // an empty field means "clear the date", not "leave it alone".
+          start_date: formData.start_date ? new Date(`${formData.start_date}T12:00:00`).toISOString() : null,
+          end_date: formData.end_date ? new Date(`${formData.end_date}T12:00:00`).toISOString() : null,
         }),
       })
 
@@ -174,7 +187,7 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
             <div>
               <Label htmlFor="phase">Phase</Label>
               <Select value={formData.phase} onValueChange={(value) => setFormData({ ...formData, phase: value })}>
-                <SelectTrigger>
+                <SelectTrigger id="phase">
                   <SelectValue placeholder="Select phase" />
                 </SelectTrigger>
                 <SelectContent>
@@ -191,7 +204,7 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
             <div>
               <Label htmlFor="stage">Stage</Label>
               <Select value={formData.stage} onValueChange={(value) => setFormData({ ...formData, stage: value })}>
-                <SelectTrigger>
+                <SelectTrigger id="stage">
                   <SelectValue placeholder="Select stage" />
                 </SelectTrigger>
                 <SelectContent>
@@ -208,7 +221,7 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
               <div>
                 <Label htmlFor="status">Status</Label>
                 <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                  <SelectTrigger>
+                  <SelectTrigger id="status">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -232,7 +245,7 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
                 value={formData.assigned_agent}
                 onValueChange={(value) => setFormData({ ...formData, assigned_agent: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger id="agent">
                   <SelectValue placeholder="Select agent" />
                 </SelectTrigger>
                 <SelectContent>
@@ -250,7 +263,7 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
                 value={formData.priority}
                 onValueChange={(value) => setFormData({ ...formData, priority: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger id="priority">
                   <SelectValue placeholder="Select priority" />
                 </SelectTrigger>
                 <SelectContent>
@@ -274,11 +287,43 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
             </div>
           </div>
 
+          {/* Schedule — a step with no dates stays off the Gantt and the
+              calendar and waits in the Unscheduled rail. A due date alone is
+              enough to place it. */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="start_date">Start date</Label>
+              <Input
+                id="start_date"
+                type="date"
+                value={formData.start_date}
+                max={formData.end_date || undefined}
+                onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="end_date">Due date</Label>
+              <Input
+                id="end_date"
+                type="date"
+                value={formData.end_date}
+                min={formData.start_date || undefined}
+                onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+              />
+            </div>
+          </div>
+          {!formData.start_date && !formData.end_date && (
+            <p className="text-xs text-muted-foreground -mt-2">
+              No dates: this step stays in the Unscheduled list and is not drawn on the timeline.
+            </p>
+          )}
+
           {/* Tasks/Checklist */}
           <div>
             <Label>Tasks / Checklist</Label>
             <div className="flex gap-2 mb-2">
               <Input
+                aria-label="Add a checklist subtask"
                 value={newTask}
                 onChange={(e) => setNewTask(e.target.value)}
                 placeholder="Add a subtask..."
@@ -311,7 +356,7 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
               <Label>Dependencies</Label>
               <div className="flex gap-2 mb-2">
                 <Select value={selectedDependency} onValueChange={setSelectedDependency}>
-                  <SelectTrigger>
+                  <SelectTrigger aria-label="Select a step this one depends on">
                     <SelectValue placeholder="Select a step..." />
                   </SelectTrigger>
                   <SelectContent>
