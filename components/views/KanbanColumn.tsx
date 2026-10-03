@@ -29,6 +29,11 @@ interface KanbanColumnProps {
   /** Column management callbacks — present only when grouping by status */
   onEditColumn?: (key: string, patch: { label?: string; color?: string; kind?: StatusKind }) => void
   onDeleteColumn?: (key: string) => void
+  /** Reorder this column. dir -1 = left, +1 = right. Rename and delete already
+   *  existed in this menu; moving did not, which is the gap the owner hit. */
+  onMoveColumn?: (key: string, dir: -1 | 1) => void
+  isFirstColumn?: boolean
+  isLastColumn?: boolean
   onToggleCollapse: (key: string) => void
   onQuickAdd: (columnKey: string, title: string) => Promise<void>
   onOpen: (step: BoardStep) => void
@@ -47,6 +52,9 @@ export function KanbanColumn({
   collapsed,
   onEditColumn,
   onDeleteColumn,
+  onMoveColumn,
+  isFirstColumn,
+  isLastColumn,
   onToggleCollapse,
   onQuickAdd,
   onOpen,
@@ -110,6 +118,7 @@ export function KanbanColumn({
         {renaming ? (
           <Input
             autoFocus
+            aria-label={`Rename the ${column.label} column`}
             value={renameValue}
             className="h-6 text-xs font-semibold"
             onChange={(e) => setRenameValue(e.target.value)}
@@ -119,6 +128,53 @@ export function KanbanColumn({
             }}
             onBlur={submitRename}
           />
+        ) : onEditColumn ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                title="Column options"
+                className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide cursor-pointer hover:brightness-125 ${column.pillClass}`}
+                style={
+                  column.colorHex
+                    ? { backgroundColor: column.colorHex + "26", color: column.colorHex }
+                    : undefined
+                }
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${column.dotClass}`}
+                  style={column.colorHex ? { backgroundColor: column.colorHex } : undefined}
+                />
+                {column.label}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-52">
+              <DropdownMenuItem
+                onClick={() => {
+                  setRenameValue(column.label)
+                  setRenaming(true)
+                }}
+              >
+                <Pencil className="w-3.5 h-3.5 mr-2" /> Rename
+              </DropdownMenuItem>
+              {onMoveColumn && (
+                <>
+                  <DropdownMenuItem
+                    disabled={isFirstColumn}
+                    onClick={() => onMoveColumn(column.key, -1)}
+                  >
+                    <ChevronsLeft className="w-3.5 h-3.5 mr-2" /> Move left
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={isLastColumn}
+                    onClick={() => onMoveColumn(column.key, 1)}
+                  >
+                    <ChevronsRight className="w-3.5 h-3.5 mr-2" /> Move right
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : (
           <span
             className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${column.pillClass}`}
@@ -164,6 +220,17 @@ export function KanbanColumn({
                 <Pencil className="w-3.5 h-3.5 mr-2" /> Rename
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              {onMoveColumn && (
+                <>
+                  <DropdownMenuItem disabled={isFirstColumn} onClick={() => onMoveColumn(column.key, -1)}>
+                    <ChevronsLeft className="w-3.5 h-3.5 mr-2" /> Move left
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled={isLastColumn} onClick={() => onMoveColumn(column.key, 1)}>
+                    <ChevronsRight className="w-3.5 h-3.5 mr-2" /> Move right
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuLabel className="text-xs">Color</DropdownMenuLabel>
               <div className="flex flex-wrap gap-1.5 px-2 pb-1.5">
                 {STATUS_PALETTE.map((c) => (
@@ -254,6 +321,7 @@ export function KanbanColumn({
           <div className="flex items-center gap-1.5">
             <Input
               autoFocus
+              aria-label={`New task in ${column.label}`}
               value={newTitle}
               placeholder="Task title, Enter to save"
               className="h-8 text-sm"

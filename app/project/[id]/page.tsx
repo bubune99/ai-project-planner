@@ -807,6 +807,8 @@ function CalendarFacet({ projectId }: { projectId: string }) {
   // into calendar_events: project_steps.end_date is the single source of truth,
   // so scheduling in the Gantt or the step form shows up here with no sync.
   const [scheduledSteps, setScheduledSteps] = useState<any[]>([])
+  // A step chip was 9px text and inert — nothing to click, nothing to expand.
+  const [selectedStep, setSelectedStep] = useState<any | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -956,7 +958,7 @@ function CalendarFacet({ projectId }: { projectId: string }) {
                 key={i}
                 className={`j-cal-day${!inMonth ? " j-outside" : ""}${isToday ? " j-today" : ""}`}
                 style={{
-                  minHeight: 80,
+                  minHeight: 96,
                   cursor: inMonth ? "pointer" : "default",
                   boxShadow: isSelected ? "inset 0 0 0 2px var(--j-accent)" : undefined,
                 }}
@@ -986,22 +988,30 @@ function CalendarFacet({ projectId }: { projectId: string }) {
                     <span className="j-muted" style={{ fontSize: 9 }}>+{dayEvents.length - 3} more</span>
                   )}
                   {(date ? (stepsByDate[date] || []) : []).slice(0, 3).map((st: any) => (
-                    <div
+                    <button
                       key={st.id}
-                      title={`Step due: ${st.title}`}
+                      type="button"
+                      title={`${st.title} — click for details`}
+                      aria-label={`Step due: ${st.title}`}
+                      onClick={(ev) => { ev.stopPropagation(); setSelectedStep(st) }}
                       className="j-row j-gap-2"
                       style={{
-                        padding: "2px 4px", borderRadius: 4,
-                        background: "transparent",
-                        boxShadow: "inset 0 0 0 1px var(--j-ring)",
-                        fontSize: 9,
-                        opacity: st.status === "completed" ? 0.5 : 1,
+                        // Was 9px with 2px padding — illegible, and the only thing
+                        // in an 80px-tall cell. Sized to the box it lives in.
+                        padding: "4px 6px", borderRadius: 5,
+                        background: selectedStep?.id === st.id ? "var(--j-accent-soft, oklch(0.26 0 0))" : "oklch(0.180 0 0)",
+                        boxShadow: selectedStep?.id === st.id
+                          ? "inset 0 0 0 1.5px var(--j-accent)"
+                          : "inset 0 0 0 1px var(--j-ring)",
+                        fontSize: 11, lineHeight: 1.25, textAlign: "left", width: "100%",
+                        cursor: "pointer", border: "none", color: "inherit",
+                        opacity: st.status === "completed" ? 0.55 : 1,
                         textDecoration: st.status === "completed" ? "line-through" : undefined,
                       }}
                     >
-                      <span style={{ width: 4, height: 4, borderRadius: 1, background: "var(--j-warn, #d08c3c)", flexShrink: 0 }} />
+                      <span style={{ width: 5, height: 5, borderRadius: 1, background: "var(--j-warn, #d08c3c)", flexShrink: 0 }} />
                       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{st.title}</span>
-                    </div>
+                    </button>
                   ))}
                   {date && (stepsByDate[date] || []).length > 3 && (
                     <span className="j-muted" style={{ fontSize: 9 }}>+{(stepsByDate[date] || []).length - 3} more steps</span>
@@ -1012,6 +1022,46 @@ function CalendarFacet({ projectId }: { projectId: string }) {
           })}
         </div>
       </div>
+
+      {/* Step detail — a calendar chip used to be inert. Clicking one now opens
+          the same facts the Gantt and the board show, without leaving the month. */}
+      {selectedStep && (
+        <div className="j-card">
+          <div className="j-card-head">
+            <div>
+              <h3 className="j-card-title">{selectedStep.title}</h3>
+              <p className="j-card-sub">Project step · due {String(selectedStep.end_date || "").slice(0, 10) || "—"}</p>
+            </div>
+            <button className="j-btn j-btn-icon j-btn-ghost" onClick={() => setSelectedStep(null)} aria-label="Close step details">✕</button>
+          </div>
+          <div className="j-col j-gap-3">
+            <div className="j-row j-wrap" style={{ gap: 6 }}>
+              <span className={`j-pill ${selectedStep.status === "completed" ? "j-pos" : selectedStep.status === "in-progress" ? "j-proj" : selectedStep.status === "blocked" ? "j-warn" : "j-muted"}`}>
+                {selectedStep.status}
+              </span>
+              {selectedStep.priority && <span className="j-pill j-ghost">{selectedStep.priority}</span>}
+              {selectedStep.phase && <span className="j-pill j-ghost">{selectedStep.phase}</span>}
+              {selectedStep.step_type && selectedStep.step_type !== "task" && (
+                <span className="j-pill j-info">{selectedStep.step_type}</span>
+              )}
+              {typeof selectedStep.progress === "number" && (
+                <span className="j-pill j-ghost">{selectedStep.progress}%</span>
+              )}
+            </div>
+            {selectedStep.description && selectedStep.description !== selectedStep.title && (
+              <p className="j-muted" style={{ fontSize: 13, lineHeight: 1.55, margin: 0 }}>
+                {selectedStep.description}
+              </p>
+            )}
+            <div className="j-muted" style={{ fontSize: 12 }}>
+              {selectedStep.start_date
+                ? `Scheduled ${String(selectedStep.start_date).slice(0, 10)} → ${String(selectedStep.end_date || "").slice(0, 10)}`
+                : "No start date set"}
+              {selectedStep.blocked_reason ? ` · blocked: ${selectedStep.blocked_reason}` : ""}
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedDate && (
         <div className="j-card">

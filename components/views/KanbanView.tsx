@@ -195,6 +195,38 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
     return refetchStatuses()
   }, [usingDefaults, customStatuses, projectId, refetchStatuses])
 
+  const handleMoveColumn = useCallback(
+    async (key: string, dir: -1 | 1) => {
+      try {
+        // Materialise the built-in statuses into real rows first. Until a
+        // project has project_statuses rows the columns are synthetic, so there
+        // is nothing to reorder — which is why this did nothing before.
+        const rows = await ensureCustomized()
+        const ordered = [...rows].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+        const i = ordered.findIndex((r) => r.key === key)
+        const j = i + dir
+        if (i < 0 || j < 0 || j >= ordered.length) return
+        const [moved] = ordered.splice(i, 1)
+        ordered.splice(j, 0, moved)
+
+        await Promise.all(
+          ordered.map((r, idx) =>
+            fetch(`/api/projects/${projectId}/statuses/${r.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ order_index: idx }),
+            })
+          )
+        )
+        await refetchStatuses()
+        toast.success(`Moved ${moved.label} ${dir === -1 ? "left" : "right"}`)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to move column")
+      }
+    },
+    [ensureCustomized, projectId, refetchStatuses]
+  )
+
   const handleEditColumn = useCallback(
     async (key: string, patch: { label?: string; color?: string; kind?: StatusKind }) => {
       try {
@@ -510,6 +542,9 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
                   expandSubtasks={prefs.expandSubtasks}
                   collapsed={prefs.collapsed.includes(column.key)}
                   onEditColumn={prefs.groupBy === "status" ? handleEditColumn : undefined}
+                  onMoveColumn={prefs.groupBy === "status" ? handleMoveColumn : undefined}
+                  isFirstColumn={columns[0]?.key === column.key}
+                  isLastColumn={columns[columns.length - 1]?.key === column.key}
                   onDeleteColumn={
                     prefs.groupBy === "status" && statuses.length > 1 ? handleDeleteColumn : undefined
                   }
@@ -529,6 +564,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
                   {addingGroup ? (
                     <Input
                       autoFocus
+                      aria-label="New column name"
                       value={newGroupLabel}
                       placeholder="Column name, Enter to add"
                       className="h-9 text-sm"
