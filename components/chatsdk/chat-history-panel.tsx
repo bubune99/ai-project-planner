@@ -107,10 +107,14 @@ export function ChatHistoryPanel() {
     }
   }
 
-  const Section = ({ label, items }: { label: string; items: ChatEntry[] }) => {
+  // A render function, not a component: declaring `const Section = () =>` in
+  // the body made a new component type every render, so React remounted the
+  // whole list on each state change (a tick in Select mode rebuilt every row,
+  // dropping focus and detaching what you were about to click).
+  const renderSection = (label: string, items: ChatEntry[]) => {
     if (!items.length) return null
     return (
-      <div>
+      <div key={label}>
         <p style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "oklch(0.45 0 0)", padding: "6px 10px 2px", margin: 0 }}>{label}</p>
         {items.map(c => (
           <div
@@ -205,10 +209,10 @@ export function ChatHistoryPanel() {
           </div>
         ) : (
           <>
-            <Section label="Today" items={today} />
-            <Section label="Yesterday" items={yesterday} />
-            <Section label="This week" items={week} />
-            <Section label="Older" items={older} />
+            {renderSection("Today", today)}
+            {renderSection("Yesterday", yesterday)}
+            {renderSection("This week", week)}
+            {renderSection("Older", older)}
           </>
         )}
 
