@@ -71,6 +71,7 @@ export class TraceRecorder {
 
 const TITLES: Record<string, string> = {
   get_dashboard: "Checking the dashboard",
+  project_workload: "Checking workload across projects",
   list_projects: "Listing projects",
   get_project_context: "Reading the project",
   get_project_tasks: "Reading tasks",
@@ -113,6 +114,9 @@ export function toolTitle(name: string, input: unknown): string {
   return `${base}: “${short}”`
 }
 
+/** recentActivity / recent_activity → "recent activity". */
+const humanKey = (k: string) => k.replace(/_/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase()
+
 /** One line describing a tool's text result. Tools return compact JSON; errors start with "Error:". */
 export function summarizeResult(text: unknown): { status: "ok" | "error"; detail?: string } {
   if (typeof text !== "string") return { status: "ok" }
@@ -128,7 +132,7 @@ export function summarizeResult(text: unknown): { status: "ok" | "error"; detail
     if (o.created === true) return { status: "ok", detail: "Created" }
     if (o.updated === true) return { status: "ok", detail: "Updated" }
     for (const [k, val] of Object.entries(o)) {
-      if (Array.isArray(val) && k !== "next_actions") return { status: "ok", detail: `${val.length} ${k.replace(/_/g, " ")}` }
+      if (Array.isArray(val) && k !== "next_actions") return { status: "ok", detail: `${val.length} ${humanKey(k)}` }
     }
   }
   return { status: "ok" }

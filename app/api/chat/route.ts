@@ -39,7 +39,9 @@ import { checkRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic"
 
-export const maxDuration = 60;
+// Agent runs make several model rounds and can delegate; 60s cut a real
+// multi-step run off mid-answer (Vercel Runtime Timeout, 2026-10-03).
+export const maxDuration = 300;
 ;
 
 /**

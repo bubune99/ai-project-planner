@@ -31,14 +31,18 @@ function useNow(active: boolean, startedAt: number) {
   return now - startedAt
 }
 
-export function AgentActivity({ spans }: { spans: AgentSpan[] }) {
+export function AgentActivity({ spans, live = true }: { spans: AgentSpan[]; live?: boolean }) {
   const root = spans.find((s) => !s.parentId && s.kind === "agent")
   const steps = useMemo(() => layoutSpans(spans).filter((s) => s.id !== root?.id), [spans, root?.id])
-  const running = spans.some((s) => s.status === "running")
+  const unfinished = spans.some((s) => s.status === "running")
+  // Steps still open after the stream has ended mean the run was cut off
+  // (e.g. a function timeout): say so instead of spinning forever.
+  const stopped = unfinished && !live
+  const running = unfinished && live
   // Wall-clock anchor for the live timer: the moment this component first saw the run.
   const [seenAt] = useState(() => Date.now())
   const liveMs = useNow(running, seenAt)
-  const totals = traceTotals(spans, running ? liveMs : undefined)
+  const totals = traceTotals(spans, unfinished ? liveMs : undefined)
 
   const [userToggled, setUserToggled] = useState<boolean | null>(null)
   const open = userToggled ?? running
@@ -61,6 +65,8 @@ export function AgentActivity({ spans }: { spans: AgentSpan[] }) {
         >
           {running ? (
             <Loader2 aria-hidden size={14} className="animate-spin" style={{ color: "var(--j-accent)" }} />
+          ) : stopped ? (
+            <X aria-hidden size={14} style={{ color: "var(--j-warn)" }} />
           ) : totals.errors ? (
             <X aria-hidden size={14} style={{ color: "var(--j-neg)" }} />
           ) : (
@@ -69,7 +75,9 @@ export function AgentActivity({ spans }: { spans: AgentSpan[] }) {
           <span>
             {running
               ? current ? current.title : "Working"
-              : `Used ${totals.tools} tool${totals.tools === 1 ? "" : "s"} · ${formatMs(totals.ms)}`}
+              : stopped
+                ? <span style={{ color: "var(--j-warn)" }}>Stopped before finishing · {totals.tools} tool{totals.tools === 1 ? "" : "s"} ran</span>
+                : `Used ${totals.tools} tool${totals.tools === 1 ? "" : "s"} · ${formatMs(totals.ms)}`}
             {!running && totals.errors > 0 && <span style={{ color: "var(--j-neg)" }}> · {totals.errors} failed</span>}
           </span>
           <ChevronDown aria-hidden size={13} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
@@ -87,7 +95,9 @@ export function AgentActivity({ spans }: { spans: AgentSpan[] }) {
             const dur = (s.end ?? (running ? liveMs : s.start)) - s.start
             return (
               <li key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0 3px", paddingLeft: 8 + Math.max(0, s.depth - rootDepth) * 16 }}>
-                {s.status === "running" ? (
+                {s.status === "running" && stopped ? (
+                  <X aria-label="stopped" size={12} style={{ color: "var(--j-warn)", flexShrink: 0 }} />
+                ) : s.status === "running" ? (
                   <Loader2 aria-label="running" size={12} className="animate-spin" style={{ color: "var(--j-accent)", flexShrink: 0 }} />
                 ) : s.status === "error" ? (
                   <X aria-label="failed" size={12} style={{ color: "var(--j-neg)", flexShrink: 0 }} />

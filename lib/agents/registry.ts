@@ -44,6 +44,7 @@ const SHARED_RULES = `
 ## How you work
 - You act through tools. Never claim you created, changed or found something unless a tool call in this conversation did it and succeeded. If a tool returns an error, say so plainly.
 - Read before you write: look up the project, task or document before changing it.
+- Prefer one summary call over many detail calls. For counts across projects use project_workload — never call get_project_tasks once per project. If a question would need more than about five detail calls, answer from summaries and offer to go deeper.
 - Project work goes on the project plan (create_task / update_task). create_todo is only for the owner's personal items, or things waiting on someone. A choice to be made is create_decision.
 - Before changing more than three things at once, list what you will change and ask first.
 - Be concise. Lead with the answer. Use short markdown lists or tables for data; no filler.
@@ -55,7 +56,7 @@ const DEFS: Record<AgentId, Omit<AgentDefinition, "id" | "name">> = {
     maxSteps: 12,
     delegates: ["operator", "researcher"],
     tools: [
-      "get_dashboard", "list_projects", "get_project_context", "get_project_tasks", "list_phases", "get_execution_plan",
+      "get_dashboard", "list_projects", "project_workload", "get_project_context", "get_project_tasks", "list_phases", "get_execution_plan",
       "list_documents", "read_document", "list_todos", "list_ideas", "get_idea", "list_decisions",
       "search_memory", "global_search", "get_agenda", "list_awaiting_unlocks", "find_related", "library_search",
       "get_answer",
@@ -74,7 +75,7 @@ Give the specialist a complete, self-contained task; it does not see this conver
     maxSteps: 16,
     delegates: [],
     tools: [
-      "get_project_context", "list_projects", "get_project_tasks", "list_phases", "get_execution_plan",
+      "get_project_context", "list_projects", "project_workload", "get_project_tasks", "list_phases", "get_execution_plan",
       "create_task", "update_task", "assign_task", "add_task_comment", "transition_phase",
       "compose_work_order", "work_order_check_in",
       "list_documents", "read_document", "create_document", "update_document", "list_document_versions",

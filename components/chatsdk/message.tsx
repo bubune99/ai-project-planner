@@ -111,7 +111,7 @@ const PurePreviewMessage = ({
           {message.role === "assistant" && (() => {
             // The agent's steps, streamed as data-span parts (one per span id).
             const spans = latestSpans(message.parts as { type?: string; id?: string; data?: unknown }[]);
-            return spans.length ? <AgentActivity spans={spans} /> : null;
+            return spans.length ? <AgentActivity live={isLoading} spans={spans} /> : null;
           })()}
 
           {message.parts?.map((part, index) => {

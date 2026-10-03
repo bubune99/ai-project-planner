@@ -3388,6 +3388,43 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
     // ==========================================
     // Tool: Get dashboard summary
     // ==========================================
+    // Tool: project_workload — task counts for every project in one call.
+    // Added 2026-10-03 after an agent trace showed "which project has the most
+    // open tasks?" costing ~40 get_project_tasks calls (one per project) and
+    // timing out at 60s. Counts match My Work: owned, not deleted, top-level
+    // tasks only, open/active/done resolved by step_status_kind().
+    server.tool(
+      "project_workload",
+      "Open, in-progress and done task counts for every project you own, in one call, busiest first. Use this instead of calling get_project_tasks per project.",
+      {
+        limit: z.number().int().min(1).max(100).optional().describe("Max projects (default 50)"),
+      },
+      async ({ limit }) => {
+        try {
+          const userId = getMcpUserId()
+          const rows = (await sql`
+            SELECT p.id, p.name, p.status AS project_status,
+                   COUNT(*) FILTER (WHERE k.kind = 'open')::int   AS open,
+                   COUNT(*) FILTER (WHERE k.kind = 'active')::int AS in_progress,
+                   COUNT(*) FILTER (WHERE k.kind = 'done')::int   AS done
+              FROM projects p
+              LEFT JOIN project_steps ps
+                     ON ps.project_id = p.id AND ps.deleted_at IS NULL AND ps.parent_task_id IS NULL
+              LEFT JOIN LATERAL (SELECT step_status_kind(ps.project_id, ps.status) AS kind) k ON ps.id IS NOT NULL
+             WHERE p.user_id = ${userId} AND p.deleted_at IS NULL
+             GROUP BY p.id, p.name, p.status
+             ORDER BY (COUNT(*) FILTER (WHERE k.kind IN ('open', 'active'))) DESC, p.name
+             LIMIT ${Math.min(limit ?? 50, 100)}
+          `) as { id: string; name: string; project_status: string; open: number; in_progress: number; done: number }[]
+          return mcpResponse({
+            projects: rows.map((r) => ({ id: r.id, name: r.name, status: r.project_status, open: r.open, inProgress: r.in_progress, done: r.done })),
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
     server.tool(
       "get_dashboard",
       "Get unified dashboard summary with projects, todos, ideas, and recent activity.",

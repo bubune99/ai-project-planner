@@ -12,7 +12,7 @@ const starts = [...src.matchAll(/server\.tool\(\s*"([^"]+)"/g)].map((m) => ({ na
 const tools = new Map(starts.map((t, i) => [t.name, src.slice(t.at, starts[i + 1]?.at ?? src.length)]))
 const isWrite = (n: string) => /requireMcpScope\("write"\)/.test(tools.get(n) ?? "")
 
-ok("found the 98 planner tools", tools.size === 98, tools.size)
+ok("found the 99 planner tools", tools.size === 99, tools.size)
 ok("catalog and registry list the same agents", AGENTS.map((a) => a.id).join() === Object.keys(REGISTRY).join())
 ok("default agent exists", DEFAULT_AGENT_ID in REGISTRY)
 
