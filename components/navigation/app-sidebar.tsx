@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useUser } from "@stackframe/stack"
@@ -26,6 +27,7 @@ const NAV_SECTIONS: NavSection[] = [
       { title: "Projects", href: "/projects", icon: "folder" },
       { title: "Clients", href: "/clients", icon: "users" },
       { title: "Today", href: "/todos", icon: "target" },
+      { title: "Inbox", href: "/inbox", icon: "bell" },
     ],
   },
   {
@@ -78,6 +80,19 @@ export function AppSidebar({
   const pathname = usePathname()
   const user = useUser()
 
+  // How many questions are waiting on the owner. Refetched on navigation, so
+  // answering on /inbox clears the badge on the next page.
+  const [inboxCount, setInboxCount] = useState(0)
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    fetch("/api/inbox", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (!cancelled && j?.success) setInboxCount(Array.isArray(j.data) ? j.data.length : 0) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [user, pathname])
+
   const initials = user?.displayName
     ? user.displayName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
     : "U"
@@ -114,6 +129,7 @@ export function AppSidebar({
           )}
           {section.items.map(item => {
             const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
+            const badge = item.href === "/inbox" ? (inboxCount > 0 ? String(inboxCount) : undefined) : item.badge
             return (
               <Link
                 key={item.href}
@@ -129,9 +145,9 @@ export function AppSidebar({
                 {!collapsed && (
                   <>
                     <span style={{ flex: 1 }}>{item.title}</span>
-                    {item.badge && (
+                    {badge && (
                       <span className={`j-nav-badge${item.soon ? " j-soon" : ""}`}>
-                        {item.badge}
+                        {badge}
                       </span>
                     )}
                   </>

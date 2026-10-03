@@ -30,6 +30,7 @@ import {
   listSourcesForStep,
   listSourcesForJob,
 } from "@/lib/db/backbone"
+import { buildQuestionInput } from "@/lib/inbox"
 import { NextRequest } from "next/server"
 import {
   validateMcpApiKey,
@@ -3852,6 +3853,83 @@ const handler = createMcpHandler(
       }
     )
 
+    // ---------- Inbox: ask the owner, read the answer ----------
+    // request_unlock needs a job to already exist and nothing let the agent
+    // read the answer back, so it was never used. ask_owner creates the
+    // question directly (an agent_jobs row in awaiting-unlock); the owner
+    // answers on /inbox with one tap; get_answer returns it.
+    server.tool(
+      "ask_owner",
+      "Ask the owner a question they answer from their phone at /inbox. Offer 2-6 short options for a one-tap answer, or none for a free-text reply. Returns a questionId — call get_answer with it later; do not block waiting. Use for decisions and approvals only the owner can make.",
+      {
+        question: z.string().describe("The question, answerable at a glance"),
+        options: z.array(z.string()).optional().describe("2-6 short choices (<=120 chars each). Omit for a free-text answer."),
+        context: z.string().optional().describe("What the owner needs to know to answer — what you found, what each option implies"),
+        projectId: z.string().optional().describe("Project this is about (defaults to the active project, if any)"),
+        stepId: z.string().optional().describe("Task this is about"),
+        askedBy: z.string().optional().describe("Your agent name, shown on the card (e.g. claude-code)"),
+      },
+      async ({ question, options, context, projectId, stepId, askedBy }) => {
+        try {
+          requireMcpScope("write")
+          const userId = getMcpUserId()
+          const pid = projectId ?? getActiveProjectId() ?? undefined
+          if (pid) await requireMcpProjectWriteAccess(pid)
+          if (stepId) {
+            const ok = await verifyMcpStepAccess(stepId)
+            if (!ok) return mcpError("Step not found or access denied")
+          }
+          const built = buildQuestionInput({ question, options, context, projectId: pid, stepId })
+          if (!built.ok) return mcpError(built.error)
+          const [job] = await sql`
+            INSERT INTO agent_jobs (title, description, created_by, assigned_to, status, priority, input, tags, parent_step_id, unlock_prompt)
+            VALUES (
+              ${built.value.question.slice(0, 255)}, ${built.value.input.context}, ${userId}, ${askedBy ?? "mcp-client"},
+              'awaiting-unlock', 'normal', ${JSON.stringify(built.value.input)}::jsonb, ARRAY['question'],
+              ${built.value.input.stepId}, ${built.value.question}
+            )
+            RETURNING id, status
+          `
+          return mcpResponse({
+            questionId: job.id,
+            status: job.status,
+            options: built.value.input.options,
+            next_actions: [`Carry on with other work; call get_answer({ questionId: "${job.id}" }) later. The owner answers at /inbox.`],
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+    server.tool(
+      "get_answer",
+      "Read the owner's answer to a question asked with ask_owner. Returns answered:false while it is still waiting.",
+      { questionId: z.string().describe("The questionId from ask_owner") },
+      async ({ questionId }) => {
+        try {
+          const userId = getMcpUserId()
+          const [job] = await sql`
+            SELECT id, status, unlock_note, unlock_resolved_at, result, unlock_prompt
+            FROM agent_jobs WHERE id = ${questionId} AND created_by = ${userId}
+          `
+          if (!job) return mcpError("Question not found")
+          if (job.status === "awaiting-unlock") {
+            return mcpResponse({ answered: false, question: job.unlock_prompt, next_actions: ["Still waiting on the owner. Check again later; do not loop on this."] })
+          }
+          const answer = (job.result as { answer?: { option: string | null; reply: string | null } } | null)?.answer ?? null
+          return mcpResponse({
+            answered: job.status !== "cancelled",
+            status: job.status,
+            option: answer?.option ?? null,
+            reply: answer?.reply ?? null,
+            note: job.unlock_note,
+            answeredAt: job.unlock_resolved_at,
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
     // ---------- Sources (federation scaffolding) ----------
 
     server.tool(
