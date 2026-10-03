@@ -1,76 +1,44 @@
+/*
+ * /chat/<id> — reopen a past chat.
+ *
+ * Reads the conversation on the server with the signed-in user's session and
+ * checks ownership. It used to fetch its own /api/conversations endpoint over
+ * HTTP from the server — without the session cookie, against
+ * NEXT_PUBLIC_APP_URL or localhost — so every past chat opened as a 404.
+ */
 import { notFound } from "next/navigation";
 import { Chat } from "@/components/chatsdk/chat";
 import { DEFAULT_CHAT_MODEL } from "@/lib/chatsdk/ai/models";
 import type { ChatMessage } from "@/lib/chatsdk/types";
+import { getAuthContext } from "@/lib/auth/auth-utils";
+import { getConversation, getConversationMessages } from "@/lib/ai/conversation-queries";
+import { toUIMessages, isUuid } from "@/lib/ai/chat-format";
+import { isAgentId } from "@/lib/agents/catalog";
 
-interface ChatPageProps {
-  params: Promise<{ id: string }>;
-}
+export const dynamic = "force-dynamic";
 
-async function getConversation(id: string) {
-  try {
-    // Fetch conversation and messages from API
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const response = await fetch(
-      `${baseUrl}/api/conversations/${id}/messages`,
-      { cache: "no-store" }
-    );
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        return null;
-      }
-      throw new Error("Failed to fetch conversation");
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("[ChatPage] Error fetching conversation:", error);
-    return null;
-  }
-}
-
-export default async function ChatDetailPage({ params }: ChatPageProps) {
+export default async function ChatDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  if (!isUuid(id)) notFound();
 
-  // Fetch conversation data
-  const conversationData = await getConversation(id);
+  const auth = await getAuthContext();
+  if (!auth) notFound();
 
-  if (!conversationData) {
-    notFound();
-  }
+  const conversation = await getConversation(id);
+  // Same answer for "missing" and "not yours", so ids can't be probed.
+  if (!conversation || conversation.userId !== auth.userId) notFound();
 
-  const { conversation, messages } = conversationData;
-
-  // Transform messages to ChatMessage format
-  const initialMessages: ChatMessage[] = messages.map((msg: any) => ({
-    id: msg.id,
-    role: msg.role,
-    content: msg.content || "",
-    parts: msg.parts,
-    toolInvocations: msg.toolInvocations,
-    createdAt: msg.createdAt ? new Date(msg.createdAt) : undefined,
-  }));
-
-  // Check if there's an incomplete stream to resume
-  const mostRecentMessage = initialMessages.at(-1);
-  const mostRecentMessageAny = mostRecentMessage as any;
-  const isStreamIncomplete =
-    mostRecentMessage?.role === "assistant" &&
-    mostRecentMessageAny?.toolInvocations?.some(
-      (inv: any) => inv.state === "call" || inv.state === "partial-call"
-    );
+  const rows = await getConversationMessages(id, { limit: 200 });
+  const initialMessages = toUIMessages(rows as never[]) as unknown as ChatMessage[];
 
   return (
     <Chat
       id={id}
       initialMessages={initialMessages}
-      initialChatModel={conversation?.modelId || DEFAULT_CHAT_MODEL}
-      initialVisibilityType={conversation?.visibility || "private"}
+      initialChatModel={isAgentId(conversation.modelId) ? conversation.modelId : DEFAULT_CHAT_MODEL}
+      initialVisibilityType="private"
       isReadonly={false}
-      autoResume={isStreamIncomplete}
-      initialLastContext={conversation?.metadata?.lastContext}
+      autoResume={false}
     />
   );
 }

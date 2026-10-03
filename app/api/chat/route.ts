@@ -22,8 +22,10 @@ import { streamText, type UIMessage } from "ai";
 import { sql } from "@/lib/db/client";
 import { resolveAgent } from "@/lib/agents/registry";
 import { prepareAgent } from "@/lib/agents/runtime";
+import { isUuid } from "@/lib/ai/chat-format";
 import {
   getOrCreateConversation,
+  getOrCreateConversationById,
   saveMessage,
   getRecentMessages,
   updateConversationTitle,
@@ -69,6 +71,8 @@ function getTextFromMessage(message: UIMessage): string {
 
 
 interface ChatRequestBody {
+  /** The chat's own id (UUID) — also the conversation id. */
+  id?: string;
   /** Legacy clients send the whole list; the chat UI sends just the latest. */
   messages?: UIMessage[];
   message?: UIMessage;
@@ -110,7 +114,6 @@ export async function POST(request: Request) {
     const body: ChatRequestBody = await request.json();
     const {
       context,
-      conversationId: requestConversationId,
       contextType = context?.projectId ? "project" : "general",
       contextId = context?.projectId,
     } = body;
@@ -118,17 +121,28 @@ export async function POST(request: Request) {
     const messages: UIMessage[] = body.messages ?? (body.message ? [body.message] : []);
     const agent = resolveAgent(body.selectedChatModel);
 
-    // Step 2: Get or create conversation
+    // Step 2: The conversation for this chat. Keyed by the chat's id, so every
+    // message in one chat lands in one conversation and the agent sees the
+    // earlier turns. (Without an id, a chat with no project context used to get
+    // a new conversation per message.) Clients that send no id keep the old
+    // context-based behaviour.
     let conversation;
-    if (requestConversationId) {
-      // Use provided conversation ID
-      conversation = await getOrCreateConversation({
+    if (isUuid(body.id)) {
+      conversation = await getOrCreateConversationById({
+        id: body.id,
         userId,
         contextType,
         contextId,
+        modelId: agent.id,
+        metadata: context ? { initialContext: context } : {},
       });
+      if (!conversation) {
+        return new Response(
+          JSON.stringify({ error: "Forbidden", code: "NOT_OWNER" }),
+          { status: 403, headers: { "Content-Type": "application/json" } }
+        );
+      }
     } else {
-      // Create or find conversation based on context
       conversation = await getOrCreateConversation({
         userId,
         contextType,

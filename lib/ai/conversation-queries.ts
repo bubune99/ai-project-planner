@@ -126,6 +126,50 @@ export async function getOrCreateConversation(
 /**
  * Get a conversation by ID
  */
+/**
+ * The conversation for one chat, keyed by the chat's own id.
+ *
+ * The chat UI gives every chat a UUID and routes it at /chat/<id>. Keying the
+ * conversation by that id is what makes a chat one thread: before this, a chat
+ * with no project context got a brand-new conversation on every message, so
+ * history showed each message as its own chat and the agent never saw
+ * earlier turns.
+ *
+ * Returns null when the id belongs to another user — the caller answers 403.
+ * ON CONFLICT covers two first messages racing for the same new id.
+ */
+export async function getOrCreateConversationById(params: {
+  id: string
+  userId: string
+  contextType?: string
+  contextId?: string | null
+  modelId?: string | null
+  metadata?: Record<string, unknown>
+}): Promise<Conversation | null> {
+  const { id, userId, contextType, contextId, modelId, metadata = {} } = params
+  const select = async () =>
+    (await sql`
+      SELECT
+        id, user_id as "userId", title, status,
+        context_type as "contextType", context_id as "contextId",
+        model_id as "modelId", message_count as "messageCount",
+        metadata, created_at as "createdAt", updated_at as "updatedAt"
+      FROM ai_conversations
+      WHERE id = ${id}
+    `) as Conversation[]
+
+  const found = await select()
+  if (found.length) return found[0].userId === userId ? found[0] : null
+
+  await sql`
+    INSERT INTO ai_conversations (id, user_id, context_type, context_id, model_id, metadata)
+    VALUES (${id}, ${userId}, ${contextType || null}, ${contextId || null}, ${modelId || null}, ${JSON.stringify(metadata)})
+    ON CONFLICT (id) DO NOTHING
+  `
+  const created = await select()
+  return created.length && created[0].userId === userId ? created[0] : null
+}
+
 export async function getConversation(
   conversationId: string
 ): Promise<Conversation | null> {
