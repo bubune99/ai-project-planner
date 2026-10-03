@@ -11,7 +11,11 @@
     "lint": "next lint",
     "start": "next start",
     "test:e2e": "echo 'E2E tests use Chrome DevTools MCP - see tests/README.md'",
-    "test:server": "curl -s http://localhost:3005/api/health | json_pp"
+    "test:server": "curl -s http://localhost:3005/api/health | json_pp",
+    "security": "node scripts/security/audit.mjs",
+    "security:fast": "node scripts/security/audit.mjs --fast",
+    "security:json": "node scripts/security/audit.mjs --json",
+    "security:authz": "node scripts/security/check-route-authz.mjs --quiet"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.56",
@@ -19,12 +23,14 @@
     "@anthropic-ai/sdk": "^0.71.2",
     "@aws-sdk/client-s3": "^3.962.0",
     "@aws-sdk/s3-request-presigner": "^3.962.0",
+    "@base-ui/react": "^1.8.0",
     "@cfworker/json-schema": "latest",
     "@codemirror/lang-javascript": "^6.2.4",
     "@codemirror/lang-python": "^6.2.1",
     "@codemirror/state": "^6.5.2",
     "@codemirror/theme-one-dark": "^6.1.3",
     "@codemirror/view": "^6.39.2",
+    "@date-fns/tz": "^1.5.0",
     "@hello-pangea/dnd": "latest",
     "@hookform/resolvers": "^3.10.0",
     "@modelcontextprotocol/sdk": "latest",
