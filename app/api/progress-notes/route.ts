@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
  * - stepId: string (optional) - Specific step this note relates to
  * - author_type: "human" | "agent" (required)
  * - author_name: string (required) - Name of the author/agent
- * - note_type: "progress" | "decision" | "blocker" | "note" (required)
+ * - note_type: "progress" | "update" | "milestone" | "decision" | "blocker" | "completion" (required)
  * - title: string (optional) - Note title
  * - content: string (required) - Note content
  * - metadata: object (optional) - Additional structured data
@@ -137,10 +137,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate note_type
-    if (!["progress", "decision", "blocker", "note"].includes(note_type)) {
+    // Validate note_type against what the table accepts. This list used to
+    // include "note", which the progress_notes CHECK rejects (so it passed here
+    // and failed at INSERT), and omitted milestone/update, which the table
+    // accepts and the add_progress_note MCP tool writes. Every type below has
+    // rows in prod.
+    const NOTE_TYPES = ["progress", "update", "milestone", "decision", "blocker", "completion"]
+    if (!NOTE_TYPES.includes(note_type)) {
       return NextResponse.json(
-        { error: "Invalid note_type. Must be 'progress', 'decision', 'blocker', or 'note'" },
+        { error: `Invalid note_type. Must be one of: ${NOTE_TYPES.join(", ")}` },
         { status: 400 }
       );
     }
