@@ -2703,6 +2703,57 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
     // ==========================================
     // Tool: Search memory
     // ==========================================
+    // Tool: search_chats — the owner's past conversations with the in-app
+    // agents (ai_conversations / ai_messages). In-app agents get it only when
+    // the owner turns Memory on for the message (lib/agents/registry.ts).
+    server.tool(
+      "search_chats",
+      "Search the owner's past chat conversations for a phrase. Every word must appear in the message. Returns matching messages with the chat's title, date and a snippet. Pass excludeChatId (the current chat's id) so this conversation is skipped.",
+      {
+        query: z.string().min(2).describe("Words to find, e.g. \"pricing decision\""),
+        excludeChatId: z.string().optional().describe("Skip this chat (the current one)"),
+        limit: z.number().int().min(1).max(20).optional().describe("Max matches (default 8)"),
+      },
+      async ({ query, excludeChatId, limit }) => {
+        try {
+          const userId = getMcpUserId()
+          const words = query.trim().split(/\s+/).filter((w) => w.length > 1).slice(0, 6)
+          if (!words.length) return mcpError("query needs at least one word of 2+ characters")
+          // ILIKE patterns; % _ and \\ in the owner's words are matched literally.
+          const patterns = words.map((w) => `%${w.replace(/[\\%_]/g, "\\$&")}%`)
+          const exclude = excludeChatId && /^[0-9a-f-]{36}$/i.test(excludeChatId) ? excludeChatId : null
+          const rows = (await sql`
+            SELECT m.conversation_id, c.title, m.role, m.content, m.created_at
+              FROM ai_messages m
+              JOIN ai_conversations c ON c.id = m.conversation_id
+             WHERE c.user_id = ${userId}
+               AND m.role IN ('user', 'assistant')
+               AND m.content ILIKE ALL(${patterns}::text[])
+               AND (${exclude}::uuid IS NULL OR m.conversation_id <> ${exclude}::uuid)
+             ORDER BY m.created_at DESC
+             LIMIT ${Math.min(limit ?? 8, 20)}
+          `) as { conversation_id: string; title: string | null; role: string; content: string; created_at: string }[]
+          const first = words[0].toLowerCase()
+          return mcpResponse({
+            matches: rows.map((r) => {
+              const text = String(r.content ?? "")
+              const i = Math.max(0, text.toLowerCase().indexOf(first))
+              const from = Math.max(0, i - 100)
+              return {
+                chatId: r.conversation_id,
+                chat: r.title || "Untitled",
+                role: r.role,
+                at: r.created_at,
+                snippet: (from > 0 ? "…" : "") + text.slice(from, from + 260) + (from + 260 < text.length ? "…" : ""),
+              }
+            }),
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
     server.tool(
       "search_memory",
       "Search across all memory layers (decisions, lessons, milestones) using full-text search.",

@@ -83,6 +83,8 @@ interface ChatRequestBody {
   selectedChatModel?: string;
   /** Show the agent's reasoning for this message (extended thinking). */
   thinking?: boolean;
+  /** Let the agent search past chats and the memory store. */
+  memory?: boolean;
   context?: {
     activeTab?: string;
     selectedTask?: unknown;
@@ -230,6 +232,8 @@ export async function POST(request: Request) {
             projectName,
             today: new Date().toISOString().slice(0, 10),
             thinking: body.thinking === true,
+            memory: body.memory === true,
+            chatId: conversation.id,
           },
           trace,
           root

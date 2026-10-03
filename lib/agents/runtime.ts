@@ -17,7 +17,7 @@ import { z } from "zod"
 import { registerPlannerTools } from "@/lib/mcp/planner-tools"
 import { runWithMcpContext, type McpContext } from "@/lib/auth/mcp-context"
 import { collectTools, toAiTools, type CollectedTool, type ToolObserver } from "./tool-bridge"
-import { REGISTRY, contextBlock, type AgentDefinition } from "./registry"
+import { REGISTRY, contextBlock, toolsForRequest, type AgentDefinition } from "./registry"
 import { toolTitle, summarizeResult, type TraceRecorder } from "./trace"
 import type { AgentId } from "./catalog"
 
@@ -35,6 +35,10 @@ export interface AgentRequest {
   today: string
   /** Show the model's reasoning (Claude extended thinking) for this message. */
   thinking?: boolean
+  /** Let the agent search past chats and the memory store for this message. */
+  memory?: boolean
+  /** The chat this request belongs to — excluded from search_chats. */
+  chatId?: string | null
 }
 
 /** Extended-thinking budget when the owner asks to see the reasoning. */
@@ -71,7 +75,7 @@ async function toolsFor(
   const all = await plannerTools()
   const ctx = contextFor(agent, req)
   const run = <T,>(fn: () => Promise<T>) => runWithMcpContext(ctx, fn) as Promise<T>
-  const tools = toAiTools(all, agent.tools, run, observer(trace, parentSpan))
+  const tools = toAiTools(all, toolsForRequest(agent, req.memory === true), run, observer(trace, parentSpan))
   if (agent.delegates.length) tools.delegate = delegateTool(agent, req, trace, parentSpan)
   return tools
 }

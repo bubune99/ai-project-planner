@@ -1,6 +1,6 @@
 /* Run: npx -y tsx@4.23.15 lib/agents/registry.assert.ts */
 import { readFileSync } from "fs"
-import { REGISTRY, NEVER_IN_APP, resolveAgent, contextBlock } from "./registry"
+import { REGISTRY, NEVER_IN_APP, MEMORY_TOOLS, resolveAgent, contextBlock, toolsForRequest } from "./registry"
 import { AGENTS, DEFAULT_AGENT_ID, isAgentId } from "./catalog"
 
 let pass = 0, fail = 0
@@ -12,7 +12,7 @@ const starts = [...src.matchAll(/server\.tool\(\s*"([^"]+)"/g)].map((m) => ({ na
 const tools = new Map(starts.map((t, i) => [t.name, src.slice(t.at, starts[i + 1]?.at ?? src.length)]))
 const isWrite = (n: string) => /requireMcpScope\("write"\)/.test(tools.get(n) ?? "")
 
-ok("found the 99 planner tools", tools.size === 99, tools.size)
+ok("found the 100 planner tools", tools.size === 100, tools.size)
 ok("catalog and registry list the same agents", AGENTS.map((a) => a.id).join() === Object.keys(REGISTRY).join())
 ok("default agent exists", DEFAULT_AGENT_ID in REGISTRY)
 
@@ -42,5 +42,14 @@ ok("isAgentId", isAgentId("operator") && !isAgentId("grok"))
 const withP = contextBlock({ today: "2026-10-03", projectId: "p1", projectName: "Atlas" })
 ok("context names the project and date", withP.includes('"Atlas" (p1)') && withP.includes("2026-10-03"))
 ok("context without project says so", contextBlock({ today: "2026-10-03" }).includes("No project is open"))
+
+for (const t of MEMORY_TOOLS) ok(`memory tool "${t}" exists and is read-only`, tools.has(t) && !isWrite(t))
+ok("memory off: JARVIS has no history tools", !toolsForRequest(REGISTRY.jarvis, false).some((t) => MEMORY_TOOLS.includes(t)))
+ok("memory on: JARVIS gets both", MEMORY_TOOLS.every((t) => toolsForRequest(REGISTRY.jarvis, true).includes(t)))
+ok("memory on: no duplicates", new Set(toolsForRequest(REGISTRY.researcher, true)).size === toolsForRequest(REGISTRY.researcher, true).length)
+ok("researcher keeps search_memory with memory off", toolsForRequest(REGISTRY.researcher, false).includes("search_memory"))
+ok("researcher gets search_chats only with memory on", !toolsForRequest(REGISTRY.researcher, false).includes("search_chats") && toolsForRequest(REGISTRY.researcher, true).includes("search_chats"))
+ok("memory on: allowlists still fit (<= 40)", Object.values(REGISTRY).every((a) => toolsForRequest(a, true).length <= 40))
+ok("context mentions memory + chat id only when on", contextBlock({ today: "d", memory: true, chatId: "c1" }).includes("excludeChatId") && !contextBlock({ today: "d" }).includes("Memory"))
 
 console.log(`${pass} passed, ${fail} failed`); if (fail) process.exit(1)

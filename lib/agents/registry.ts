@@ -22,6 +22,14 @@ export const MODELS = {
   fast: "claude-haiku-4-5-20251001",
 } as const
 
+/**
+ * Tools that look back over the owner's history. Added to an agent only when
+ * the owner turns Memory on for the message ("search chats for context and
+ * memory stores"). The Researcher keeps search_memory regardless: searching
+ * records is its job.
+ */
+export const MEMORY_TOOLS: readonly string[] = ["search_chats", "search_memory"]
+
 export interface AgentDefinition {
   id: AgentId
   name: string
@@ -58,7 +66,7 @@ const DEFS: Record<AgentId, Omit<AgentDefinition, "id" | "name">> = {
     tools: [
       "get_dashboard", "list_projects", "project_workload", "get_project_context", "get_project_tasks", "list_phases", "get_execution_plan",
       "list_documents", "read_document", "list_todos", "list_ideas", "get_idea", "list_decisions",
-      "search_memory", "global_search", "get_agenda", "list_awaiting_unlocks", "find_related", "library_search",
+      "global_search", "get_agenda", "list_awaiting_unlocks", "find_related", "library_search",
       "get_answer",
       "create_task", "update_task", "add_task_comment", "create_todo", "update_todo", "toggle_todo",
       "create_decision", "add_progress_note", "create_event", "create_idea",
@@ -110,9 +118,18 @@ export function resolveAgent(id: unknown): AgentDefinition {
   return typeof id === "string" && id in REGISTRY ? REGISTRY[id as AgentId] : REGISTRY[DEFAULT_AGENT_ID]
 }
 
+/** The allowlist for one request: memory tools join only when Memory is on. */
+export function toolsForRequest(agent: AgentDefinition, memory: boolean): string[] {
+  const base = memory ? agent.tools : agent.tools.filter((t) => agent.id === "researcher" || !MEMORY_TOOLS.includes(t))
+  return memory ? [...new Set([...base, ...MEMORY_TOOLS])] : [...base]
+}
+
 /** Per-request context appended to an agent's instructions. Pure: date injected. */
-export function contextBlock(opts: { today: string; projectId?: string | null; projectName?: string | null }): string {
+export function contextBlock(opts: { today: string; projectId?: string | null; projectName?: string | null; chatId?: string | null; memory?: boolean }): string {
   const lines = [`\n## Context`, `- Today: ${opts.today}`]
+  if (opts.memory) {
+    lines.push(`- Memory is on: search past chats (search_chats) and the memory store (search_memory) when earlier context would help.${opts.chatId ? ` This chat is ${opts.chatId}; pass it as excludeChatId.` : ""}`)
+  }
   lines.push(opts.projectId
     ? `- The owner is looking at project "${opts.projectName ?? "unknown"}" (${opts.projectId}). Tools that take a projectId default to it.`
     : `- No project is open. Ask which project, or use list_projects, before project-specific work.`)

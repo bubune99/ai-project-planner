@@ -103,6 +103,9 @@ function PureMultimodalInput({
   // "Think": ask the agent for its visible reasoning (Claude extended
   // thinking) on the next messages. Slower, so off by default; remembered.
   const [thinking, setThinking] = useLocalStorage("chat-thinking", false);
+  // "Memory": let the agent search past chats and the memory store. Off by
+  // default so a chat only sees itself unless asked; remembered.
+  const [memory, setMemory] = useLocalStorage("chat-memory", false);
 
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
     "input",
@@ -149,7 +152,7 @@ function PureMultimodalInput({
           text: input,
         },
       ],
-    }, { body: { thinking } });
+    }, { body: { thinking, memory } });
 
     setAttachments([]);
     setLocalStorageInput("");
@@ -162,6 +165,7 @@ function PureMultimodalInput({
   }, [
     input,
     thinking,
+    memory,
     setInput,
     attachments,
     sendMessage,
@@ -336,6 +340,19 @@ function PureMultimodalInput({
             >
               <span aria-hidden>✦</span>
               <span className="hidden sm:inline">Think</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMemory((v) => !v)}
+              aria-pressed={memory}
+              title={memory ? "Memory on: the agent can search your past chats and memory" : "Let the agent search your past chats and memory"}
+              className={cn(
+                "flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs transition-colors",
+                memory ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent"
+              )}
+            >
+              <span aria-hidden>◷</span>
+              <span className="hidden sm:inline">Memory</span>
             </button>
           </PromptInputTools>
 
