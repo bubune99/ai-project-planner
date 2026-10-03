@@ -911,6 +911,13 @@ function CalendarFacet({ projectId }: { projectId: string }) {
     ;(stepsByDate[key] ||= []).push(st)
   }
 
+  // monthPrefix matches the yyyy-mm the grid is showing. Counting every bucket
+  // reported steps from other months and contradicted the cells below it.
+  const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  const stepsThisMonth = Object.entries(stepsByDate)
+    .filter(([k]) => k.startsWith(monthPrefix))
+    .reduce((n, [, v]) => n + v.length, 0)
+
   const goPrev = () => setNow(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))
   const goNext = () => setNow(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))
   const goToday = () => setNow(new Date())
@@ -922,7 +929,7 @@ function CalendarFacet({ projectId }: { projectId: string }) {
           <div>
             <h3 className="j-card-title">Project calendar</h3>
             <p className="j-card-sub">
-              {loading ? "Loading…" : `${events.length} event${events.length === 1 ? "" : "s"} · ${Object.values(stepsByDate).flat().length} scheduled step${Object.values(stepsByDate).flat().length === 1 ? "" : "s"} · click a day to add an event`}
+              {loading ? "Loading…" : `${events.length} event${events.length === 1 ? "" : "s"} · ${stepsThisMonth} scheduled step${stepsThisMonth === 1 ? "" : "s"} · click a day to add an event`}
             </p>
           </div>
           <div className="j-row j-gap-2">
