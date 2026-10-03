@@ -43,8 +43,11 @@ export function ChatHistoryPanel() {
   const { mutate } = useSWRConfig()
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
+  // No fallbackData: with fallbackData: [] SWR treated the empty list as data
+  // it already had and never fetched on mount — the panel stayed empty until
+  // a sent message's onFinish forced a refresh, so past chats never showed.
   const { data, setSize, isLoading } = useSWRInfinite<ChatHistory>(getChatHistoryPaginationKey, fetcher, {
-    fallbackData: [],
+    revalidateOnMount: true,
   })
 
   const allChats = data?.flatMap(p => p.chats) ?? []
