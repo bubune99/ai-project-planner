@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { DashboardLayout } from "@/components/navigation"
 import { GanttView } from "@/components/views/GanttView"
 import { KanbanView } from "@/components/views/KanbanView"
+import { FullScreenCalendar, type CalendarDay } from "@/components/ui/fullscreen-calendar"
 import { DocsView } from "@/components/views/DocsView"
 import { transformStepsToPhases } from "@/lib/data-transforms"
 import { ActivityFeed } from "@/components/project/activity-feed"
@@ -1020,6 +1021,57 @@ function CalendarFacet({ projectId }: { projectId: string }) {
     ;(stepsByDate[key] ||= []).push(st)
   }
 
+  /*
+    One shape for both sources. calendar_events and project_steps are separate
+    tables — steps are never copied into calendar_events, project_steps.end_date
+    stays the single source of truth — so they are merged only for display.
+    Steps are tinted and clickable; events keep their existing delete-on-click.
+  */
+  const calendarData: CalendarDay[] = useMemo(() => {
+    const byDay = new Map<string, CalendarDay>()
+    const bucket = (key: string) => {
+      let d = byDay.get(key)
+      if (!d) {
+        const [y, m, dd] = key.split("-").map(Number)
+        d = { day: new Date(y, m - 1, dd), events: [] }
+        byDay.set(key, d)
+      }
+      return d
+    }
+
+    for (const [key, evs] of Object.entries(eventsByDate)) {
+      for (const ev of evs as any[]) {
+        bucket(key).events.push({
+          id: `event-${ev.id}`,
+          name: ev.title,
+          time: String(ev.startTime || ev.start_time || "").slice(11, 16),
+          datetime: String(ev.startTime || ev.start_time || ""),
+          onClick: () => remove(ev.id),
+        })
+      }
+    }
+
+    for (const [key, sts] of Object.entries(stepsByDate)) {
+      for (const st of sts as any[]) {
+        bucket(key).events.push({
+          id: `step-${st.id}`,
+          name: st.title,
+          time: "",
+          datetime: String(st.end_date || st.start_date || ""),
+          color:
+            st.status === "completed" ? "var(--j-pos)"
+            : st.status === "blocked" ? "var(--j-neg)"
+            : st.status === "in-progress" ? "var(--j-accent)"
+            : "var(--j-warn, #d08c3c)",
+          onClick: () => setSelectedStep(st),
+        })
+      }
+    }
+
+    return [...byDay.values()]
+  }, [eventsByDate, stepsByDate])
+
+
   // monthPrefix matches the yyyy-mm the grid is showing. Counting every bucket
   // reported steps from other months and contradicted the cells below it.
   const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
@@ -1033,100 +1085,36 @@ function CalendarFacet({ projectId }: { projectId: string }) {
 
   return (
     <div className="j-col j-gap-4">
-      <div className="j-card">
-        <div className="j-card-head">
+      <div className="j-card" style={{ padding: 0, overflow: "hidden" }}>
+        <div className="j-card-head" style={{ padding: "16px 16px 0" }}>
           <div>
             <h3 className="j-card-title">Project calendar</h3>
             <p className="j-card-sub">
-              {loading ? "Loading…" : `${events.length} event${events.length === 1 ? "" : "s"} · ${stepsThisMonth} scheduled step${stepsThisMonth === 1 ? "" : "s"} · click a day to add an event`}
+              {loading
+                ? "Loading…"
+                : `${events.length} event${events.length === 1 ? "" : "s"} · ${stepsThisMonth} scheduled step${stepsThisMonth === 1 ? "" : "s"} · click a day to add an event`}
             </p>
           </div>
-          <div className="j-row j-gap-2">
-            <button className="j-btn j-btn-ghost" onClick={goPrev}>←</button>
-            <button className="j-btn j-btn-ghost" onClick={goToday}>{monthLabel}</button>
-            <button className="j-btn j-btn-ghost" onClick={goNext}>→</button>
-          </div>
         </div>
-        <div className="j-cal-grid" style={{ gap: 6 }}>
-          {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => (
-            <div key={d} className="j-muted" style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", padding: 4 }}>{d}</div>
-          ))}
-          {Array.from({ length: totalCells }).map((_, i) => {
-            const dayNum = i - leading + 1
-            const inMonth = dayNum > 0 && dayNum <= daysInMonth
-            const date = inMonth
-              ? new Date(now.getFullYear(), now.getMonth(), dayNum).toISOString().slice(0, 10)
-              : null
-            const isToday = date === todayKey
-            const dayEvents = date ? (eventsByDate[date] || []) : []
-            const isSelected = selectedDate === date
-            return (
-              <div
-                key={i}
-                className={`j-cal-day${!inMonth ? " j-outside" : ""}${isToday ? " j-today" : ""}`}
-                style={{
-                  minHeight: 96,
-                  cursor: inMonth ? "pointer" : "default",
-                  boxShadow: isSelected ? "inset 0 0 0 2px var(--j-accent)" : undefined,
-                }}
-                onClick={() => inMonth && date && setSelectedDate(isSelected ? null : date)}
-              >
-                <span style={{ fontWeight: isToday ? 700 : 400, color: isToday ? "var(--j-accent)" : "inherit" }}>
-                  {inMonth ? dayNum : ""}
-                </span>
-                <div style={{ display: "flex", flexDirection: "column", marginTop: 4, gap: 2 }}>
-                  {dayEvents.slice(0, 3).map((e: any) => (
-                    <div
-                      key={e.id}
-                      title={e.title}
-                      onClick={(ev) => { ev.stopPropagation(); remove(e.id) }}
-                      className="j-row j-gap-2"
-                      style={{
-                        padding: "2px 4px", borderRadius: 4,
-                        background: "oklch(0.180 0 0)", boxShadow: "inset 0 0 0 1px var(--j-ring)",
-                        fontSize: 9, cursor: "pointer",
-                      }}
-                    >
-                      <span style={{ width: 4, height: 4, borderRadius: 999, background: "var(--j-accent)", flexShrink: 0 }} />
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.title}</span>
-                    </div>
-                  ))}
-                  {dayEvents.length > 3 && (
-                    <span className="j-muted" style={{ fontSize: 9 }}>+{dayEvents.length - 3} more</span>
-                  )}
-                  {(date ? (stepsByDate[date] || []) : []).slice(0, 3).map((st: any) => (
-                    <button
-                      key={st.id}
-                      type="button"
-                      title={`${st.title} — click for details`}
-                      aria-label={`Step due: ${st.title}`}
-                      onClick={(ev) => { ev.stopPropagation(); setSelectedStep(st) }}
-                      className="j-row j-gap-2"
-                      style={{
-                        // Was 9px with 2px padding — illegible, and the only thing
-                        // in an 80px-tall cell. Sized to the box it lives in.
-                        padding: "4px 6px", borderRadius: 5,
-                        background: selectedStep?.id === st.id ? "var(--j-accent-soft, oklch(0.26 0 0))" : "oklch(0.180 0 0)",
-                        boxShadow: selectedStep?.id === st.id
-                          ? "inset 0 0 0 1.5px var(--j-accent)"
-                          : "inset 0 0 0 1px var(--j-ring)",
-                        fontSize: 11, lineHeight: 1.25, textAlign: "left", width: "100%",
-                        cursor: "pointer", border: "none", color: "inherit",
-                        opacity: st.status === "completed" ? 0.55 : 1,
-                        textDecoration: st.status === "completed" ? "line-through" : undefined,
-                      }}
-                    >
-                      <span style={{ width: 5, height: 5, borderRadius: 1, background: "var(--j-warn, #d08c3c)", flexShrink: 0 }} />
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{st.title}</span>
-                    </button>
-                  ))}
-                  {date && (stepsByDate[date] || []).length > 3 && (
-                    <span className="j-muted" style={{ fontSize: 9 }}>+{(stepsByDate[date] || []).length - 3} more steps</span>
-                  )}
-                </div>
-              </div>
-            )
-          })}
+
+        {/*
+          Was a hand-rolled 7-column grid of .j-cal-day cells. Replaced with the
+          shared FullScreenCalendar so the month view matches the rest of the
+          app and gets today-marking, a real "+ N more" overflow and keyboard
+          -reachable entries. Month navigation lives inside the component now,
+          which is why it reports back through onMonthChange — the facet loads
+          per month and would otherwise keep showing the old month's data.
+        */}
+        <div style={{ minHeight: 520, display: "flex" }}>
+          <FullScreenCalendar
+            data={calendarData}
+            maxPerDay={3}
+            onMonthChange={(first) => setNow(first)}
+            onSelectDay={(d) => {
+              const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+              setSelectedDate((prev) => (prev === key ? null : key))
+            }}
+          />
         </div>
       </div>
 
