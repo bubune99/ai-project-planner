@@ -182,6 +182,11 @@ function RoadmapFacet({ phases }: { phases: any[] }) {
 
 function DecisionsFacet({ projectId }: { projectId: string }) {
   const [adrs, setAdrs] = useState<any[]>([])
+  // The tab read architecture_decisions (ADRs) only, while create_decision —
+  // the tool every agent actually calls — writes mlp_why_decisions. On
+  // 2026-10-03 that was 8 rows shown against 80 recorded, which is why the tab
+  // looked unused. Owner: "This tab clearly does not ever get used."
+  const [decisions, setDecisions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ title: "", context: "", decision: "", consequences: "" })
@@ -189,9 +194,15 @@ function DecisionsFacet({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/projects/${projectId}/adrs`)
-      .then(r => r.json())
-      .then(data => { setAdrs(data.adrs || []); setLoading(false) })
+    Promise.all([
+      fetch(`/api/projects/${projectId}/adrs`).then(r => r.json()).catch(() => ({})),
+      fetch(`/api/memory/why?projectId=${projectId}&limit=100`).then(r => r.json()).catch(() => ({})),
+    ])
+      .then(([adrRes, whyRes]) => {
+        setAdrs(adrRes.adrs || [])
+        setDecisions(whyRes.data || whyRes.decisions || [])
+        setLoading(false)
+      })
       .catch(() => setLoading(false))
   }, [projectId])
 
@@ -233,7 +244,7 @@ function DecisionsFacet({ projectId }: { projectId: string }) {
   return (
     <div className="j-col j-gap-4">
       <div className="j-grid j-cols-4">
-        {[["Total", adrs.length, "j-info"], ["Accepted", accepted, "j-pos"], ["Proposed", proposed, "j-warn"], ["Superseded", superseded, "j-muted"]].map(([l, v, t]) => (
+        {[["Decisions", decisions.length, "j-info"], ["ADRs", adrs.length, "j-proj"], ["Accepted", accepted, "j-pos"], ["Superseded", superseded, "j-muted"]].map(([l, v, t]) => (
           <div key={l as string} className="j-card j-tight" style={{ padding: 14 }}>
             <div className="j-eyebrow">{l}</div>
             <div className="j-amount-lg" style={{ marginTop: 6 }}>{v}</div>
@@ -275,6 +286,55 @@ function DecisionsFacet({ projectId }: { projectId: string }) {
           </div>
         </div>
       )}
+
+      {/* Decision episodes — what create_decision writes, and what every agent
+          records. This is the list that was missing; ADRs follow below as the
+          separate, older artifact they are. */}
+      <div className="j-card" style={{ padding: 0 }}>
+        <div className="j-row j-between" style={{ padding: 16 }}>
+          <div>
+            <h3 className="j-card-title">Decisions</h3>
+            <p className="j-card-sub">Recorded via create_decision</p>
+          </div>
+        </div>
+        {loading ? (
+          <div style={{ padding: 24, textAlign: "center" }}>
+            <span className="j-muted" style={{ fontSize: 13 }}>Loading…</span>
+          </div>
+        ) : decisions.length === 0 ? (
+          <div style={{ padding: 24, textAlign: "center" }}>
+            <p className="j-muted" style={{ fontSize: 13, margin: 0 }}>
+              No decisions recorded for this project yet.
+            </p>
+          </div>
+        ) : (
+          <table className="j-table">
+            <thead><tr><th>Decision</th><th>Status</th><th>Date</th></tr></thead>
+            <tbody>
+              {decisions.map((d: any) => (
+                <tr key={d.id}>
+                  <td style={{ maxWidth: 520 }}>
+                    <div style={{ fontSize: 13 }}>{d.title}</div>
+                    {d.summary && (
+                      <div className="j-muted" style={{ fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {d.summary}
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    <span className={`j-pill ${d.status === "resolved" ? "j-pos" : d.status === "revisit" ? "j-warn" : d.status === "deprecated" ? "j-muted" : "j-info"}`}>
+                      {d.status || "active"}
+                    </span>
+                  </td>
+                  <td className="j-muted" style={{ fontSize: 12 }}>
+                    {d.createdAt ? String(d.createdAt).slice(0, 10) : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       <div className="j-card" style={{ padding: 0 }}>
         <div className="j-row j-between" style={{ padding: 16 }}>
@@ -334,6 +394,8 @@ function IdeasFacet({ projectId }: { projectId: string }) {
   const [ideas, setIdeas]     = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [promoting, setPromoting] = useState<string | null>(null)
+  const [otherIdeas, setOtherIdeas] = useState<any[]>([])
+  const [showOthers, setShowOthers] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -343,10 +405,16 @@ function IdeasFacet({ projectId }: { projectId: string }) {
       fetch(`/api/ideas`).then(r => r.json()),
     ])
       .then(([promoted, all]) => {
+        // These were concatenated into one list, so a project with 2 ideas of
+        // its own showed all 57 in the account. Owner: "Ideas within a project
+        // are meant to be sorted by the project. Not all ideas all at once."
+        // Ideas are user-scoped — promoted_to_project_id is the only project
+        // link — so the rest stay available, but behind an explicit opt-in.
         const promotedIds = new Set((promoted.data || []).map((i: any) => i.id))
-        const promotedList = (promoted.data || [])
-        const nonPromoted  = (all.data || []).filter((i: any) => !promotedIds.has(i.id) && i.lifecycle !== "promoted")
-        setIdeas([...promotedList, ...nonPromoted])
+        setIdeas(promoted.data || [])
+        setOtherIdeas(
+          (all.data || []).filter((i: any) => !promotedIds.has(i.id) && i.lifecycle !== "promoted")
+        )
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -381,9 +449,19 @@ function IdeasFacet({ projectId }: { projectId: string }) {
         <div className="j-card-head">
           <div>
             <h3 className="j-card-title">Ideas</h3>
-            <p className="j-card-sub">{ideas.filter(i => i.lifecycle !== "archived").length} active · promoted and in-flight ideas</p>
+            <p className="j-card-sub">
+              {ideas.filter(i => i.lifecycle !== "archived").length} in this project
+              {otherIdeas.length > 0 ? ` · ${otherIdeas.length} elsewhere` : ""}
+            </p>
           </div>
-          <button className="j-btn j-btn-ghost" onClick={() => router.push("/idea-incubator")}>Open incubator ↗</button>
+          <div className="j-row j-gap-2">
+            {otherIdeas.length > 0 && (
+              <button className="j-btn j-btn-ghost" onClick={() => setShowOthers(v => !v)}>
+                {showOthers ? "Hide other ideas" : `Promote from ${otherIdeas.length} other…`}
+              </button>
+            )}
+            <button className="j-btn j-btn-ghost" onClick={() => router.push("/idea-incubator")}>Open incubator ↗</button>
+          </div>
         </div>
         {loading ? (
           <div style={{ padding: 32, textAlign: "center" }}>
@@ -391,7 +469,11 @@ function IdeasFacet({ projectId }: { projectId: string }) {
           </div>
         ) : ideas.length === 0 ? (
           <div style={{ padding: 32, textAlign: "center" }}>
-            <p className="j-muted" style={{ fontSize: 13, margin: "0 0 12px" }}>No ideas yet. Capture your first one in the incubator.</p>
+            <p className="j-muted" style={{ fontSize: 13, margin: "0 0 12px" }}>
+              {otherIdeas.length > 0
+                ? "No ideas promoted to this project yet."
+                : "No ideas yet. Capture your first one in the incubator."}
+            </p>
             <button className="j-btn j-btn-primary" onClick={() => router.push("/idea-incubator")}>Go to incubator</button>
           </div>
         ) : (
@@ -438,6 +520,35 @@ function IdeasFacet({ projectId }: { projectId: string }) {
                     <span className="j-pill j-pos">Added to tasks ✓</span>
                   </div>
                 )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Everything NOT in this project, behind an explicit toggle. Promoting
+            from here is what gives the idea a promoted_to_project_id and moves
+            it into the list above. */}
+        {showOthers && otherIdeas.length > 0 && (
+          <div className="j-col j-gap-2" style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--j-ring)" }}>
+            <p className="j-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>
+              Not in this project · {otherIdeas.length}
+            </p>
+            {otherIdeas.map(idea => (
+              <div key={idea.id} className="j-row j-between" style={{ padding: "8px 10px", borderRadius: 6, background: "oklch(1 0 0 / 0.02)" }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{idea.title}</div>
+                  <span className={`j-pill ${lifecycleTone[idea.lifecycle] || "j-muted"}`} style={{ fontSize: 10, marginTop: 4 }}>
+                    {idea.lifecycle}
+                  </span>
+                </div>
+                <button
+                  className="j-btn j-btn-ghost"
+                  disabled={promoting === idea.id}
+                  onClick={() => promoteToTask(idea.id, idea.title)}
+                  style={{ flexShrink: 0 }}
+                >
+                  {promoting === idea.id ? "Adding…" : "Add to tasks"}
+                </button>
               </div>
             ))}
           </div>
