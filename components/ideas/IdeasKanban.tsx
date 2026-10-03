@@ -199,7 +199,21 @@ export function IdeasKanban({
   }
 
   return (
-    <div className="j-col j-gap-4">
+    /*
+      The board needs a bounded height or nothing below it can scroll: `flex: 1`
+      resolves against nothing and the column simply grows. Measured before this
+      was added: the seed column was 9,861px tall and the whole document
+      scrolled, so the filter bar scrolled away with it.
+
+      The root starts ~169px down the viewport and j-content adds 64px of bottom
+      padding, so 200px of headroom matches what the project board already uses
+      (app/project/[id]/page.tsx wraps KanbanView the same way). minHeight keeps
+      it usable on a short window.
+    */
+    <div
+      className="j-col j-gap-4"
+      style={{ height: "calc(100vh - 200px)", minHeight: 360 }}
+    >
       {/* ── Filters bar ──────────────────────────────────────────────── */}
       <div
         className="j-row j-wrap j-gap-3"
