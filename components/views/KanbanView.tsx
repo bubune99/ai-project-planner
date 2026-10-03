@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { BoardStep } from "@/lib/types"
 import { KanbanToolbar, EMPTY_FILTERS, type BoardFilters } from "./KanbanToolbar"
 import { TaskDetailModal } from "./TaskDetailModal"
@@ -33,6 +33,12 @@ interface KanbanViewProps {
   projectId: string
   onTaskSelect?: (step: BoardStep | null) => void
   onRefresh?: () => void
+  /**
+   * Open this step's detail as soon as it is loaded. Set from ?step= so a link
+   * from My Work ("Open on board") lands on the task itself rather than on a
+   * board of 80 cards you then have to search.
+   */
+  initialStepId?: string | null
 }
 
 interface BoardPrefs {
@@ -61,7 +67,7 @@ function loadPrefs(projectId: string): BoardPrefs {
   }
 }
 
-export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewProps) {
+export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }: KanbanViewProps) {
   const [steps, setSteps] = useState<BoardStep[]>([])
   const [customStatuses, setCustomStatuses] = useState<ProjectStatus[]>([])
   const [fetching, setFetching] = useState(true)
@@ -69,6 +75,17 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
   const [filters, setFilters] = useState<BoardFilters>(EMPTY_FILTERS)
   const [prefs, setPrefs] = useState<BoardPrefs>(() => loadPrefs(projectId))
   const [detailStepId, setDetailStepId] = useState<string | null>(null)
+
+  // Open the linked step once — only after steps have loaded, and only for an
+  // id that actually belongs to this project, so a stale link opens nothing
+  // rather than an empty modal.
+  const openedInitial = useRef<string | null>(null)
+  useEffect(() => {
+    if (!initialStepId || openedInitial.current === initialStepId) return
+    if (!steps.some((st) => st.id === initialStepId)) return
+    openedInitial.current = initialStepId
+    setDetailStepId(initialStepId)
+  }, [initialStepId, steps])
   const [formStep, setFormStep] = useState<BoardStep | null>(null)
   const [showStepForm, setShowStepForm] = useState(false)
   const [addingGroup, setAddingGroup] = useState(false)

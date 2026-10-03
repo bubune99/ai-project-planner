@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { DashboardLayout } from "@/components/navigation"
 import { GanttView } from "@/components/views/GanttView"
 import { KanbanView } from "@/components/views/KanbanView"
@@ -37,14 +37,12 @@ const HEALTH_CLASS: Record<string, string> = {
 const TABS = [
   { id: "overview",   label: "Overview" },
   { id: "tasks",      label: "Tasks" },
-  { id: "gantt",      label: "Gantt" },
   { id: "docs",       label: "Docs" },
   { id: "decisions",  label: "Decisions" },
   { id: "ideas",      label: "Ideas" },
   { id: "finance",    label: "Finance" },
   { id: "agents",     label: "Agents" },
   { id: "notes",      label: "Notes" },
-  { id: "calendar",   label: "Calendar" },
   { id: "metrics",    label: "Metrics" },
   { id: "risks",      label: "Risks" },
   { id: "team",       label: "Team" },
@@ -1603,12 +1601,70 @@ function LinksFacet() {
   )
 }
 
+// ─── Task views ──────────────────────────────────────────────────────────────
+
+type TaskView = "board" | "timeline" | "calendar"
+const TASK_VIEWS: { id: TaskView; label: string }[] = [
+  { id: "board",    label: "Board" },
+  { id: "timeline", label: "Timeline" },
+  { id: "calendar", label: "Calendar" },
+]
+
+/*
+  Board, Timeline and Calendar used to be three separate project tabs over the
+  same project_steps. They are one tab now with a view switch, the way ClickUp
+  and Linear present it — you change how you look at the work, not where it is.
+*/
+function TaskViewSwitcher({ view, onChange }: { view: TaskView; onChange: (v: TaskView) => void }) {
+  return (
+    <div role="tablist" aria-label="Task view" className="j-row" style={{ gap: 2, padding: 2, borderRadius: 8, boxShadow: "inset 0 0 0 1px var(--j-ring)", alignSelf: "flex-start" }}>
+      {TASK_VIEWS.map(v => (
+        <button
+          key={v.id}
+          role="tab"
+          aria-selected={view === v.id}
+          onClick={() => onChange(v.id)}
+          style={{
+            padding: "5px 12px", fontSize: 12.5, borderRadius: 6, border: "none", cursor: "pointer",
+            background: view === v.id ? "oklch(0.240 0 0)" : "transparent",
+            color: view === v.id ? "oklch(0.985 0 0)" : "oklch(0.556 0 0)",
+            fontWeight: view === v.id ? 500 : 400,
+          }}
+        >
+          {v.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 export default function ProjectDashboardPage() {
   const params  = useParams()
   const router  = useRouter()
-  const [activeTab, setActiveTab]     = useState("overview")
+  /*
+    Tab and view live in the URL. They were plain useState("overview"), so the
+    page ignored ?tab= entirely: My Work's "Open on board" link (?tab=tasks&step=)
+    landed on Overview, and every refresh reset to Overview too.
+
+    Gantt and Calendar are no longer tabs — they are views of Tasks, since all
+    three render the same project_steps. Old ?tab=gantt / ?tab=calendar links
+    are mapped onto the matching view so nothing already shared breaks.
+  */
+  const searchParams = useSearchParams()
+  const rawTab  = searchParams.get("tab") || "overview"
+  const legacyView = rawTab === "gantt" ? "timeline" : rawTab === "calendar" ? "calendar" : null
+  const activeTab  = legacyView ? "tasks" : rawTab
+  const taskView: TaskView = (legacyView || (TASK_VIEWS.some(v => v.id === searchParams.get("view")) ? searchParams.get("view") : "board")) as TaskView
+  const focusStepId = searchParams.get("step")
+  const setUrl = useCallback((next: Record<string, string | null>) => {
+    const q = new URLSearchParams(searchParams.toString())
+    for (const [k, v] of Object.entries(next)) v === null ? q.delete(k) : q.set(k, v)
+    router.replace(`?${q.toString()}`, { scroll: false })
+  }, [router, searchParams])
+  const setActiveTab = useCallback((tab: string) => setUrl({ tab, view: null, step: null }), [setUrl])
+  const setTaskView  = useCallback((view: TaskView) => setUrl({ tab: "tasks", view, step: null }), [setUrl])
   const [projectData, setProjectData] = useState<ProjectData | null>(null)
   const [loading, setLoading]         = useState(true)
   const [error, setError]             = useState<string | null>(null)
@@ -1740,14 +1796,20 @@ export default function ProjectDashboardPage() {
       {/* Facet content — full-width; per-facet cards can self-constrain */}
       <div style={{ padding: "24px 32px" }}>
         {activeTab === "overview"  && <OverviewFacet  project={project} projectId={projectId} phases={phases} />}
-        {activeTab === "tasks"     && (
-          <div style={{ height: "calc(100vh - 200px)" }}>
-            <KanbanView projectId={projectId} onTaskSelect={() => {}} />
-          </div>
-        )}
-        {activeTab === "gantt"     && (
-          <div style={{ height: "calc(100vh - 200px)" }}>
-            <GanttView projectId={projectId} onTaskSelect={() => {}} />
+        {activeTab === "tasks" && (
+          <div className="j-col" style={{ gap: 12 }}>
+            <TaskViewSwitcher view={taskView} onChange={setTaskView} />
+            {taskView === "board" && (
+              <div style={{ height: "calc(100vh - 248px)" }}>
+                <KanbanView projectId={projectId} onTaskSelect={() => {}} initialStepId={focusStepId} />
+              </div>
+            )}
+            {taskView === "timeline" && (
+              <div style={{ height: "calc(100vh - 248px)" }}>
+                <GanttView projectId={projectId} onTaskSelect={() => {}} />
+              </div>
+            )}
+            {taskView === "calendar" && <CalendarFacet projectId={projectId} />}
           </div>
         )}
         {activeTab === "docs"      && (
@@ -1760,7 +1822,6 @@ export default function ProjectDashboardPage() {
         {activeTab === "finance"   && <FinanceFacet />}
         {activeTab === "agents"    && <AgentsFacet />}
         {activeTab === "notes"     && <NotesFacet projectId={projectId} />}
-        {activeTab === "calendar"  && <CalendarFacet projectId={projectId} />}
         {activeTab === "metrics"   && <MetricsFacet project={project} steps={steps} />}
         {activeTab === "risks"     && <RisksFacet projectId={projectId} project={project} onChange={() => fetchProjectData(true)} />}
         {activeTab === "team"      && <TeamFacet />}
