@@ -249,7 +249,7 @@ export function FullScreenCalendar({
                         }}
                         style={event.color ? { borderLeftColor: event.color } : undefined}
                         className={cn(
-                          "flex w-full flex-col items-start gap-0.5 rounded-md border bg-muted/50 p-1.5 text-left text-[11px] leading-tight",
+                          "flex w-full flex-col items-start gap-0.5 rounded-md border bg-muted/50 px-2 py-1.5 text-left text-[12.5px] leading-snug",
                           event.color && "border-l-2",
                           event.onClick && "hover:bg-muted",
                         )}

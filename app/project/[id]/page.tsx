@@ -10,6 +10,8 @@ import { DocsView } from "@/components/views/DocsView"
 import { transformStepsToPhases } from "@/lib/data-transforms"
 import { ActivityFeed } from "@/components/project/activity-feed"
 import type { Task, KanbanTask } from "@/lib/types"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { RichText } from "@/components/shared/RichText"
 
 const STATUS_LABEL: Record<string, string> = {
   in_progress: "Active",
@@ -572,6 +574,7 @@ function CalendarFacet({ projectId }: { projectId: string }) {
   const [scheduledSteps, setScheduledSteps] = useState<any[]>([])
   // A step chip was 9px text and inert — nothing to click, nothing to expand.
   const [selectedStep, setSelectedStep] = useState<any | null>(null)
+  const [selectedEvent, setSelectedEvent] = useState<any | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -701,7 +704,7 @@ function CalendarFacet({ projectId }: { projectId: string }) {
           name: ev.title,
           time: String(ev.startTime || ev.start_time || "").slice(11, 16),
           datetime: String(ev.startTime || ev.start_time || ""),
-          onClick: () => remove(ev.id),
+          onClick: () => setSelectedEvent(ev),
         })
       }
     }
@@ -775,43 +778,81 @@ function CalendarFacet({ projectId }: { projectId: string }) {
 
       {/* Step detail — a calendar chip used to be inert. Clicking one now opens
           the same facts the Gantt and the board show, without leaving the month. */}
-      {selectedStep && (
-        <div className="j-card">
-          <div className="j-card-head">
-            <div>
-              <h3 className="j-card-title">{selectedStep.title}</h3>
-              <p className="j-card-sub">Project step · due {String(selectedStep.end_date || "").slice(0, 10) || "—"}</p>
-            </div>
-            <button className="j-btn j-btn-icon j-btn-ghost" onClick={() => setSelectedStep(null)} aria-label="Close step details">✕</button>
-          </div>
-          <div className="j-col j-gap-3">
-            <div className="j-row j-wrap" style={{ gap: 6 }}>
-              <span className={`j-pill ${selectedStep.status === "completed" ? "j-pos" : selectedStep.status === "in-progress" ? "j-proj" : selectedStep.status === "blocked" ? "j-warn" : "j-muted"}`}>
-                {selectedStep.status}
-              </span>
-              {selectedStep.priority && <span className="j-pill j-ghost">{selectedStep.priority}</span>}
-              {selectedStep.phase && <span className="j-pill j-ghost">{selectedStep.phase}</span>}
-              {selectedStep.step_type && selectedStep.step_type !== "task" && (
-                <span className="j-pill j-info">{selectedStep.step_type}</span>
+      {/*
+        Details open in a dialog over the calendar. They used to render as a
+        card under it — below a full-height grid, so a click looked like it did
+        nothing. Event clicks used to jump straight to "Delete this event?";
+        delete now lives inside the event's dialog.
+      */}
+      <Dialog open={!!selectedStep} onOpenChange={(o) => { if (!o) setSelectedStep(null) }}>
+        <DialogContent className="max-w-lg">
+          {selectedStep && (
+            <>
+              <DialogHeader>
+                <DialogTitle style={{ lineHeight: 1.35 }}>{selectedStep.title}</DialogTitle>
+                <DialogDescription>
+                  Project task · due {String(selectedStep.end_date || "").slice(0, 10) || "—"}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="j-col j-gap-3">
+                <div className="j-row j-wrap" style={{ gap: 6 }}>
+                  <span className={`j-pill ${selectedStep.status === "completed" ? "j-pos" : selectedStep.status === "in-progress" ? "j-proj" : selectedStep.status === "blocked" ? "j-warn" : "j-muted"}`}>
+                    {selectedStep.status}
+                  </span>
+                  {selectedStep.priority && <span className="j-pill j-ghost">{selectedStep.priority}</span>}
+                  {selectedStep.phase && <span className="j-pill j-ghost">{selectedStep.phase}</span>}
+                  {typeof selectedStep.progress === "number" && <span className="j-pill j-ghost">{selectedStep.progress}%</span>}
+                </div>
+                {selectedStep.description && selectedStep.description !== selectedStep.title && (
+                  <div style={{ maxHeight: "45vh", overflowY: "auto" }}>
+                    <RichText text={selectedStep.description} />
+                  </div>
+                )}
+                <div className="j-muted" style={{ fontSize: 12 }}>
+                  {selectedStep.start_date
+                    ? `Scheduled ${String(selectedStep.start_date).slice(0, 10)} → ${String(selectedStep.end_date || "").slice(0, 10)}`
+                    : "No start date set"}
+                  {selectedStep.blocked_reason ? ` · blocked: ${selectedStep.blocked_reason}` : ""}
+                </div>
+              </div>
+              <DialogFooter>
+                <a className="j-btn j-btn-primary" style={{ textDecoration: "none" }}
+                  href={`?tab=tasks&view=board&step=${selectedStep.id}`}>
+                  Open on board
+                </a>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedEvent} onOpenChange={(o) => { if (!o) setSelectedEvent(null) }}>
+        <DialogContent className="max-w-lg">
+          {selectedEvent && (
+            <>
+              <DialogHeader>
+                <DialogTitle style={{ lineHeight: 1.35 }}>{selectedEvent.title}</DialogTitle>
+                <DialogDescription>
+                  Event · {String(selectedEvent.startTime || selectedEvent.start_time || "").slice(0, 16).replace("T", " at ") || "no time set"}
+                </DialogDescription>
+              </DialogHeader>
+              {selectedEvent.description ? (
+                <div style={{ maxHeight: "45vh", overflowY: "auto" }}>
+                  <RichText text={selectedEvent.description} />
+                </div>
+              ) : (
+                <p className="j-muted" style={{ fontSize: 13, margin: 0 }}>No details.</p>
               )}
-              {typeof selectedStep.progress === "number" && (
-                <span className="j-pill j-ghost">{selectedStep.progress}%</span>
-              )}
-            </div>
-            {selectedStep.description && selectedStep.description !== selectedStep.title && (
-              <p className="j-muted" style={{ fontSize: 13, lineHeight: 1.55, margin: 0 }}>
-                {selectedStep.description}
-              </p>
-            )}
-            <div className="j-muted" style={{ fontSize: 12 }}>
-              {selectedStep.start_date
-                ? `Scheduled ${String(selectedStep.start_date).slice(0, 10)} → ${String(selectedStep.end_date || "").slice(0, 10)}`
-                : "No start date set"}
-              {selectedStep.blocked_reason ? ` · blocked: ${selectedStep.blocked_reason}` : ""}
-            </div>
-          </div>
-        </div>
-      )}
+              <DialogFooter>
+                <button className="j-btn j-btn-ghost" style={{ color: "var(--j-neg)" }}
+                  onClick={async () => { const id = selectedEvent.id; await remove(id); setSelectedEvent(null) }}>
+                  Delete event
+                </button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {selectedDate && (
         <div className="j-card">
