@@ -41,7 +41,6 @@ const TABS = [
   { id: "decisions",  label: "Decisions" },
   { id: "ideas",      label: "Ideas" },
   { id: "finance",    label: "Finance" },
-  { id: "agents",     label: "Agents" },
   { id: "metrics",    label: "Metrics" },
   { id: "settings",   label: "Settings" },
 ]
@@ -551,168 +550,6 @@ function FinanceFacet() {
           a real summary once attribution is in place.
         </p>
         <a className="j-btn j-btn-primary" href="/finance" style={{ textDecoration: "none" }}>Open Finance →</a>
-      </div>
-    </div>
-  )
-}
-
-
-// ─── Agents ──────────────────────────────────────────────────────────────────
-
-function AgentsFacet() {
-  const [jobs, setJobs]       = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ title: "", assignedTo: "" })
-  const [saving, setSaving]   = useState(false)
-
-  const fetchJobs = () => {
-    setLoading(true)
-    fetch("/api/agents/jobs?includeCompleted=true&limit=20")
-      .then(r => r.json())
-      .then(data => { setJobs(data.data || []); setLoading(false) })
-      .catch(() => setLoading(false))
-  }
-
-  useEffect(() => { fetchJobs() }, [])
-
-  const dispatch = async () => {
-    if (!form.title.trim()) return
-    setSaving(true)
-    try {
-      const res = await fetch("/api/agents/jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: form.title, createdBy: "user", assignedTo: form.assignedTo || undefined }),
-      })
-      if (res.ok) {
-        fetchJobs()
-        setForm({ title: "", assignedTo: "" })
-        setShowForm(false)
-      }
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const tone: Record<string, string> = {
-    pending: "j-muted", assigned: "j-info", in_progress: "j-proj",
-    completed: "j-pos",  failed: "j-neg",  cancelled: "j-muted",
-  }
-
-  const active    = jobs.filter(j => j.status === "in_progress" || j.status === "assigned").length
-  const completed = jobs.filter(j => j.status === "completed").length
-
-  const elapsed = (job: any) => {
-    if (!job.startedAt) return "—"
-    const end  = job.completedAt ? new Date(job.completedAt).getTime() : Date.now()
-    const secs = Math.floor((end - new Date(job.startedAt).getTime()) / 1000)
-    if (secs < 60) return `${secs}s`
-    if (secs < 3600) return `${Math.floor(secs / 60)}m`
-    return `${Math.floor(secs / 3600)}h ${Math.floor((secs % 3600) / 60)}m`
-  }
-
-  return (
-    <div className="j-col j-gap-4">
-      <div className="j-grid j-cols-4">
-        {[["Active", active, "j-proj"], ["Completed", completed, "j-pos"], ["Total jobs", jobs.length, "j-info"], ["Failed", jobs.filter(j => j.status === "failed").length, "j-neg"]].map(([l, v, t]) => (
-          <div key={l as string} className="j-card j-tight" style={{ padding: 14 }}>
-            <div className="j-eyebrow">{l}</div>
-            <div className="j-amount-lg" style={{ marginTop: 6 }}>{v}</div>
-          </div>
-        ))}
-      </div>
-
-      {showForm && (
-        <div className="j-card">
-          <h4 className="j-card-title" style={{ marginBottom: 16 }}>Dispatch agent job</h4>
-          <div className="j-col j-gap-3">
-            <div>
-              <div className="j-eyebrow" style={{ marginBottom: 4 }}>Task</div>
-              <input
-                value={form.title}
-                onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))}
-                placeholder="What should the agent do?"
-                style={{
-                  width: "100%", background: "oklch(1 0 0 / 0.04)", border: "1px solid var(--j-ring)",
-                  borderRadius: 7, padding: "8px 10px", fontSize: 13, color: "inherit",
-                  fontFamily: "inherit", outline: "none", boxSizing: "border-box",
-                }}
-              />
-            </div>
-            <div>
-              <div className="j-eyebrow" style={{ marginBottom: 4 }}>Assign to (optional)</div>
-              <input
-                value={form.assignedTo}
-                onChange={e => setForm(prev => ({ ...prev, assignedTo: e.target.value }))}
-                placeholder="Agent name or ID"
-                style={{
-                  width: "100%", background: "oklch(1 0 0 / 0.04)", border: "1px solid var(--j-ring)",
-                  borderRadius: 7, padding: "8px 10px", fontSize: 13, color: "inherit",
-                  fontFamily: "inherit", outline: "none", boxSizing: "border-box",
-                }}
-              />
-            </div>
-            <div className="j-row j-gap-2" style={{ justifyContent: "flex-end" }}>
-              <button className="j-btn j-btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
-              <button className="j-btn j-btn-primary" onClick={dispatch} disabled={saving}>
-                {saving ? "Dispatching…" : "Dispatch"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="j-card" style={{ padding: 0 }}>
-        <div className="j-row j-between" style={{ padding: 16 }}>
-          <h3 className="j-card-title">Agent jobs</h3>
-          <div className="j-row j-gap-2">
-            <button className="j-btn j-btn-ghost" onClick={fetchJobs}>↺ Refresh</button>
-            {!showForm && <button className="j-btn j-btn-primary" onClick={() => setShowForm(true)}>Dispatch agent</button>}
-          </div>
-        </div>
-        {loading ? (
-          <div style={{ padding: 32, textAlign: "center" }}>
-            <span className="j-muted" style={{ fontSize: 13 }}>Loading jobs…</span>
-          </div>
-        ) : jobs.length === 0 ? (
-          <div style={{ padding: 32, textAlign: "center" }}>
-            <p className="j-muted" style={{ fontSize: 13, margin: "0 0 12px" }}>No agent jobs yet.</p>
-            <button className="j-btn j-btn-primary" onClick={() => setShowForm(true)}>Dispatch first job</button>
-          </div>
-        ) : (
-          <table className="j-table">
-            <thead><tr><th>Agent</th><th>Task</th><th>Status</th><th>Priority</th><th>Elapsed</th><th>Created</th></tr></thead>
-            <tbody>
-              {jobs.map(j => (
-                <tr key={j.id}>
-                  <td>
-                    <div className="j-row j-gap-2">
-                      <div className="j-avatar" style={{ width: 22, height: 22, fontSize: 10 }}>
-                        {(j.assignedTo || j.agent?.name || "?").slice(0, 2).toUpperCase()}
-                      </div>
-                      <span style={{ fontWeight: 500, fontSize: 12 }}>{j.assignedTo || j.agent?.name || "Unassigned"}</span>
-                    </div>
-                  </td>
-                  <td className="j-muted" style={{ fontSize: 12, maxWidth: 280 }}>
-                    <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {j.title}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`j-pill ${tone[j.status] || "j-muted"}`} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                      {j.status === "in_progress" && <span className="j-dot-pulse" style={{ width: 6, height: 6 }} />}
-                      {j.status.replace("_", " ")}
-                    </span>
-                  </td>
-                  <td><span className="j-pill j-ghost" style={{ fontSize: 10 }}>{j.priority}</span></td>
-                  <td className="j-muted j-num" style={{ fontSize: 12 }}>{elapsed(j)}</td>
-                  <td className="j-muted" style={{ fontSize: 12 }}>{j.createdAt ? new Date(j.createdAt).toLocaleDateString() : "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
       </div>
     </div>
   )
@@ -1521,7 +1358,9 @@ function SettingsFacet({ project, projectId, onChange }: { project: any; project
 // Tabs retired 2026-10-03, mapped to where their content now lives so links
 // already shared keep working: Notes joined the Overview activity feed, Risks
 // is a card on Overview, Team and Links are sections of Settings.
-const LEGACY_TABS: Record<string, string> = { notes: "overview", risks: "overview", team: "settings", links: "settings" }
+// Agents was removed the same day: 0 jobs ever dispatched, and no worker
+// drains agent_jobs. The table and MCP tools stay — /inbox builds on them.
+const LEGACY_TABS: Record<string, string> = { notes: "overview", risks: "overview", team: "settings", links: "settings", agents: "overview" }
 
 // ─── Task views ──────────────────────────────────────────────────────────────
 
@@ -1742,7 +1581,6 @@ export default function ProjectDashboardPage() {
         {activeTab === "decisions" && <DecisionsFacet projectId={projectId} />}
         {activeTab === "ideas"     && <IdeasFacet projectId={projectId} />}
         {activeTab === "finance"   && <FinanceFacet />}
-        {activeTab === "agents"    && <AgentsFacet />}
         {activeTab === "metrics"   && <MetricsFacet project={project} steps={steps} />}
         {activeTab === "settings"  && <SettingsFacet project={project} projectId={projectId} onChange={() => fetchProjectData(true)} />}
       </div>
