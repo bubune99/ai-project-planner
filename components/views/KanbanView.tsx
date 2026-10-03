@@ -531,12 +531,14 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
           </div>
         ) : (
           <DragDropContext onDragEnd={handleDragEnd}>
-            {/* Columns size to their content (ClickUp) rather than stretching.
-                Six full-height columns holding one card each is the same "small
-                thing in a big box" problem flagged on the calendar, so the BOARD
-                scrolls and a column only scrolls internally past its max-height.
-                min-h-0 is still required or the card list cannot resolve one. */}
-            <div className="flex-1 min-h-0 flex gap-2.5 overflow-auto items-start pb-4">
+            {/* Columns size to their content (ClickUp) rather than stretching —
+                six full-height columns holding one card each is the same "small
+                thing in a big box" flagged on the calendar.
+                THE BOARD IS THE ONLY SCROLL CONTAINER. Giving each column list
+                its own overflow-y-auto + max-height as well gave
+                @hello-pangea/dnd two nested scroll parents to observe and the
+                Tasks view stopped responding to input altogether. */}
+            <div className="flex-1 min-h-0 flex gap-2.5 overflow-x-auto overflow-y-auto items-start pb-4">
               {columns.map((column) => (
                 <KanbanColumn
                   key={`${prefs.groupBy}:${column.key}`}

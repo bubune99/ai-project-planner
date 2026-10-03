@@ -300,7 +300,7 @@ export function KanbanColumn({
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex-1 overflow-y-auto px-2 pb-2 min-h-[44px] max-h-[calc(100vh-320px)] rounded-lg transition-colors ${
+            className={`px-2 pb-2 min-h-[44px] rounded-lg transition-colors ${
               snapshot.isDraggingOver ? "bg-blue-500/10 outline-dashed outline-2 outline-blue-500/60" : ""
             }`}
           >
