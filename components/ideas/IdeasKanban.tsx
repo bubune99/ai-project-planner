@@ -212,7 +212,7 @@ export function IdeasKanban({
     */
     <div
       className="j-col j-gap-4"
-      style={{ height: "calc(100vh - 200px)", minHeight: 360 }}
+      style={{ height: "calc(100vh - 200px)", minHeight: 240 }}
     >
       {/* ── Filters bar ──────────────────────────────────────────────── */}
       <div
