@@ -1963,7 +1963,7 @@ const handler = createMcpHandler(
             ...(projectId
               ? {
                   warning:
-                    "This todo is linked to a project but will NOT appear in that project's task views, progress or roadmap — those read project steps.",
+                    "This todo is linked to a project but will NOT appear in that project's task views or progress — those read project steps. Use create_task for project work.",
                   next_actions: [
                     "If this is project plan work, create it with create_task instead and delete this todo.",
                     "If this is a choice to be made, record it with create_decision instead.",

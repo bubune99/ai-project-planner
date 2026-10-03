@@ -37,7 +37,6 @@ const HEALTH_CLASS: Record<string, string> = {
 const TABS = [
   { id: "overview",   label: "Overview" },
   { id: "tasks",      label: "Tasks" },
-  { id: "roadmap",    label: "Roadmap" },
   { id: "gantt",      label: "Gantt" },
   { id: "docs",       label: "Docs" },
   { id: "decisions",  label: "Decisions" },
@@ -64,7 +63,7 @@ interface ProjectData {
 
 // ─── Overview ────────────────────────────────────────────────────────────────
 
-function OverviewFacet({ project, projectId }: { project: any; projectId: string }) {
+function OverviewFacet({ project, projectId, phases }: { project: any; projectId: string; phases: any[] }) {
   const health = project.health || "good"
   const kpis = [
     { l: "Progress",      v: `${project.progress || 0}%`,                                   t: project.progress >= 80 ? "j-pos" : project.progress >= 40 ? "j-info" : "j-muted" },
@@ -83,6 +82,8 @@ function OverviewFacet({ project, projectId }: { project: any; projectId: string
           </div>
         ))}
       </div>
+
+      <PhaseStrip phases={phases} />
 
       {project.description && (
         <div className="j-card">
@@ -103,77 +104,57 @@ function OverviewFacet({ project, projectId }: { project: any; projectId: string
   )
 }
 
-// ─── Roadmap ─────────────────────────────────────────────────────────────────
+// ─── Phase strip (was the Roadmap tab) ───────────────────────────────────────
 
-function RoadmapFacet({ phases }: { phases: any[] }) {
-  if (!phases || phases.length === 0) {
-    return (
-      <div className="j-coming-soon">
-        <p className="j-muted" style={{ margin: 0 }}>No phases defined yet. Add steps to this project to see the roadmap.</p>
-      </div>
-    )
-  }
-  const done     = phases.filter(p => p.status === "done" || p.status === "completed").length
-  const active   = phases.filter(p => p.status === "in_progress" || p.status === "active").length
-  const upcoming = phases.length - done - active
+/*
+  The Roadmap tab was retired 2026-10-03 and its one useful part folded into
+  Overview. Across 38 projects, 14 had no phases and 21 had exactly one — so for
+  35 of them the tab drew a single circle restating the progress figure already
+  on Overview. Only multi-phase projects (Mission Control, @cncpt/cms) had
+  anything to show. This renders only for those, and returns null otherwise,
+  so a one-phase project does not get a one-dot timeline.
+*/
+function PhaseStrip({ phases }: { phases: any[] }) {
+  if (!phases || phases.length < 2) return null
+  const isDone = (p: any) => p.status === "done" || p.status === "completed"
+  const isActive = (p: any) => p.status === "in_progress" || p.status === "in-progress" || p.status === "active"
+  const done = phases.filter(isDone).length
+  const active = phases.filter(isActive).length
+  const fillPct = Math.max(0, ((done + active * 0.5) / phases.length) * 100)
 
   return (
-    <div className="j-col j-gap-4">
-      <div className="j-card">
-        <div className="j-card-head">
-          <div><h3 className="j-card-title">Phase progression</h3><p className="j-card-sub">{done} done · {active} active · {upcoming} upcoming</p></div>
-        </div>
-        <div style={{ position: "relative", padding: "8px 0 24px" }}>
-          <div style={{ position: "absolute", top: 28, left: 24, right: 24, height: 2, background: "var(--j-hairline)" }} />
-          <div style={{ position: "absolute", top: 28, left: 24, width: `calc(${Math.max(0, (done + active * 0.5) / phases.length * 100)}% - 24px)`, height: 2, background: "var(--j-accent)" }} />
-          <div className="j-row" style={{ justifyContent: "space-between", position: "relative" }}>
-            {phases.map((ph: any, i: number) => {
-              const isDone   = ph.status === "done" || ph.status === "completed"
-              const isActive = ph.status === "in_progress" || ph.status === "active"
-              const tone     = isDone ? "j-pos" : isActive ? "j-proj" : "j-muted"
-              return (
-                <div key={ph.id || i} className="j-col" style={{ alignItems: "center", flex: 1, minWidth: 0, gap: 8 }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: 18,
-                    background: isActive ? "var(--j-accent)" : isDone ? "var(--j-pos)" : "oklch(0.180 0 0)",
-                    color: isActive || isDone ? "oklch(0.110 0.028 268)" : "oklch(0.708 0 0)",
-                    display: "grid", placeItems: "center",
-                    boxShadow: isActive ? "0 0 0 4px oklch(0.870 0.045 252 / 0.2), 0 0 0 1px var(--j-ring-strong)" : "0 0 0 1px var(--j-ring-strong)",
-                    fontWeight: 600, fontSize: 12,
-                  }}>
-                    {isDone ? "✓" : i + 1}
-                  </div>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 12.5, fontWeight: 500 }}>{ph.name}</div>
-                  </div>
-                  <span className={`j-pill ${tone}`} style={{ fontSize: 9 }}>{ph.progress || 0}%</span>
-                </div>
-              )
-            })}
-          </div>
+    <div className="j-card">
+      <div className="j-card-head">
+        <div>
+          <h3 className="j-card-title">Phases</h3>
+          <p className="j-card-sub">{done} done · {active} active · {phases.length - done - active} upcoming</p>
         </div>
       </div>
-      <div className="j-grid j-cols-3">
-        {phases.map((ph: any, i: number) => {
-          const isDone   = ph.status === "done" || ph.status === "completed"
-          const isActive = ph.status === "in_progress" || ph.status === "active"
-          const tone     = isDone ? "j-pos" : isActive ? "j-proj" : "j-muted"
-          return (
-            <div key={ph.id || i} className="j-card" style={{ opacity: !isDone && !isActive ? 0.6 : 1 }}>
-              <div className="j-row j-between" style={{ marginBottom: 12 }}>
-                <h4 style={{ fontSize: 15, fontWeight: 500, margin: 0 }}>{ph.name}</h4>
-                <span className={`j-pill ${tone}`}><span className="j-pill-dot" />{ph.status}</span>
+      <div style={{ position: "relative", padding: "4px 0 8px" }}>
+        <div style={{ position: "absolute", top: 18, left: 18, right: 18, height: 2, background: "var(--j-hairline)" }} />
+        <div style={{ position: "absolute", top: 18, left: 18, width: `calc(${fillPct}% - 18px)`, height: 2, background: "var(--j-accent)" }} />
+        <div className="j-row" style={{ justifyContent: "space-between", position: "relative" }}>
+          {phases.map((ph: any, i: number) => {
+            const d = isDone(ph)
+            const a = isActive(ph)
+            return (
+              <div key={ph.id || i} className="j-col" style={{ alignItems: "center", flex: 1, minWidth: 0, gap: 6 }} title={`${ph.name} · ${ph.progress || 0}%`}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: 14,
+                  background: a ? "var(--j-accent)" : d ? "var(--j-pos)" : "oklch(0.180 0 0)",
+                  color: a || d ? "oklch(0.110 0.028 268)" : "oklch(0.708 0 0)",
+                  display: "grid", placeItems: "center",
+                  boxShadow: a ? "0 0 0 4px oklch(0.870 0.045 252 / 0.2), 0 0 0 1px var(--j-ring-strong)" : "0 0 0 1px var(--j-ring-strong)",
+                  fontWeight: 600, fontSize: 11,
+                }}>
+                  {d ? "✓" : i + 1}
+                </div>
+                <div style={{ fontSize: 11.5, fontWeight: 500, textAlign: "center", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ph.name}</div>
+                <span className="j-num j-muted" style={{ fontSize: 10.5 }}>{ph.progress || 0}%</span>
               </div>
-              <div className="j-progress j-thick" style={{ marginBottom: 10 }}>
-                <span style={{ width: `${ph.progress || 0}%`, background: isActive ? "var(--j-accent)" : "var(--j-pos)" }} />
-              </div>
-              <div className="j-row j-between" style={{ fontSize: 11 }}>
-                <span className="j-muted">Completion</span>
-                <span className="j-num">{ph.progress || 0}%</span>
-              </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
     </div>
   )
@@ -1758,13 +1739,12 @@ export default function ProjectDashboardPage() {
 
       {/* Facet content — full-width; per-facet cards can self-constrain */}
       <div style={{ padding: "24px 32px" }}>
-        {activeTab === "overview"  && <OverviewFacet  project={project} projectId={projectId} />}
+        {activeTab === "overview"  && <OverviewFacet  project={project} projectId={projectId} phases={phases} />}
         {activeTab === "tasks"     && (
           <div style={{ height: "calc(100vh - 200px)" }}>
             <KanbanView projectId={projectId} onTaskSelect={() => {}} />
           </div>
         )}
-        {activeTab === "roadmap"   && <RoadmapFacet   phases={phases} />}
         {activeTab === "gantt"     && (
           <div style={{ height: "calc(100vh - 200px)" }}>
             <GanttView projectId={projectId} onTaskSelect={() => {}} />
