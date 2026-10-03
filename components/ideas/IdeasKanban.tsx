@@ -399,7 +399,8 @@ export function IdeasKanban({
         board scrolls horizontally on its own and draws its own rail, so the
         mobile column tabs are no longer needed either.
       */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 16 }}>
+      {/* No overflow here — the board's own track owns both scroll axes. */}
+      <div style={{ flex: 1, minHeight: 0 }}>
         <KanbanBoard
           columns={boardColumns}
           label="Ideas board"

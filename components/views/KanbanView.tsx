@@ -547,7 +547,10 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
             </div>
           </div>
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto pb-4">
+          // No overflow here — the board's own track owns both scroll axes.
+          // Two nested vertical scrollers over the same content is what put
+          // two scrollbars on the Ideas board.
+          <div className="flex-1 min-h-0 pb-4">
             <KanbanBoard
               columns={boardColumns}
               label="Project board"

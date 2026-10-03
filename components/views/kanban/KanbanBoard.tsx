@@ -553,6 +553,10 @@ export const KanbanBoard = React.forwardRef<HTMLDivElement, KanbanBoardProps>(
         className={cn(
           // a board is dragged, not read: stop drags painting text selection
           "w-full select-none text-neutral-950 antialiased dark:text-neutral-50",
+          // Fill the height the caller gives us and let the track below be the
+          // single scroll container. Without this the board grows to its
+          // tallest column and the page scrolls instead.
+          "flex h-full flex-col",
           className,
         )}
         {...props}
@@ -568,7 +572,18 @@ export const KanbanBoard = React.forwardRef<HTMLDivElement, KanbanBoardProps>(
               : undefined
           }
           className={cn(
-            "flex items-start gap-3 overflow-x-auto pb-1",
+            "flex items-start gap-3 pb-1",
+            /*
+              THE ONLY SCROLL CONTAINER ON THIS BOARD, in both axes.
+
+              `overflow-x-auto` alone is a trap: CSS forces the other axis to
+              `auto` whenever one axis is not `visible`, so this element was
+              already a vertical scroller. Wrapping it in another
+              `overflow-y-auto` therefore produced two nested vertical
+              scrollbars over the same content. Owning both axes here, and
+              taking the remaining height with flex-1, keeps it to one.
+            */
+            "min-h-0 flex-1 overflow-auto",
             // the native bar is hidden; ScrollRail below draws our own
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           )}
