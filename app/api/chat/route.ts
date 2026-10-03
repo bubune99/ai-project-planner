@@ -1,8 +1,12 @@
 /**
- * AI Chat API Route with Comprehensive Tools and Persistence
+ * AI Chat API Route — the in-app agents.
  *
- * This endpoint powers the AI assistant with full project management
- * capabilities, UI control, context-aware interactions, and conversation history.
+ * The agent (JARVIS, Project Operator, Researcher) comes from the picker
+ * (selectedChatModel carries an agent id) and is defined in
+ * lib/agents/registry.ts. Its tools are the planner's own MCP tools, run as
+ * the signed-in user — see lib/agents/runtime.ts. This replaced a separate
+ * 24-tool copy in lib/ai/tools.ts and a model picker whose "Grok" entries
+ * were ignored (every request used Claude Sonnet 4).
  *
  * Implements the 7-step message flow pattern:
  * 1. Extract request data
@@ -14,9 +18,10 @@
  * 7. Save assistant response after streaming
  */
 
-import { anthropic } from "@ai-sdk/anthropic";
-import { streamText, stepCountIs, type UIMessage } from "ai";
-import { allTools } from "@/lib/ai/tools";
+import { streamText, type UIMessage } from "ai";
+import { sql } from "@/lib/db/client";
+import { resolveAgent } from "@/lib/agents/registry";
+import { prepareAgent } from "@/lib/agents/runtime";
 import {
   getOrCreateConversation,
   saveMessage,
@@ -61,17 +66,14 @@ function getTextFromMessage(message: UIMessage): string {
   return "";
 }
 
-const systemPrompt = `You are an AI project planning assistant integrated into a project management dashboard.
 
-You have access to tools for managing projects and tasks.
-
-## Guidelines
-- Use tools when appropriate to help users manage their projects
-- Be concise and actionable
-- Use markdown formatting for data presentation`;
 
 interface ChatRequestBody {
-  messages: UIMessage[];
+  /** Legacy clients send the whole list; the chat UI sends just the latest. */
+  messages?: UIMessage[];
+  message?: UIMessage;
+  /** The picker's value — an agent id (lib/agents/catalog.ts). */
+  selectedChatModel?: string;
   context?: {
     activeTab?: string;
     selectedTask?: unknown;
@@ -107,12 +109,14 @@ export async function POST(request: Request) {
     // Step 1: Extract request data
     const body: ChatRequestBody = await request.json();
     const {
-      messages,
       context,
       conversationId: requestConversationId,
       contextType = context?.projectId ? "project" : "general",
       contextId = context?.projectId,
     } = body;
+
+    const messages: UIMessage[] = body.messages ?? (body.message ? [body.message] : []);
+    const agent = resolveAgent(body.selectedChatModel);
 
     // Step 2: Get or create conversation
     let conversation;
@@ -178,24 +182,27 @@ export async function POST(request: Request) {
       content: userMessageText,
     });
 
-    // Add context to the system prompt if provided
-    let enhancedSystemPrompt = systemPrompt;
-    if (context) {
-      enhancedSystemPrompt += `\n\n## Current Context
-- Active View: ${context.activeTab || "unknown"}
-- Selected Task: ${context.selectedTask ? JSON.stringify(context.selectedTask) : "none"}
-- Selected Document: ${context.selectedDocument ? JSON.stringify(context.selectedDocument) : "none"}
-- Project ID: ${context.projectId || "none"}
-- Conversation ID: ${conversation.id}`;
+    // The project the owner is looking at, if the client says so. Name looked
+    // up with an ownership check so the prompt never names someone else's.
+    const projectId = context?.projectId ?? null;
+    let projectName: string | null = null;
+    if (projectId) {
+      const rows = (await sql`
+        SELECT name FROM projects WHERE id = ${projectId} AND user_id = ${userId} AND deleted_at IS NULL
+      `) as { name: string }[];
+      projectName = rows[0]?.name ?? null;
     }
+    const prepared = await prepareAgent(agent, {
+      userId,
+      projectId: projectName ? projectId : null,
+      projectName,
+      today: new Date().toISOString().slice(0, 10),
+    });
 
     // Step 6: Call LLM with full context
     const result = streamText({
-      model: anthropic("claude-sonnet-4-20250514"),
-      system: enhancedSystemPrompt,
+      ...prepared,
       messages: fullHistory,
-      tools: allTools,
-      stopWhen: stepCountIs(10), // Allow up to 10 steps for multi-step tool execution (AI SDK v5 pattern)
       onFinish: async ({ text, toolCalls, toolResults }) => {
         // Step 7: Save assistant response after streaming
         try {
@@ -205,7 +212,7 @@ export async function POST(request: Request) {
             content: text || "",
             toolCalls: toolCalls?.length ? toolCalls : undefined,
             toolResults: toolResults?.length ? toolResults : undefined,
-            metadata: { timestamp: Date.now() },
+            metadata: { timestamp: Date.now(), agent: agent.id },
           });
 
           // Auto-generate title from first exchange if none exists
