@@ -2,7 +2,9 @@
  * Saved chat messages (ai_messages rows) → the UIMessage shape the chat UI
  * renders (AI SDK v5: { id, role, parts }).
  *
- * Text becomes a text part; stored file parts (attachments) are kept. Tool
+ * Text becomes a text part; stored file parts (attachments) are kept. An
+ * assistant reply's saved trace (metadata.trace) is replayed as data-span
+ * parts, so a reopened chat still shows what the agent did. Tool
  * calls are not replayed as parts: the old converter emitted the v4
  * "tool-invocation" shape, which this v5 UI does not render, and the
  * assistant's text already reports what its tools did.
@@ -15,6 +17,7 @@ export interface StoredMessage {
   role: string
   content?: string | null
   parts?: unknown
+  metadata?: unknown
   createdAt?: string | Date | null
 }
 
@@ -32,6 +35,14 @@ export function toUIMessages(rows: StoredMessage[]): UIChatMessage[] {
   for (const m of rows) {
     if (!ROLES.has(m.role)) continue
     const parts: UIChatMessage["parts"] = []
+    const trace = (m.metadata as { trace?: unknown } | null | undefined)?.trace
+    if (m.role === "assistant" && Array.isArray(trace)) {
+      for (const span of trace) {
+        if (span && typeof span === "object" && typeof (span as { id?: unknown }).id === "string") {
+          parts.push({ type: "data-span", id: (span as { id: string }).id, data: span })
+        }
+      }
+    }
     if (typeof m.content === "string" && m.content.trim()) parts.push({ type: "text", text: m.content })
     if (Array.isArray(m.parts)) {
       for (const p of m.parts) {

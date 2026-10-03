@@ -41,6 +41,17 @@ async function main() {
   try { await collectTools((s: any) => { s.tool("a", async () => 1); s.tool("a", async () => 2) }) } catch (e: any) { threw = e.message }
   eq("duplicate registration fails loudly (the cold-start crash class)", threw, "tool a registered twice")
 
+  const log: string[] = []
+  const observed = toAiTools(collected, ["echo", "fails"], run, {
+    start: (n, input) => { log.push(`start ${n} ${JSON.stringify(input)}`); return `id-${n}` },
+    end: (id, text) => { log.push(`end ${id} ${text}`) },
+  })
+  await (observed.echo as any).execute({ msg: "x" }, { toolCallId: "t", messages: [] })
+  await (observed.fails as any).execute({}, { toolCallId: "t", messages: [] })
+  eq("observer sees start/end with the result text, errors included", log, [
+    'start echo {"msg":"x"}', "end id-echo echo:x", "start fails {}", "end id-fails Error: nope",
+  ])
+
   eq("resultText joins text parts", resultText({ content: [{ type: "text", text: "a" }, { type: "image" }, { type: "text", text: "b" }] }), { text: "a\nb", isError: false })
   eq("resultText passes strings through", resultText("plain"), { text: "plain", isError: false })
 

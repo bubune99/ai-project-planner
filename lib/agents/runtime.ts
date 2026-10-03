@@ -4,6 +4,10 @@
  * request context, and — for agents with delegates — a delegate tool that
  * runs a specialist to completion and returns its answer.
  *
+ * With a TraceRecorder, every tool call and every delegated specialist (with
+ * that specialist's own tool calls nested under it) is recorded as a span, so
+ * the chat can show live progress and a timeline of the run.
+ *
  * Server-only (imports the planner tools, which import the database).
  */
 
@@ -12,8 +16,9 @@ import { generateText, stepCountIs, tool, type Tool } from "ai"
 import { z } from "zod"
 import { registerPlannerTools } from "@/lib/mcp/planner-tools"
 import { runWithMcpContext, type McpContext } from "@/lib/auth/mcp-context"
-import { collectTools, toAiTools, type CollectedTool } from "./tool-bridge"
+import { collectTools, toAiTools, type CollectedTool, type ToolObserver } from "./tool-bridge"
 import { REGISTRY, contextBlock, type AgentDefinition } from "./registry"
+import { toolTitle, summarizeResult, type TraceRecorder } from "./trace"
 import type { AgentId } from "./catalog"
 
 // The tool set is identical for every request; collect it once per instance.
@@ -28,10 +33,15 @@ export interface AgentRequest {
   projectId?: string | null
   projectName?: string | null
   today: string
+  /** Show the model's reasoning (Claude extended thinking) for this message. */
+  thinking?: boolean
 }
 
+/** Extended-thinking budget when the owner asks to see the reasoning. */
+const THINKING_BUDGET = 2048
+
 function contextFor(agent: AgentDefinition, req: AgentRequest): McpContext {
-  const writes = agent.tools.length > 0 && agent.id !== "researcher"
+  const writes = agent.id !== "researcher"
   return {
     userId: req.userId,
     // Not a real api_keys row. The tools that write to api_keys
@@ -44,16 +54,29 @@ function contextFor(agent: AgentDefinition, req: AgentRequest): McpContext {
   }
 }
 
-async function toolsFor(agent: AgentDefinition, req: AgentRequest): Promise<Record<string, Tool>> {
+function observer(trace: TraceRecorder | undefined, parentId: string | undefined): ToolObserver | undefined {
+  if (!trace) return undefined
+  return {
+    start: (name, input) => trace.begin({ label: name, title: toolTitle(name, input), kind: "tool", parentId }),
+    end: (id, text) => { if (id) trace.end(id, summarizeResult(text)) },
+  }
+}
+
+async function toolsFor(
+  agent: AgentDefinition,
+  req: AgentRequest,
+  trace?: TraceRecorder,
+  parentSpan?: string,
+): Promise<Record<string, Tool>> {
   const all = await plannerTools()
   const ctx = contextFor(agent, req)
   const run = <T,>(fn: () => Promise<T>) => runWithMcpContext(ctx, fn) as Promise<T>
-  const tools = toAiTools(all, agent.tools, run)
-  if (agent.delegates.length) tools.delegate = delegateTool(agent, req)
+  const tools = toAiTools(all, agent.tools, run, observer(trace, parentSpan))
+  if (agent.delegates.length) tools.delegate = delegateTool(agent, req, trace, parentSpan)
   return tools
 }
 
-function delegateTool(parent: AgentDefinition, req: AgentRequest): Tool {
+function delegateTool(parent: AgentDefinition, req: AgentRequest, trace?: TraceRecorder, parentSpan?: string): Tool {
   const ids = parent.delegates as [AgentId, ...AgentId[]]
   return tool({
     description:
@@ -66,31 +89,43 @@ function delegateTool(parent: AgentDefinition, req: AgentRequest): Tool {
     }),
     execute: async ({ agent: id, task }) => {
       const sub = REGISTRY[id]
+      const span = trace?.begin({ label: sub.id, title: `Asking the ${sub.name}`, kind: "agent", parentId: parentSpan })
       try {
         const result = await generateText({
           model: anthropic(sub.model),
           system: sub.instructions + contextBlock(req),
           prompt: task,
-          tools: await toolsFor(sub, req),
+          tools: await toolsFor(sub, req, trace, span),
           stopWhen: stepCountIs(sub.maxSteps),
         })
+        const toolsUsed = result.steps.flatMap((s) => s.toolCalls.map((c) => c.toolName))
+        if (span) trace!.end(span, { status: "ok", detail: `${toolsUsed.length} tool${toolsUsed.length === 1 ? "" : "s"}`, tokens: result.totalUsage?.totalTokens })
         return {
           agent: sub.name,
           answer: result.text || "(the specialist finished without a written answer)",
-          toolsUsed: result.steps.flatMap((s) => s.toolCalls.map((c) => c.toolName)),
+          toolsUsed,
         }
       } catch (e: unknown) {
-        return { agent: sub.name, answer: `Error: ${e instanceof Error ? e.message : String(e)}`, toolsUsed: [] }
+        const message = e instanceof Error ? e.message : String(e)
+        if (span) trace!.end(span, { status: "error", detail: `Failed: ${message.slice(0, 60)}` })
+        return { agent: sub.name, answer: `Error: ${message}`, toolsUsed: [] }
       }
     },
   })
 }
 
-export async function prepareAgent(agent: AgentDefinition, req: AgentRequest) {
+/**
+ * Everything streamText needs for this agent. Pass a trace to record the run;
+ * the caller opens the root span and passes its id, and closes it on finish.
+ */
+export async function prepareAgent(agent: AgentDefinition, req: AgentRequest, trace?: TraceRecorder, rootSpan?: string) {
   return {
     model: anthropic(agent.model),
     system: agent.instructions + contextBlock(req),
-    tools: await toolsFor(agent, req),
+    tools: await toolsFor(agent, req, trace, rootSpan),
     stopWhen: stepCountIs(agent.maxSteps),
+    ...(req.thinking
+      ? { providerOptions: { anthropic: { thinking: { type: "enabled" as const, budgetTokens: THINKING_BUDGET } } } }
+      : {}),
   }
 }

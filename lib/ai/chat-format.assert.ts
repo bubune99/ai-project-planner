@@ -13,6 +13,11 @@ eq("whitespace-only skipped", toUIMessages([{ id: "1", role: "assistant", conten
 eq("unknown role skipped", toUIMessages([{ id: "1", role: "tool", content: "x" }]), [])
 eq("order preserved", toUIMessages([{ id: "a", role: "user", content: "q" }, { id: "b", role: "assistant", content: "a" }]).map((m) => m.id), ["a", "b"])
 eq("non-array parts ignored", toUIMessages([{ id: "1", role: "user", content: "x", parts: "junk" }])[0].parts.length, 1)
+const sp = { id: "r-1", label: "jarvis", title: "JARVIS", kind: "agent", status: "ok", start: 0, end: 900 }
+eq("saved trace replays as data-span parts before the text", toUIMessages([{ id: "1", role: "assistant", content: "done", metadata: { trace: [sp] } }])[0].parts,
+  [{ type: "data-span", id: "r-1", data: sp }, { type: "text", text: "done" }])
+eq("trace on a user message is ignored", toUIMessages([{ id: "1", role: "user", content: "q", metadata: { trace: [sp] } }])[0].parts.length, 1)
+eq("malformed spans skipped", toUIMessages([{ id: "1", role: "assistant", content: "a", metadata: { trace: [null, { nope: 1 }] } }])[0].parts.length, 1)
 eq("isUuid accepts a uuid", isUuid("9f0b0d1e-f679-40b6-8cad-8492aae98675"), true)
 eq("isUuid rejects junk", isUuid("abc") || isUuid(undefined) || isUuid("9f0b0d1e-f679-40b6-8cad-8492aae9867"), false)
 

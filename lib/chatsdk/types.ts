@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { ArtifactKind } from "@/components/chatsdk/artifact";
 import type { Suggestion } from "./db/schema";
 import type { AppUsage } from "./usage";
+import type { AgentSpan } from "@/lib/agents/trace";
 
 export type DataPart = { type: "append-message"; message: string };
 
@@ -35,6 +36,8 @@ export type CustomUIDataTypes = {
   clear: null;
   finish: null;
   usage: AppUsage;
+  /** One step of an agent run (lib/agents/trace.ts), streamed as data-span. */
+  span: AgentSpan;
 };
 
 export type ChatMessage = UIMessage<

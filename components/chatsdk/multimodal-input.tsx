@@ -100,6 +100,10 @@ function PureMultimodalInput({
     }
   }, []);
 
+  // "Think": ask the agent for its visible reasoning (Claude extended
+  // thinking) on the next messages. Slower, so off by default; remembered.
+  const [thinking, setThinking] = useLocalStorage("chat-thinking", false);
+
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
     "input",
     ""
@@ -145,7 +149,7 @@ function PureMultimodalInput({
           text: input,
         },
       ],
-    });
+    }, { body: { thinking } });
 
     setAttachments([]);
     setLocalStorageInput("");
@@ -157,6 +161,7 @@ function PureMultimodalInput({
     }
   }, [
     input,
+    thinking,
     setInput,
     attachments,
     sendMessage,
@@ -319,6 +324,19 @@ function PureMultimodalInput({
               onModelChange={onModelChange}
               selectedModelId={selectedModelId}
             />
+            <button
+              type="button"
+              onClick={() => setThinking((v) => !v)}
+              aria-pressed={thinking}
+              title={thinking ? "Thinking on: the agent shows its reasoning (slower)" : "Show the agent's reasoning on the next message"}
+              className={cn(
+                "flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs transition-colors",
+                thinking ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent"
+              )}
+            >
+              <span aria-hidden>✦</span>
+              <span className="hidden sm:inline">Think</span>
+            </button>
           </PromptInputTools>
 
           {status === "submitted" ? (

@@ -22,6 +22,8 @@ import { SparklesIcon } from "./icons";
 import { MessageActions } from "./message-actions";
 import { MessageEditor } from "./message-editor";
 import { MessageReasoning } from "./message-reasoning";
+import { AgentActivity } from "@/components/agents/AgentActivity";
+import { latestSpans } from "@/lib/agents/trace";
 import { PreviewAttachment } from "./preview-attachment";
 import { Weather } from "./weather";
 
@@ -105,6 +107,12 @@ const PurePreviewMessage = ({
               ))}
             </div>
           )}
+
+          {message.role === "assistant" && (() => {
+            // The agent's steps, streamed as data-span parts (one per span id).
+            const spans = latestSpans(message.parts as { type?: string; id?: string; data?: unknown }[]);
+            return spans.length ? <AgentActivity spans={spans} /> : null;
+          })()}
 
           {message.parts?.map((part, index) => {
             const { type } = part;

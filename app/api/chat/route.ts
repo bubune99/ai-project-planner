@@ -18,7 +18,8 @@
  * 7. Save assistant response after streaming
  */
 
-import { streamText, type UIMessage } from "ai";
+import { createUIMessageStream, createUIMessageStreamResponse, generateId as generateUUID, streamText, type UIMessage } from "ai";
+import { TraceRecorder } from "@/lib/agents/trace";
 import { sql } from "@/lib/db/client";
 import { resolveAgent } from "@/lib/agents/registry";
 import { prepareAgent } from "@/lib/agents/runtime";
@@ -78,6 +79,8 @@ interface ChatRequestBody {
   message?: UIMessage;
   /** The picker's value — an agent id (lib/agents/catalog.ts). */
   selectedChatModel?: string;
+  /** Show the agent's reasoning for this message (extended thinking). */
+  thinking?: boolean;
   context?: {
     activeTab?: string;
     selectedTask?: unknown;
@@ -206,53 +209,73 @@ export async function POST(request: Request) {
       `) as { name: string }[];
       projectName = rows[0]?.name ?? null;
     }
-    const prepared = await prepareAgent(agent, {
-      userId,
-      projectId: projectName ? projectId : null,
-      projectName,
-      today: new Date().toISOString().slice(0, 10),
-    });
+    // Step 6: Run the agent. Its trace streams to the client as data-span
+    // parts (one id per span, so a span's start and end update the same
+    // part): live progress in the reply, and a timeline of the run.
+    const stream = createUIMessageStream({
+      execute: async ({ writer }) => {
+        const trace = new TraceRecorder(
+          generateUUID().slice(0, 8),
+          () => Date.now(),
+          (span) => writer.write({ type: "data-span", id: span.id, data: span })
+        );
+        const root = trace.begin({ label: agent.id, title: agent.name, kind: "agent" });
+        const prepared = await prepareAgent(
+          agent,
+          {
+            userId,
+            projectId: projectName ? projectId : null,
+            projectName,
+            today: new Date().toISOString().slice(0, 10),
+            thinking: body.thinking === true,
+          },
+          trace,
+          root
+        );
 
-    // Step 6: Call LLM with full context
-    const result = streamText({
-      ...prepared,
-      messages: fullHistory,
-      onFinish: async ({ text, toolCalls, toolResults }) => {
-        // Step 7: Save assistant response after streaming
-        try {
-          await saveMessage({
-            conversationId: conversation.id,
-            role: "assistant",
-            content: text || "",
-            toolCalls: toolCalls?.length ? toolCalls : undefined,
-            toolResults: toolResults?.length ? toolResults : undefined,
-            metadata: { timestamp: Date.now(), agent: agent.id },
-          });
+        const result = streamText({
+          ...prepared,
+          messages: fullHistory,
+          onError: ({ error }) => {
+            trace.end(root, { status: "error", detail: error instanceof Error ? error.message.slice(0, 60) : "Failed" });
+          },
+          onFinish: async ({ text, toolCalls, toolResults, totalUsage, steps }) => {
+            const toolCount = steps.reduce((n, st) => n + st.toolCalls.length, 0);
+            trace.end(root, {
+              status: "ok",
+              detail: `${toolCount} tool call${toolCount === 1 ? "" : "s"}`,
+              tokens: totalUsage?.totalTokens,
+            });
+            // Step 7: Save the reply with its trace, so a reopened chat keeps it.
+            try {
+              await saveMessage({
+                conversationId: conversation.id,
+                role: "assistant",
+                content: text || "",
+                toolCalls: toolCalls?.length ? toolCalls : undefined,
+                toolResults: toolResults?.length ? toolResults : undefined,
+                metadata: { timestamp: Date.now(), agent: agent.id, trace: trace.snapshot() },
+              });
 
-          // Auto-generate title from first exchange if none exists
-          if (!conversation.title && text) {
-            const title = generateTitle(userMessageText, text);
-            await updateConversationTitle(conversation.id, title);
-          }
+              if (!conversation.title && text) {
+                await updateConversationTitle(conversation.id, generateTitle(userMessageText, text));
+              }
+              if (userId) await sessionCache.touchSession(userId);
+            } catch (saveError) {
+              console.error("[Chat] Failed to save assistant message:", saveError);
+            }
+          },
+        });
 
-          // Update session cache activity
-          if (userId) {
-            await sessionCache.touchSession(userId);
-          }
-        } catch (saveError) {
-          console.error("[Chat] Failed to save assistant message:", saveError);
-          // Don't throw - the response was still sent successfully
-        }
+        writer.merge(result.toUIMessageStream({ sendReasoning: true }));
       },
+      onError: (error) => (error instanceof Error ? error.message : "Agent run failed"),
     });
 
-    // Return streaming response with conversation ID header
-    const response = result.toUIMessageStreamResponse();
-
-    // Add conversation ID to response headers for client tracking
-    response.headers.set("X-Conversation-Id", conversation.id);
-
-    return response;
+    return createUIMessageStreamResponse({
+      stream,
+      headers: { "X-Conversation-Id": conversation.id },
+    });
   } catch (error) {
     console.error("[Chat] Error:", error);
     return new Response(

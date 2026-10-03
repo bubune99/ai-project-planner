@@ -47,10 +47,17 @@ export function resultText(result: unknown): { text: string; isError: boolean } 
   return { text, isError: r.isError === true }
 }
 
+/** Optional hooks for tracing: called around every tool call. */
+export interface ToolObserver {
+  start: (name: string, input: Record<string, unknown>) => string | undefined
+  end: (id: string | undefined, resultText: string) => void
+}
+
 export function toAiTools(
   collected: Map<string, CollectedTool>,
   allow: readonly string[],
   runInContext: <T>(fn: () => Promise<T>) => Promise<T>,
+  observe?: ToolObserver,
 ): Record<string, Tool> {
   const out: Record<string, Tool> = {}
   for (const name of allow) {
@@ -60,13 +67,17 @@ export function toAiTools(
       description: t.description,
       inputSchema: z.object(t.shape),
       execute: async (input: Record<string, unknown>) => {
+        const spanId = observe?.start(name, input)
+        let out: string
         try {
           const raw = await runInContext(async () => t.handler(input, {}))
           const { text, isError } = resultText(raw)
-          return isError ? `Error: ${text}` : text
+          out = isError ? `Error: ${text}` : text
         } catch (e: unknown) {
-          return `Error: ${e instanceof Error ? e.message : String(e)}`
+          out = `Error: ${e instanceof Error ? e.message : String(e)}`
         }
+        observe?.end(spanId, out)
+        return out
       },
     })
   }
