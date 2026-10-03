@@ -104,11 +104,31 @@ Use, in order:
    for its **known defects** — it duplicate-reports 3×, mis-anchors line numbers,
    and `validate_function_behavior` is broken by this repo's pinned tsx 4.21.0.
 2. **Execute the logic.** `lib/scheduling.ts` is the pattern: pure functions, no
-   React, dependencies injected, 23 assertions that run in seconds. If a rule
-   can't be executed without rendering, extract it.
-3. **The `staging` branch** — push it and verify the Vercel preview with
-   `mcp__field-trip__browser`. `.github/workflows/security.yml` already runs on
-   `[main, staging]`.
+   React, dependencies injected, 23 assertions that run in seconds.
+   `components/views/kanban/adapt.ts` + `adapt.assert.ts` is the second. If a
+   rule can't be executed without rendering, extract it.
+
+   Run assertion harnesses with **`npx -y tsx@4.23.15`**, never the pinned
+   `tsx` — 4.21.0 fails with a bogus "does not provide an export named X" for
+   exports that are plainly there, and the error blames your code.
+3. **The `staging` branch** — pushing it is **not enough**. Verified 2026-10-03:
+   a push to `staging` produced no deployment at all, and the
+   `…-git-staging-…` alias had been sitting on a hand-deployed build made
+   *before* the commit under test — so the preview showed stale code while
+   looking perfectly live. Deploy explicitly and move the alias:
+
+   ```
+   vercel deploy --scope team_03avQDMAwaw3MDbkDtyo6faG --yes
+   vercel alias set <new-deployment-url> \
+     v0-ai-project-planner-git-staging-far-grace.vercel.app \
+     --scope team_03avQDMAwaw3MDbkDtyo6faG
+   ```
+
+   Then assert a DOM marker on the alias with `mcp__field-trip__browser`. A
+   fresh `*-far-grace.vercel.app` preview URL has **no Hexclave session** —
+   sessions are domain-scoped, so only the stable alias is signed in.
+   `.github/workflows/security.yml` runs on `[main, staging]` independently of
+   this.
 4. **Production** (`v0-ai-project-planner-eight.vercel.app`) — only to confirm a
    shipped change.
 

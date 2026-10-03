@@ -185,7 +185,13 @@ export interface KanbanTask {
 // Raw project_steps row as served by GET /api/projects/[id]/steps.
 // Statuses/priorities mirror the DB CHECK constraints — no UI-side remapping.
 export type StepStatus = "pending" | "in-progress" | "completed" | "blocked" | "paused" | "failed"
-export type StepPriority = "low" | "medium" | "high"
+/**
+ * Mirrors the project_steps.priority CHECK constraint. Migration 056 widened
+ * that constraint to accept 'urgent' so urgent todos could be backfilled as
+ * steps, but this type was not widened with it — so the database has been able
+ * to hold a value TypeScript said was impossible.
+ */
+export type StepPriority = "low" | "medium" | "high" | "urgent"
 export type AgentName = "v0" | "claude" | "gemini" | "gpt"
 
 export interface BoardStep {

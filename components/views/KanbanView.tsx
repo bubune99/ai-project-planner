@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import type { BoardStep } from "@/lib/types"
-import { KanbanColumn } from "./KanbanColumn"
 import { KanbanToolbar, EMPTY_FILTERS, type BoardFilters } from "./KanbanToolbar"
 import { TaskDetailModal } from "./TaskDetailModal"
 import { StepFormModal } from "@/components/steps/StepFormModal"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { DragDropContext, type DropResult } from "@hello-pangea/dnd"
+import { KanbanBoard, type KanbanTask } from "./kanban/KanbanBoard"
+import { toKanbanColumns } from "./kanban/adapt"
+import { ColumnMenu } from "./kanban/ColumnMenu"
+import { CardMenu } from "./kanban/CardMenu"
 import { Plus } from "lucide-react"
 import { toast } from "sonner"
 import {
@@ -292,18 +294,8 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
 
   // ---- step actions ----
 
-  const handleQuickAdd = useCallback(
-    async (columnKey: string, title: string) => {
-      const preset = patchForMove(prefs.groupBy, columnKey) ?? {}
-      try {
-        await createStep({ title, ...preset })
-        toast.success("Task added")
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to add task")
-      }
-    },
-    [prefs.groupBy, createStep]
-  )
+  /* handleQuickAdd was the old column-footer input's submit handler. The board's
+     own "Add task" button now creates the card and opens it — see onAddTask. */
 
   const handleCreateSubtask = useCallback(
     async (parentId: string, title: string) => {
@@ -407,6 +399,8 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
     [visibleParents, prefs.groupBy, prefs.sortBy]
   )
 
+  const stepById = useMemo(() => new Map(steps.map((s) => [s.id, s])), [steps])
+
   // ---- drag & drop ----
 
   const persistColumnOrder = useCallback(
@@ -436,31 +430,57 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
     [parents, projectId, refetch]
   )
 
-  const handleDragEnd = useCallback(
-    (result: DropResult) => {
-      const { source, destination, draggableId } = result
-      if (!destination) return
-      if (source.droppableId === destination.droppableId && source.index === destination.index) return
+  /**
+   * The board applies a move to its own state first and tells us afterwards,
+   * where @hello-pangea/dnd asked first and let us veto. So a move we refuse
+   * has already happened on screen, and we have to pull the board back to the
+   * truth. Bumping this nonce gives `boardColumns` a new identity, which is
+   * the board's cue to resync from props.
+   */
+  const [boardNonce, setBoardNonce] = useState(0)
+  const resyncBoard = useCallback(() => setBoardNonce((n) => n + 1), [])
 
-      if (source.droppableId === destination.droppableId) {
+  const handleTaskMove = useCallback(
+    (taskId: string, from: { col: string; index: number }, to: { col: string; index: number }) => {
+      if (from.col === to.col && from.index === to.index) return
+
+      if (from.col === to.col) {
         if (prefs.sortBy !== "manual") {
           toast.info("Switch sort to Manual to reorder cards")
+          resyncBoard()
           return
         }
-        const ids = columnSteps(source.droppableId).map((s) => s.id)
-        ids.splice(source.index, 1)
-        ids.splice(destination.index, 0, draggableId)
+        const ids = columnSteps(from.col).map((s) => s.id)
+        ids.splice(from.index, 1)
+        ids.splice(to.index, 0, taskId)
         persistColumnOrder(ids)
         return
       }
 
-      const patch = patchForMove(prefs.groupBy, destination.droppableId)
-      if (!patch) return
-      patchStep(draggableId, patch)
-      const col = columns.find((c) => c.key === destination.droppableId)
+      const patch = patchForMove(prefs.groupBy, to.col)
+      if (!patch) {
+        // e.g. dropping onto a synthetic column there is no way to persist
+        toast.info("That column can't be set from the board")
+        resyncBoard()
+        return
+      }
+      patchStep(taskId, patch)
+      const col = columns.find((c) => c.key === to.col)
       if (col) toast.success(`Moved to ${col.label}`)
     },
-    [prefs.sortBy, prefs.groupBy, columnSteps, columns, persistColumnOrder, patchStep]
+    [prefs.sortBy, prefs.groupBy, columnSteps, columns, persistColumnOrder, patchStep, resyncBoard]
+  )
+
+  /**
+   * MUST stay memoized. The board mirrors `columns` into its own state and
+   * resyncs whenever the array identity changes — handing it a freshly built
+   * array every render would reset it mid-drag.
+   */
+  const boardColumns = useMemo(
+    () => toKanbanColumns(columns, columnSteps, { statusMap, subtasksOf }),
+    // boardNonce is deliberate: it is how a refused move pulls the board back.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [columns, columnSteps, statusMap, subtasksOf, boardNonce]
   )
 
   // ---- detail modal ----
@@ -483,16 +503,13 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
     setShowStepForm(true)
   }, [])
 
-  const toggleCollapse = useCallback(
-    (key: string) => {
-      savePrefs({
-        collapsed: prefs.collapsed.includes(key)
-          ? prefs.collapsed.filter((k) => k !== key)
-          : [...prefs.collapsed, key],
-      })
-    },
-    [prefs.collapsed, savePrefs]
-  )
+  /*
+    Column collapse went with the old board — the adopted one has no collapsed
+    state and no header affordance for it. `prefs.collapsed` is deliberately
+    left in BoardPrefs so anyone who had columns collapsed keeps that setting
+    rather than having it silently dropped from their stored prefs; wire it
+    back up here if collapse returns.
+  */
 
   return (
     <>
@@ -530,76 +547,96 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh }: KanbanViewPro
             </div>
           </div>
         ) : (
-          <DragDropContext onDragEnd={handleDragEnd}>
-            {/* Columns size to their content (ClickUp) rather than stretching —
-                six full-height columns holding one card each is the same "small
-                thing in a big box" flagged on the calendar.
-                THE BOARD IS THE ONLY SCROLL CONTAINER. Giving each column list
-                its own overflow-y-auto + max-height as well gave
-                @hello-pangea/dnd two nested scroll parents to observe and the
-                Tasks view stopped responding to input altogether. */}
-            <div className="flex-1 min-h-0 flex gap-2.5 overflow-x-auto overflow-y-auto items-start pb-4">
-              {columns.map((column) => (
-                <KanbanColumn
-                  key={`${prefs.groupBy}:${column.key}`}
-                  column={column}
-                  steps={columnSteps(column.key)}
-                  subtasksOf={subtasksOf}
-                  statusMap={statusMap}
-                  expandSubtasks={prefs.expandSubtasks}
-                  collapsed={prefs.collapsed.includes(column.key)}
-                  onEditColumn={prefs.groupBy === "status" ? handleEditColumn : undefined}
-                  onMoveColumn={prefs.groupBy === "status" ? handleMoveColumn : undefined}
-                  isFirstColumn={columns[0]?.key === column.key}
-                  isLastColumn={columns[columns.length - 1]?.key === column.key}
-                  onDeleteColumn={
-                    prefs.groupBy === "status" && statuses.length > 1 ? handleDeleteColumn : undefined
-                  }
-                  onToggleCollapse={toggleCollapse}
-                  onQuickAdd={handleQuickAdd}
-                  onOpen={openDetail}
-                  onEdit={openEdit}
-                  onDelete={handleDelete}
-                  onDuplicate={handleDuplicate}
-                  onToggleComplete={handleToggleComplete}
-                />
-              ))}
+          <div className="flex-1 min-h-0 overflow-y-auto pb-4">
+            <KanbanBoard
+              columns={boardColumns}
+              label="Project board"
+              onTaskMove={handleTaskMove}
+              onTaskOpen={(task: KanbanTask) => {
+                const step = stepById.get(task.id)
+                if (step) openDetail(step)
+              }}
+              /*
+                The old board had an inline input in each column footer; the
+                adopted one owns its column body and gives us a button only.
+                So create the card in the column that was clicked — which is
+                what carries the status/priority/phase preset — and open it
+                straight away so the title is the next thing you type.
+              */
+              onAddTask={async (columnId) => {
+                const preset = patchForMove(prefs.groupBy, columnId) ?? {}
+                try {
+                  const created = await createStep({ title: "Untitled task", ...preset })
+                  if (created?.id) setDetailStepId(created.id)
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Failed to add task")
+                }
+              }}
+              renderColumnMenu={(col) =>
+                prefs.groupBy === "status" ? (
+                  <ColumnMenu
+                    column={columns.find((c) => c.key === col.id) ?? { ...col, key: col.id, label: col.name, pillClass: "", dotClass: "" }}
+                    kind={statusMap[col.id]?.kind ?? "open"}
+                    isFirstColumn={columns[0]?.key === col.id}
+                    isLastColumn={columns[columns.length - 1]?.key === col.id}
+                    onEditColumn={handleEditColumn}
+                    onMoveColumn={handleMoveColumn}
+                    onDeleteColumn={statuses.length > 1 ? handleDeleteColumn : undefined}
+                  />
+                ) : null
+              }
+              renderCardMenu={(task) => {
+                const step = stepById.get(task.id)
+                if (!step) return null
+                return (
+                  <CardMenu
+                    step={step}
+                    isDone={statusMap[step.status]?.kind === "done"}
+                    onOpen={openDetail}
+                    onEdit={openEdit}
+                    onDelete={handleDelete}
+                    onDuplicate={handleDuplicate}
+                    onToggleComplete={handleToggleComplete}
+                  />
+                )
+              }}
+            />
 
-              {/* Add group (custom status column) */}
-              {prefs.groupBy === "status" && (
-                <div className="shrink-0 w-[220px] self-start">
-                  {addingGroup ? (
-                    <Input
-                      autoFocus
-                      aria-label="New column name"
-                      value={newGroupLabel}
-                      placeholder="Column name, Enter to add"
-                      className="h-9 text-sm"
-                      onChange={(e) => setNewGroupLabel(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleAddGroup()
-                        if (e.key === "Escape") {
-                          setAddingGroup(false)
-                          setNewGroupLabel("")
-                        }
-                      }}
-                      onBlur={() => {
-                        if (!newGroupLabel.trim()) setAddingGroup(false)
-                      }}
-                    />
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start h-9 text-muted-foreground text-sm border border-dashed border-border/70"
-                      onClick={() => setAddingGroup(true)}
-                    >
-                      <Plus className="w-4 h-4 mr-1.5" /> Add group
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-          </DragDropContext>
+            {/* Add group (custom status column). Outside the board because the
+                board owns its own horizontal track. */}
+            {prefs.groupBy === "status" && (
+              <div className="mt-2 w-[220px]">
+                {addingGroup ? (
+                  <Input
+                    autoFocus
+                    aria-label="New column name"
+                    value={newGroupLabel}
+                    placeholder="Column name, Enter to add"
+                    className="h-9 text-sm"
+                    onChange={(e) => setNewGroupLabel(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleAddGroup()
+                      if (e.key === "Escape") {
+                        setAddingGroup(false)
+                        setNewGroupLabel("")
+                      }
+                    }}
+                    onBlur={() => {
+                      if (!newGroupLabel.trim()) setAddingGroup(false)
+                    }}
+                  />
+                ) : (
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start h-9 text-muted-foreground text-sm border border-dashed border-border/70"
+                    onClick={() => setAddingGroup(true)}
+                  >
+                    <Plus className="w-4 h-4 mr-1.5" /> Add group
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         <TaskDetailModal
