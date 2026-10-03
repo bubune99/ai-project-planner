@@ -2,356 +2,25 @@
 
 import { useState, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import {
-  DragDropContext,
-  Droppable,
-  Draggable,
-  type DropResult,
-} from "@hello-pangea/dnd"
-import { formatDistanceToNow } from "date-fns"
-import {
-  Sparkles,
-  Compass,
-  CheckCircle2,
-  Rocket,
-  Archive,
-  Tag,
-  Search,
-  ChevronDown,
-  X,
-} from "lucide-react"
+import { KanbanBoard, type KanbanTask } from "@/components/views/kanban/KanbanBoard"
+import { toIdeaColumns, type IdeaColumnDef } from "@/components/views/kanban/adaptIdeas"
+import { Tag, Search, ChevronDown, X } from "lucide-react"
 import type { Idea, IdeaLifecycle } from "@/lib/types"
 
 // ── Column config ──────────────────────────────────────────────────────────
 
-type ColumnDef = {
-  id: IdeaLifecycle
-  label: string
-  icon: typeof Sparkles
-  color: string       // CSS color token or class segment
-  pillClass: string   // j-pill modifier
-  accentVar: string   // CSS var for header rule
-}
-
-const COLUMNS: ColumnDef[] = [
-  {
-    id: "seed",
-    label: "Seed",
-    icon: Sparkles,
-    color: "var(--j-idea)",
-    pillClass: "j-idea",
-    accentVar: "--j-idea",
-  },
-  {
-    id: "exploring",
-    label: "Exploring",
-    icon: Compass,
-    color: "var(--j-info)",
-    pillClass: "j-info",
-    accentVar: "--j-info",
-  },
-  {
-    id: "refined",
-    label: "Refined",
-    icon: CheckCircle2,
-    color: "var(--j-pos)",
-    pillClass: "j-pos",
-    accentVar: "--j-pos",
-  },
-  {
-    id: "promoted",
-    label: "Promoted",
-    icon: Rocket,
-    color: "var(--j-biz)",
-    pillClass: "j-biz",
-    accentVar: "--j-biz",
-  },
-  {
-    id: "archived",
-    label: "Archived",
-    icon: Archive,
-    color: "oklch(0.556 0 0)",
-    pillClass: "j-muted",
-    accentVar: "--j-ring",
-  },
+/*
+  The lifecycle columns. The board renders the dot from `color` directly, so
+  the j-* custom properties carry straight through and the Ideas board keeps
+  the same palette it had — it is only the chrome around them that changes.
+*/
+const COLUMNS: IdeaColumnDef[] = [
+  { id: "seed", label: "Seed", color: "var(--j-idea)" },
+  { id: "exploring", label: "Exploring", color: "var(--j-info)" },
+  { id: "refined", label: "Refined", color: "var(--j-pos)" },
+  { id: "promoted", label: "Promoted", color: "var(--j-biz)" },
+  { id: "archived", label: "Archived", color: "oklch(0.556 0 0)" },
 ]
-
-// ── Kanban card ────────────────────────────────────────────────────────────
-
-interface KanbanCardProps {
-  idea: Idea
-  index: number
-  onClick: (id: string) => void
-}
-
-function KanbanCard({ idea, index, onClick }: KanbanCardProps) {
-  const relativeTime = useMemo(() => {
-    try {
-      return formatDistanceToNow(new Date(idea.updatedAt), { addSuffix: true })
-    } catch {
-      return ""
-    }
-  }, [idea.updatedAt])
-
-  return (
-    <Draggable draggableId={idea.id} index={index}>
-      {(provided, snapshot) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          {...provided.dragHandleProps}
-          onClick={() => onClick(idea.id)}
-          style={{
-            ...provided.draggableProps.style,
-            background: snapshot.isDragging
-              ? "var(--j-surface-2)"
-              : "var(--j-surface)",
-            border: "1px solid var(--j-ring)",
-            borderRadius: 10,
-            padding: "12px 14px",
-            marginBottom: 8,
-            cursor: "pointer",
-            boxShadow: snapshot.isDragging
-              ? "0 8px 24px oklch(0 0 0 / 0.45), 0 0 0 1px var(--j-ring-strong)"
-              : "none",
-            transform: snapshot.isDragging
-              ? `${provided.draggableProps.style?.transform ?? ""} rotate(1.5deg)`
-              : provided.draggableProps.style?.transform,
-            // dnd puts its own `transform` transition on the cards that shift
-            // out of the way. Replacing it made them snap instead of slide,
-            // which is most of why this board felt rougher than the project
-            // one. Compose with it rather than overwrite it.
-            transition: snapshot.isDragging
-              ? (provided.draggableProps.style?.transition ?? "none")
-              : [provided.draggableProps.style?.transition, "box-shadow 0.15s ease"]
-                  .filter(Boolean)
-                  .join(", "),
-            userSelect: "none",
-          }}
-        >
-          {/* Title */}
-          <p
-            style={{
-              margin: 0,
-              fontSize: 13,
-              fontWeight: 500,
-              color: "oklch(0.985 0 0)",
-              lineHeight: 1.4,
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-            }}
-          >
-            {idea.title}
-          </p>
-
-          {/* Description */}
-          {idea.description && (
-            <p
-              style={{
-                margin: "6px 0 0",
-                fontSize: 12,
-                color: "oklch(0.556 0 0)",
-                lineHeight: 1.5,
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-              }}
-            >
-              {idea.description}
-            </p>
-          )}
-
-          {/* Tags */}
-          {idea.tags && idea.tags.length > 0 && (
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 4,
-                marginTop: 8,
-              }}
-            >
-              {idea.tags.slice(0, 3).map((tag) => (
-                <span
-                  key={tag}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 3,
-                    fontSize: 10,
-                    fontWeight: 500,
-                    padding: "2px 6px",
-                    borderRadius: 999,
-                    background: "oklch(1 0 0 / 0.05)",
-                    color: "oklch(0.708 0 0)",
-                    boxShadow: "inset 0 0 0 1px var(--j-ring)",
-                  }}
-                >
-                  <Tag size={9} />
-                  {tag}
-                </span>
-              ))}
-              {idea.tags.length > 3 && (
-                <span
-                  style={{
-                    fontSize: 10,
-                    color: "oklch(0.556 0 0)",
-                    padding: "2px 4px",
-                  }}
-                >
-                  +{idea.tags.length - 3}
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Footer: category + time */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginTop: 10,
-              gap: 6,
-            }}
-          >
-            {idea.category ? (
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: 600,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  color: "oklch(0.556 0 0)",
-                  background: "oklch(1 0 0 / 0.04)",
-                  padding: "2px 6px",
-                  borderRadius: 5,
-                  boxShadow: "inset 0 0 0 1px var(--j-hairline)",
-                }}
-              >
-                {idea.category}
-              </span>
-            ) : (
-              <span />
-            )}
-            <span style={{ fontSize: 10, color: "oklch(0.420 0 0)" }}>
-              {relativeTime}
-            </span>
-          </div>
-        </div>
-      )}
-    </Draggable>
-  )
-}
-
-// ── Column ─────────────────────────────────────────────────────────────────
-
-interface KanbanColumnProps {
-  col: ColumnDef
-  ideas: Idea[]
-  onCardClick: (id: string) => void
-}
-
-function KanbanColumn({ col, ideas, onCardClick }: KanbanColumnProps) {
-  const Icon = col.icon
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        minWidth: 240,
-        flex: "1 1 0",
-        maxWidth: 320,
-      }}
-    >
-      {/* Column header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "0 2px 10px",
-          borderBottom: `2px solid var(${col.accentVar})`,
-          marginBottom: 10,
-        }}
-      >
-        <Icon size={14} style={{ color: col.color, flexShrink: 0 }} />
-        <span
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: "0.14em",
-            textTransform: "uppercase",
-            color: "oklch(0.860 0 0)",
-          }}
-        >
-          {col.label}
-        </span>
-        <span
-          className={`j-pill ${col.pillClass}`}
-          style={{ marginLeft: "auto", minWidth: 22, justifyContent: "center" }}
-        >
-          {ideas.length}
-        </span>
-      </div>
-
-      {/* Droppable area */}
-      <Droppable droppableId={col.id}>
-        {(provided, snapshot) => (
-          <div
-            ref={provided.innerRef}
-            {...provided.droppableProps}
-            style={{
-              flex: 1,
-              minHeight: 120,
-              borderRadius: 10,
-              // Constant geometry: changing padding or border WIDTH here
-              // resized the column mid-drag and forced dnd to re-measure.
-              padding: 6,
-              background: snapshot.isDraggingOver
-                ? "oklch(1 0 0 / 0.025)"
-                : "transparent",
-              border: "1px dashed transparent",
-              borderColor: snapshot.isDraggingOver
-                ? `var(${col.accentVar})`
-                : "transparent",
-              transition: "background 0.15s, border-color 0.15s",
-            }}
-          >
-            {ideas.length === 0 && !snapshot.isDraggingOver ? (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "28px 12px",
-                  color: "oklch(0.420 0 0)",
-                  fontSize: 12,
-                  borderRadius: 8,
-                  border: "1px dashed var(--j-hairline)",
-                }}
-              >
-                No ideas in {col.label}
-              </div>
-            ) : (
-              ideas.map((idea, index) => (
-                <KanbanCard
-                  key={idea.id}
-                  idea={idea}
-                  index={index}
-                  onClick={onCardClick}
-                />
-              ))
-            )}
-            {provided.placeholder}
-          </div>
-        )}
-      </Droppable>
-    </div>
-  )
-}
 
 // ── Main kanban component ──────────────────────────────────────────────────
 
@@ -376,8 +45,6 @@ export function IdeasKanban({
   const [tagFilter, setTagFilter] = useState<string[]>([])
   const [tagMenuOpen, setTagMenuOpen] = useState(false)
 
-  // Mobile column selector
-  const [mobileCol, setMobileCol] = useState<IdeaLifecycle>("seed")
 
   // ── Derived data ─────────────────────────────────────────────────────────
   const allCategories = useMemo(() => {
@@ -394,33 +61,12 @@ export function IdeasKanban({
     return Array.from(tags).sort()
   }, [ideas])
 
-  const filteredIdeas = useMemo(() => {
-    const q = search.toLowerCase()
-    return ideas.filter((idea) => {
-      if (q && !idea.title.toLowerCase().includes(q) && !idea.description?.toLowerCase().includes(q)) {
-        return false
-      }
-      if (categoryFilter && idea.category !== categoryFilter) return false
-      if (tagFilter.length > 0 && !tagFilter.every((t) => idea.tags?.includes(t))) {
-        return false
-      }
-      return true
-    })
-  }, [ideas, search, categoryFilter, tagFilter])
-
-  const byColumn = useMemo(() => {
-    const map: Record<IdeaLifecycle, Idea[]> = {
-      seed: [],
-      exploring: [],
-      refined: [],
-      promoted: [],
-      archived: [],
-    }
-    filteredIdeas.forEach((idea) => {
-      map[idea.lifecycle].push(idea)
-    })
-    return map
-  }, [filteredIdeas])
+  /*
+    `filteredIdeas` and a `byColumn` map used to be computed here. Nothing read
+    either: displayFiltered/displayByColumn below do the same filtering over
+    the optimistic list and are what the board renders. Two dead passes over
+    every idea on every keystroke of the search box. Removed.
+  */
 
   // ── Optimistic DnD ───────────────────────────────────────────────────────
   const [optimisticIdeas, setOptimisticIdeas] = useState<Idea[] | null>(null)
@@ -454,35 +100,47 @@ export function IdeasKanban({
     return map
   }, [displayFiltered])
 
-  const handleDragEnd = useCallback(
-    async (result: DropResult) => {
-      const { source, destination, draggableId } = result
-      if (!destination) return
-      if (
-        source.droppableId === destination.droppableId &&
-        source.index === destination.index
-      ) {
+  /*
+    Ideas have no manual order — only which lifecycle column they sit in. So a
+    same-column move is a no-op rather than a reorder to persist, and the board
+    is told to put the card back by bumping the nonce (it applies a move to its
+    own state first and reports it afterwards).
+  */
+  const [boardNonce, setBoardNonce] = useState(0)
+
+  const handleTaskMove = useCallback(
+    async (ideaId: string, from: { col: string }, to: { col: string }) => {
+      if (from.col === to.col) {
+        setBoardNonce((n) => n + 1)
         return
       }
 
-      const newLifecycle = destination.droppableId as IdeaLifecycle
+      const newLifecycle = to.col as IdeaLifecycle
 
       // Optimistic update
       const base = optimisticIdeas ?? ideas
       const updated = base.map((idea) =>
-        idea.id === draggableId ? { ...idea, lifecycle: newLifecycle } : idea
+        idea.id === ideaId ? { ...idea, lifecycle: newLifecycle } : idea
       )
       setOptimisticIdeas(updated)
 
       try {
-        await onLifecycleChange(draggableId, newLifecycle)
+        await onLifecycleChange(ideaId, newLifecycle)
         setOptimisticIdeas(null)
       } catch {
         // Rollback on failure
         setOptimisticIdeas(null)
+        setBoardNonce((n) => n + 1)
       }
     },
     [ideas, optimisticIdeas, onLifecycleChange]
+  )
+
+  const boardColumns = useMemo(
+    () => toIdeaColumns(COLUMNS, (lc) => displayByColumn[lc] ?? []),
+    // boardNonce is deliberate — it is how a refused or failed move is undone.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [displayByColumn, boardNonce]
   )
 
   // ── Tag filter toggle ────────────────────────────────────────────────────
@@ -712,81 +370,29 @@ export function IdeasKanban({
         ))}
       </div>
 
-      {/* ── Mobile column tabs ────────────────────────────────────────── */}
-      <div
-        className="j-tabs"
-        style={{ display: "none" }}
-        // shown in CSS at ≤768px via kanban-mobile-tabs class
-        id="kanban-mobile-tabs"
-      >
-        {COLUMNS.map((col) => {
-          const Icon = col.icon
-          return (
-            <button
-              key={col.id}
-              className={`j-tab${mobileCol === col.id ? " j-active" : ""}`}
-              onClick={() => setMobileCol(col.id)}
-            >
-              <Icon size={12} />
-              {col.label}
-              <span
-                className={`j-pill ${col.pillClass}`}
-                style={{ fontSize: 10, padding: "1px 5px" }}
-              >
-                {displayByColumn[col.id].length}
-              </span>
-            </button>
-          )
-        })}
-      </div>
-
-      {/* ── Board ────────────────────────────────────────────────────── */}
       {/* Close tag menu on outside click */}
       {tagMenuOpen && (
         <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 40,
-          }}
+          style={{ position: "fixed", inset: 0, zIndex: 40 }}
           onClick={() => setTagMenuOpen(false)}
         />
       )}
 
-      <DragDropContext onDragEnd={handleDragEnd}>
-        {/* Desktop: all 5 columns */}
-        <div
-          id="kanban-desktop"
-          style={{
-            display: "flex",
-            gap: 16,
-            overflowX: "auto",
-            paddingBottom: 16,
-            alignItems: "flex-start",
-          }}
-        >
-          {COLUMNS.map((col) => (
-            <KanbanColumn
-              key={col.id}
-              col={col}
-              ideas={displayByColumn[col.id]}
-              onCardClick={handleCardClick}
-            />
-          ))}
-        </div>
-
-        {/* Mobile: single visible column */}
-        <div id="kanban-mobile" style={{ display: "none" }}>
-          {COLUMNS.filter((c) => c.id === mobileCol).map((col) => (
-            <KanbanColumn
-              key={col.id}
-              col={col}
-              ideas={displayByColumn[col.id]}
-              onCardClick={handleCardClick}
-            />
-          ))}
-        </div>
-      </DragDropContext>
+      {/*
+        One board, not a desktop tree plus a hidden mobile tree. Rendering
+        both put TWO droppables with the same id inside one DragDropContext,
+        and doubled the drag bookkeeping for a subtree nobody could see. The
+        board scrolls horizontally on its own and draws its own rail, so the
+        mobile column tabs are no longer needed either.
+      */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 16 }}>
+        <KanbanBoard
+          columns={boardColumns}
+          label="Ideas board"
+          onTaskMove={handleTaskMove}
+          onTaskOpen={(task: KanbanTask) => handleCardClick(task.id)}
+        />
+      </div>
     </div>
   )
 }
