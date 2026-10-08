@@ -1,4 +1,5 @@
 import type { CollaboratorRole } from "@/lib/db/schema";
+import { escapeHtml, safeHttpUrl } from "@/lib/email/escape";
 
 interface InvitationEmailParams {
   inviteUrl: string;
@@ -26,6 +27,16 @@ const roleLabels: Record<CollaboratorRole, string> = {
  */
 export function getInvitationEmailHtml(params: InvitationEmailParams): string {
   const { inviteUrl, projectName, inviterName, role, message, expiresAt } = params;
+  // Every interpolated value is HTML-escaped; names and the message are user-controlled.
+  const e = {
+    projectName: escapeHtml(projectName),
+    inviterName: escapeHtml(inviterName),
+    roleLabel: escapeHtml(roleLabels[role]),
+    roleDescription: escapeHtml(roleDescriptions[role]),
+    message: escapeHtml(message),
+    inviteHref: escapeHtml(safeHttpUrl(inviteUrl)),
+    inviteText: escapeHtml(inviteUrl),
+  };
   const expiresFormatted = expiresAt.toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
@@ -63,21 +74,21 @@ export function getInvitationEmailHtml(params: InvitationEmailParams): string {
               </h2>
 
               <p style="margin: 0 0 24px; font-size: 16px; line-height: 1.6; color: #3f3f46;">
-                <strong>${inviterName}</strong> has invited you to join the project
-                <strong>"${projectName}"</strong> as a <strong>${roleLabels[role]}</strong>.
+                <strong>${e.inviterName}</strong> has invited you to join the project
+                <strong>"${e.projectName}"</strong> as a <strong>${e.roleLabel}</strong>.
               </p>
 
               <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #52525b;">
-                As a ${roleLabels[role]}, you'll be able to ${roleDescriptions[role]}.
+                As a ${e.roleLabel}, you'll be able to ${e.roleDescription}.
               </p>
 
               ${message ? `
               <div style="margin: 0 0 24px; padding: 16px; background-color: #f4f4f5; border-radius: 8px; border-left: 4px solid #3b82f6;">
                 <p style="margin: 0 0 4px; font-size: 12px; font-weight: 500; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;">
-                  Message from ${inviterName}
+                  Message from ${e.inviterName}
                 </p>
                 <p style="margin: 0; font-size: 15px; line-height: 1.5; color: #3f3f46; font-style: italic;">
-                  "${message}"
+                  "${e.message}"
                 </p>
               </div>
               ` : ""}
@@ -86,7 +97,7 @@ export function getInvitationEmailHtml(params: InvitationEmailParams): string {
               <table role="presentation" style="width: 100%; border-collapse: collapse;">
                 <tr>
                   <td align="center" style="padding: 8px 0 24px;">
-                    <a href="${inviteUrl}"
+                    <a href="${e.inviteHref}"
                        style="display: inline-block; padding: 14px 32px; background-color: #3b82f6; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; border-radius: 8px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);">
                       Accept Invitation
                     </a>
@@ -98,12 +109,12 @@ export function getInvitationEmailHtml(params: InvitationEmailParams): string {
                 Or copy and paste this link into your browser:
               </p>
               <p style="margin: 0 0 24px; font-size: 13px; line-height: 1.5; color: #3b82f6; word-break: break-all;">
-                ${inviteUrl}
+                ${e.inviteText}
               </p>
 
               <div style="padding: 16px; background-color: #fef3c7; border-radius: 8px;">
                 <p style="margin: 0; font-size: 14px; color: #92400e;">
-                  ⏰ This invitation expires on <strong>${expiresFormatted}</strong>
+                  ⏰ This invitation expires on <strong>${escapeHtml(expiresFormatted)}</strong>
                 </p>
               </div>
             </td>

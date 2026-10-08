@@ -1,4 +1,5 @@
 import type { CollaboratorRole } from "@/lib/db/schema";
+import { escapeHtml, safeHttpUrl } from "@/lib/email/escape";
 
 interface CollaboratorJoinedEmailParams {
   projectName: string;
@@ -20,6 +21,15 @@ const roleLabels: Record<CollaboratorRole, string> = {
  */
 export function getCollaboratorJoinedEmailHtml(params: CollaboratorJoinedEmailParams): string {
   const { projectName, projectUrl, collaboratorName, collaboratorEmail, role, recipientName } = params;
+  // Every interpolated value is HTML-escaped; names are user-controlled.
+  const e = {
+    projectName: escapeHtml(projectName),
+    projectHref: escapeHtml(safeHttpUrl(projectUrl)),
+    collaboratorName: escapeHtml(collaboratorName),
+    collaboratorEmail: escapeHtml(collaboratorEmail),
+    roleLabel: escapeHtml(roleLabels[role]),
+    recipientName: escapeHtml(recipientName),
+  };
 
   return `
 <!DOCTYPE html>
@@ -51,12 +61,12 @@ export function getCollaboratorJoinedEmailHtml(params: CollaboratorJoinedEmailPa
               </h2>
 
               <p style="margin: 0 0 24px; font-size: 16px; line-height: 1.6; color: #3f3f46;">
-                Hi ${recipientName},
+                Hi ${e.recipientName},
               </p>
 
               <p style="margin: 0 0 24px; font-size: 16px; line-height: 1.6; color: #3f3f46;">
-                <strong>${collaboratorName}</strong> (${collaboratorEmail}) has joined
-                <strong>"${projectName}"</strong> as a <strong>${roleLabels[role]}</strong>.
+                <strong>${e.collaboratorName}</strong> (${e.collaboratorEmail}) has joined
+                <strong>"${e.projectName}"</strong> as a <strong>${e.roleLabel}</strong>.
               </p>
 
               <div style="margin: 0 0 24px; padding: 20px; background-color: #f0fdf4; border-radius: 8px; border-left: 4px solid #22c55e;">
@@ -64,10 +74,10 @@ export function getCollaboratorJoinedEmailHtml(params: CollaboratorJoinedEmailPa
                   <tr>
                     <td style="padding: 0;">
                       <p style="margin: 0 0 8px; font-size: 14px; color: #166534;">
-                        ✓ ${collaboratorName} can now access the project
+                        ✓ ${e.collaboratorName} can now access the project
                       </p>
                       <p style="margin: 0; font-size: 14px; color: #166534;">
-                        ✓ Role: <strong>${roleLabels[role]}</strong>
+                        ✓ Role: <strong>${e.roleLabel}</strong>
                       </p>
                     </td>
                   </tr>
@@ -78,7 +88,7 @@ export function getCollaboratorJoinedEmailHtml(params: CollaboratorJoinedEmailPa
               <table role="presentation" style="width: 100%; border-collapse: collapse;">
                 <tr>
                   <td align="center" style="padding: 8px 0 24px;">
-                    <a href="${projectUrl}"
+                    <a href="${e.projectHref}"
                        style="display: inline-block; padding: 14px 32px; background-color: #3b82f6; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; border-radius: 8px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);">
                       View Project
                     </a>
@@ -92,7 +102,7 @@ export function getCollaboratorJoinedEmailHtml(params: CollaboratorJoinedEmailPa
           <tr>
             <td style="padding: 24px 40px; background-color: #f4f4f5; border-radius: 0 0 12px 12px;">
               <p style="margin: 0 0 8px; font-size: 13px; color: #71717a; text-align: center;">
-                You received this email because you're the owner or admin of "${projectName}".
+                You received this email because you're the owner or admin of "${e.projectName}".
               </p>
               <p style="margin: 0; font-size: 13px; color: #a1a1aa; text-align: center;">
                 AI Project Planner - Intelligent Project Management
