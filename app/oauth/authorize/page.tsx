@@ -18,6 +18,7 @@ import type { CSSProperties } from "react"
 import { redirect } from "next/navigation"
 import { stackServerApp, ensureDbUser } from "@/lib/auth/stack-auth"
 import { getClient, redirectUriAllowed, issueAuthCode } from "@/lib/oauth/store"
+import { parseScope, formatScope } from "@/lib/oauth/scope"
 
 export const dynamic = "force-dynamic"
 
@@ -46,7 +47,10 @@ export default async function AuthorizePage({
   const responseType = first(params.response_type)
   const clientId = first(params.client_id)
   const redirectUri = first(params.redirect_uri)
-  const scope = first(params.scope) || "read write"
+  // Parse scope ONCE: the consent screen displays exactly these scopes, and
+  // exactly these (normalised) scopes are bound to the auth code.
+  const scopeList = parseScope(first(params.scope))
+  const scope = formatScope(scopeList)
   const state = first(params.state)
   const codeChallenge = first(params.code_challenge)
   const codeChallengeMethod = first(params.code_challenge_method) || "S256"
@@ -136,14 +140,16 @@ export default async function AuthorizePage({
   // Server action: deny -> redirect with access_denied.
   async function deny() {
     "use server"
+    const c = await getClient(clientId)
+    if (!c || !redirectUriAllowed(c, redirectUri)) {
+      throw new Error("OAuth client/redirect validation failed")
+    }
     const back = new URL(redirectUri)
     back.searchParams.set("error", "access_denied")
     back.searchParams.set("error_description", "User denied the authorization request")
     if (state) back.searchParams.set("state", state)
     redirect(back.toString())
   }
-
-  const scopeList = scope.split(/\s+/).filter(Boolean)
 
   return (
     <div style={styles.wrap}>
@@ -167,7 +173,7 @@ export default async function AuthorizePage({
           </div>
           <div style={styles.panelRow}>
             <span style={styles.panelKey}>Scopes</span>
-            <span style={styles.panelVal}>{scopeList.join(", ") || "read"}</span>
+            <span style={styles.panelVal}>{scopeList.join(", ")}</span>
           </div>
           <div style={styles.panelRow}>
             <span style={styles.panelKey}>Redirects to</span>

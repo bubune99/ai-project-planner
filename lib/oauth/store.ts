@@ -16,6 +16,7 @@
 
 import crypto from "crypto"
 import { sql } from "@/lib/db/client"
+import { isSafeRedirectUri } from "@/lib/oauth/redirect-uri"
 
 // ---------------------------------------------------------------------------
 // Crypto helpers
@@ -138,9 +139,17 @@ export async function getClient(clientId: string): Promise<OAuthClient | null> {
   }
 }
 
-/** Exact-match redirect_uri against the client's registered allow-list. */
+/**
+ * Exact-match redirect_uri against the client's registered allow-list, AND
+ * require a safe scheme (https, or http on loopback). The scheme check also
+ * covers clients registered before registration enforced it.
+ */
 export function redirectUriAllowed(client: OAuthClient, redirectUri: string): boolean {
-  return Array.isArray(client.redirect_uris) && client.redirect_uris.includes(redirectUri)
+  return (
+    isSafeRedirectUri(redirectUri) &&
+    Array.isArray(client.redirect_uris) &&
+    client.redirect_uris.includes(redirectUri)
+  )
 }
 
 // ---------------------------------------------------------------------------

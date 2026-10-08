@@ -22,6 +22,7 @@ import {
   touchClientUsed,
   sha256hex,
 } from "@/lib/oauth/store"
+import { parseScope, formatScope } from "@/lib/oauth/scope"
 
 export const dynamic = "force-dynamic"
 
@@ -94,10 +95,9 @@ export async function POST(request: NextRequest) {
       return oauthError("invalid_grant", "PKCE verification failed")
     }
 
-    // Granted scope -> api_key scopes. Full access = read+write per product call.
-    const scopeStr = grant.scope || "read write"
-    const scopes = scopeStr.split(/\s+/).filter(Boolean)
-    const safeScopes = scopes.length ? scopes : ["read", "write"]
+    // Granted scope -> api_key scopes, via the SAME parser the consent screen
+    // used to display them, so the key never exceeds what the user approved.
+    const safeScopes = parseScope(grant.scope)
 
     // Mint the access token = a real aipp_ API key for this user.
     const keyName = `MCP Connector (${grant.client_id.slice(0, 12)})`
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
       {
         access_token: key,
         token_type: "Bearer",
-        scope: safeScopes.join(" "),
+        scope: formatScope(safeScopes),
         // No expires_in: the API key does not expire. No refresh_token.
       },
       { headers: { ...CORS, "Cache-Control": "no-store" } }

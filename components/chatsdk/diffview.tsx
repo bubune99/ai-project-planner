@@ -14,6 +14,7 @@ import { renderToString } from "react-dom/server";
 import { Streamdown } from "streamdown";
 
 import { DiffType, diffEditor } from "@/lib/chatsdk/editor/diff";
+import { safeRehypePlugins } from "@/lib/chatsdk/safe-markdown";
 
 const diffSchema = new Schema({
   nodes: addListNodes(schema.spec.nodes, "paragraph block*", "block"),
@@ -60,10 +61,10 @@ export const DiffView = ({ oldContent, newContent }: DiffEditorProps) => {
       const parser = DOMParser.fromSchema(diffSchema);
 
       const oldHtmlContent = renderToString(
-        <Streamdown>{oldContent}</Streamdown>
+        <Streamdown rehypePlugins={safeRehypePlugins}>{oldContent}</Streamdown>
       );
       const newHtmlContent = renderToString(
-        <Streamdown>{newContent}</Streamdown>
+        <Streamdown rehypePlugins={safeRehypePlugins}>{newContent}</Streamdown>
       );
 
       const oldContainer = document.createElement("div");
