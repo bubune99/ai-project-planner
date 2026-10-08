@@ -31,6 +31,7 @@ import * as fs from "fs"
 import * as path from "path"
 import * as ts from "typescript"
 import fg from "fast-glob"
+import { confineFiles } from "./confine"
 import type {
   ScanResult,
   ScanType,
@@ -78,15 +79,23 @@ export async function scanPaths(opts: ScanOptions): Promise<ScanResult> {
   const detectedSurfaces: DetectedSurface[] = []
   const detectedDependencies: DetectedDependency[] = []
 
-  const { projectRoot, files } = opts
+  const { files } = opts
+  // Work from the root's real path so symlink checks compare like with like.
+  const projectRoot = fs.realpathSync(path.resolve(opts.projectRoot))
   const scanType: ScanType = files ? "targeted" : "full"
 
   // ---- Resolve file list ----
-  let scanFiles: string[] = []
+  // Every path is confined to projectRoot before anything is read: no
+  // absolute paths, no `..` segments, no symlinks resolving outside the tree.
+  let candidates: string[] = []
   if (files && files.length > 0) {
-    scanFiles = files
+    candidates = files
   } else {
-    scanFiles = await discoverAllFiles(projectRoot)
+    candidates = await discoverAllFiles(projectRoot)
+  }
+  const { accepted: scanFiles, rejected } = confineFiles(projectRoot, candidates)
+  for (const rel of rejected) {
+    warnings.push(`skipped ${JSON.stringify(rel)}: outside the project root`)
   }
 
   // ---- Group files by scanner kind ----
@@ -276,6 +285,7 @@ async function discoverAllFiles(projectRoot: string): Promise<string[]> {
   const found = await fg(patterns, {
     cwd: projectRoot,
     dot: true,
+    followSymbolicLinks: false,
     ignore: Array.from(SKIP_DIRS).map((d) => `**/${d}/**`),
   })
   return found

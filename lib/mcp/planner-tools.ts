@@ -6396,7 +6396,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
       {
         scope: z.enum(["full", "targeted"]).describe("'full' scans the whole project tree; 'targeted' scans only the specified files"),
         files: z.array(z.string()).optional().describe("Relative file paths to scan — required when scope='targeted'"),
-        project_root: z.string().optional().describe("Absolute path to the project root (default: process.cwd())"),
+        project_root: z.string().optional().describe("Absolute path to the project root (default: process.cwd()). Must be the server's app root or a directory inside it; anything else is rejected."),
         commit_sha: z.string().optional().describe("Git commit SHA to stamp on scan surfaces"),
         branch: z.string().optional().describe("Branch name to stamp on scan surfaces"),
       },
@@ -6409,7 +6409,16 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             return mcpError("scope='targeted' requires a non-empty 'files' array")
           }
 
-          const projectRoot = project_root ?? process.cwd()
+          // The scan reads the server's own filesystem. Confine it to the
+          // deployed app root (what the GitHub/Vercel webhooks scan); the
+          // scanner itself then confines each file path to that root.
+          const { resolveAllowedRoot } = await import("@/lib/catalog/confine")
+          let projectRoot: string
+          try {
+            projectRoot = resolveAllowedRoot(project_root, [process.cwd()])
+          } catch (rootError: unknown) {
+            return mcpError(rootError instanceof Error ? rootError.message : "Invalid project_root")
+          }
           const scanStart = Date.now()
 
           let scanResult
