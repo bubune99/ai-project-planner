@@ -1,6 +1,7 @@
 import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
+import { getAuthContext } from '@/lib/auth/auth-utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,6 +44,12 @@ function transformJob(row: any) {
  */
 export async function GET(request: NextRequest) {
   try {
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    }
+    const owner = authContext.userId
+
     const { searchParams } = new URL(request.url)
     const agentId = searchParams.get('agentId')
     const includeCompleted = searchParams.get('includeCompleted') === 'true'
@@ -59,6 +66,7 @@ export async function GET(request: NextRequest) {
       jobs = await sql`
         SELECT * FROM agent_jobs
         WHERE assigned_to = ${agentId}
+          AND created_by = ${owner}
           ${!includeCompleted ? sql`AND status NOT IN ('completed', 'failed', 'cancelled')` : sql``}
         ORDER BY
           CASE status
@@ -80,6 +88,7 @@ export async function GET(request: NextRequest) {
       jobs = await sql`
         SELECT * FROM agent_jobs
         WHERE created_by = ${agentId}
+          AND created_by = ${owner}
           ${!includeCompleted ? sql`AND status NOT IN ('completed', 'failed', 'cancelled')` : sql``}
         ORDER BY created_at DESC
       `
@@ -88,6 +97,7 @@ export async function GET(request: NextRequest) {
       jobs = await sql`
         SELECT * FROM agent_jobs
         WHERE (assigned_to = ${agentId} OR created_by = ${agentId})
+          AND created_by = ${owner}
           ${!includeCompleted ? sql`AND status NOT IN ('completed', 'failed', 'cancelled')` : sql``}
         ORDER BY
           CASE WHEN assigned_to = ${agentId} AND status = 'in_progress' THEN 0 ELSE 1 END,
