@@ -2,13 +2,19 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { visibleStepPredicate, canWriteStep } from '@/lib/db/agent-task-access'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * Transform agent row to frontend format
+ * Transform agent row to frontend format.
+ *
+ * Agents are global, but the step an agent is on belongs to one tenant.
+ * `visible_task_id` is set only when the caller can see that step (see
+ * visibleStepPredicate), so another tenant's step is never returned.
  */
 function transformAgent(row: any) {
+  const taskId = row.visible_task_id ?? null
   return {
     id: row.id,
     name: row.name,
@@ -17,7 +23,7 @@ function transformAgent(row: any) {
     model: row.model,
     systemPrompt: row.system_prompt,
     status: row.status,
-    currentTaskId: row.current_task_id,
+    currentTaskId: taskId,
     lastActiveAt: row.last_active_at,
     lastHeartbeat: row.last_heartbeat,
     capabilities: row.capabilities || {},
@@ -32,8 +38,8 @@ function transformAgent(row: any) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     // Include task info if joined
-    currentTask: row.task_title ? {
-      id: row.current_task_id,
+    currentTask: taskId && row.task_title ? {
+      id: taskId,
       title: row.task_title,
       status: row.task_status
     } : null,
@@ -51,31 +57,28 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    }
+
     const { id } = await params
     const { searchParams } = new URL(request.url)
     const includeTask = searchParams.get('includeTask') === 'true'
     const includeConversations = searchParams.get('includeConversations') === 'true'
 
     // Try to find by ID first, then by name
-    let agent
-    if (includeTask) {
-      agent = await sql`
-        SELECT
-          a.*,
-          ps.title as task_title,
-          ps.status as task_status
-        FROM agents a
-        LEFT JOIN project_steps ps ON a.current_task_id = ps.id
-        WHERE a.id::text = ${id} OR a.name = ${id}
-        LIMIT 1
-      `
-    } else {
-      agent = await sql`
-        SELECT * FROM agents
-        WHERE id::text = ${id} OR name = ${id}
-        LIMIT 1
-      `
-    }
+    const agent = await sql`
+      SELECT
+        a.*,
+        ps.id as visible_task_id,
+        ${includeTask ? sql`ps.title as task_title, ps.status as task_status` : sql`NULL as task_title`}
+      FROM agents a
+      LEFT JOIN project_steps ps
+        ON a.current_task_id = ps.id AND ${visibleStepPredicate(authContext.userId)}
+      WHERE a.id::text = ${id} OR a.name = ${id}
+      LIMIT 1
+    `
 
     if (agent.length === 0) {
       return errorResponse(ErrorCodes.NOT_FOUND, 'Agent not found', 404)
@@ -89,6 +92,7 @@ export async function GET(
         SELECT id, title, status, context_type, message_count, updated_at
         FROM ai_conversations
         WHERE metadata->>'agentId' = ${agent[0].id}::text
+          AND user_id = ${authContext.userId}
         ORDER BY updated_at DESC
         LIMIT 10
       `
@@ -180,6 +184,11 @@ export async function PATCH(
 
     const agentId = existing[0].id
 
+    // Pointing an agent at a step requires write access to that step's project.
+    if (currentTaskId && !(await canWriteStep(currentTaskId, authContext.userId))) {
+      return errorResponse(ErrorCodes.NOT_FOUND, 'Task not found or access denied', 404)
+    }
+
     // Build update query dynamically
     const result = await sql`
       UPDATE agents
@@ -201,7 +210,8 @@ export async function PATCH(
       RETURNING *
     `
 
-    return successResponse(transformAgent(result[0]))
+    // The row came back unjoined; its step is one the caller may write.
+    return successResponse(transformAgent({ ...(result as any[])[0], visible_task_id: (result as any[])[0].current_task_id }))
   } catch (error: any) {
     console.error('[API] PATCH /api/agents/[id] error:', error)
     return errorResponse(

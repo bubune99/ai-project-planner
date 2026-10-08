@@ -34,6 +34,7 @@ import {
   listSourcesForJob,
 } from "@/lib/db/backbone"
 import { buildQuestionInput } from "@/lib/inbox"
+import { visibleStepPredicate } from "@/lib/db/agent-task-access"
 import {
   validateMcpApiKey,
   runWithMcpContext,
@@ -42,6 +43,7 @@ import {
   verifyMcpProjectOwnership,
   verifyMcpProjectAccess,
   requireMcpProjectWriteAccess,
+  mcpWriteBindingError,
   verifyMcpStepAccess,
   verifyMcpDocumentOwnership,
   requireMcpScope,
@@ -1398,13 +1400,21 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
       },
       async ({ brief }) => {
         try {
-          // Agents are shared across all users (global resource)
-          const agents = await sql`
-            SELECT a.*, ps.title as current_task_title
+          // Agents are shared across all users (global resource), but the
+          // step an agent is on belongs to one tenant: only show it to a
+          // caller who can see that step's project.
+          const userId = getMcpUserId()
+          const rows = await sql`
+            SELECT a.*, ps.id AS visible_task_id, ps.title as current_task_title
             FROM agents a
-            LEFT JOIN project_steps ps ON a.current_task_id = ps.id
+            LEFT JOIN project_steps ps
+              ON a.current_task_id = ps.id AND ${visibleStepPredicate(userId)}
             ORDER BY a.name
           `
+          const agents = rows.map(({ visible_task_id, ...a }: Record<string, unknown>) => ({
+            ...a,
+            current_task_id: visible_task_id ?? null,
+          }))
 
           const data = brief
             ? agents.map((a: Record<string, unknown>) => ({
@@ -1897,6 +1907,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           if (projectId) {
             const access = await verifyMcpProjectAccess(projectId)
             if (!access.hasAccess) return mcpError("Project not found or access denied")
+            const bindingError = mcpWriteBindingError(projectId)
+            if (bindingError) return mcpError(bindingError)
           }
 
           // Get max order_index for user's todos
@@ -1969,6 +1981,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           if (projectId !== undefined && projectId !== null) {
             const access = await verifyMcpProjectAccess(projectId)
             if (!access.hasAccess) return mcpError("Project not found or access denied")
+            const bindingError = mcpWriteBindingError(projectId)
+            if (bindingError) return mcpError(bindingError)
           }
 
           // Build update fields
@@ -2579,6 +2593,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           if (projectId) {
             const access = await verifyMcpProjectAccess(projectId)
             if (!access.hasAccess) return mcpError("Project not found or access denied")
+            const bindingError = mcpWriteBindingError(projectId)
+            if (bindingError) return mcpError(bindingError)
           }
 
           const [decision] = await sql`
@@ -3677,15 +3693,21 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         name: z.string().describe("Human-readable worker name"),
         capabilities: z.record(z.unknown()).optional().describe("Capability descriptor: { tools, models, max_context, supports_unlock, ... }"),
         status: z.enum(["active", "inactive", "busy", "error"]).optional().describe("Initial status (default: active)"),
-        shared: z.boolean().optional().describe("If true, create as a shared/system worker (user_id = null). Default: false"),
+        shared: z.boolean().optional().describe("Not supported over MCP: shared/system workers (user_id = null) are seeded by migration. Passing true is rejected."),
         metadata: z.record(z.unknown()).optional().describe("Freeform metadata"),
       },
       async ({ kind, name, capabilities, status, shared, metadata }) => {
         try {
           requireMcpScope("write")
           const userId = getMcpUserId()
+          // Shared workers are visible to every tenant; no caller-held scope
+          // proves platform authority (any user can mint an "admin" key), so
+          // they are created only by migration. See BACKBONE_FOUNDATION.md #5.
+          if (shared) {
+            return mcpError("Shared/system workers cannot be registered over MCP; register a worker under your own account")
+          }
           const worker = await createWorker({
-            userId: shared ? null : userId,
+            userId,
             kind,
             name,
             capabilities: (capabilities as Record<string, unknown>) ?? {},
@@ -3718,7 +3740,9 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           const userId = getMcpUserId()
           const existing = await getWorker(workerId)
           if (!existing) return mcpError("Worker not found")
-          if (existing.user_id !== null && existing.user_id !== userId) {
+          // Only the owner may change a worker's status. Shared (user_id NULL)
+          // workers are listed to every tenant, so no tenant may rewrite them.
+          if (existing.user_id !== userId) {
             return mcpError("Access denied")
           }
           const updated = await updateWorkerStatus(workerId, status ?? "active")
@@ -3980,6 +4004,35 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
     )
     // ---------- Sources (federation scaffolding) ----------
 
+    // A source link is only as private as its parent. Check the caller can
+    // reach every parent named: a step through its project (write access to
+    // link, read access to list), a job or todo only if the caller owns it —
+    // the same rules claim_job and update_todo already apply.
+    async function sourceParentAccessError(
+      parents: { stepId?: string; jobId?: string; todoId?: string },
+      needWrite: boolean,
+    ): Promise<string | null> {
+      const userId = getMcpUserId()
+      if (parents.stepId) {
+        const [step] = await sql`SELECT project_id FROM project_steps WHERE id = ${parents.stepId}`
+        if (!step) return "Step not found or access denied"
+        const access = await verifyMcpProjectAccess(step.project_id as string)
+        if (!access.hasAccess) return "Step not found or access denied"
+        if (needWrite && !access.canWrite) return "You have view-only access to this project"
+      }
+      if (parents.jobId) {
+        const [job] = await sql`SELECT created_by FROM agent_jobs WHERE id = ${parents.jobId}`
+        if (!job || job.created_by !== userId) return "Job not found or access denied"
+      }
+      if (parents.todoId) {
+        const [todo] = await sql`
+          SELECT id FROM todos WHERE id = ${parents.todoId} AND user_id = ${userId} AND deleted_at IS NULL
+        `
+        if (!todo) return "Todo not found or access denied"
+      }
+      return null
+    }
+
     server.tool(
       "create_source",
       "Link a planner entity (step, job, or todo) to an external source (GitHub issue, Vercel deployment, agent-com job, ...). Schema-only — no sync logic yet.",
@@ -4000,6 +4053,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           if (!stepId && !jobId && !todoId) {
             return mcpError("At least one of stepId, jobId, todoId must be set")
           }
+          const denied = await sourceParentAccessError({ stepId, jobId, todoId }, true)
+          if (denied) return mcpError(denied)
           const source = await createSource({
             userId,
             kind,
@@ -4030,6 +4085,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
       },
       async ({ stepId }) => {
         try {
+          const denied = await sourceParentAccessError({ stepId }, false)
+          if (denied) return mcpError(denied)
           const sources = await listSourcesForStep(stepId)
           return mcpResponse({
             sources: sources.map((s) => ({
@@ -4056,6 +4113,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
       },
       async ({ jobId }) => {
         try {
+          const denied = await sourceParentAccessError({ jobId }, false)
+          if (denied) return mcpError(denied)
           const sources = await listSourcesForJob(jobId)
           return mcpResponse({
             sources: sources.map((s) => ({
@@ -5176,6 +5235,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             WHERE s.id = ${step_id}::uuid AND s.work_order_id = ${work_order_id}::uuid AND wo.user_id = ${userId}
           `
           if (!step) return mcpError("Step not found or access denied")
+          const bindingError = mcpWriteBindingError(step.project_id as string | null)
+          if (bindingError) return mcpError(bindingError)
 
           const now = new Date().toISOString()
 
@@ -6347,7 +6408,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
       {
         scope: z.enum(["full", "targeted"]).describe("'full' scans the whole project tree; 'targeted' scans only the specified files"),
         files: z.array(z.string()).optional().describe("Relative file paths to scan — required when scope='targeted'"),
-        project_root: z.string().optional().describe("Absolute path to the project root (default: process.cwd())"),
+        project_root: z.string().optional().describe("Absolute path to the project root (default: process.cwd()). Must be the server's app root or a directory inside it; anything else is rejected."),
         commit_sha: z.string().optional().describe("Git commit SHA to stamp on scan surfaces"),
         branch: z.string().optional().describe("Branch name to stamp on scan surfaces"),
       },
@@ -6360,7 +6421,16 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             return mcpError("scope='targeted' requires a non-empty 'files' array")
           }
 
-          const projectRoot = project_root ?? process.cwd()
+          // The scan reads the server's own filesystem. Confine it to the
+          // deployed app root (what the GitHub/Vercel webhooks scan); the
+          // scanner itself then confines each file path to that root.
+          const { resolveAllowedRoot } = await import("@/lib/catalog/confine")
+          let projectRoot: string
+          try {
+            projectRoot = resolveAllowedRoot(project_root, [process.cwd()])
+          } catch (rootError: unknown) {
+            return mcpError(rootError instanceof Error ? rootError.message : "Invalid project_root")
+          }
           const scanStart = Date.now()
 
           let scanResult

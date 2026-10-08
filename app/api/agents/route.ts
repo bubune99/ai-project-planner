@@ -2,26 +2,33 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { visibleStepPredicate, canWriteStep } from '@/lib/db/agent-task-access'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * Transform agent row to frontend format
+ * Transform agent row to frontend format.
+ *
+ * Agents are global, but the step an agent is on belongs to one tenant. Rows
+ * come from a join filtered by visibleStepPredicate; `visible_task_id` is set
+ * only when the caller can see that step, so another tenant's step id, title
+ * and status are never returned.
  */
 function transformAgent(row: any) {
+  const taskId = row.visible_task_id ?? null
   return {
     id: row.id,
     name: row.name,
     status: row.status,
-    currentTaskId: row.current_task_id,
+    currentTaskId: taskId,
     lastActiveAt: row.last_active_at,
     capabilities: row.capabilities || {},
     metadata: row.metadata || {},
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     // Include task info if joined
-    currentTask: row.task_title ? {
-      id: row.current_task_id,
+    currentTask: taskId && row.task_title ? {
+      id: taskId,
       title: row.task_title,
       status: row.task_status
     } : null
@@ -47,26 +54,17 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const withTask = searchParams.get('withTask') === 'true'
 
-    let agents: any[]
-
-    if (withTask) {
-      agents = await sql`
-        SELECT
-          a.*,
-          ps.title as task_title,
-          ps.status as task_status
-        FROM agents a
-        LEFT JOIN project_steps ps ON a.current_task_id = ps.id
-        ${status ? sql`WHERE a.status = ${status}` : sql``}
-        ORDER BY a.name ASC
-      `
-    } else {
-      agents = await sql`
-        SELECT * FROM agents
-        ${status ? sql`WHERE status = ${status}` : sql``}
-        ORDER BY name ASC
-      `
-    }
+    const agents: any[] = await sql`
+      SELECT
+        a.*,
+        ps.id as visible_task_id,
+        ${withTask ? sql`ps.title as task_title, ps.status as task_status` : sql`NULL as task_title`}
+      FROM agents a
+      LEFT JOIN project_steps ps
+        ON a.current_task_id = ps.id AND ${visibleStepPredicate(authContext.userId)}
+      ${status ? sql`WHERE a.status = ${status}` : sql``}
+      ORDER BY a.name ASC
+    `
 
     return successResponse(agents.map(transformAgent), {
       total: agents.length
@@ -122,6 +120,11 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
+    // Pointing an agent at a step requires write access to that step's project.
+    if (currentTaskId && !(await canWriteStep(currentTaskId, authContext.userId))) {
+      return errorResponse(ErrorCodes.NOT_FOUND, 'Task not found or access denied', 404)
+    }
+
     const result = await sql`
       UPDATE agents
       SET
@@ -142,7 +145,8 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    return successResponse(transformAgent(result[0]))
+    // The row came back unjoined; its step is one the caller may write.
+    return successResponse(transformAgent({ ...(result as any[])[0], visible_task_id: (result as any[])[0].current_task_id }))
   } catch (error: any) {
     console.error('[PATCH /api/agents] Error:', error)
     return errorResponse(
@@ -183,14 +187,21 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // assign_task_to_agent writes project_steps.assigned_agent: require
+      // write access to the step's project (as the MCP assign_task does).
+      if (!(await canWriteStep(taskId, authContext.userId))) {
+        return errorResponse(ErrorCodes.NOT_FOUND, 'Task not found or access denied', 404)
+      }
+
       // Use the database function to assign
       await sql`SELECT assign_task_to_agent(${taskId}::uuid, ${agentName})`
 
       // Get updated agent info
       const agent = await sql`
-        SELECT a.*, ps.title as task_title, ps.status as task_status
+        SELECT a.*, ps.id as visible_task_id, ps.title as task_title, ps.status as task_status
         FROM agents a
-        LEFT JOIN project_steps ps ON a.current_task_id = ps.id
+        LEFT JOIN project_steps ps
+          ON a.current_task_id = ps.id AND ${visibleStepPredicate(authContext.userId)}
         WHERE a.name = ${agentName}
       `
 
@@ -205,6 +216,10 @@ export async function POST(request: NextRequest) {
           'taskId is required for completion',
           400
         )
+      }
+
+      if (!(await canWriteStep(taskId, authContext.userId))) {
+        return errorResponse(ErrorCodes.NOT_FOUND, 'Task not found or access denied', 404)
       }
 
       // Use the database function to complete
