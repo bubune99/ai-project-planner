@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     if (!authContext) {
       return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     }
+    const { userId } = authContext
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('query')
     const category = searchParams.get('category')
@@ -26,7 +27,8 @@ export async function GET(request: NextRequest) {
         SELECT *
         FROM documents
         WHERE
-          (title ILIKE ${'%' + query + '%'} OR description ILIKE ${'%' + query + '%'})
+          user_id = ${userId}
+          AND (title ILIKE ${'%' + query + '%'} OR description ILIKE ${'%' + query + '%'})
           AND deleted_at IS NULL
         ORDER BY created_at DESC
       `
@@ -34,14 +36,14 @@ export async function GET(request: NextRequest) {
       documents = await sql`
         SELECT *
         FROM documents
-        WHERE category = ${category} AND deleted_at IS NULL
+        WHERE user_id = ${userId} AND category = ${category} AND deleted_at IS NULL
         ORDER BY title ASC
       `
     } else {
       documents = await sql`
         SELECT *
         FROM documents
-        WHERE deleted_at IS NULL
+        WHERE user_id = ${userId} AND deleted_at IS NULL
         ORDER BY updated_at DESC
         LIMIT 50
       `
