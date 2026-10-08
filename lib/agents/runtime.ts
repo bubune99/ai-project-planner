@@ -55,6 +55,11 @@ function contextFor(agent: AgentDefinition, req: AgentRequest): McpContext {
     // even if a write tool were added to its allowlist by mistake.
     scopes: writes ? ["read", "write"] : ["read"],
     activeProjectId: req.projectId ?? undefined,
+    // Action binding: whatever ids the model passes (and whatever a document
+    // or comment it read tells it), project writes in this run are confined
+    // to the project the owner has open — null means none. Enforced in
+    // verifyMcpProjectAccess / requireMcpProjectWriteAccess.
+    writeBoundProjectId: req.projectId ?? null,
   }
 }
 

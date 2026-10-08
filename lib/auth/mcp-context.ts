@@ -25,6 +25,14 @@ export interface McpContext {
   email?: string;
   /** Active project ID (like gh repo set-default) */
   activeProjectId?: string;
+  /**
+   * Set only for in-app agent runs. The one project this run may change:
+   * the project the signed-in owner had open when they sent the message
+   * (null when none was open — then no project may be changed). Model-
+   * supplied project/step/document ids cannot widen it; reads are unaffected.
+   * API-key callers leave this undefined and are unaffected.
+   */
+  writeBoundProjectId?: string | null;
 }
 
 // AsyncLocalStorage for request-scoped context
@@ -194,6 +202,21 @@ export async function verifyMcpProjectOwnership(projectId: string): Promise<bool
 }
 
 /**
+ * For an in-app agent run, the reason a write to `projectId` is refused
+ * because the run is bound to a different project; null when allowed (or
+ * when the caller is not a bound in-app run).
+ */
+export function mcpWriteBindingError(projectId: string | null | undefined): string | null {
+  const context = getMcpContextOrNull();
+  if (!context || context.writeBoundProjectId === undefined) return null;
+  const bound = context.writeBoundProjectId;
+  if (bound && projectId === bound) return null;
+  return bound
+    ? "This assistant run can only change the project you have open. Open that project and ask again."
+    : "This assistant run can only change a project when you have it open. Open the project and ask again.";
+}
+
+/**
  * Project access result with role information
  */
 export interface ProjectAccessResult {
@@ -222,8 +245,12 @@ export async function verifyMcpProjectAccess(projectId: string): Promise<Project
         AND deleted_at IS NULL
     `;
 
+    // An in-app agent run bound to another project keeps read access here
+    // but loses write/admin, so every canWrite check honours the binding.
+    const bound = mcpWriteBindingError(projectId) === null;
+
     if (ownerResult.length > 0) {
-      return { hasAccess: true, role: "owner", canWrite: true, canAdmin: true };
+      return { hasAccess: true, role: "owner", canWrite: bound, canAdmin: bound };
     }
 
     // Check collaborator access (must be accepted and not removed)
@@ -240,8 +267,8 @@ export async function verifyMcpProjectAccess(projectId: string): Promise<Project
       return {
         hasAccess: true,
         role,
-        canWrite: role === "editor" || role === "admin",
-        canAdmin: role === "admin",
+        canWrite: bound && (role === "editor" || role === "admin"),
+        canAdmin: bound && role === "admin",
       };
     }
 
@@ -260,6 +287,10 @@ export async function requireMcpProjectWriteAccess(projectId: string): Promise<v
   const access = await verifyMcpProjectAccess(projectId);
   if (!access.hasAccess) {
     throw new Error("Project not found or access denied");
+  }
+  const bindingError = mcpWriteBindingError(projectId);
+  if (bindingError) {
+    throw new Error(bindingError);
   }
   if (!access.canWrite) {
     throw new Error("You have view-only access to this project");

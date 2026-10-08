@@ -43,6 +43,7 @@ import {
   verifyMcpProjectOwnership,
   verifyMcpProjectAccess,
   requireMcpProjectWriteAccess,
+  mcpWriteBindingError,
   verifyMcpStepAccess,
   verifyMcpDocumentOwnership,
   requireMcpScope,
@@ -1903,6 +1904,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           if (projectId) {
             const access = await verifyMcpProjectAccess(projectId)
             if (!access.hasAccess) return mcpError("Project not found or access denied")
+            const bindingError = mcpWriteBindingError(projectId)
+            if (bindingError) return mcpError(bindingError)
           }
 
           // Get max order_index for user's todos
@@ -1975,6 +1978,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           if (projectId !== undefined && projectId !== null) {
             const access = await verifyMcpProjectAccess(projectId)
             if (!access.hasAccess) return mcpError("Project not found or access denied")
+            const bindingError = mcpWriteBindingError(projectId)
+            if (bindingError) return mcpError(bindingError)
           }
 
           // Build update fields
@@ -2585,6 +2590,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           if (projectId) {
             const access = await verifyMcpProjectAccess(projectId)
             if (!access.hasAccess) return mcpError("Project not found or access denied")
+            const bindingError = mcpWriteBindingError(projectId)
+            if (bindingError) return mcpError(bindingError)
           }
 
           const [decision] = await sql`
@@ -5225,6 +5232,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             WHERE s.id = ${step_id}::uuid AND s.work_order_id = ${work_order_id}::uuid AND wo.user_id = ${userId}
           `
           if (!step) return mcpError("Step not found or access denied")
+          const bindingError = mcpWriteBindingError(step.project_id as string | null)
+          if (bindingError) return mcpError(bindingError)
 
           const now = new Date().toISOString()
 
