@@ -1,6 +1,8 @@
 import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
+import { getAuthContext, verifyProjectOwnership } from "@/lib/auth/auth-utils"
+import { verifyCollaboratorAccess } from "@/lib/auth/collaboration-access"
 
 export const dynamic = "force-dynamic"
 
@@ -14,6 +16,14 @@ export async function GET(
 ) {
   try {
     const { id } = await Promise.resolve(params)
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return errorResponse(ErrorCodes.UNAUTHORIZED, 'Unauthorized', 401)
+    }
+    if (!(await verifyProjectOwnership(id, authContext.userId))) {
+      return errorResponse(ErrorCodes.NOT_FOUND, 'Project not found', 404)
+    }
+
     const phases = await sql`
       SELECT *
       FROM project_phases
@@ -45,6 +55,17 @@ export async function POST(
 ) {
   try {
     const { id } = await Promise.resolve(params)
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return errorResponse(ErrorCodes.UNAUTHORIZED, 'Unauthorized', 401)
+    }
+    if (!(await verifyProjectOwnership(id, authContext.userId))) {
+      return errorResponse(ErrorCodes.NOT_FOUND, 'Project not found', 404)
+    }
+    if (!(await verifyCollaboratorAccess(id, authContext.userId, "editor"))) {
+      return errorResponse(ErrorCodes.FORBIDDEN, 'Editor access required', 403)
+    }
+
     const body = await request.json()
     const { newPhase, completedBy, description } = body
 
