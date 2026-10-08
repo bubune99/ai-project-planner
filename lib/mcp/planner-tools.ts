@@ -3674,15 +3674,21 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         name: z.string().describe("Human-readable worker name"),
         capabilities: z.record(z.unknown()).optional().describe("Capability descriptor: { tools, models, max_context, supports_unlock, ... }"),
         status: z.enum(["active", "inactive", "busy", "error"]).optional().describe("Initial status (default: active)"),
-        shared: z.boolean().optional().describe("If true, create as a shared/system worker (user_id = null). Default: false"),
+        shared: z.boolean().optional().describe("Not supported over MCP: shared/system workers (user_id = null) are seeded by migration. Passing true is rejected."),
         metadata: z.record(z.unknown()).optional().describe("Freeform metadata"),
       },
       async ({ kind, name, capabilities, status, shared, metadata }) => {
         try {
           requireMcpScope("write")
           const userId = getMcpUserId()
+          // Shared workers are visible to every tenant; no caller-held scope
+          // proves platform authority (any user can mint an "admin" key), so
+          // they are created only by migration. See BACKBONE_FOUNDATION.md #5.
+          if (shared) {
+            return mcpError("Shared/system workers cannot be registered over MCP; register a worker under your own account")
+          }
           const worker = await createWorker({
-            userId: shared ? null : userId,
+            userId,
             kind,
             name,
             capabilities: (capabilities as Record<string, unknown>) ?? {},
@@ -3715,7 +3721,9 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           const userId = getMcpUserId()
           const existing = await getWorker(workerId)
           if (!existing) return mcpError("Worker not found")
-          if (existing.user_id !== null && existing.user_id !== userId) {
+          // Only the owner may change a worker's status. Shared (user_id NULL)
+          // workers are listed to every tenant, so no tenant may rewrite them.
+          if (existing.user_id !== userId) {
             return mcpError("Access denied")
           }
           const updated = await updateWorkerStatus(workerId, status ?? "active")
