@@ -12,7 +12,7 @@
  */
 
 import { anthropic } from "@ai-sdk/anthropic"
-import { generateText, stepCountIs, tool, type Tool } from "ai"
+import { generateText, stepCountIs, tool, type StopCondition, type Tool, type ToolSet } from "ai"
 import { z } from "zod"
 import { registerPlannerTools } from "@/lib/mcp/planner-tools"
 import { runWithMcpContext, type McpContext } from "@/lib/auth/mcp-context"
@@ -20,6 +20,7 @@ import { collectTools, toAiTools, type CollectedTool, type ToolObserver } from "
 import { REGISTRY, contextBlock, toolsForRequest, type AgentDefinition } from "./registry"
 import { toolTitle, summarizeResult, type TraceRecorder } from "./trace"
 import type { AgentId } from "./catalog"
+import { MAX_OUTPUT_TOKENS, usageTokens, type RunBudget } from "@/lib/ai/spend-limits"
 
 // The tool set is identical for every request; collect it once per instance.
 let collected: Promise<Map<string, CollectedTool>> | null = null
@@ -39,6 +40,27 @@ export interface AgentRequest {
   memory?: boolean
   /** The chat this request belongs to — excluded from search_chats. */
   chatId?: string | null
+  /**
+   * Spend metering for this request (lib/ai/spend-limits.ts). Every model
+   * step, main agent and delegates alike, adds to the budget and is recorded
+   * durably; a failed record stops the run (fail closed).
+   */
+  spend: { budget: RunBudget; record: (tokens: number) => Promise<boolean> }
+}
+
+/** Stop on the agent's step cap, or once the request's token budget is spent. */
+function stopFor(maxSteps: number, req: AgentRequest): StopCondition<ToolSet>[] {
+  return [stepCountIs(maxSteps), () => req.spend.budget.exhausted()]
+}
+
+/** onStepFinish: count the step's tokens against the request and the day. */
+function meterStep(req: AgentRequest) {
+  return async ({ usage }: { usage?: Parameters<typeof usageTokens>[0] }) => {
+    const tokens = usageTokens(usage)
+    req.spend.budget.add(tokens)
+    const ok = await req.spend.record(tokens)
+    if (!ok) req.spend.budget.failed = true
+  }
 }
 
 /** Extended-thinking budget when the owner asks to see the reasoning. */
@@ -93,6 +115,13 @@ function delegateTool(parent: AgentDefinition, req: AgentRequest, trace?: TraceR
     }),
     execute: async ({ agent: id, task }) => {
       const sub = REGISTRY[id]
+      if (!req.spend.budget.tryDelegate()) {
+        return {
+          agent: sub.name,
+          answer: "Error: not delegated — this request has used its delegate calls or its usage budget. Answer from what you already have.",
+          toolsUsed: [],
+        }
+      }
       const span = trace?.begin({ label: sub.id, title: `Asking the ${sub.name}`, kind: "agent", parentId: parentSpan })
       try {
         const result = await generateText({
@@ -100,7 +129,9 @@ function delegateTool(parent: AgentDefinition, req: AgentRequest, trace?: TraceR
           system: sub.instructions + contextBlock(req),
           prompt: task,
           tools: await toolsFor(sub, req, trace, span),
-          stopWhen: stepCountIs(sub.maxSteps),
+          stopWhen: stopFor(sub.maxSteps, req),
+          maxOutputTokens: MAX_OUTPUT_TOKENS,
+          onStepFinish: meterStep(req),
         })
         const toolsUsed = result.steps.flatMap((s) => s.toolCalls.map((c) => c.toolName))
         if (span) trace!.end(span, { status: "ok", detail: `${toolsUsed.length} tool${toolsUsed.length === 1 ? "" : "s"}`, tokens: result.totalUsage?.totalTokens })
@@ -127,7 +158,9 @@ export async function prepareAgent(agent: AgentDefinition, req: AgentRequest, tr
     model: anthropic(agent.model),
     system: agent.instructions + contextBlock(req),
     tools: await toolsFor(agent, req, trace, rootSpan),
-    stopWhen: stepCountIs(agent.maxSteps),
+    stopWhen: stopFor(agent.maxSteps, req),
+    maxOutputTokens: MAX_OUTPUT_TOKENS,
+    onStepFinish: meterStep(req),
     ...(req.thinking
       ? { providerOptions: { anthropic: { thinking: { type: "enabled" as const, budgetTokens: THINKING_BUDGET } } } }
       : {}),

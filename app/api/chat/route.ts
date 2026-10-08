@@ -36,6 +36,8 @@ import {
 import { sessionCache } from "@/lib/ai/session-cache";
 import { getAuthContext } from "@/lib/auth/auth-utils";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { decideAdmission, readSpendLimits, RunBudget, trimHistory, MAX_USER_MESSAGE_CHARS } from "@/lib/ai/spend-limits";
+import { readWindowUsage, recordUsage } from "@/lib/ai/usage-store";
 
 export const dynamic = "force-dynamic"
 
@@ -110,10 +112,22 @@ export async function POST(request: Request) {
     const { userId } = authContext;
 
     // Rate limit: 30 requests per minute per user for LLM calls
-    if (!checkRateLimit(`chat:${userId}`, 30, 60000)) {
+    if (!(await checkRateLimit(`chat:${userId}`, 30, 60000))) {
       return new Response(
         JSON.stringify({ error: "Too many requests. Please slow down." }),
         { status: 429, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // AI spend admission: kill switch, per-user window budget, site-wide
+    // ceiling. Fails closed when usage cannot be read (lib/ai/spend-limits.ts).
+    const limits = readSpendLimits(process.env);
+    const now = Date.now();
+    const admission = decideAdmission(limits, await readWindowUsage(userId, limits, now), now);
+    if (!admission.ok) {
+      return new Response(
+        JSON.stringify({ error: admission.message, code: admission.code, resetAt: admission.resetAt }),
+        { status: admission.status, headers: { "Content-Type": "application/json" } }
       );
     }
 
@@ -183,6 +197,13 @@ export async function POST(request: Request) {
       );
     }
 
+    if (userMessageText.length > MAX_USER_MESSAGE_CHARS) {
+      return new Response(
+        JSON.stringify({ error: `Message too long (max ${MAX_USER_MESSAGE_CHARS.toLocaleString("en-US")} characters).`, code: "MESSAGE_TOO_LONG" }),
+        { status: 413, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     // Step 5: Save user message BEFORE calling LLM
     await saveMessage({
       conversationId: conversation.id,
@@ -191,11 +212,12 @@ export async function POST(request: Request) {
       metadata: { timestamp: Date.now() },
     });
 
-    // Build the full message history for LLM context
-    const fullHistory = historyMessages.map((m) => ({
+    // Build the message history for LLM context, capped by count and size
+    // (oldest dropped first) so a long chat cannot grow the prompt unbounded.
+    const fullHistory = trimHistory(historyMessages.map((m) => ({
       role: m.role as "user" | "assistant" | "system",
-      content: m.content,
-    }));
+      content: m.content ?? "",
+    })));
 
     // Add the latest user message
     fullHistory.push({
@@ -234,6 +256,10 @@ export async function POST(request: Request) {
             thinking: body.thinking === true,
             memory: body.memory === true,
             chatId: conversation.id,
+            spend: {
+              budget: new RunBudget(limits.perRequest),
+              record: (tokens) => recordUsage(userId, tokens, limits),
+            },
           },
           trace,
           root

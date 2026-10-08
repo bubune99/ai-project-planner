@@ -34,8 +34,12 @@ export async function fetchWithErrorHandlers(
     const response = await fetch(input, init);
 
     if (!response.ok) {
-      const { code, cause } = await response.json();
-      throw new ChatSDKError(code as ErrorCode, cause);
+      const body = await response.json().catch(() => ({}));
+      const error = new ChatSDKError(body.code as ErrorCode, body.cause);
+      // /api/chat sends its own human text in `error` (usage limits say when
+      // they reset); show it instead of the generic per-code message.
+      if (typeof body.error === 'string' && body.error) error.message = body.error;
+      throw error;
     }
 
     return response;
