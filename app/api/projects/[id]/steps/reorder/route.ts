@@ -11,7 +11,7 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
-import { getAuthContext, verifyProjectOwnership } from "@/lib/auth/auth-utils";
+import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +36,13 @@ export async function POST(
       return NextResponse.json(
         { error: "Project not found", code: "NOT_FOUND" },
         { status: 404 }
+      );
+    }
+    // Viewers are read-only: writes need owner/editor/admin.
+    if (!(await verifyProjectWriteAccess(projectId, userId))) {
+      return NextResponse.json(
+        { error: "You have view-only access to this project", code: "FORBIDDEN" },
+        { status: 403 }
       );
     }
 

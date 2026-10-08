@@ -278,12 +278,15 @@ export async function verifyMcpStepAccess(stepId: string): Promise<boolean> {
       SELECT 1 FROM project_steps ps
       JOIN projects p ON ps.project_id = p.id
       WHERE ps.id = ${stepId}
+        AND p.deleted_at IS NULL
         AND (
           p.user_id = ${context.userId}
           OR EXISTS (
             SELECT 1 FROM project_collaborators pc
             WHERE pc.project_id = p.id
               AND pc.user_id = ${context.userId}
+              AND pc.removed_at IS NULL
+              AND pc.accepted_at IS NOT NULL
           )
         )
     `;
@@ -315,6 +318,8 @@ export async function verifyMcpDocumentOwnership(documentId: string): Promise<bo
                 SELECT 1 FROM project_collaborators pc
                 WHERE pc.project_id = p.id
                   AND pc.user_id = ${context.userId}
+                  AND pc.removed_at IS NULL
+                  AND pc.accepted_at IS NOT NULL
               )
             )
           )
@@ -382,6 +387,7 @@ export async function findProjectByGitRemote(gitRemote: string): Promise<string 
     const result = await sql`
       SELECT p.id FROM projects p
       LEFT JOIN project_collaborators pc ON p.id = pc.project_id AND pc.user_id = ${context.userId}
+        AND pc.removed_at IS NULL AND pc.accepted_at IS NOT NULL
       WHERE (p.user_id = ${context.userId} OR pc.id IS NOT NULL)
         AND p.github_repo_url IS NOT NULL
         AND (
@@ -411,6 +417,7 @@ export async function findProjectByWorkspacePath(workspacePath: string): Promise
     const result = await sql`
       SELECT p.id FROM projects p
       LEFT JOIN project_collaborators pc ON p.id = pc.project_id AND pc.user_id = ${context.userId}
+        AND pc.removed_at IS NULL AND pc.accepted_at IS NOT NULL
       WHERE (p.user_id = ${context.userId} OR pc.id IS NOT NULL)
         AND p.workspace_path = ${workspacePath}
         AND p.deleted_at IS NULL
@@ -435,8 +442,9 @@ export async function updateProjectWorkspace(
   if (!context) return false;
 
   try {
-    const owns = await verifyMcpProjectOwnership(projectId);
-    if (!owns) return false;
+    // Writes project fields, so viewers (read-only) are refused.
+    const access = await verifyMcpProjectAccess(projectId);
+    if (!access.canWrite) return false;
 
     if (updates.gitRemote !== undefined) {
       await sql`
