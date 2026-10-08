@@ -11,6 +11,7 @@
  * Stack Auth login + consent at /oauth/authorize.
  */
 
+import { checkRateLimit, clientIp, HOUR_MS } from "@/lib/rate-limit"
 import { NextRequest, NextResponse } from "next/server"
 import { registerClient } from "@/lib/oauth/store"
 
@@ -26,12 +27,24 @@ function oauthError(error: string, description: string, status = 400) {
   return NextResponse.json({ error, error_description: description }, { status, headers: CORS })
 }
 
+/** Registrations per client IP per hour; the route is unauthenticated. */
+const REGISTRATIONS_PER_IP_PER_HOUR = 10
+/** Redirect URIs one client may register. */
+const MAX_REDIRECT_URIS = 10
+
 export async function POST(request: NextRequest) {
+  if (!(await checkRateLimit(`oauth-register:${clientIp(request)}`, REGISTRATIONS_PER_IP_PER_HOUR, HOUR_MS))) {
+    return oauthError("too_many_requests", "Too many client registrations from this address. Try again later.", 429)
+  }
+
   let body: Record<string, unknown>
   try {
     body = await request.json()
   } catch {
     return oauthError("invalid_client_metadata", "Body must be valid JSON")
+  }
+  if (Array.isArray(body?.redirect_uris) && body.redirect_uris.length > MAX_REDIRECT_URIS) {
+    return oauthError("invalid_redirect_uri", `At most ${MAX_REDIRECT_URIS} redirect_uris may be registered`)
   }
 
   const redirectUris = body.redirect_uris

@@ -12,6 +12,33 @@ import { createMcpHandler } from "mcp-handler"
 import { NextRequest } from "next/server"
 import { validateMcpApiKey, runWithMcpContext, type McpContext } from "@/lib/auth/mcp-context"
 import { registerPlannerTools } from "@/lib/mcp/planner-tools"
+import { checkRateLimit, HOUR_MS } from "@/lib/rate-limit"
+
+/** MCP requests per API key per minute. */
+const MCP_REQUESTS_PER_MINUTE = 120
+/** catalog_scan_now calls per API key per hour (each scan walks a repo). */
+const CATALOG_SCANS_PER_HOUR = 5
+
+/** Tool names a JSON-RPC body calls (single or batch). Never throws. */
+async function calledTools(request: NextRequest): Promise<string[]> {
+  if (request.method !== "POST") return []
+  try {
+    const body = await request.clone().json()
+    const msgs = Array.isArray(body) ? body : [body]
+    return msgs
+      .filter((m) => m && m.method === "tools/call" && typeof m.params?.name === "string")
+      .map((m) => m.params.name as string)
+  } catch {
+    return []
+  }
+}
+
+function tooManyRequests(message: string) {
+  return new Response(JSON.stringify({ error: "Too Many Requests", message }), {
+    status: 429,
+    headers: { "Content-Type": "application/json", "Retry-After": "60" },
+  })
+}
 
 /**
  * Authenticate MCP request and return user context
@@ -112,6 +139,17 @@ async function handleWithAuth(request: NextRequest) {
         },
       }
     )
+  }
+
+  // Per-key limits (Postgres counters; refuse when they cannot be read).
+  if (!(await checkRateLimit(`mcp:${context.apiKeyId}`, MCP_REQUESTS_PER_MINUTE, 60_000))) {
+    return tooManyRequests(`Rate limit: ${MCP_REQUESTS_PER_MINUTE} requests per minute per API key.`)
+  }
+  const scans = (await calledTools(request)).filter((t) => t === "catalog_scan_now").length
+  for (let i = 0; i < scans; i++) {
+    if (!(await checkRateLimit(`mcp-scan:${context.apiKeyId}`, CATALOG_SCANS_PER_HOUR, HOUR_MS))) {
+      return tooManyRequests(`Rate limit: catalog_scan_now is limited to ${CATALOG_SCANS_PER_HOUR} per hour per API key.`)
+    }
   }
 
   // Run handler with MCP context

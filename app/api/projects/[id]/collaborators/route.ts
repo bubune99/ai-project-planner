@@ -9,6 +9,7 @@ import {
   canPerformAction,
 } from "@/lib/auth/collaboration-access";
 import { createInvitation, logActivity } from "@/lib/collaboration";
+import { checkInviteLimits } from "@/lib/collaboration/invite-limits";
 import type { CollaboratorRole } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic"
@@ -135,6 +136,12 @@ export async function POST(
         "Cannot invite the project owner as a collaborator",
         400
       );
+    }
+
+    // Cap invitation volume: each one can send an email.
+    const inviteLimit = await checkInviteLimits(userId, projectId);
+    if (!inviteLimit.ok) {
+      return errorResponse("RATE_LIMITED", inviteLimit.message, inviteLimit.status);
     }
 
     // Create invitation
