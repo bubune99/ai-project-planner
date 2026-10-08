@@ -55,17 +55,21 @@ export async function GET(request: NextRequest) {
     }
 
     if (type === "task" && stepId) {
-      // Generate task-specific prompt
+      // Generate task-specific prompt. The step must belong to the project the
+      // caller was authorized for above, never just any step id.
       const stepResult = await sql`
-        SELECT * FROM project_steps WHERE id = ${stepId}
+        SELECT * FROM project_steps WHERE id = ${stepId} AND project_id = ${projectId}
       `
       const step = stepResult[0]
+      if (!step) {
+        return NextResponse.json({ error: "Step not found" }, { status: 404 })
+      }
 
-      // Get dependencies
+      // Get dependencies (same project only)
       const depsResult = await sql`
         SELECT ps.* FROM project_steps ps
         JOIN step_dependencies sd ON ps.id = sd.depends_on_step_id
-        WHERE sd.step_id = ${stepId} AND ps.status = 'completed'
+        WHERE sd.step_id = ${stepId} AND ps.project_id = ${projectId} AND ps.status = 'completed'
       `
 
       promptData.hasDependencies = depsResult.length > 0

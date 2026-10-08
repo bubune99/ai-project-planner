@@ -9,6 +9,7 @@
 import { headers } from "next/headers";
 import { sql } from "@/lib/db/client";
 import crypto from "crypto";
+import { verifyCollaboratorAccess } from "@/lib/auth/collaboration-access";
 
 /**
  * Authentication context returned after validation
@@ -78,13 +79,12 @@ async function validateApiKey(
 /**
  * Get authenticated user context from request headers
  *
- * Headers set by middleware:
+ * Headers set by middleware (client-supplied copies are stripped there):
  * - x-auth-type: "session" | "api-key"
- * - x-user-id: Internal database user ID
+ * - x-user-id: Internal database user ID (session auth only)
  * - x-user-stack-id: Stack Auth user ID (for session auth)
- * - x-api-key: API key (for API key auth)
- * - x-api-key-id: API key record ID (for API key auth)
- * - x-api-key-scopes: Comma-separated scopes (for API key auth)
+ *
+ * API key auth always validates the Authorization header against api_keys.
  */
 export async function getAuthContext(): Promise<AuthContext | null> {
   const headersList = await headers();
@@ -128,24 +128,10 @@ export async function getAuthContext(): Promise<AuthContext | null> {
     };
   }
 
-  // API key authentication
-  if (authType === "api-key") {
-    const userId = headersList.get("x-user-id");
-    const apiKeyId = headersList.get("x-api-key-id");
-    const scopesHeader = headersList.get("x-api-key-scopes");
-
-    if (!userId) return null;
-
-    return {
-      userId,
-      authType: "api-key",
-      apiKeyId: apiKeyId || undefined,
-      scopes: scopesHeader ? scopesHeader.split(",") : ["read", "write"],
-    };
-  }
-
-  // Try to validate API key directly from Authorization header
-  // (fallback for when middleware doesn't process the request)
+  // API key authentication. Middleware only checks the key's FORMAT and never
+  // sets the user, key id or scopes, so identity is NEVER taken from request
+  // headers on this path: the key is always validated against api_keys below.
+  // Same validation as the fallback for requests middleware did not mark.
   const authHeader = headersList.get("authorization");
   if (authHeader?.startsWith("Bearer aipp_")) {
     const apiKey = authHeader.replace("Bearer ", "");
@@ -285,6 +271,19 @@ export async function verifyProjectOwnership(
     console.error("Project access verification error:", error);
     return false;
   }
+}
+
+/**
+ * Verify user can MODIFY a project: the owner, or an accepted, non-removed
+ * collaborator with the editor or admin role. Viewers are read-only
+ * (ROLE_PERMISSIONS in collaboration-access.ts), so verifyProjectOwnership is
+ * a READ gate only and every mutating handler must also pass this check.
+ */
+export async function verifyProjectWriteAccess(
+  projectId: string,
+  userId: string
+): Promise<boolean> {
+  return verifyCollaboratorAccess(projectId, userId, "editor");
 }
 
 /**

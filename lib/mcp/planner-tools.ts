@@ -436,6 +436,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
                        CASE WHEN p.user_id = ${userId} THEN 'owner' ELSE pc.role END as my_role
                 FROM projects p
                 LEFT JOIN project_collaborators pc ON p.id = pc.project_id AND pc.user_id = ${userId}
+                  AND pc.removed_at IS NULL AND pc.accepted_at IS NOT NULL
                 WHERE p.deleted_at IS NULL
                   AND (p.user_id = ${userId} OR pc.id IS NOT NULL)
                 ORDER BY p.created_at DESC
@@ -456,6 +457,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
                 SELECT COUNT(DISTINCT p.id)::int as count
                 FROM projects p
                 LEFT JOIN project_collaborators pc ON p.id = pc.project_id AND pc.user_id = ${userId}
+                  AND pc.removed_at IS NULL AND pc.accepted_at IS NOT NULL
                 WHERE p.deleted_at IS NULL AND (p.user_id = ${userId} OR pc.id IS NOT NULL)
               `
             : await sql`
@@ -1528,6 +1530,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
                      CASE WHEN p.user_id = ${userId} THEN 'owner' ELSE pc.role END as role
               FROM projects p
               LEFT JOIN project_collaborators pc ON p.id = pc.project_id AND pc.user_id = ${userId}
+                AND pc.removed_at IS NULL AND pc.accepted_at IS NOT NULL
               WHERE (p.user_id = ${userId} OR pc.id IS NOT NULL)
                 AND p.name ILIKE ${"%" + name + "%"}
                 AND p.deleted_at IS NULL

@@ -52,6 +52,45 @@ function isPublicRoute(pathname: string): boolean {
 }
 
 /**
+ * Identity headers that ONLY this middleware may set. getAuthContext() trusts
+ * them, so any client-supplied copy is stripped on every path (including the
+ * public / self-authenticating pass-throughs below) before the request reaches
+ * a route handler or page.
+ */
+const IDENTITY_HEADERS = [
+  "x-auth-type",
+  "x-user-id",
+  "x-user-stack-id",
+  "x-api-key-id",
+  "x-api-key-scopes",
+];
+
+/**
+ * Copy of the incoming request headers with every identity header removed.
+ */
+function stripIdentityHeaders(request: NextRequest): Headers {
+  const headers = new Headers(request.headers);
+  for (const name of IDENTITY_HEADERS) {
+    headers.delete(name);
+  }
+  // Next only applies the request-header override when the override list is
+  // non-empty. A request carrying nothing but identity headers (e.g. HTTP/1.0
+  // with no Host) would otherwise reach the route with its forged copies, so
+  // always keep at least one header in the list.
+  headers.set("x-identity-stripped", "1");
+  return headers;
+}
+
+/**
+ * Continue to the route with exactly these request headers. Passing them as a
+ * request override (rather than response headers) makes Next replace the
+ * request's headers wholesale, so a client copy can never survive.
+ */
+function continueWith(headers: Headers): NextResponse {
+  return NextResponse.next({ request: { headers } });
+}
+
+/**
  * Validate API key format
  */
 function isValidApiKeyFormat(key: string): boolean {
@@ -61,12 +100,13 @@ function isValidApiKeyFormat(key: string): boolean {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const requestHeaders = stripIdentityHeaders(request);
 
   // Method-aware public exception: the feedback widget is embeddable and meant
   // to accept reports from anonymous/end users, so POST /api/feedback is open.
   // GET (admin inbox list) and PATCH (triage) stay auth-gated below.
   if (pathname === "/api/feedback" && request.method === "POST") {
-    return NextResponse.next();
+    return continueWith(requestHeaders);
   }
 
   // Catalog webhooks (Idea H Wave 4): receive POSTs from GitHub / Vercel.
@@ -74,7 +114,7 @@ export async function middleware(request: NextRequest) {
   // authenticate via HMAC signature verification done in the handler itself.
   // GET on these routes returns a healthcheck JSON, also public.
   if (pathname.startsWith("/api/catalog/webhooks/")) {
-    return NextResponse.next();
+    return continueWith(requestHeaders);
   }
 
   // OAuth 2.1 authorization server (MCP custom connectors):
@@ -89,7 +129,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api/oauth/") ||
     pathname === "/oauth/authorize"
   ) {
-    return NextResponse.next();
+    return continueWith(requestHeaders);
   }
 
   // MCP endpoint owns its own auth (Bearer aipp_). On a missing/invalid key it
@@ -98,12 +138,12 @@ export async function middleware(request: NextRequest) {
   // the auth server. If middleware redirected this to /sign-in, the client could
   // never begin the OAuth handshake.
   if (pathname === "/mcp" || pathname === "/sse" || pathname === "/message") {
-    return NextResponse.next();
+    return continueWith(requestHeaders);
   }
 
   // Skip middleware for public routes
   if (isPublicRoute(pathname)) {
-    return NextResponse.next();
+    return continueWith(requestHeaders);
   }
 
   // Check for API key in Authorization header
@@ -118,12 +158,11 @@ export async function middleware(request: NextRequest) {
       );
     }
 
-    // API key validation happens in the route handler
-    // We just mark the request as API key auth
-    const response = NextResponse.next();
-    response.headers.set("x-auth-type", "api-key");
-    response.headers.set("x-api-key", apiKey);
-    return response;
+    // The key itself is validated against api_keys in getAuthContext(); here
+    // we only mark the request as API key auth. No user identity is set on
+    // this path, and the key is not echoed back in response headers.
+    requestHeaders.set("x-auth-type", "api-key");
+    return continueWith(requestHeaders);
   }
 
   // Check Stack Auth session
@@ -143,9 +182,8 @@ export async function middleware(request: NextRequest) {
 
     // User is authenticated via Stack Auth
     // Set basic auth headers - user ID will be set by route handlers via getAuthContext
-    const response = NextResponse.next();
-    response.headers.set("x-auth-type", "session");
-    response.headers.set("x-user-stack-id", user.id);
+    requestHeaders.set("x-auth-type", "session");
+    requestHeaders.set("x-user-stack-id", user.id);
 
     // Try to sync user to database, but don't block on failure
     try {
@@ -184,14 +222,14 @@ export async function middleware(request: NextRequest) {
 
       const internalUserId = dbUser[0]?.id;
       if (internalUserId) {
-        response.headers.set("x-user-id", internalUserId);
+        requestHeaders.set("x-user-id", internalUserId);
       }
     } catch (dbError) {
       // Log but don't fail - user is still authenticated via Stack Auth
       console.warn("DB sync in middleware failed (non-blocking):", dbError);
     }
 
-    return response;
+    return continueWith(requestHeaders);
   } catch (error) {
     console.error("Auth middleware error:", error);
 
@@ -204,8 +242,9 @@ export async function middleware(request: NextRequest) {
       );
     }
 
-    // For pages, let them load - they can handle auth state client-side
-    return NextResponse.next();
+    // For pages, let them load - they can handle auth state client-side.
+    // Start from a fresh stripped copy so no partially-set identity leaks through.
+    return continueWith(stripIdentityHeaders(request));
   }
 }
 
