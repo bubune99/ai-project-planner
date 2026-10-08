@@ -9,6 +9,17 @@ import {
   getPublicUrl,
 } from "@/lib/storage/r2-client";
 import { getAuthContext } from "@/lib/auth/auth-utils";
+import { checkRateLimit, HOUR_MS } from "@/lib/rate-limit";
+
+/** Uploads (direct or presigned) per user per hour. */
+const UPLOADS_PER_HOUR = 30;
+
+function uploadLimited() {
+  return NextResponse.json(
+    { error: `Upload limit reached (${UPLOADS_PER_HOUR} per hour). Try again later.`, code: "RATE_LIMITED" },
+    { status: 429 }
+  );
+}
 
 export const dynamic = "force-dynamic"
 
@@ -28,6 +39,10 @@ export async function POST(request: NextRequest) {
     }
 
     const { userId } = authContext;
+
+    if (!(await checkRateLimit(`upload:${userId}`, UPLOADS_PER_HOUR, HOUR_MS))) {
+      return uploadLimited();
+    }
 
     // Check R2 configuration
     if (!isR2Configured()) {
@@ -244,6 +259,10 @@ export async function GET(request: NextRequest) {
     }
 
     const { userId } = authContext;
+
+    if (!(await checkRateLimit(`upload:${userId}`, UPLOADS_PER_HOUR, HOUR_MS))) {
+      return uploadLimited();
+    }
 
     // Check R2 configuration
     if (!isR2Configured()) {

@@ -14,6 +14,9 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import { sql } from "@/lib/db/client"
+import { resetLimits } from "@/lib/rate-limit"
+import { getAiLimitStatus } from "@/lib/ai/usage-store"
+import { isPlatformAdmin } from "@/lib/auth/platform-admin"
 import { decodeTitleEntities, decodeMarkdownAmpEntities } from "@/lib/text/decode-entities"
 import {
   fetchEntityEnvelope,
@@ -6746,6 +6749,55 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
               ],
             },
           })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ==========================================
+    // AI usage limits — view and reset (lib/ai/spend-limits.ts, lib/rate-limit.ts)
+    // Resets are platform-owner only: env PLANNER_ADMIN_USER_IDS (there is no
+    // platform-admin role; project roles are per project). Every reset is
+    // logged to limit_resets.
+    // ==========================================
+    server.tool(
+      "get_ai_limits",
+      "Show assistant usage limits: the per-user token budget for the current session window and the site-wide ceiling, tokens used, and when each window resets. Anyone sees their own; another user's needs platform-owner access.",
+      {
+        userId: z.string().optional().describe("User to inspect (platform owner only). Defaults to you."),
+      },
+      async ({ userId }) => {
+        try {
+          const me = getMcpUserId()
+          const target = userId ?? me
+          if (target !== me && !isPlatformAdmin(me)) {
+            return mcpError("Only the platform owner can view another user's limits.")
+          }
+          return mcpResponse(await getAiLimitStatus(target))
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "reset_ai_limits",
+      "Platform owner only. Reset usage limits so they start fresh now. scope 'user' (needs identity: a userId, MCP API key id or IP), 'global' (site-wide AI ceiling), or 'all'. kind 'ai_tokens', 'rate' (request-rate counters) or 'all'. Logged.",
+      {
+        scope: z.enum(["user", "global", "all"]).optional().describe("Defaults to 'user' when identity is given, else 'all'"),
+        identity: z.string().max(200).optional().describe("userId, API key id or IP (scope 'user' only)"),
+        kind: z.enum(["ai_tokens", "rate", "all"]).optional().describe("Default 'all'"),
+      },
+      async ({ scope, identity, kind }) => {
+        try {
+          const me = getMcpUserId()
+          if (!isPlatformAdmin(me)) {
+            return mcpError("Only the platform owner can reset limits (PLANNER_ADMIN_USER_IDS).")
+          }
+          requireMcpScope("write")
+          const result = await resetLimits({ scope, identity, kind }, { userId: me, via: "mcp:reset_ai_limits" })
+          return mcpResponse({ reset: result })
         } catch (error: unknown) {
           return mcpError(error instanceof Error ? error.message : "Unknown error")
         }

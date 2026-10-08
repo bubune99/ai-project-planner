@@ -13,6 +13,8 @@
  *   ask_owner — the owner is already in the conversation.
  *   delete_todo, restore_document_version, catalog_scan_now — destructive or
  *     expensive; not without a confirmation step, which this UI lacks yet.
+ *   reset_ai_limits — platform-owner operation; an agent must never lift the
+ *     limits that meter it.
  */
 
 import { AGENTS, DEFAULT_AGENT_ID, type AgentId } from "./catalog"
@@ -46,6 +48,7 @@ export const NEVER_IN_APP: readonly string[] = [
   "register_worker", "heartbeat_worker", "claim_job", "request_unlock", "resolve_unlock", "update_job_status",
   "ask_owner",
   "delete_todo", "restore_document_version", "catalog_scan_now",
+  "reset_ai_limits",
 ]
 
 const SHARED_RULES = `

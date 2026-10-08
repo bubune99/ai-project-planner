@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from "@/lib/api-utils";
 import { getAuthContext } from "@/lib/auth/auth-utils";
 import { getProjectAccess } from "@/lib/auth/collaboration-access";
 import { createInvitation, logActivity } from "@/lib/collaboration";
+import { checkInviteLimits } from "@/lib/collaboration/invite-limits";
 import type { CollaboratorRole } from "@/lib/db/schema";
 
 export const dynamic = "force-dynamic"
@@ -167,6 +168,12 @@ export async function POST(
           400
         );
       }
+    }
+
+    // Cap invitation volume: each one can send an email.
+    const inviteLimit = await checkInviteLimits(userId, projectId);
+    if (!inviteLimit.ok) {
+      return errorResponse("RATE_LIMITED", inviteLimit.message, inviteLimit.status);
     }
 
     // Create invitation
