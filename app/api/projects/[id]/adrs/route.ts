@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db/client"
-import { getAuthContext } from "@/lib/auth/auth-utils"
+import { getAuthContext, verifyProjectOwnership } from "@/lib/auth/auth-utils"
+import { verifyCollaboratorAccess } from "@/lib/auth/collaboration-access"
 import { buildEnvelopeForWrite, envelopeForSql } from "@/lib/api/envelope-helpers"
 
 export const dynamic = "force-dynamic"
@@ -8,6 +9,14 @@ export const dynamic = "force-dynamic"
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { id } = params
+
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return NextResponse.json({ error: "Unauthorized", code: "AUTH_REQUIRED" }, { status: 401 })
+    }
+    if (!(await verifyProjectOwnership(id, authContext.userId))) {
+      return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 })
+    }
 
     const adrs = await sql`
       SELECT * FROM architecture_decisions
@@ -25,6 +34,18 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { id } = params
+
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return NextResponse.json({ error: "Unauthorized", code: "AUTH_REQUIRED" }, { status: 401 })
+    }
+    if (!(await verifyProjectOwnership(id, authContext.userId))) {
+      return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 })
+    }
+    if (!(await verifyCollaboratorAccess(id, authContext.userId, "editor"))) {
+      return NextResponse.json({ error: "Forbidden", code: "INSUFFICIENT_PERMISSIONS" }, { status: 403 })
+    }
+
     const body = await request.json()
     const { title, context, decision, consequences, alternatives_considered } = body
 
@@ -36,8 +57,6 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       )
     }
 
-    // Get auth context for envelope (non-fatal: ADR endpoints historically lack auth gate)
-    const authContext = await getAuthContext().catch(() => null)
     let envelopeSql: string | null = null
     if (authContext?.userId) {
       const envelopeResult = buildEnvelopeForWrite(

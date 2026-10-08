@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db/client"
-import { getAuthContext } from "@/lib/auth/auth-utils"
+import { getAuthContext, verifyProjectOwnership } from "@/lib/auth/auth-utils"
+import { verifyCollaboratorAccess } from "@/lib/auth/collaboration-access"
 import { mergeEnvelopeForPatch, envelopeForSql } from "@/lib/api/envelope-helpers"
 
 export const dynamic = "force-dynamic"
@@ -8,6 +9,18 @@ export const dynamic = "force-dynamic"
 export async function PATCH(request: NextRequest, { params }: { params: { id: string; adrId: string } }) {
   try {
     const { id, adrId } = params
+
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return NextResponse.json({ error: "Unauthorized", code: "AUTH_REQUIRED" }, { status: 401 })
+    }
+    if (!(await verifyProjectOwnership(id, authContext.userId))) {
+      return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 })
+    }
+    if (!(await verifyCollaboratorAccess(id, authContext.userId, "editor"))) {
+      return NextResponse.json({ error: "Forbidden", code: "INSUFFICIENT_PERMISSIONS" }, { status: 403 })
+    }
+
     const body = await request.json()
     const { status } = body
 
@@ -18,11 +31,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       )
     }
 
-    // Get auth context for envelope (non-fatal)
-    const authContext = await getAuthContext().catch(() => null)
     let envelopeSql: string | null = null
     if (authContext?.userId) {
-      const existing = await sql`SELECT documentation_5wh FROM architecture_decisions WHERE id = ${adrId}`
+      const existing = await sql`SELECT documentation_5wh FROM architecture_decisions WHERE id = ${adrId} AND project_id = ${id}`
       const mergeResult = mergeEnvelopeForPatch(
         existing[0]?.documentation_5wh,
         body,
@@ -45,9 +56,13 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         status            = ${status},
         documentation_5wh = COALESCE(${envelopeSql}::jsonb, documentation_5wh),
         updated_at        = NOW()
-      WHERE id = ${adrId}
+      WHERE id = ${adrId} AND project_id = ${id}
       RETURNING *
     `
+
+    if (!adr) {
+      return NextResponse.json({ error: "ADR not found" }, { status: 404 })
+    }
 
     return NextResponse.json({ adr })
   } catch (error) {
