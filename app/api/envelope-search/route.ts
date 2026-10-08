@@ -47,8 +47,37 @@ export async function GET(request: NextRequest) {
           'MaxFragments=2, MinWords=3, MaxWords=15'
         ) AS snippet,
         updated_at
-      FROM envelope_search_index
-      WHERE (user_id = ${userId} OR user_id IS NULL)
+      FROM envelope_search_index esi
+      WHERE (
+          esi.user_id = ${userId}
+          -- Migration 047 writes a NULL user_id for nine entity types. A NULL
+          -- owner is not "public": resolve the real owner at query time.
+          OR (esi.user_id IS NULL AND (
+            (esi.project_id IS NOT NULL AND (
+              EXISTS (SELECT 1 FROM projects p
+                      WHERE p.id = esi.project_id AND p.user_id = ${userId} AND p.deleted_at IS NULL)
+              OR EXISTS (SELECT 1 FROM project_collaborators pc
+                         WHERE pc.project_id = esi.project_id AND pc.user_id = ${userId}
+                           AND pc.removed_at IS NULL AND pc.accepted_at IS NOT NULL)
+            ))
+            OR (esi.entity_type = 'document' AND EXISTS (
+              SELECT 1 FROM documents d WHERE d.id = esi.entity_id AND d.user_id = ${userId}))
+            OR (esi.entity_type = 'agent_job' AND EXISTS (
+              SELECT 1 FROM agent_jobs j WHERE j.id = esi.entity_id AND j.created_by = ${userId}))
+            OR (esi.entity_type = 'idea_facet' AND EXISTS (
+              SELECT 1 FROM idea_facets f JOIN ideas i ON i.id = f.idea_id
+              WHERE f.id = esi.entity_id AND i.user_id = ${userId}))
+            OR (esi.entity_type = 'idea_document' AND EXISTS (
+              SELECT 1 FROM idea_documents idoc JOIN ideas i ON i.id = idoc.idea_id
+              WHERE idoc.id = esi.entity_id AND i.user_id = ${userId}))
+            OR (esi.entity_type = 'idea_refinement' AND EXISTS (
+              SELECT 1 FROM idea_refinements r JOIN ideas i ON i.id = r.idea_id
+              WHERE r.id = esi.entity_id AND i.user_id = ${userId}))
+            OR (esi.entity_type = 'work_order_step' AND EXISTS (
+              SELECT 1 FROM work_order_steps ws JOIN work_orders wo ON wo.id = ws.work_order_id
+              WHERE ws.id = esi.entity_id AND wo.user_id = ${userId}))
+          ))
+        )
         AND search_vector @@ websearch_to_tsquery('english', ${q})
         AND (${entityTypes}::text[] IS NULL OR entity_type = ANY(${entityTypes}::text[]))
         AND (${projectId}::uuid IS NULL OR project_id = ${projectId})

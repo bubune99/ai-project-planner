@@ -1,8 +1,22 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAuthContext } from "@/lib/auth/auth-utils"
 import { RelationshipsService } from "@/lib/services/relationships"
+import { sql } from "@/lib/db/client"
 
 export const dynamic = "force-dynamic"
+
+/**
+ * Verify user has access to an idea (same check as the sibling idea routes)
+ */
+async function verifyIdeaAccess(ideaId: string, userId: string): Promise<boolean> {
+  const result = (await sql`
+    SELECT id FROM ideas
+    WHERE id = ${ideaId}
+      AND user_id = ${userId}
+      AND deleted_at IS NULL
+  `) as Record<string, unknown>[]
+  return result.length > 0
+}
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -10,6 +24,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const auth = await getAuthContext()
     if (!auth) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
+    if (!(await verifyIdeaAccess(ideaId, auth.userId))) {
+      return NextResponse.json({ success: false, error: "Idea not found" }, { status: 404 })
     }
 
     const relationships = await RelationshipsService.list(ideaId)
@@ -33,6 +50,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const auth = await getAuthContext()
     if (!auth) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (!(await verifyIdeaAccess(ideaId, auth.userId))) {
+      return NextResponse.json({ success: false, error: "Idea not found" }, { status: 404 })
     }
 
     const body = await request.json()
@@ -70,6 +91,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             { status: 400 }
           )
         }
+        if (!(await verifyIdeaAccess(targetIdeaId, auth.userId))) {
+          return NextResponse.json({ success: false, error: "Idea not found" }, { status: 404 })
+        }
 
         const result = await RelationshipsService.mergeIdeas(
           ideaId,
@@ -92,6 +116,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             { status: 400 }
           )
         }
+        if (!(await verifyIdeaAccess(targetIdeaId, auth.userId))) {
+          return NextResponse.json({ success: false, error: "Idea not found" }, { status: 404 })
+        }
 
         const relationship = await RelationshipsService.markEvolvedInto(
           ideaId,
@@ -112,6 +139,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             { success: false, error: "to_idea_id and relationship_type are required" },
             { status: 400 }
           )
+        }
+        if (!(await verifyIdeaAccess(to_idea_id, auth.userId))) {
+          return NextResponse.json({ success: false, error: "Idea not found" }, { status: 404 })
         }
 
         const relationship = await RelationshipsService.create(ideaId, {
@@ -156,6 +186,19 @@ export async function DELETE(request: NextRequest) {
         { success: false, error: "Relationship ID is required" },
         { status: 400 }
       )
+    }
+
+    // The relationship must touch one of the caller's ideas; otherwise 404
+    const owned = (await sql`
+      SELECT 1 FROM idea_relationships r
+      JOIN ideas i ON i.id IN (r.from_idea_id, r.to_idea_id)
+      WHERE r.id = ${relationshipId}
+        AND i.user_id = ${auth.userId}
+        AND i.deleted_at IS NULL
+      LIMIT 1
+    `) as Record<string, unknown>[]
+    if (owned.length === 0) {
+      return NextResponse.json({ success: false, error: "Relationship not found" }, { status: 404 })
     }
 
     const deleted = await RelationshipsService.delete(relationshipId)

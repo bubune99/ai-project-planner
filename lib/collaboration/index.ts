@@ -156,7 +156,16 @@ export async function validateInvitation(
         u.name as inviter_name,
         u.email as inviter_email,
         pi.status,
-        pi.message
+        pi.message,
+        (p.user_id = pi.invited_by) AS inviter_is_owner,
+        EXISTS (
+          SELECT 1 FROM project_collaborators ipc
+          WHERE ipc.project_id = pi.project_id
+            AND ipc.user_id = pi.invited_by
+            AND ipc.role = 'admin'
+            AND ipc.removed_at IS NULL
+            AND ipc.accepted_at IS NOT NULL
+        ) AS inviter_is_admin
       FROM project_invitations pi
       JOIN projects p ON pi.project_id = p.id
       JOIN users u ON pi.invited_by = u.id
@@ -180,6 +189,17 @@ export async function validateInvitation(
 
     if (inv.status === "expired") {
       return { valid: false, error: "Invitation has expired", errorCode: "EXPIRED" };
+    }
+
+    // An invitation is only as good as its inviter's standing. Creating one
+    // requires owner or admin (and an admin-role invite requires owner), so an
+    // invite whose inviter has since been removed or demoted is treated as
+    // revoked. Checked at query time so no stored invitation outlives it.
+    const inviterCanStillInvite =
+      inv.inviter_is_owner === true ||
+      (inv.inviter_is_admin === true && inv.role !== "admin");
+    if (!inviterCanStillInvite) {
+      return { valid: false, error: "Invitation has been revoked", errorCode: "REVOKED" };
     }
 
     // Check expiration

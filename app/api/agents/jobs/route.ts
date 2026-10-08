@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
         a.status as agent_status
       FROM agent_jobs j
       LEFT JOIN agents a ON j.assigned_to = a.name
-      WHERE 1=1
+      WHERE j.created_by = ${authContext.userId}
         ${status ? sql`AND j.status = ${status}` : sql``}
         ${priority ? sql`AND j.priority = ${priority}` : sql``}
         ${assignedTo ? sql`AND j.assigned_to = ${assignedTo}` : sql``}
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
     // Get total count
     const countResult = await sql`
       SELECT COUNT(*) as count FROM agent_jobs
-      WHERE 1=1
+      WHERE created_by = ${authContext.userId}
         ${status ? sql`AND status = ${status}` : sql``}
         ${priority ? sql`AND priority = ${priority}` : sql``}
         ${assignedTo ? sql`AND assigned_to = ${assignedTo}` : sql``}
@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
  * Body: {
  *   title: string (required)
  *   description?: string
- *   createdBy: string (required - agent ID or user ID)
+ *   createdBy?: string (ignored - created_by is always the authenticated user)
  *   assignedTo?: string (optional - pre-assign to agent)
  *   priority?: "low" | "normal" | "high" | "critical"
  *   input?: object
@@ -154,7 +154,6 @@ export async function POST(request: NextRequest) {
     const {
       title,
       description,
-      createdBy,
       assignedTo,
       priority = 'normal',
       input,
@@ -166,10 +165,6 @@ export async function POST(request: NextRequest) {
 
     if (!title?.trim()) {
       return errorResponse(ErrorCodes.VALIDATION_ERROR, 'Title is required', 400)
-    }
-
-    if (!createdBy?.trim()) {
-      return errorResponse(ErrorCodes.VALIDATION_ERROR, 'createdBy is required', 400)
     }
 
     // Validate priority
@@ -213,7 +208,7 @@ export async function POST(request: NextRequest) {
       ) VALUES (
         ${title.trim()},
         ${description?.trim() || null},
-        ${createdBy.trim()},
+        ${authContext.userId},
         ${assignedTo?.trim() || null},
         ${assignedTo ? 'assigned' : 'pending'},
         ${priority},

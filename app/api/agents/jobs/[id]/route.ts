@@ -1,6 +1,7 @@
 import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
+import { getAuthContext } from '@/lib/auth/auth-utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,12 +50,17 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    }
+
     const { id } = await params
     const { searchParams } = new URL(request.url)
     const includeCheckpoints = searchParams.get('includeCheckpoints') !== 'false'
 
     const job = await sql`
-      SELECT * FROM agent_jobs WHERE id = ${id}
+      SELECT * FROM agent_jobs WHERE id = ${id} AND created_by = ${authContext.userId}
     `
 
     if (job.length === 0) {
@@ -112,12 +118,17 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    }
+
     const { id } = await params
     const body = await request.json()
 
-    // Get current job
+    // Get current job (owner-scoped: another user's job is a 404)
     const current = await sql`
-      SELECT * FROM agent_jobs WHERE id = ${id}
+      SELECT * FROM agent_jobs WHERE id = ${id} AND created_by = ${authContext.userId}
     `
 
     if (current.length === 0) {
@@ -140,7 +151,7 @@ export async function PATCH(
             SET assigned_to = ${agentId},
                 status = 'assigned',
                 metadata = metadata || ${JSON.stringify({ assignedBy: assignedBy || 'unknown' })}::jsonb
-            WHERE id = ${id}
+            WHERE id = ${id} AND created_by = ${authContext.userId}
             RETURNING *
           `
           return successResponse(transformJob(result[0]))
@@ -160,7 +171,7 @@ export async function PATCH(
             UPDATE agent_jobs
             SET assigned_to = ${agentId},
                 status = 'assigned'
-            WHERE id = ${id} AND status = 'pending'
+            WHERE id = ${id} AND created_by = ${authContext.userId} AND status = 'pending'
             RETURNING *
           `
 
@@ -186,7 +197,7 @@ export async function PATCH(
             SET assigned_to = ${agentId},
                 status = 'in_progress',
                 started_at = NOW()
-            WHERE id = ${id}
+            WHERE id = ${id} AND created_by = ${authContext.userId}
             RETURNING *
           `
           return successResponse(transformJob(result[0]))
@@ -211,7 +222,7 @@ export async function PATCH(
           const result = await sql`
             UPDATE agent_jobs
             SET progress = ${progress}
-            WHERE id = ${id}
+            WHERE id = ${id} AND created_by = ${authContext.userId}
             RETURNING *
           `
 
@@ -237,7 +248,7 @@ export async function PATCH(
                 result = ${jobResult ? JSON.stringify(jobResult) : null},
                 progress = 100,
                 completed_at = NOW()
-            WHERE id = ${id}
+            WHERE id = ${id} AND created_by = ${authContext.userId}
             RETURNING *
           `
           return successResponse(transformJob(result[0]))
@@ -257,7 +268,7 @@ export async function PATCH(
             SET status = 'failed',
                 error = ${error},
                 completed_at = NOW()
-            WHERE id = ${id}
+            WHERE id = ${id} AND created_by = ${authContext.userId}
             RETURNING *
           `
           return successResponse(transformJob(result[0]))
@@ -278,7 +289,7 @@ export async function PATCH(
                   cancelledAt: new Date().toISOString()
                 })}::jsonb,
                 completed_at = NOW()
-            WHERE id = ${id}
+            WHERE id = ${id} AND created_by = ${authContext.userId}
             RETURNING *
           `
           return successResponse(transformJob(result[0]))
@@ -303,7 +314,7 @@ export async function PATCH(
             SET assigned_to = ${agentId},
                 status = 'in_progress',
                 started_at = COALESCE(started_at, NOW())
-            WHERE id = ${id}
+            WHERE id = ${id} AND created_by = ${authContext.userId}
             RETURNING *
           `
 
@@ -348,7 +359,7 @@ export async function PATCH(
         tags = COALESCE(${tags ?? null}, tags),
         conversation_id = COALESCE(${conversationId ?? null}, conversation_id),
         metadata = COALESCE(${metadata ? JSON.stringify(metadata) : null}, metadata)
-      WHERE id = ${id}
+      WHERE id = ${id} AND created_by = ${authContext.userId}
       RETURNING *
     `
 
@@ -373,11 +384,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const authContext = await getAuthContext()
+    if (!authContext) {
+      return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    }
+
     const { id } = await params
 
-    // Get job first
+    // Get job first (owner-scoped: another user's job is a 404)
     const current = await sql`
-      SELECT status FROM agent_jobs WHERE id = ${id}
+      SELECT status FROM agent_jobs WHERE id = ${id} AND created_by = ${authContext.userId}
     `
 
     if (current.length === 0) {
@@ -397,7 +413,7 @@ export async function DELETE(
     await sql`DELETE FROM agent_job_checkpoints WHERE job_id = ${id}`
 
     // Delete job
-    await sql`DELETE FROM agent_jobs WHERE id = ${id}`
+    await sql`DELETE FROM agent_jobs WHERE id = ${id} AND created_by = ${authContext.userId}`
 
     return successResponse({ deleted: true, id })
   } catch (error: any) {

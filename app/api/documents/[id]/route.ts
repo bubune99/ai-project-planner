@@ -30,6 +30,16 @@ export async function GET(
     const { userId } = authContext;
     const { id } = await params;
 
+    // Ownership gate first: get_document_with_versions() filters by id only,
+    // so without this the primary path below returned any user's document.
+    const owned = (await sql`
+      SELECT 1 FROM documents
+      WHERE id = ${id} AND user_id = ${userId} AND deleted_at IS NULL
+    `) as Record<string, unknown>[];
+    if (owned.length === 0) {
+      return NextResponse.json({ error: "Document not found" }, { status: 404 });
+    }
+
     // Get document with version history
     // First try the function, if it doesn't exist fall back to simple query
     let document;

@@ -47,7 +47,8 @@ export async function GET(request: NextRequest) {
     // Get single conversation with messages
     if (conversationId) {
       const conversation = await getConversation(conversationId);
-      if (!conversation) {
+      // Another user's conversation is reported as not found (no existence leak)
+      if (!conversation || conversation.userId !== userId) {
         return NextResponse.json(
           { error: "Conversation not found" },
           { status: 404 }
@@ -86,6 +87,14 @@ export async function GET(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   try {
+    const authContext = await getAuthContext();
+    if (!authContext) {
+      return NextResponse.json(
+        { error: "Unauthorized", code: "AUTH_REQUIRED" },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { conversationId, title, archive } = body;
 
@@ -96,9 +105,9 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Check conversation exists
+    // Check conversation exists and belongs to the caller
     const conversation = await getConversation(conversationId);
-    if (!conversation) {
+    if (!conversation || conversation.userId !== authContext.userId) {
       return NextResponse.json(
         { error: "Conversation not found" },
         { status: 404 }
@@ -134,6 +143,14 @@ export async function PATCH(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
+    const authContext = await getAuthContext();
+    if (!authContext) {
+      return NextResponse.json(
+        { error: "Unauthorized", code: "AUTH_REQUIRED" },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const conversationId = searchParams.get("id");
 
@@ -144,9 +161,9 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Check conversation exists
+    // Check conversation exists and belongs to the caller
     const conversation = await getConversation(conversationId);
-    if (!conversation) {
+    if (!conversation || conversation.userId !== authContext.userId) {
       return NextResponse.json(
         { error: "Conversation not found" },
         { status: 404 }
