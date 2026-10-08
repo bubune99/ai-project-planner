@@ -34,6 +34,7 @@ import {
   listSourcesForJob,
 } from "@/lib/db/backbone"
 import { buildQuestionInput } from "@/lib/inbox"
+import { visibleStepPredicate } from "@/lib/db/agent-task-access"
 import {
   validateMcpApiKey,
   runWithMcpContext,
@@ -1396,13 +1397,21 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
       },
       async ({ brief }) => {
         try {
-          // Agents are shared across all users (global resource)
-          const agents = await sql`
-            SELECT a.*, ps.title as current_task_title
+          // Agents are shared across all users (global resource), but the
+          // step an agent is on belongs to one tenant: only show it to a
+          // caller who can see that step's project.
+          const userId = getMcpUserId()
+          const rows = await sql`
+            SELECT a.*, ps.id AS visible_task_id, ps.title as current_task_title
             FROM agents a
-            LEFT JOIN project_steps ps ON a.current_task_id = ps.id
+            LEFT JOIN project_steps ps
+              ON a.current_task_id = ps.id AND ${visibleStepPredicate(userId)}
             ORDER BY a.name
           `
+          const agents = rows.map(({ visible_task_id, ...a }: Record<string, unknown>) => ({
+            ...a,
+            current_task_id: visible_task_id ?? null,
+          }))
 
           const data = brief
             ? agents.map((a: Record<string, unknown>) => ({
