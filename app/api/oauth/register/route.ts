@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { registerClient } from "@/lib/oauth/store"
+import { isSafeRedirectUri } from "@/lib/oauth/redirect-uri"
 
 export const dynamic = "force-dynamic"
 
@@ -38,20 +39,19 @@ export async function POST(request: NextRequest) {
   if (!Array.isArray(redirectUris) || redirectUris.length === 0) {
     return oauthError("invalid_redirect_uri", "redirect_uris is required and must be a non-empty array")
   }
-  // Every redirect URI must be an absolute URI. We deliberately allow any
-  // scheme (https, http loopback, and custom app schemes like claude://) since
-  // native MCP clients use all three. The real safeguard is that we only ever
-  // redirect to a URI that was registered by THIS client AND matches exactly,
-  // and the human sees the redirect target on the consent screen.
+  // Every redirect URI must be an absolute https URI, or http on a loopback
+  // host. Registration is open, and the authorize endpoint hands the URI to
+  // redirect() (client-side location.assign), so a javascript:/data: URI
+  // would run script in this origin. Custom app schemes are rejected too.
   for (const uri of redirectUris) {
     if (typeof uri !== "string") {
       return oauthError("invalid_redirect_uri", "redirect_uris must be strings")
     }
-    try {
-      // URL() requires an absolute URI with a scheme; custom schemes parse fine.
-      new URL(uri)
-    } catch {
-      return oauthError("invalid_redirect_uri", `Not an absolute URI: ${uri}`)
+    if (!isSafeRedirectUri(uri)) {
+      return oauthError(
+        "invalid_redirect_uri",
+        "redirect_uris must be absolute https URIs (http is allowed only for localhost/127.0.0.1/[::1])"
+      )
     }
   }
 
