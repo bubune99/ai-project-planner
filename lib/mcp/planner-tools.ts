@@ -3977,6 +3977,35 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
     )
     // ---------- Sources (federation scaffolding) ----------
 
+    // A source link is only as private as its parent. Check the caller can
+    // reach every parent named: a step through its project (write access to
+    // link, read access to list), a job or todo only if the caller owns it —
+    // the same rules claim_job and update_todo already apply.
+    async function sourceParentAccessError(
+      parents: { stepId?: string; jobId?: string; todoId?: string },
+      needWrite: boolean,
+    ): Promise<string | null> {
+      const userId = getMcpUserId()
+      if (parents.stepId) {
+        const [step] = await sql`SELECT project_id FROM project_steps WHERE id = ${parents.stepId}`
+        if (!step) return "Step not found or access denied"
+        const access = await verifyMcpProjectAccess(step.project_id as string)
+        if (!access.hasAccess) return "Step not found or access denied"
+        if (needWrite && !access.canWrite) return "You have view-only access to this project"
+      }
+      if (parents.jobId) {
+        const [job] = await sql`SELECT created_by FROM agent_jobs WHERE id = ${parents.jobId}`
+        if (!job || job.created_by !== userId) return "Job not found or access denied"
+      }
+      if (parents.todoId) {
+        const [todo] = await sql`
+          SELECT id FROM todos WHERE id = ${parents.todoId} AND user_id = ${userId} AND deleted_at IS NULL
+        `
+        if (!todo) return "Todo not found or access denied"
+      }
+      return null
+    }
+
     server.tool(
       "create_source",
       "Link a planner entity (step, job, or todo) to an external source (GitHub issue, Vercel deployment, agent-com job, ...). Schema-only — no sync logic yet.",
@@ -3997,6 +4026,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           if (!stepId && !jobId && !todoId) {
             return mcpError("At least one of stepId, jobId, todoId must be set")
           }
+          const denied = await sourceParentAccessError({ stepId, jobId, todoId }, true)
+          if (denied) return mcpError(denied)
           const source = await createSource({
             userId,
             kind,
@@ -4027,6 +4058,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
       },
       async ({ stepId }) => {
         try {
+          const denied = await sourceParentAccessError({ stepId }, false)
+          if (denied) return mcpError(denied)
           const sources = await listSourcesForStep(stepId)
           return mcpResponse({
             sources: sources.map((s) => ({
@@ -4053,6 +4086,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
       },
       async ({ jobId }) => {
         try {
+          const denied = await sourceParentAccessError({ jobId }, false)
+          if (denied) return mcpError(denied)
           const sources = await listSourcesForJob(jobId)
           return mcpResponse({
             sources: sources.map((s) => ({
