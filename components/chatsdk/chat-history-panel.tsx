@@ -2,9 +2,10 @@
 
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import useSWRInfinite from "swr/infinite"
+import { HISTORY_TOGGLE_EVENT, useIsNarrow } from "@/lib/chatsdk/history-drawer"
 import { getChatHistoryPaginationKey, type ChatHistory } from "./sidebar-history"
 
 type ChatEntry = {
@@ -40,6 +41,15 @@ export function ChatHistoryPanel() {
   const activeChatId = params?.id as string | undefined
   const router = useRouter()
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  // On phones the list is a slide-over drawer so the agent gets the whole width.
+  const narrow = useIsNarrow()
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  useEffect(() => {
+    const toggle = () => setDrawerOpen(v => !v)
+    window.addEventListener(HISTORY_TOGGLE_EVENT, toggle)
+    return () => window.removeEventListener(HISTORY_TOGGLE_EVENT, toggle)
+  }, [])
+  useEffect(() => { setDrawerOpen(false) }, [activeChatId, narrow])
   // Select mode: tick several chats and delete them together, or clear all.
   const [selecting, setSelecting] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
@@ -170,11 +180,29 @@ export function ChatHistoryPanel() {
     )
   }
 
+  const panelStyle: React.CSSProperties = narrow
+    ? {
+        position: "fixed", top: 0, bottom: 0, left: 0, width: "min(300px, 86vw)", zIndex: 60,
+        borderRight: "1px solid var(--j-hairline)", display: "flex", flexDirection: "column",
+        background: "oklch(0.135 0 0)", overflow: "hidden", boxShadow: "0 0 40px rgba(0,0,0,.6)",
+        transform: drawerOpen ? "translateX(0)" : "translateX(-102%)", transition: "transform .2s ease",
+        visibility: drawerOpen ? "visible" : "hidden",
+      }
+    : {
+        width: 220, flexShrink: 0, borderRight: "1px solid var(--j-hairline)",
+        display: "flex", flexDirection: "column", background: "oklch(0.135 0 0)", overflow: "hidden",
+      }
+
   return (
-    <div style={{
-      width: 220, flexShrink: 0, borderRight: "1px solid var(--j-hairline)",
-      display: "flex", flexDirection: "column", background: "oklch(0.135 0 0)", overflow: "hidden",
-    }}>
+    <>
+    {narrow && drawerOpen && (
+      <div
+        onClick={() => setDrawerOpen(false)}
+        aria-hidden
+        style={{ position: "fixed", inset: 0, zIndex: 59, background: "rgba(0,0,0,.5)" }}
+      />
+    )}
+    <div style={panelStyle} aria-hidden={narrow && !drawerOpen}>
       {/* Panel header */}
       <div style={{ padding: "12px 14px 8px", borderBottom: "1px solid var(--j-hairline)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: "oklch(0.780 0 0)", letterSpacing: "0.02em" }}>History</span>
@@ -262,5 +290,6 @@ export function ChatHistoryPanel() {
         </Link>
       </div>
     </div>
+    </>
   )
 }

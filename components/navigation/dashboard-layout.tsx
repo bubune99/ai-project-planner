@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { AppSidebar } from "./app-sidebar"
 import { Icon } from "@/components/jarvis/icons"
@@ -24,6 +25,15 @@ interface DashboardLayoutProps {
   children: React.ReactNode
   noPad?: boolean
 }
+
+
+// Phone bottom tabs (same shape as the Dzidzor/BYB phone app): the agent is the centre tab.
+const PHONE_TABS = [
+  { href: "/todos", label: "Today", icon: "check" as const },
+  { href: "/projects", label: "Projects", icon: "folder" as const },
+  { href: "/chat", label: "Ask", icon: "sparkle" as const, center: true },
+  { href: "/inbox", label: "Inbox", icon: "msg" as const },
+]
 
 type Viewport = "mobile" | "tablet" | "desktop"
 
@@ -162,6 +172,29 @@ export function DashboardLayout({ children, noPad }: DashboardLayoutProps) {
           {children}
         </main>
       </div>
+
+      {vp === "mobile" && !pathname.startsWith("/chat") && (
+        <nav className="j-tabbar" aria-label="Primary">
+          {PHONE_TABS.map(t => {
+            const active = pathname === t.href || pathname.startsWith(t.href + "/")
+            return (
+              <Link
+                key={t.href}
+                href={t.href}
+                className={`j-tab${t.center ? " j-tab-center" : ""}${active ? " j-tab-active" : ""}`}
+                aria-current={active ? "page" : undefined}
+              >
+                <Icon name={t.icon} size={t.center ? 20 : 18} />
+                <span>{t.label}</span>
+              </Link>
+            )
+          })}
+          <button className="j-tab" onClick={() => setMobileOpen(true)} aria-label="More: open the full menu">
+            <Icon name="list" size={18} />
+            <span>More</span>
+          </button>
+        </nav>
+      )}
 
       {/* Command palette overlay */}
       {cmdOpen && (

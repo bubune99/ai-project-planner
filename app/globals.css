@@ -684,3 +684,27 @@ body::before {
   .j-btn-icon { min-width: 34px; min-height: 34px; }
   .j-pill { height: 22px; padding: 3px 9px; }
 }
+
+
+/* ---------- PHONE BOTTOM TABS (≤ 768px) — Today · Projects · Ask · Inbox · More ---------- */
+.j-tabbar { display: none; }
+@media (max-width: 768px) {
+  .j-tabbar {
+    display: grid; grid-template-columns: repeat(5, 1fr); align-items: end;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    background: oklch(0.135 0 0 / 0.94); backdrop-filter: blur(10px);
+    border-top: 1px solid var(--j-hairline);
+  }
+  .j-tab {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    min-height: 48px; padding: 4px 2px; border: 0; background: none; border-radius: 10px;
+    color: oklch(0.62 0 0); font: inherit; font-size: 10.5px; text-decoration: none; cursor: pointer;
+    touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  }
+  .j-tab-active { color: var(--j-accent); }
+  .j-tab-center { color: var(--j-accent); }
+  .j-tab-center svg { background: oklch(0.870 0.045 252 / 0.16); box-shadow: 0 0 0 1px oklch(0.870 0.045 252 / 0.35); border-radius: 12px; padding: 7px; box-sizing: content-box; margin-top: -10px; }
+  /* keep page content clear of the bar */
+  .j-main > main { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+}

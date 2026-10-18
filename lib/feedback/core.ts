@@ -175,6 +175,26 @@ export async function captureScreenshot(el: Element): Promise<string | null> {
 
 // ── Select mode (hover highlight + capture-phase click) ──────────────────────
 
+/** Build the full capture (selector, rect, snapshot, screenshot) for one element. */
+export async function captureElement(el: Element): Promise<CapturedTarget> {
+  const r = el.getBoundingClientRect();
+  const sel = buildSelector(el);
+  const attrs: Record<string, string> = {};
+  for (const a of Array.from(el.attributes)) attrs[a.name] = a.value;
+  return {
+    selector: sel.primary,
+    selectorFallbacks: sel.fallbacks,
+    rect: { x: r.left, y: r.top, w: r.width, h: r.height },
+    snapshot: {
+      tag: el.tagName.toLowerCase(),
+      text: (el.textContent || "").trim().slice(0, 200),
+      classes: el.className?.toString?.() || "",
+      attributes: attrs,
+    },
+    screenshot: await captureScreenshot(el),
+  };
+}
+
 export interface SelectController {
   stop: () => void;
 }
@@ -226,25 +246,13 @@ export function startSelect(
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
-    const el = current;
+    const el =
+      current ??
+      (document.elementsFromPoint(e.clientX, e.clientY).find((n) => !isOwn(n)) as Element | undefined) ??
+      null;
     if (!el) return;
     cleanup();
-    const r = el.getBoundingClientRect();
-    const sel = buildSelector(el);
-    const attrs: Record<string, string> = {};
-    for (const a of Array.from(el.attributes)) attrs[a.name] = a.value;
-    onPick({
-      selector: sel.primary,
-      selectorFallbacks: sel.fallbacks,
-      rect: { x: r.left, y: r.top, w: r.width, h: r.height },
-      snapshot: {
-        tag: el.tagName.toLowerCase(),
-        text: (el.textContent || "").trim().slice(0, 200),
-        classes: el.className?.toString?.() || "",
-        attributes: attrs,
-      },
-      screenshot: await captureScreenshot(el),
-    });
+    onPick(await captureElement(el));
   };
 
   const key = (e: KeyboardEvent) => {
