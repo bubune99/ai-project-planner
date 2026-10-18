@@ -25,7 +25,7 @@ eq("agent approves money", agentMay("money"), "approve")
 
 // 3. Eligibility for the in-app chat, whatever an allowlist says.
 const must = ["create_transaction", "list_transactions", "get_finance_summary", "list_accounts", "delete_todo", "restore_document_version",
-  "claim_job", "register_worker", "set_active_project", "register_workspace", "ask_owner", "request_unlock", "brand_new_tool"]
+  "get_ai_limits", "reset_ai_limits", "claim_job", "register_worker", "set_active_project", "register_workspace", "ask_owner", "request_unlock", "brand_new_tool"]
 eq("blocked: money, finance, destructive, worker, unknown", must.filter(inAppEligible), [])
 eq("kept: reads and live writes", ["get_dashboard", "create_task", "toggle_todo"].filter(inAppEligible), ["get_dashboard", "create_task", "toggle_todo"])
 eq("enforceRisk keeps order and drops blocked", enforceRisk(["get_dashboard", "delete_todo", "update_task", "create_transaction"]), ["get_dashboard", "update_task"])

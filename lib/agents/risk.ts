@@ -23,7 +23,7 @@ export interface PlannerToolMeta extends ToolRiskInput {
   /** A reversible, low-risk live write that may stay direct once change sets exist. */
   directOk?: true
   /** Where the tool belongs. Finance and worker tools never reach the in-app chat. */
-  domain?: "finance" | "worker"
+  domain?: "finance" | "worker" | "admin"
 }
 
 const R: PlannerToolMeta = { effect: "read" }
@@ -62,6 +62,10 @@ export const PLANNER_TOOL_RISK: Readonly<Record<string, PlannerToolMeta>> = {
   register_surface: W, reorder_todos: W, score_prompt: W, score_template: W, transition_phase: W, update_document: W,
   update_idea: W, update_project: W, update_task: W, update_todo: W, catalog_scan_now: W, record_attempt: W,
   record_mlp_attempt: W, record_prompt_fire: W, record_spec_outcome: W, work_order_check_in: W, work_order_claim_step: W,
+
+  // ── owner/admin controls (spend limits): never in the in-app chat; resetting a limit removes a guard ──
+  get_ai_limits: { effect: "read", domain: "admin" },
+  reset_ai_limits: { effect: "irreversible", domain: "admin" },
 
   // ── worker / plumbing / caller-scoped: never in the in-app chat ──
   claim_job: WORKER_W, heartbeat_worker: WORKER_W, register_worker: WORKER_W, request_unlock: WORKER_W,
