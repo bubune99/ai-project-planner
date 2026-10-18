@@ -25,6 +25,8 @@ import type { Attachment, ChatMessage } from "@/lib/chatsdk/types";
 import type { AppUsage } from "@/lib/chatsdk/usage";
 import { cn } from "@/lib/chatsdk/utils";
 import { Context } from "./elements/context";
+import { HoldToTalk } from "./hold-to-talk";
+import { ASK_EVENT, QUOTE_EVENT, asQuote, type TextDetail } from "@/lib/chatsdk/chat-events";
 import {
   PromptInput,
   PromptInputModelSelect,
@@ -103,6 +105,28 @@ function PureMultimodalInput({
   // "Think": ask the agent for its visible reasoning (Claude extended
   // thinking) on the next messages. Slower, so off by default; remembered.
   const [thinking, setThinking] = useLocalStorage("chat-thinking", false);
+
+  // Long-press menu and swipe gestures hand text to the composer through window events.
+  useEffect(() => {
+    const onQuote = (e: Event) => {
+      const t = (e as CustomEvent<TextDetail>).detail?.text;
+      if (!t) return;
+      setInput((prev) => asQuote(t) + prev);
+      textareaRef.current?.focus();
+    };
+    const onAsk = (e: Event) => {
+      const t = (e as CustomEvent<TextDetail>).detail?.text;
+      if (!t) return;
+      setInput(t);
+      textareaRef.current?.focus();
+    };
+    window.addEventListener(QUOTE_EVENT, onQuote);
+    window.addEventListener(ASK_EVENT, onAsk);
+    return () => {
+      window.removeEventListener(QUOTE_EVENT, onQuote);
+      window.removeEventListener(ASK_EVENT, onAsk);
+    };
+  }, [setInput]);
   // "Memory": let the agent search past chats and the memory store. Off by
   // default so a chat only sees itself unless asked; remembered.
   const [memory, setMemory] = useLocalStorage("chat-memory", false);
@@ -248,6 +272,7 @@ function PureMultimodalInput({
       />
 
       <PromptInput
+        data-ui="chat.composer"
         className="rounded-xl border border-border bg-background p-3 shadow-xs transition-all duration-200 focus-within:border-border hover:border-muted-foreground/50"
         onSubmit={(event) => {
           event.preventDefault();
@@ -321,6 +346,7 @@ function PureMultimodalInput({
             />
             <button
               type="button"
+              data-ui="chat.think"
               onClick={() => setThinking((v) => !v)}
               aria-pressed={thinking}
               title={thinking ? "Thinking on: the agent shows its reasoning (slower)" : "Show the agent's reasoning on the next message"}
@@ -334,6 +360,7 @@ function PureMultimodalInput({
             </button>
             <button
               type="button"
+              data-ui="chat.memory"
               onClick={() => setMemory((v) => !v)}
               aria-pressed={memory}
               title={memory ? "Memory on: the agent can search your past chats and memory" : "Let the agent search your past chats and memory"}
@@ -347,10 +374,15 @@ function PureMultimodalInput({
             </button>
           </PromptInputTools>
 
+          <HoldToTalk
+            disabled={status !== "ready"}
+            onText={(t) => setInput((prev) => (prev ? `${prev} ${t}` : t))}
+          />
           {status === "submitted" ? (
             <StopButton setMessages={setMessages} stop={stop} />
           ) : (
             <PromptInputSubmit
+              data-ui="chat.send"
               className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
               disabled={!(input && input.length > 0) || uploadQueue.length > 0}
               status={status}
@@ -439,7 +471,7 @@ function PureModelSelectorCompact({
   // One agent only (siblings get JARVIS): a plain label, no dropdown.
   if (agents.length <= 1) {
     return (
-      <span className="flex h-8 items-center px-2 font-medium text-muted-foreground text-xs">
+      <span data-ui="chat.agent" className="flex h-8 items-center px-2 font-medium text-muted-foreground text-xs">
         {(agents[0] ?? selectedModel)?.name}
       </span>
     );
@@ -460,6 +492,7 @@ function PureModelSelectorCompact({
       value={selectedModel?.name}
     >
       <Trigger
+        data-ui="chat.agent"
         className="flex h-8 items-center gap-2 rounded-lg border-0 bg-background px-2 text-foreground shadow-none transition-colors hover:bg-accent focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
         type="button"
       >

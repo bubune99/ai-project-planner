@@ -1,13 +1,14 @@
 "use client"
 
 import { motion } from "framer-motion"
+import { startTour } from "@/lib/ade/ui/attention-events"
 
 /** The one set of starters (the old SuggestedActions list is gone). */
 export const STARTERS = [
   { label: "Catch me up on my shared projects", hint: "What changed and what needs you" },
   { label: "What do I need to do next?", hint: "Your todos and open steps" },
   { label: "What changed since I was last here?", hint: "New activity across projects" },
-  { label: "Show me around the planner", hint: "A short walkthrough" },
+  { label: "Show me around the planner", hint: "A short walkthrough", tour: true },
 ]
 
 export const Greeting = ({ onPick, agentName = "JARVIS" }: { onPick?: (text: string) => void; agentName?: string }) => (
@@ -23,14 +24,15 @@ export const Greeting = ({ onPick, agentName = "JARVIS" }: { onPick?: (text: str
     </motion.div>
 
     <div data-testid="suggested-actions" style={{ display: "grid", gap: 8, width: "100%", maxWidth: 520 }}>
-      {STARTERS.map(({ label, hint }, i) => (
+      {STARTERS.map(({ label, hint, tour }, i) => (
         <motion.button
           key={label}
           type="button"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 * i }}
-          onClick={() => onPick?.(label)}
+          data-ui={`chat.starter.${i}`}
+          onClick={() => (tour ? startTour() : onPick?.(label))}
           style={{
             display: "block", textAlign: "left", width: "100%", minHeight: 52,
             background: "oklch(1 0 0 / 0.04)", border: "1px solid var(--j-ring)", borderRadius: 12,

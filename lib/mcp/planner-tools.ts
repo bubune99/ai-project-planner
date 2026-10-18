@@ -12,6 +12,7 @@
  */
 
 import { registerCatchupTools } from "./catchup-tools"
+import { registerUiTools } from "./ui-tools"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import { sql } from "@/lib/db/client"
@@ -6903,4 +6904,6 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
 
   // Read-only catch-up and my-work tools for shared projects (lib/mcp/catchup-tools.ts).
   registerCatchupTools(server)
+  // show_unit: point at a part of the screen (lib/mcp/ui-tools.ts), read-only.
+  registerUiTools(server)
 }

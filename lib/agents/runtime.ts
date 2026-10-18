@@ -19,6 +19,7 @@ import { runWithMcpContext, type McpContext } from "@/lib/auth/mcp-context"
 import { collectTools, toAiTools, type CollectedTool, type ToolObserver } from "./tool-bridge"
 import { REGISTRY, contextBlock, toolsForRequest, type AgentDefinition } from "./registry"
 import { toolTitle, summarizeResult, type TraceRecorder } from "./trace"
+import { toWidget } from "./widgets"
 import { enforceRisk } from "./risk"
 import { scopesForRole, scopesForTools, toolsAllowedForRole, type ProjectRole } from "./access"
 import { getProjectAccess } from "@/lib/auth/collaboration-access"
@@ -122,9 +123,18 @@ function contextFor(agent: AgentDefinition, req: AgentRequest, role: ProjectRole
 
 function observer(trace: TraceRecorder | undefined, parentId: string | undefined): ToolObserver | undefined {
   if (!trace) return undefined
+  const names = new Map<string, string>()
   return {
-    start: (name, input) => trace.begin({ label: name, title: toolTitle(name, input), kind: "tool", parentId }),
-    end: (id, text) => { if (id) trace.end(id, summarizeResult(text)) },
+    start: (name, input) => {
+      const id = trace.begin({ label: name, title: toolTitle(name, input), kind: "tool", parentId })
+      names.set(id, name)
+      return id
+    },
+    end: (id, text) => {
+      if (!id) return
+      const base = summarizeResult(text)
+      trace.end(id, base.status === "ok" ? { ...base, widget: toWidget(names.get(id) ?? "", text) } : base)
+    },
   }
 }
 

@@ -76,7 +76,7 @@ const DEFS: Record<AgentId, Omit<AgentDefinition, "id" | "name">> = {
       "get_answer",
       "create_task", "update_task", "add_task_comment", "create_todo", "update_todo", "toggle_todo",
       "create_decision", "add_progress_note", "create_event", "create_idea",
-      "catch_me_up", "my_work",
+      "catch_me_up", "my_work", "show_unit",
     ],
     instructions: `You are JARVIS, the assistant inside the project planner. You work for whoever is signed in and see the projects they own or have joined; never mention or infer anyone else's private projects.
 
@@ -85,7 +85,7 @@ Answer directly when you can. Hand work to a specialist with the delegate tool w
 - researcher — digging through memory, the library, ideas and past attempts to answer "what do we know / what have we tried".
 Give the specialist a complete, self-contained task; it does not see this conversation. Relay its answer, don't repeat its work.${SHARED_RULES}
 
-${skillInstructions(["catch-up", "my-work"])}`,
+${skillInstructions(["catch-up", "my-work", "point-and-teach"])}`,
   },
   operator: {
     model: MODELS.main,

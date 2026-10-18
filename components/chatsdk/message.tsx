@@ -2,7 +2,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import equal from "fast-deep-equal";
 import { motion } from "framer-motion";
-import { memo, useState } from "react";
+import { memo, useRef, useState } from "react";
 import type { Vote } from "@/lib/chatsdk/db/schema";
 import type { ChatMessage } from "@/lib/chatsdk/types";
 import { cn, sanitizeText } from "@/lib/chatsdk/utils";
@@ -14,6 +14,8 @@ import { MessageActions } from "./message-actions";
 import { MessageEditor } from "./message-editor";
 import { MessageReasoning } from "./message-reasoning";
 import { AgentActivity } from "@/components/agents/AgentActivity";
+import { AgentWidgets } from "@/components/agents/AgentWidgets";
+import { QUOTE_EVENT, emit } from "@/lib/chatsdk/chat-events";
 import { latestSpans } from "@/lib/agents/trace";
 import { PreviewAttachment } from "./preview-attachment";
 
@@ -37,6 +39,9 @@ const PurePreviewMessage = ({
   requiresScrollPadding: boolean;
 }) => {
   const [mode, setMode] = useState<"view" | "edit">("view");
+  const swipe = useRef<{ x: number; y: number } | null>(null);
+  const sawLoading = useRef(false);
+  if (isLoading) sawLoading.current = true;
 
   const attachmentsFromMessage = message.parts?.filter(
     (part) => part.type === "file"
@@ -51,6 +56,24 @@ const PurePreviewMessage = ({
       data-role={message.role}
       data-testid={`message-${message.role}`}
       initial={{ opacity: 0 }}
+      onTouchStart={(e) => {
+        const t = e.touches[0];
+        swipe.current = e.touches.length === 1 && t ? { x: t.clientX, y: t.clientY } : null;
+      }}
+      onTouchEnd={(e) => {
+        const t = e.changedTouches[0];
+        const s0 = swipe.current;
+        swipe.current = null;
+        if (!s0 || !t) return;
+        const dx = t.clientX - s0.x;
+        const dy = Math.abs(t.clientY - s0.y);
+        // A deliberate right swipe (not a scroll) quotes this message into the composer.
+        if (dx > 70 && dy < dx / 2.5) {
+          const el = e.currentTarget as HTMLElement;
+          navigator.vibrate?.(8);
+          emit(QUOTE_EVENT, el.innerText);
+        }
+      }}
     >
       <div
         className={cn("flex w-full items-start gap-2 md:gap-3", {
@@ -101,7 +124,12 @@ const PurePreviewMessage = ({
           {message.role === "assistant" && (() => {
             // The agent's steps, streamed as data-span parts (one per span id).
             const spans = latestSpans(message.parts as { type?: string; id?: string; data?: unknown }[]);
-            return spans.length ? <AgentActivity live={isLoading} spans={spans} /> : null;
+            return spans.length ? (
+              <>
+                <AgentActivity live={isLoading} spans={spans} />
+                {!isLoading && <AgentWidgets fresh={sawLoading.current} spans={spans} />}
+              </>
+            ) : null;
           })()}
 
           {message.parts?.map((part, index) => {

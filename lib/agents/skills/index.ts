@@ -6,6 +6,7 @@
  */
 import { CATCH_UP } from "./catch-up"
 import { MY_WORK } from "./my-work"
+import { POINT_AND_TEACH } from "./point-and-teach"
 
 export interface SkillExample {
   request: string
@@ -27,6 +28,7 @@ export interface Skill {
 export const SKILLS: Readonly<Record<string, Skill>> = {
   [CATCH_UP.id]: CATCH_UP,
   [MY_WORK.id]: MY_WORK,
+  [POINT_AND_TEACH.id]: POINT_AND_TEACH,
 }
 
 const list = (title: string, items: string[]) => `${title}:\n${items.map((i) => `- ${i}`).join("\n")}`

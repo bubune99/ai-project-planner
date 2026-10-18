@@ -192,6 +192,7 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
               <Link
                 key={t.href}
                 href={t.href}
+                data-ui={`nav.tab.${t.label.toLowerCase()}`}
                 className={`j-tab${t.center ? " j-tab-center" : ""}${active ? " j-tab-active" : ""}`}
                 aria-current={active ? "page" : undefined}
               >
@@ -200,7 +201,7 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
               </Link>
             )
           })}
-          <button className="j-tab" onClick={() => setMobileOpen(true)} aria-label="More: open the full menu">
+          <button className="j-tab" data-ui="nav.tab.more" onClick={() => setMobileOpen(true)} aria-label="More: open the full menu">
             <Icon name="list" size={18} />
             <span>More</span>
           </button>

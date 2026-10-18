@@ -23,6 +23,7 @@ import {
   type CapturedTarget,
   type SelectController,
 } from "@/lib/feedback/core";
+import { ASK_EVENT, QUOTE_EVENT, SHEET_EVENT, askStub, emit } from "@/lib/chatsdk/chat-events";
 
 type MenuState = { x: number; y: number; el: Element; touch: boolean };
 
@@ -139,6 +140,24 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
     setErr("");
     setPhase("composing");
     setTarget(await captureElement(el));
+  }, []);
+
+  // "Ask JARVIS about this": on /chat it fills the composer, elsewhere it opens the pull-up sheet.
+  const askAbout = useCallback((el: Element) => {
+    setMenu(null);
+    const text = askStub(el.textContent || "", location.pathname);
+    emit(location.pathname.startsWith("/chat") ? ASK_EVENT : SHEET_EVENT, text);
+  }, []);
+
+  const messageOf = (el: Element) => el.closest("[data-role]") as HTMLElement | null;
+
+  const copyMessage = useCallback(async (msg: HTMLElement) => {
+    setMenu(null);
+    try {
+      await navigator.clipboard.writeText(msg.innerText.trim());
+    } catch {
+      /* clipboard can be blocked; nothing to recover */
+    }
   }, []);
 
   const feedbackGeneral = useCallback(() => {
@@ -262,7 +281,7 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
               ? { left: 0, right: 0, bottom: 0, borderRadius: "16px 16px 0 0", padding: "8px 10px calc(14px + env(safe-area-inset-bottom))" }
               : {
                   left: Math.max(8, Math.min(menu.x, window.innerWidth - 240)),
-                  top: Math.max(8, Math.min(menu.y, window.innerHeight - 140)),
+                  top: Math.max(8, Math.min(menu.y, window.innerHeight - 260)),
                   width: 232,
                   borderRadius: 12,
                   padding: 6,
@@ -275,6 +294,28 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
             font: "13px/1.4 system-ui, sans-serif",
           }}
         >
+          <button role="menuitem" data-fbw="menu-ask" onClick={() => askAbout(menu.el)} style={menuItem}>
+            <span style={{ fontWeight: 600 }}>Ask JARVIS about this</span>
+          </button>
+          {messageOf(menu.el) && (
+            <>
+              <button
+                role="menuitem"
+                data-fbw="menu-reply"
+                onClick={() => {
+                  const m = messageOf(menu.el)!;
+                  setMenu(null);
+                  emit(QUOTE_EVENT, m.innerText);
+                }}
+                style={menuItem}
+              >
+                Reply to this
+              </button>
+              <button role="menuitem" data-fbw="menu-copy" onClick={() => void copyMessage(messageOf(menu.el)!)} style={menuItem}>
+                Copy message
+              </button>
+            </>
+          )}
           <button
             role="menuitem"
             data-fbw="menu-element"

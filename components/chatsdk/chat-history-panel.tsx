@@ -202,7 +202,7 @@ export function ChatHistoryPanel() {
         style={{ position: "fixed", inset: 0, zIndex: 59, background: "rgba(0,0,0,.5)" }}
       />
     )}
-    <div style={panelStyle} aria-hidden={narrow && !drawerOpen}>
+    <div style={panelStyle} aria-hidden={narrow && !drawerOpen} data-ui={narrow ? undefined : "chat.history"}>
       {/* Panel header */}
       <div style={{ padding: "12px 14px 8px", borderBottom: "1px solid var(--j-hairline)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ fontSize: 12, fontWeight: 600, color: "oklch(0.780 0 0)", letterSpacing: "0.02em" }}>History</span>

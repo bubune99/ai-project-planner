@@ -8,6 +8,8 @@ import { stackServerApp } from "@/lib/auth/stack-auth"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister"
 import { FeedbackWidget } from "@/components/feedback/FeedbackWidget"
+import { AskSheet } from "@/components/agents/AskSheet"
+import { Attention } from "@/components/agents/Attention"
 import { Toaster } from "sonner"
 import "./globals.css"
 
@@ -54,6 +56,8 @@ export default function RootLayout({
         <Analytics />
         <ServiceWorkerRegister />
         <FeedbackWidget source="ai-project-planner" />
+        <AskSheet />
+        <Attention />
       </body>
     </html>
   )

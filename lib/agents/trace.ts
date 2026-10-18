@@ -9,6 +9,8 @@
  * Pure: the clock and the sink are injected. Assertions in trace.assert.ts.
  */
 
+import type { Widget } from "./widgets"
+
 export type SpanKind = "agent" | "model" | "tool" | "io"
 export type SpanStatus = "running" | "ok" | "error"
 
@@ -28,6 +30,8 @@ export interface AgentSpan {
   /** One-line result: "38 projects", "Created", "Failed: not found". */
   detail?: string
   tokens?: number
+  /** A compact card built from the tool's result (lib/agents/widgets.ts). */
+  widget?: Widget
 }
 
 export class TraceRecorder {
@@ -51,10 +55,11 @@ export class TraceRecorder {
     return id
   }
 
-  end(id: string, result: { status: "ok" | "error"; detail?: string; tokens?: number }): void {
+  end(id: string, result: { status: "ok" | "error"; detail?: string; tokens?: number; widget?: Widget | null }): void {
     const s = this.spans.get(id)
     if (!s || s.end !== null) return
-    const done: AgentSpan = { ...s, ...result, end: Math.max(s.start, this.now() - this.t0) }
+    const { widget, ...rest } = result
+    const done: AgentSpan = { ...s, ...rest, ...(widget ? { widget } : {}), end: Math.max(s.start, this.now() - this.t0) }
     if (!done.detail) delete done.detail
     if (done.tokens == null) delete done.tokens
     this.spans.set(id, done)

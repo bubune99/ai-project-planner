@@ -32,6 +32,7 @@ function PureChatHeader({
       {narrow && (
         <button
           onClick={() => window.dispatchEvent(new Event(OPEN_MENU_EVENT))}
+          data-ui="chat.menu"
           aria-label="Open menu"
           style={{
             background: "transparent", border: "1px solid var(--j-ring)", borderRadius: 7,
@@ -53,6 +54,7 @@ function PureChatHeader({
       {narrow && (
         <button
           onClick={toggleHistoryDrawer}
+          data-ui="chat.history"
           aria-label="Chat history"
           style={{
             background: "transparent", border: "1px solid var(--j-ring)", borderRadius: 7,
@@ -64,6 +66,7 @@ function PureChatHeader({
         </button>
       )}
       <button
+        data-ui="chat.new"
         onClick={() => { router.push("/chat"); router.refresh() }}
         style={{
           background: "oklch(0.870 0.045 252 / 0.15)", border: "1px solid oklch(0.870 0.045 252 / 0.3)",
