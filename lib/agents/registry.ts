@@ -18,6 +18,8 @@
  */
 
 import { AGENTS, DEFAULT_AGENT_ID, type AgentId } from "./catalog"
+import { skillInstructions } from "./skills"
+import type { ProjectRole } from "./access"
 
 export const MODELS = {
   main: "claude-sonnet-5-5",
@@ -73,13 +75,16 @@ const DEFS: Record<AgentId, Omit<AgentDefinition, "id" | "name">> = {
       "get_answer",
       "create_task", "update_task", "add_task_comment", "create_todo", "update_todo", "toggle_todo",
       "create_decision", "add_progress_note", "create_event", "create_idea",
+      "catch_me_up", "my_work",
     ],
-    instructions: `You are JARVIS, the owner's assistant inside their project planner. You see every project they own.
+    instructions: `You are JARVIS, the assistant inside the project planner. You work for whoever is signed in and see the projects they own or have joined; never mention or infer anyone else's private projects.
 
 Answer directly when you can. Hand work to a specialist with the delegate tool when it is clearly theirs:
 - operator — multi-step project plan changes: phases, work orders, documents, restructuring tasks.
 - researcher — digging through memory, the library, ideas and past attempts to answer "what do we know / what have we tried".
-Give the specialist a complete, self-contained task; it does not see this conversation. Relay its answer, don't repeat its work.${SHARED_RULES}`,
+Give the specialist a complete, self-contained task; it does not see this conversation. Relay its answer, don't repeat its work.${SHARED_RULES}
+
+${skillInstructions(["catch-up", "my-work"])}`,
   },
   operator: {
     model: MODELS.main,
@@ -127,14 +132,44 @@ export function toolsForRequest(agent: AgentDefinition, memory: boolean): string
   return memory ? [...new Set([...base, ...MEMORY_TOOLS])] : [...base]
 }
 
+type AskerOpts = { role?: ProjectRole | null; userName?: string | null }
+
+const ROLE_WORDS: Record<ProjectRole, string> = { owner: "the owner", admin: "an admin", editor: "an editor", viewer: "a viewer" }
+
+/** Who is looking at the open project. Without a role (older callers) it stays "The owner". */
+function lookingAt(o: AskerOpts): string {
+  return o.role === undefined ? "The owner is looking at" : `${o.userName?.trim() || "The person you are talking to"} is looking at`
+}
+
+/** Who is asking and what they may change here. Never names another person's private project. */
+function roleLine(o: AskerOpts): string {
+  const who = o.userName?.trim() ? `You are talking to ${o.userName.trim()}` : "You are talking to the signed-in person"
+  if (o.role === "owner" || o.role === "admin" || o.role === "editor") {
+    return `${who}, ${ROLE_WORDS[o.role]} of this project. You can change this project for them.`
+  }
+  const as = o.role === "viewer" ? `${who}, a viewer of this project.` : `${who}; their role on this project could not be confirmed.`
+  return `${as} This project is read-only for them: you cannot change it, so say so plainly, answer from what you can read, and suggest asking an editor or the owner. Their own personal todos stay editable (never link them to this project).`
+}
+
 /** Per-request context appended to an agent's instructions. Pure: date injected. */
-export function contextBlock(opts: { today: string; projectId?: string | null; projectName?: string | null; chatId?: string | null; memory?: boolean }): string {
+export function contextBlock(opts: {
+  today: string
+  projectId?: string | null
+  projectName?: string | null
+  chatId?: string | null
+  memory?: boolean
+  /** The signed-in person's role on the open project, when known. null: unreadable, treated as read-only. */
+  role?: ProjectRole | null
+  /** The signed-in person's own display name. */
+  userName?: string | null
+}): string {
   const lines = [`\n## Context`, `- Today: ${opts.today}`]
   if (opts.memory) {
     lines.push(`- Memory is on: search past chats (search_chats) and the memory store (search_memory) when earlier context would help.${opts.chatId ? ` This chat is ${opts.chatId}; pass it as excludeChatId.` : ""}`)
   }
   lines.push(opts.projectId
-    ? `- The owner is looking at project "${opts.projectName ?? "unknown"}" (${opts.projectId}). Tools that take a projectId default to it.`
+    ? `- ${lookingAt(opts)} project "${opts.projectName ?? "unknown"}" (${opts.projectId}). Tools that take a projectId default to it.`
     : `- No project is open. Ask which project, or use list_projects, before project-specific work.`)
+  if (opts.projectId && opts.role !== undefined) lines.push(`- ${roleLine(opts)}`)
   return lines.join("\n")
 }

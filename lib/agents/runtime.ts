@@ -20,6 +20,8 @@ import { collectTools, toAiTools, type CollectedTool, type ToolObserver } from "
 import { REGISTRY, contextBlock, toolsForRequest, type AgentDefinition } from "./registry"
 import { toolTitle, summarizeResult, type TraceRecorder } from "./trace"
 import { enforceRisk } from "./risk"
+import { scopesForRole, scopesForTools, toolsAllowedForRole, type ProjectRole } from "./access"
+import { getProjectAccess } from "@/lib/auth/collaboration-access"
 import type { AgentId } from "./catalog"
 import { MAX_OUTPUT_TOKENS, usageTokens, type RunBudget } from "@/lib/ai/spend-limits"
 
@@ -34,6 +36,10 @@ export interface AgentRequest {
   userId: string
   projectId?: string | null
   projectName?: string | null
+  /** The caller's role on the open project, resolved server-side by the route. Omit and the runtime looks it up (fail closed). */
+  role?: ProjectRole | null
+  /** The caller's display name, for the context block. */
+  userName?: string | null
   today: string
   /** Show the model's reasoning (Claude extended thinking) for this message. */
   thinking?: boolean
@@ -67,8 +73,36 @@ function meterStep(req: AgentRequest) {
 /** Extended-thinking budget when the owner asks to see the reasoning. */
 const THINKING_BUDGET = 2048
 
-function contextFor(agent: AgentDefinition, req: AgentRequest): McpContext {
-  const writes = agent.id !== "researcher"
+/**
+ * The caller's role on the open project, once per request (delegates reuse it).
+ * undefined: no project open, nothing changes. null: a project is open but no
+ * role could be read (no access, or the lookup failed) — treated as read-only,
+ * so a failed lookup never widens what the agent may do.
+ */
+const roleByRequest = new WeakMap<AgentRequest, Promise<ProjectRole | null | undefined>>()
+
+function roleFor(req: AgentRequest): Promise<ProjectRole | null | undefined> {
+  const known = roleByRequest.get(req)
+  if (known) return known
+  const projectId = req.projectId
+  const lookup: Promise<ProjectRole | null | undefined> = !projectId
+    ? Promise.resolve(undefined)
+    : req.role !== undefined
+      ? Promise.resolve(req.role)
+      : getProjectAccess(projectId, req.userId).then((a) => a?.role ?? null, () => null)
+  roleByRequest.set(req, lookup)
+  return lookup
+}
+
+/** Scopes from the agent AND the person's role on the open project (per project, not per user). */
+function scopesFor(agent: AgentDefinition, role: ProjectRole | null | undefined, offered: readonly string[]): string[] {
+  const agentMayWrite = agent.id !== "researcher"
+  if (role === undefined || scopesForRole(role).includes("write")) return agentMayWrite ? ["read", "write"] : ["read"]
+  // A viewer (or an unreadable role) gets write scope only for the personal tools it was left with.
+  return scopesForTools(offered, agentMayWrite)
+}
+
+function contextFor(agent: AgentDefinition, req: AgentRequest, role: ProjectRole | null | undefined, offered: readonly string[]): McpContext {
   return {
     userId: req.userId,
     // Not a real api_keys row. The tools that write to api_keys
@@ -76,7 +110,7 @@ function contextFor(agent: AgentDefinition, req: AgentRequest): McpContext {
     apiKeyId: `in-app:${agent.id}`,
     // Defence in depth: the read-only agent cannot pass a write-scope check
     // even if a write tool were added to its allowlist by mistake.
-    scopes: writes ? ["read", "write"] : ["read"],
+    scopes: scopesFor(agent, role, offered),
     activeProjectId: req.projectId ?? undefined,
     // Action binding: whatever ids the model passes (and whatever a document
     // or comment it read tells it), project writes in this run are confined
@@ -101,9 +135,11 @@ async function toolsFor(
   parentSpan?: string,
 ): Promise<Record<string, Tool>> {
   const all = await plannerTools()
-  const ctx = contextFor(agent, req)
+  const role = await roleFor(req)
+  const names = toolsAllowedForRole(enforceRisk(toolsForRequest(agent, req.memory === true)), role)
+  const ctx = contextFor(agent, req, role, names)
   const run = <T,>(fn: () => Promise<T>) => runWithMcpContext(ctx, fn) as Promise<T>
-  const tools = toAiTools(all, enforceRisk(toolsForRequest(agent, req.memory === true)), run, observer(trace, parentSpan))
+  const tools = toAiTools(all, names, run, observer(trace, parentSpan))
   if (agent.delegates.length) tools.delegate = delegateTool(agent, req, trace, parentSpan)
   return tools
 }
@@ -132,7 +168,7 @@ function delegateTool(parent: AgentDefinition, req: AgentRequest, trace?: TraceR
       try {
         const result = await generateText({
           model: anthropic(sub.model),
-          system: sub.instructions + contextBlock(req),
+          system: sub.instructions + contextBlock({ ...req, role: await roleFor(req) }),
           prompt: task,
           tools: await toolsFor(sub, req, trace, span),
           stopWhen: stopFor(sub.maxSteps, req),
@@ -162,7 +198,7 @@ function delegateTool(parent: AgentDefinition, req: AgentRequest, trace?: TraceR
 export async function prepareAgent(agent: AgentDefinition, req: AgentRequest, trace?: TraceRecorder, rootSpan?: string) {
   return {
     model: anthropic(agent.model),
-    system: agent.instructions + contextBlock(req),
+    system: agent.instructions + contextBlock({ ...req, role: await roleFor(req) }),
     tools: await toolsFor(agent, req, trace, rootSpan),
     stopWhen: stopFor(agent.maxSteps, req),
     maxOutputTokens: MAX_OUTPUT_TOKENS,

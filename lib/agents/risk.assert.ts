@@ -7,8 +7,9 @@ import { agentMay } from "../ade/ui/control"
 let pass = 0, fail = 0
 const eq = (n: string, g: unknown, w: unknown) => { const a = JSON.stringify(g), b = JSON.stringify(w); if (a === b) pass++; else { fail++; console.error(`FAIL ${n}\n  got  ${a}\n  want ${b}`) } }
 
-// 1. The map covers exactly the tools registered in lib/mcp/planner-tools.ts.
-const src = readFileSync(new URL("../mcp/planner-tools.ts", import.meta.url), "utf8")
+// 1. The map covers exactly the tools registered in lib/mcp/planner-tools.ts and lib/mcp/catchup-tools.ts.
+const src = ["../mcp/planner-tools.ts", "../mcp/catchup-tools.ts"]
+  .map((f) => readFileSync(new URL(f, import.meta.url), "utf8")).join("\n")
 const registered = [...new Set([...src.matchAll(/server\.tool\(\s*["']([a-z0-9_]+)["']/g)].map((m) => m[1]))].sort()
 const classified = Object.keys(PLANNER_TOOL_RISK).sort()
 eq("every registered tool is classified", registered.filter((t) => !classified.includes(t)), [])

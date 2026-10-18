@@ -22,6 +22,8 @@ import { createUIMessageStream, createUIMessageStreamResponse, generateId as gen
 import { TraceRecorder } from "@/lib/agents/trace";
 import { sql } from "@/lib/db/client";
 import { resolveAgent } from "@/lib/agents/registry";
+import type { ProjectRole } from "@/lib/agents/access";
+import { getProjectAccess } from "@/lib/auth/collaboration-access";
 import { prepareAgent } from "@/lib/agents/runtime";
 import { isUuid } from "@/lib/ai/chat-format";
 import {
@@ -225,16 +227,25 @@ export async function POST(request: Request) {
       content: userMessageText,
     });
 
-    // The project the owner is looking at, if the client says so. Name looked
-    // up with an ownership check so the prompt never names someone else's.
+    // The project the person is looking at, if the client says so: one they
+    // own or are an accepted collaborator on (getProjectAccess). The name is
+    // read only after that check, so the prompt never names someone else's
+    // private project. The role rides along: it decides what the agent may do.
     const projectId = context?.projectId ?? null;
     let projectName: string | null = null;
+    let projectRole: ProjectRole | undefined;
     if (projectId) {
-      const rows = (await sql`
-        SELECT name FROM projects WHERE id = ${projectId} AND user_id = ${userId} AND deleted_at IS NULL
-      `) as { name: string }[];
-      projectName = rows[0]?.name ?? null;
+      const access = await getProjectAccess(projectId, userId);
+      if (access) {
+        const rows = (await sql`
+          SELECT name FROM projects WHERE id = ${projectId} AND deleted_at IS NULL
+        `) as { name: string }[];
+        projectName = rows[0]?.name ?? null;
+        projectRole = projectName ? access.role : undefined;
+      }
     }
+    const userRows = (await sql`SELECT name FROM users WHERE id = ${userId}`) as { name: string | null }[];
+    const userName = userRows[0]?.name ?? null;
     // Step 6: Run the agent. Its trace streams to the client as data-span
     // parts (one id per span, so a span's start and end update the same
     // part): live progress in the reply, and a timeline of the run.
@@ -252,6 +263,8 @@ export async function POST(request: Request) {
             userId,
             projectId: projectName ? projectId : null,
             projectName,
+            role: projectRole,
+            userName,
             today: new Date().toISOString().slice(0, 10),
             thinking: body.thinking === true,
             memory: body.memory === true,

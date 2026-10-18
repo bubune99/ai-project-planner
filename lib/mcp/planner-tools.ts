@@ -11,6 +11,7 @@
  * Pure move: the tool bodies are unchanged from the route.
  */
 
+import { registerCatchupTools } from "./catchup-tools"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import { sql } from "@/lib/db/client"
@@ -47,7 +48,6 @@ import {
   verifyMcpProjectAccess,
   requireMcpProjectWriteAccess,
   mcpWriteBindingError,
-  verifyMcpStepAccess,
   verifyMcpDocumentOwnership,
   requireMcpScope,
   getActiveProjectId,
@@ -171,6 +171,50 @@ function resolveProjectId(projectId: string | undefined): [string | null, string
   return [resolvedId, null]
 }
 
+
+/**
+ * Role gate for project-linked writes that were not already behind
+ * requireMcpProjectWriteAccess. Only owner, admin and editor may write; a
+ * viewer, an unknown role or a failed lookup (verifyMcpProjectAccess reports
+ * hasAccess: false on error) is refused. Unlike requireMcpProjectWriteAccess it
+ * ignores the in-app run's project binding, so these tools keep their
+ * behavior for owners. Returns the error message, or null when allowed.
+ */
+async function projectWriteRoleError(projectId: string): Promise<string | null> {
+  const access = await verifyMcpProjectAccess(projectId)
+  if (!access.hasAccess) return "Project not found or access denied"
+  if (access.role !== "owner" && access.role !== "admin" && access.role !== "editor") {
+    return "You have read-only access to this project."
+  }
+  return null
+}
+
+/**
+ * Same gate for a row the caller already owns whose project is read from the
+ * row (a todo, decision or work order). The row is the caller's own data, so
+ * only an explicit viewer role blocks it; losing access to the project
+ * altogether does not lock people out of their own todo.
+ */
+async function rowProjectWriteError(projectId: unknown): Promise<string | null> {
+  if (typeof projectId !== "string" || !projectId) return null
+  const access = await verifyMcpProjectAccess(projectId)
+  if (access.hasAccess && access.role === "viewer") return "You have read-only access to this project."
+  return null
+}
+
+/**
+ * A step a write refers to must belong to the project the write is for, and
+ * the caller must be allowed to write there. verifyMcpStepAccess is an
+ * any-collaborator read check and never authorizes a write: a viewer of one
+ * project, or a step from another project, is refused. Returns the error, or null.
+ */
+async function stepWriteError(stepId: string, projectId: string | undefined): Promise<string | null> {
+  const [step] = await sql`SELECT project_id FROM project_steps WHERE id = ${stepId}`
+  if (!step) return "Step not found or access denied"
+  const stepProject = step.project_id as string
+  if (projectId && stepProject !== projectId) return "Step not found or access denied"
+  return projectWriteRoleError(stepProject)
+}
 
 export async function registerPlannerTools(server: McpServer): Promise<void> {
     // ==========================================
@@ -683,8 +727,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           await requireMcpProjectWriteAccess(resolvedId)
 
           if (stepId) {
-            const hasAccess = await verifyMcpStepAccess(stepId)
-            if (!hasAccess) return mcpError("Step not found or access denied")
+            const stepError = await stepWriteError(stepId, resolvedId)
+            if (stepError) return mcpError(stepError)
           }
 
           const [note] = await sql`
@@ -1912,6 +1956,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             if (!access.hasAccess) return mcpError("Project not found or access denied")
             const bindingError = mcpWriteBindingError(projectId)
             if (bindingError) return mcpError(bindingError)
+            if (!access.canWrite) return mcpError("You have read-only access to this project.")
           }
 
           // Get max order_index for user's todos
@@ -1976,9 +2021,13 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
 
           // Verify ownership
           const [existing] = await sql`
-            SELECT id FROM todos WHERE id = ${todoId} AND user_id = ${userId} AND deleted_at IS NULL
+            SELECT id, project_id FROM todos WHERE id = ${todoId} AND user_id = ${userId} AND deleted_at IS NULL
           `
           if (!existing) return mcpError("Todo not found or access denied")
+
+          // A todo already linked to a project is project content: a viewer may not edit or unlink it.
+          const existingRoleError = await rowProjectWriteError(existing.project_id)
+          if (existingRoleError) return mcpError(existingRoleError)
 
           // If linking to project, verify access
           if (projectId !== undefined && projectId !== null) {
@@ -1986,6 +2035,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             if (!access.hasAccess) return mcpError("Project not found or access denied")
             const bindingError = mcpWriteBindingError(projectId)
             if (bindingError) return mcpError(bindingError)
+            if (!access.canWrite) return mcpError("You have read-only access to this project.")
           }
 
           // Build update fields
@@ -2598,6 +2648,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             if (!access.hasAccess) return mcpError("Project not found or access denied")
             const bindingError = mcpWriteBindingError(projectId)
             if (bindingError) return mcpError(bindingError)
+            if (!access.canWrite) return mcpError("You have read-only access to this project.")
           }
 
           const [decision] = await sql`
@@ -2648,9 +2699,11 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
 
           // Verify decision ownership
           const [decision] = await sql`
-            SELECT id FROM mlp_why_decisions WHERE id = ${decisionId} AND user_id = ${userId}
+            SELECT id, project_id FROM mlp_why_decisions WHERE id = ${decisionId} AND user_id = ${userId}
           `
           if (!decision) return mcpError("Decision not found or access denied")
+          const roleError = await rowProjectWriteError(decision.project_id)
+          if (roleError) return mcpError(roleError)
 
           // Get max order_index
           const [{ maxOrder }] = await sql`
@@ -2700,9 +2753,11 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
 
           // Verify decision ownership
           const [decision] = await sql`
-            SELECT id FROM mlp_why_decisions WHERE id = ${decisionId} AND user_id = ${userId}
+            SELECT id, project_id FROM mlp_why_decisions WHERE id = ${decisionId} AND user_id = ${userId}
           `
           if (!decision) return mcpError("Decision not found or access denied")
+          const roleError = await rowProjectWriteError(decision.project_id)
+          if (roleError) return mcpError(roleError)
 
           const [attempt] = await sql`
             INSERT INTO mlp_why_attempts (
@@ -3255,6 +3310,15 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           requireMcpScope("write")
           const userId = getMcpUserId()
 
+          if (projectId) {
+            const roleError = await projectWriteRoleError(projectId)
+            if (roleError) return mcpError(roleError)
+          }
+          if (todoId) {
+            const [todo] = await sql`SELECT id FROM todos WHERE id = ${todoId} AND user_id = ${userId} AND deleted_at IS NULL`
+            if (!todo) return mcpError("Todo not found or access denied")
+          }
+
           const [event] = await sql`
             INSERT INTO calendar_events (
               user_id, title, start_time, end_time, all_day, description, location,
@@ -3367,6 +3431,10 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           if (projectId) {
             const access = await verifyMcpProjectAccess(projectId)
             if (!access.hasAccess) return mcpError("Project not found or access denied")
+            if (!access.canWrite) {
+              const roleError = await projectWriteRoleError(projectId)
+              if (roleError) return mcpError(roleError)
+            }
           }
 
           const [job] = await sql`
@@ -3951,8 +4019,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           const pid = projectId ?? getActiveProjectId() ?? undefined
           if (pid) await requireMcpProjectWriteAccess(pid)
           if (stepId) {
-            const ok = await verifyMcpStepAccess(stepId)
-            if (!ok) return mcpError("Step not found or access denied")
+            const stepError = await stepWriteError(stepId, pid)
+            if (stepError) return mcpError(stepError)
           }
           const built = buildQuestionInput({ question, options, context, projectId: pid, stepId })
           if (!built.ok) return mcpError(built.error)
@@ -4675,6 +4743,11 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           requireMcpScope("write")
           const userId = getMcpUserId()
 
+          if (projectId) {
+            const roleError = await projectWriteRoleError(projectId)
+            if (roleError) return mcpError(roleError)
+          }
+
           const { buildEnvelopeForWrite, envelopeForSql, stampEnvelopeOrigin } = await import("@/lib/api/envelope-helpers")
           const envelopeResult = buildEnvelopeForWrite(
             { rationale, project_id: projectId },
@@ -4746,6 +4819,11 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           requireMcpScope("write")
           const userId = getMcpUserId()
 
+          if (projectId) {
+            const roleError = await projectWriteRoleError(projectId)
+            if (roleError) return mcpError(roleError)
+          }
+
           const { buildEnvelopeForWrite, envelopeForSql, stampEnvelopeOrigin } = await import("@/lib/api/envelope-helpers")
           const envelopeResult = buildEnvelopeForWrite(
             { rationale, project_id: projectId },
@@ -4800,6 +4878,11 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         try {
           requireMcpScope("write")
           const userId = getMcpUserId()
+
+          if (projectId) {
+            const roleError = await projectWriteRoleError(projectId)
+            if (roleError) return mcpError(roleError)
+          }
 
           const { buildEnvelopeForWrite, envelopeForSql, stampEnvelopeOrigin } = await import("@/lib/api/envelope-helpers")
           const envelopeResult = buildEnvelopeForWrite(
@@ -4909,6 +4992,11 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         try {
           requireMcpScope("write")
           const userId = getMcpUserId()
+
+          if (projectId) {
+            const roleError = await projectWriteRoleError(projectId)
+            if (roleError) return mcpError(roleError)
+          }
 
           const { buildEnvelopeForWrite, envelopeForSql, stampEnvelopeOrigin } = await import("@/lib/api/envelope-helpers")
           const envelopeResult = buildEnvelopeForWrite(
@@ -5141,6 +5229,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
               AND wo.user_id = ${userId}
           `
           if (!step) return mcpError("Step not found or access denied")
+          const roleError = await rowProjectWriteError(step.project_id)
+          if (roleError) return mcpError(roleError)
           if (step.wo_status === "cancelled" || step.wo_status === "failed") {
             return mcpError(`Work order is in terminal state: ${step.wo_status}`)
           }
@@ -5238,6 +5328,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             WHERE s.id = ${step_id}::uuid AND s.work_order_id = ${work_order_id}::uuid AND wo.user_id = ${userId}
           `
           if (!step) return mcpError("Step not found or access denied")
+          const roleError = await rowProjectWriteError(step.project_id)
+          if (roleError) return mcpError(roleError)
           const bindingError = mcpWriteBindingError(step.project_id as string | null)
           if (bindingError) return mcpError(bindingError)
 
@@ -6148,6 +6240,11 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           requireMcpScope("write")
           const userId = getMcpUserId()
 
+          if (project_id) {
+            const roleError = await projectWriteRoleError(project_id)
+            if (roleError) return mcpError(roleError)
+          }
+
           const { SURFACE_KINDS } = await import("@/lib/catalog/types")
           if (!(SURFACE_KINDS as readonly string[]).includes(kind)) {
             return mcpError(`Invalid kind '${kind}'. Must be one of: ${SURFACE_KINDS.join(", ")}`)
@@ -6804,4 +6901,6 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
       }
     )
 
+  // Read-only catch-up and my-work tools for shared projects (lib/mcp/catchup-tools.ts).
+  registerCatchupTools(server)
 }

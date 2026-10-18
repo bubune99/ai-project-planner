@@ -7,12 +7,14 @@ let pass = 0, fail = 0
 const ok = (n: string, c: boolean, detail?: unknown) => { if (c) pass++; else { fail++; console.error(`FAIL ${n}`, detail ?? "") } }
 
 // Real tool inventory, read from source (the module itself needs a database).
-const src = readFileSync(new URL("../mcp/planner-tools.ts", import.meta.url), "utf8").replace(/\r/g, "")
+const src = ["../mcp/planner-tools.ts", "../mcp/catchup-tools.ts"]
+  .map((f) => readFileSync(new URL(f, import.meta.url), "utf8").replace(/\r/g, ""))
+  .join("\n")
 const starts = [...src.matchAll(/server\.tool\(\s*"([^"]+)"/g)].map((m) => ({ name: m[1], at: m.index! }))
 const tools = new Map(starts.map((t, i) => [t.name, src.slice(t.at, starts[i + 1]?.at ?? src.length)]))
 const isWrite = (n: string) => /requireMcpScope\("write"\)/.test(tools.get(n) ?? "")
 
-ok("found the 102 planner tools", tools.size === 102, tools.size)
+ok("found the 104 planner tools (102 + catch_me_up, my_work)", tools.size === 104, tools.size)
 ok("catalog and registry list the same agents", AGENTS.map((a) => a.id).join() === Object.keys(REGISTRY).join())
 ok("default agent exists", DEFAULT_AGENT_ID in REGISTRY)
 
