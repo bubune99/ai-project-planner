@@ -22,6 +22,7 @@ import { createUIMessageStream, createUIMessageStreamResponse, generateId as gen
 import { TraceRecorder } from "@/lib/agents/trace";
 import { sql } from "@/lib/db/client";
 import { resolveAgent } from "@/lib/agents/registry";
+import { contentForModel } from "@/lib/agents/history";
 import type { ProjectRole } from "@/lib/agents/access";
 import { getProjectAccess } from "@/lib/auth/collaboration-access";
 import { prepareAgent } from "@/lib/agents/runtime";
@@ -218,7 +219,7 @@ export async function POST(request: Request) {
     // (oldest dropped first) so a long chat cannot grow the prompt unbounded.
     const fullHistory = trimHistory(historyMessages.map((m) => ({
       role: m.role as "user" | "assistant" | "system",
-      content: m.content ?? "",
+      content: contentForModel(m),
     })));
 
     // Add the latest user message
