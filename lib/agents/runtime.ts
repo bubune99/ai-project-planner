@@ -19,6 +19,7 @@ import { runWithMcpContext, type McpContext } from "@/lib/auth/mcp-context"
 import { collectTools, toAiTools, type CollectedTool, type ToolObserver } from "./tool-bridge"
 import { REGISTRY, contextBlock, toolsForRequest, type AgentDefinition } from "./registry"
 import { toolTitle, summarizeResult, type TraceRecorder } from "./trace"
+import { enforceRisk } from "./risk"
 import type { AgentId } from "./catalog"
 import { MAX_OUTPUT_TOKENS, usageTokens, type RunBudget } from "@/lib/ai/spend-limits"
 
@@ -102,7 +103,7 @@ async function toolsFor(
   const all = await plannerTools()
   const ctx = contextFor(agent, req)
   const run = <T,>(fn: () => Promise<T>) => runWithMcpContext(ctx, fn) as Promise<T>
-  const tools = toAiTools(all, toolsForRequest(agent, req.memory === true), run, observer(trace, parentSpan))
+  const tools = toAiTools(all, enforceRisk(toolsForRequest(agent, req.memory === true)), run, observer(trace, parentSpan))
   if (agent.delegates.length) tools.delegate = delegateTool(agent, req, trace, parentSpan)
   return tools
 }
