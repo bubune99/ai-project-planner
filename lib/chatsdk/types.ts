@@ -1,6 +1,6 @@
 import type { UIMessage } from "ai";
 import { z } from "zod";
-import type { ArtifactKind } from "@/components/chatsdk/artifact";
+type ArtifactKind = "text" | "code" | "image" | "sheet";
 import type { Suggestion } from "./db/schema";
 import type { AppUsage } from "./usage";
 import type { AgentSpan } from "@/lib/agents/trace";

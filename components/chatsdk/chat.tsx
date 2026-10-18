@@ -17,7 +17,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/chatsdk/ui/alert-dialog";
-import { useArtifactSelector } from "@/hooks/use-artifact";
 import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
 import type { Vote } from "@/lib/chatsdk/db/schema";
@@ -25,7 +24,6 @@ import { ChatSDKError } from "@/lib/chatsdk/errors";
 import type { Attachment, ChatMessage } from "@/lib/chatsdk/types";
 import type { AppUsage } from "@/lib/chatsdk/usage";
 import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/chatsdk/utils";
-import { Artifact } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
@@ -41,6 +39,7 @@ export function Chat({
   isReadonly,
   autoResume,
   initialLastContext,
+  agentIds,
 }: {
   id: string;
   initialMessages: ChatMessage[];
@@ -49,6 +48,8 @@ export function Chat({
   isReadonly: boolean;
   autoResume: boolean;
   initialLastContext?: AppUsage;
+  /** Agents this person may pick; omitted = all. */
+  agentIds?: string[];
 }) {
   const { visibilityType } = useChatVisibility({
     chatId: id,
@@ -145,7 +146,6 @@ export function Chat({
   );
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
 
   useAutoResume({
     autoResume,
@@ -160,12 +160,17 @@ export function Chat({
         <ChatHeader
           chatId={id}
           isReadonly={isReadonly}
+          selectedModelId={currentModelId}
           selectedVisibilityType={initialVisibilityType}
         />
 
         <Messages
+          onPick={(text) => {
+            window.history.replaceState({}, "", `/chat/${id}`);
+            sendMessage({ role: "user", parts: [{ type: "text", text }] });
+          }}
           chatId={id}
-          isArtifactVisible={isArtifactVisible}
+          isArtifactVisible={false}
           isReadonly={isReadonly}
           messages={messages}
           regenerate={regenerate}
@@ -175,13 +180,14 @@ export function Chat({
           votes={votes}
         />
 
-        <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 border-t-0 bg-background px-2 pb-3 md:px-4 md:pb-4">
+        <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 border-t-0 bg-background px-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:px-4 md:pb-4">
           {!isReadonly && (
             <MultimodalInput
               attachments={attachments}
               chatId={id}
               input={input}
               messages={messages}
+              agentIds={agentIds}
               onModelChange={setCurrentModelId}
               selectedModelId={currentModelId}
               selectedVisibilityType={visibilityType}
@@ -196,24 +202,6 @@ export function Chat({
           )}
         </div>
       </div>
-
-      <Artifact
-        attachments={attachments}
-        chatId={id}
-        input={input}
-        isReadonly={isReadonly}
-        messages={messages}
-        regenerate={regenerate}
-        selectedModelId={currentModelId}
-        selectedVisibilityType={visibilityType}
-        sendMessage={sendMessage}
-        setAttachments={setAttachments}
-        setInput={setInput}
-        setMessages={setMessages}
-        status={status}
-        stop={stop}
-        votes={votes}
-      />
 
       <AlertDialog
         onOpenChange={setShowCreditCardAlert}

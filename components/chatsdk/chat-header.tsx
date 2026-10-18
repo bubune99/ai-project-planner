@@ -3,19 +3,24 @@
 import { useRouter } from "next/navigation";
 import { memo } from "react";
 import { toggleHistoryDrawer, useIsNarrow } from "@/lib/chatsdk/history-drawer";
+import { chatModels } from "@/lib/chatsdk/ai/models";
+import { OPEN_MENU_EVENT } from "@/components/navigation/dashboard-layout";
 import { VisibilitySelector, type VisibilityType } from "./visibility-selector";
 
 function PureChatHeader({
   chatId,
   selectedVisibilityType,
   isReadonly,
+  selectedModelId,
 }: {
   chatId: string;
   selectedVisibilityType: VisibilityType;
   isReadonly: boolean;
+  selectedModelId?: string;
 }) {
   const router = useRouter();
   const narrow = useIsNarrow();
+  const agent = chatModels.find((m) => m.id === selectedModelId);
 
   return (
     <header style={{
@@ -24,6 +29,27 @@ function PureChatHeader({
       background: "oklch(0.135 0 0 / 0.8)", backdropFilter: "blur(8px)",
       flexShrink: 0,
     }}>
+      {narrow && (
+        <button
+          onClick={() => window.dispatchEvent(new Event(OPEN_MENU_EVENT))}
+          aria-label="Open menu"
+          style={{
+            background: "transparent", border: "1px solid var(--j-ring)", borderRadius: 7,
+            width: 36, height: 36, color: "oklch(0.78 0 0)", cursor: "pointer", fontSize: 16, lineHeight: 1,
+          }}
+        >
+          ☰
+        </button>
+      )}
+      {narrow && agent && (
+        <div style={{ minWidth: 0, lineHeight: 1.15 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "oklch(0.97 0 0)" }}>{agent.name}</div>
+          <div style={{ fontSize: 10.5, color: "oklch(0.58 0 0)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {agent.description}
+          </div>
+        </div>
+      )}
+      <div style={{ flex: narrow ? 1 : 0 }} />
       {narrow && (
         <button
           onClick={toggleHistoryDrawer}
@@ -48,7 +74,7 @@ function PureChatHeader({
         + New
       </button>
 
-      <div style={{ flex: 1 }} />
+      <div style={{ flex: narrow ? 0 : 1 }} />
 
       {!isReadonly && (
         <VisibilitySelector
@@ -63,5 +89,6 @@ function PureChatHeader({
 export const ChatHeader = memo(PureChatHeader, (prev, next) =>
   prev.chatId === next.chatId &&
   prev.selectedVisibilityType === next.selectedVisibilityType &&
-  prev.isReadonly === next.isReadonly
+  prev.isReadonly === next.isReadonly &&
+  prev.selectedModelId === next.selectedModelId
 );

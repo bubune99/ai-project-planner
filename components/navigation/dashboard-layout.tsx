@@ -24,6 +24,8 @@ const PAGE_META: Record<string, { title: string; sub: string }> = {
 interface DashboardLayoutProps {
   children: React.ReactNode
   noPad?: boolean
+  /** On phones the page supplies its own header (the chat does), so the app top bar is hidden. */
+  hideTopbarOnPhone?: boolean
 }
 
 
@@ -41,7 +43,9 @@ function viewportFor(width: number): Viewport {
   return width <= 768 ? "mobile" : width <= 1100 ? "tablet" : "desktop"
 }
 
-export function DashboardLayout({ children, noPad }: DashboardLayoutProps) {
+export const OPEN_MENU_EVENT = "app:open-menu"
+
+export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: DashboardLayoutProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [cmdOpen, setCmdOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -78,6 +82,13 @@ export function DashboardLayout({ children, noPad }: DashboardLayoutProps) {
     onResize()
     window.addEventListener("resize", onResize)
     return () => window.removeEventListener("resize", onResize)
+  }, [])
+
+  // Pages that own the phone header ask for the menu through this event.
+  useEffect(() => {
+    const open = () => setMobileOpen(true)
+    window.addEventListener(OPEN_MENU_EVENT, open)
+    return () => window.removeEventListener(OPEN_MENU_EVENT, open)
   }, [])
 
   // Close the drawer on route change.
@@ -126,7 +137,7 @@ export function DashboardLayout({ children, noPad }: DashboardLayoutProps) {
       )}
 
       <div className="j-main" style={noPad ? { minHeight: 0, overflow: "hidden" } : undefined}>
-        <header className="j-topbar">
+        <header className={`j-topbar${hideTopbarOnPhone ? " j-topbar-hide-phone" : ""}`}>
           <div className="j-topbar-left">
             <button
               className="j-btn j-btn-icon j-btn-ghost j-nav-toggle"

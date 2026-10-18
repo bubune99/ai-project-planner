@@ -14,6 +14,7 @@ import { getAuthContext } from "@/lib/auth/auth-utils";
 import { getConversation, getConversationMessages } from "@/lib/ai/conversation-queries";
 import { toUIMessages, isUuid } from "@/lib/ai/chat-format";
 import { isAgentId } from "@/lib/agents/catalog";
+import { allowedAgentIds } from "@/lib/agents/agent-access";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ export default async function ChatDetailPage({ params }: { params: Promise<{ id:
       initialVisibilityType="private"
       isReadonly={false}
       autoResume={false}
+      agentIds={allowedAgentIds(auth.userId)}
     />
   );
 }

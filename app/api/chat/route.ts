@@ -25,6 +25,7 @@ import { resolveAgent } from "@/lib/agents/registry";
 import { contentForModel } from "@/lib/agents/history";
 import type { ProjectRole } from "@/lib/agents/access";
 import { getProjectAccess } from "@/lib/auth/collaboration-access";
+import { allowedAgentIds } from "@/lib/agents/agent-access";
 import { prepareAgent } from "@/lib/agents/runtime";
 import { isUuid } from "@/lib/ai/chat-format";
 import {
@@ -143,7 +144,10 @@ export async function POST(request: Request) {
     } = body;
 
     const messages: UIMessage[] = body.messages ?? (body.message ? [body.message] : []);
-    const agent = resolveAgent(body.selectedChatModel);
+    // A person may only run the agents they are allowed to pick (siblings: JARVIS).
+    const permitted = allowedAgentIds(authContext.userId);
+    const wanted = resolveAgent(body.selectedChatModel);
+    const agent = permitted.includes(wanted.id) ? wanted : resolveAgent(undefined);
 
     // Step 2: The conversation for this chat. Keyed by the chat's id, so every
     // message in one chat lands in one conversation and the agent sees the

@@ -708,3 +708,5 @@ body::before {
   /* keep page content clear of the bar */
   .j-main > main { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
 }
+
+@media (max-width: 768px) { .j-topbar-hide-phone { display: none; } }

@@ -21,6 +21,7 @@ type MessagesProps = {
   isReadonly: boolean;
   isArtifactVisible: boolean;
   selectedModelId: string;
+  onPick?: (text: string) => void;
 };
 
 function PureMessages({
@@ -32,6 +33,7 @@ function PureMessages({
   regenerate,
   isReadonly,
   selectedModelId,
+  onPick,
 }: MessagesProps) {
   const {
     containerRef: messagesContainerRef,
@@ -67,7 +69,7 @@ function PureMessages({
     >
       <Conversation className="mx-auto flex min-w-0 max-w-4xl flex-col gap-4 md:gap-6">
         <ConversationContent className="flex flex-col gap-4 px-2 py-4 md:gap-6 md:px-4">
-          {messages.length === 0 && <Greeting />}
+          {messages.length === 0 && <Greeting onPick={onPick} />}
 
           {messages.map((message, index) => (
             <PreviewMessage
@@ -105,7 +107,7 @@ function PureMessages({
       {!isAtBottom && (
         <button
           aria-label="Scroll to bottom"
-          className="-translate-x-1/2 absolute bottom-40 left-1/2 z-10 rounded-full border bg-background p-2 shadow-lg transition-colors hover:bg-muted"
+          className="-translate-x-1/2 sticky bottom-3 left-1/2 mx-auto block z-10 rounded-full border bg-background p-2 shadow-lg transition-colors hover:bg-muted"
           onClick={() => scrollToBottom("smooth")}
           type="button"
         >

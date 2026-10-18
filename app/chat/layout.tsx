@@ -5,7 +5,7 @@ import { SidebarProvider } from "@/components/chatsdk/ui/sidebar"
 
 export default function ChatLayout({ children }: { children: React.ReactNode }) {
   return (
-    <DashboardLayout noPad>
+    <DashboardLayout noPad hideTopbarOnPhone>
       {/* chatsdk components (ChatHistoryPanel, Chat) call useSidebar(), which
           requires a SidebarProvider ancestor — without it /chat throws
           "useSidebar must be used within a SidebarProvider." */}

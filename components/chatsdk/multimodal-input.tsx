@@ -37,12 +37,10 @@ import {
 import {
   ArrowUpIcon,
   ChevronDownIcon,
-  CpuIcon,
   PaperclipIcon,
   StopIcon,
 } from "./icons";
 import { PreviewAttachment } from "./preview-attachment";
-import { SuggestedActions } from "./suggested-actions";
 import { Button } from "./ui/button";
 import type { VisibilityType } from "./visibility-selector";
 
@@ -61,6 +59,7 @@ function PureMultimodalInput({
   selectedVisibilityType,
   selectedModelId,
   onModelChange,
+  agentIds,
   usage,
 }: {
   chatId: string;
@@ -77,6 +76,7 @@ function PureMultimodalInput({
   selectedVisibilityType: VisibilityType;
   selectedModelId: string;
   onModelChange?: (modelId: string) => void;
+  agentIds?: string[];
   usage?: AppUsage;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -238,16 +238,6 @@ function PureMultimodalInput({
 
   return (
     <div className={cn("relative flex w-full flex-col gap-4", className)}>
-      {messages.length === 0 &&
-        attachments.length === 0 &&
-        uploadQueue.length === 0 && (
-          <SuggestedActions
-            chatId={chatId}
-            selectedVisibilityType={selectedVisibilityType}
-            sendMessage={sendMessage}
-          />
-        )}
-
       <input
         className="-top-4 -left-4 pointer-events-none fixed size-0.5 opacity-0"
         multiple
@@ -303,7 +293,7 @@ function PureMultimodalInput({
         )}
         <div className="flex flex-row items-start gap-1 sm:gap-2">
           <PromptInputTextarea
-            autoFocus
+            autoFocus={typeof window !== "undefined" && !window.matchMedia("(pointer: coarse)").matches}
             className="grow resize-none border-0! border-none! bg-transparent p-2 text-sm outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
             data-testid="multimodal-input"
             disableAutoResize={true}
@@ -315,7 +305,7 @@ function PureMultimodalInput({
             rows={1}
             value={input}
           />{" "}
-          <Context {...contextProps} />
+          {usage ? <Context {...contextProps} /> : null}
         </div>
         <PromptInputToolbar className="!border-top-0 border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
           <PromptInputTools className="gap-0 sm:gap-0.5">
@@ -325,6 +315,7 @@ function PureMultimodalInput({
               status={status}
             />
             <ModelSelectorCompact
+              agentIds={agentIds}
               onModelChange={onModelChange}
               selectedModelId={selectedModelId}
             />
@@ -339,7 +330,7 @@ function PureMultimodalInput({
               )}
             >
               <span aria-hidden>✦</span>
-              <span className="hidden sm:inline">Think</span>
+              <span>Think</span>
             </button>
             <button
               type="button"
@@ -352,7 +343,7 @@ function PureMultimodalInput({
               )}
             >
               <span aria-hidden>◷</span>
-              <span className="hidden sm:inline">Memory</span>
+              <span>Memory</span>
             </button>
           </PromptInputTools>
 
@@ -428,10 +419,13 @@ const AttachmentsButton = memo(PureAttachmentsButton);
 function PureModelSelectorCompact({
   selectedModelId,
   onModelChange,
+  agentIds,
 }: {
   selectedModelId: string;
   onModelChange?: (modelId: string) => void;
+  agentIds?: string[];
 }) {
+  const agents = agentIds ? chatModels.filter((m) => agentIds.includes(m.id)) : chatModels;
   const [optimisticModelId, setOptimisticModelId] = useState(selectedModelId);
 
   useEffect(() => {
@@ -441,6 +435,15 @@ function PureModelSelectorCompact({
   const selectedModel = chatModels.find(
     (model) => model.id === optimisticModelId
   );
+
+  // One agent only (siblings get JARVIS): a plain label, no dropdown.
+  if (agents.length <= 1) {
+    return (
+      <span className="flex h-8 items-center px-2 font-medium text-muted-foreground text-xs">
+        {(agents[0] ?? selectedModel)?.name}
+      </span>
+    );
+  }
 
   return (
     <PromptInputModelSelect
@@ -460,15 +463,14 @@ function PureModelSelectorCompact({
         className="flex h-8 items-center gap-2 rounded-lg border-0 bg-background px-2 text-foreground shadow-none transition-colors hover:bg-accent focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
         type="button"
       >
-        <CpuIcon size={16} />
-        <span className="hidden font-medium text-xs sm:block">
+        <span className="font-medium text-xs">
           {selectedModel?.name}
         </span>
-        <ChevronDownIcon size={16} />
+        <ChevronDownIcon size={14} />
       </Trigger>
       <PromptInputModelSelectContent className="min-w-[260px] p-0">
         <div className="flex flex-col gap-px">
-          {chatModels.map((model) => (
+          {agents.map((model) => (
             <SelectItem key={model.id} value={model.name}>
               <div className="truncate font-medium text-xs">{model.name}</div>
               <div className="mt-px truncate text-[10px] text-muted-foreground leading-tight">
