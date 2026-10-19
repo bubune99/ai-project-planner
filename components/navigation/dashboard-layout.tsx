@@ -53,6 +53,8 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
   // The assistant dock takes the left of the screen: the planner nav folds to its icon rail beside it.
   const [dockOpen, setDockOpen] = useState(false)
   useEffect(() => {
+    // Pages remount on navigation, after the dock last announced itself: ask the page, then listen.
+    setDockOpen(document.body.classList.contains("ade-open"))
     const on = (e: Event) => setDockOpen(!!(e as CustomEvent<{ open: boolean }>).detail?.open)
     window.addEventListener(DOCK_STATE_EVENT, on)
     return () => window.removeEventListener(DOCK_STATE_EVENT, on)
