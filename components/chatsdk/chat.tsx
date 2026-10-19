@@ -177,7 +177,7 @@ export function Chat({
 
         <Messages
           onPick={(text) => {
-            window.history.replaceState({}, "", `/chat/${id}`);
+            if (!docked) window.history.replaceState({}, "", `/chat/${id}`);
             sendMessage({ role: "user", parts: [{ type: "text", text }] });
           }}
           chatId={id}
@@ -199,6 +199,7 @@ export function Chat({
               input={input}
               messages={messages}
               agentIds={agentIds}
+              docked={docked}
               onModelChange={setCurrentModelId}
               selectedModelId={currentModelId}
               selectedVisibilityType={visibilityType}

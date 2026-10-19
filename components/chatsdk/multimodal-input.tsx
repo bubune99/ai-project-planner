@@ -62,6 +62,7 @@ function PureMultimodalInput({
   selectedModelId,
   onModelChange,
   agentIds,
+  docked,
   usage,
 }: {
   chatId: string;
@@ -79,6 +80,8 @@ function PureMultimodalInput({
   selectedModelId: string;
   onModelChange?: (modelId: string) => void;
   agentIds?: string[];
+  /** In the assistant dock: never rewrite the page URL (it is not the chat page). */
+  docked?: boolean;
   usage?: AppUsage;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -160,7 +163,7 @@ function PureMultimodalInput({
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);
 
   const submitForm = useCallback(() => {
-    window.history.replaceState({}, "", `/chat/${chatId}`);
+    if (!docked) window.history.replaceState({}, "", `/chat/${chatId}`);
 
     sendMessage({
       role: "user",
@@ -187,6 +190,7 @@ function PureMultimodalInput({
       textareaRef.current?.focus();
     }
   }, [
+    docked,
     input,
     thinking,
     memory,
