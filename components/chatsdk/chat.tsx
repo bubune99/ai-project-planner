@@ -167,7 +167,7 @@ export function Chat({
 
   return (
     <>
-      <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: centered ? "auto" : "hidden", background: "var(--j-bg)", justifyContent: centered ? "center" : undefined }}>
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden", background: "var(--j-bg)" }}>
         {!docked && (
           <ChatHeader
             chatId={id}
@@ -177,6 +177,7 @@ export function Chat({
           />
         )}
 
+        <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, justifyContent: centered ? "center" : undefined, overflowY: centered ? "auto" : undefined }}>
         <Messages
           centered={centered}
           onPick={(text) => {
@@ -215,6 +216,7 @@ export function Chat({
               usage={usage}
             />
           )}
+        </div>
         </div>
       </div>
 
