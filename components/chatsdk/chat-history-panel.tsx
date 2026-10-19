@@ -216,6 +216,7 @@ export function ChatHistoryPanel() {
           </button>
         )}
         <button
+          data-ui={narrow ? undefined : "chat.new"}
           onClick={() => { router.push("/chat"); router.refresh() }}
           title="New chat"
           style={{ background: "oklch(0.870 0.045 252 / 0.15)", border: "1px solid oklch(0.870 0.045 252 / 0.3)", borderRadius: 6, padding: "3px 8px", fontSize: 11, color: "var(--j-accent)", cursor: "pointer", fontFamily: "inherit" }}

@@ -27,7 +27,7 @@ function useBriefing(): string | null {
   return line
 }
 
-export const Greeting = ({ onPick, agentName = "JARVIS" }: { onPick?: (text: string) => void; agentName?: string }) => {
+export const Greeting = ({ onPick, agentName = "JARVIS", wide }: { onPick?: (text: string) => void; agentName?: string; wide?: boolean }) => {
   const briefing = useBriefing()
   return (
   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "20px 4px 8px", width: "100%" }}>
@@ -41,7 +41,7 @@ export const Greeting = ({ onPick, agentName = "JARVIS" }: { onPick?: (text: str
       <p style={{ fontSize: 13, color: "oklch(0.62 0 0)", margin: 0 }}>{briefing ?? "Ask anything, or start here."}</p>
     </motion.div>
 
-    <div data-testid="suggested-actions" style={{ display: "grid", gap: 8, width: "100%", maxWidth: 520 }}>
+    <div data-testid="suggested-actions" style={{ display: "grid", gap: 8, width: "100%", maxWidth: wide ? 680 : 520, gridTemplateColumns: wide ? "1fr 1fr" : "1fr" }}>
       {STARTERS.map(({ label, hint, tour }, i) => (
         <motion.button
           key={label}

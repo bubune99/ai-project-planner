@@ -65,7 +65,7 @@ function PureChatHeader({
           History
         </button>
       )}
-      <button
+      {narrow && <button
         data-ui="chat.new"
         onClick={() => { router.push("/chat"); router.refresh() }}
         style={{
@@ -75,7 +75,7 @@ function PureChatHeader({
         }}
       >
         + New
-      </button>
+      </button>}
 
       <div style={{ flex: narrow ? 0 : 1 }} />
 

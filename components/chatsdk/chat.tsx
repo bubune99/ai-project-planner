@@ -163,9 +163,11 @@ export function Chat({
     setMessages,
   });
 
+  const centered = !docked && messages.length === 0 && !isReadonly
+
   return (
     <>
-      <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden", background: "var(--j-bg)" }}>
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: centered ? "auto" : "hidden", background: "var(--j-bg)", justifyContent: centered ? "center" : undefined }}>
         {!docked && (
           <ChatHeader
             chatId={id}
@@ -176,6 +178,7 @@ export function Chat({
         )}
 
         <Messages
+          centered={centered}
           onPick={(text) => {
             if (!docked) window.history.replaceState({}, "", `/chat/${id}`);
             sendMessage({ role: "user", parts: [{ type: "text", text }] });
@@ -191,7 +194,7 @@ export function Chat({
           votes={votes}
         />
 
-        <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 border-t-0 bg-background px-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:px-4 md:pb-4">
+        <div className={`${centered ? "" : "sticky bottom-0 "}z-1 mx-auto flex w-full ${centered ? "max-w-2xl pb-16 " : "max-w-4xl "}gap-2 border-t-0 bg-background px-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:px-4 md:pb-4`}>
           {!isReadonly && (
             <MultimodalInput
               attachments={attachments}

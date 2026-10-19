@@ -22,6 +22,8 @@ type MessagesProps = {
   isArtifactVisible: boolean;
   selectedModelId: string;
   onPick?: (text: string) => void;
+  /** Empty chat on a wide page: the greeting sits in the middle with the composer under it. */
+  centered?: boolean;
 };
 
 function PureMessages({
@@ -34,6 +36,7 @@ function PureMessages({
   isReadonly,
   selectedModelId,
   onPick,
+  centered,
 }: MessagesProps) {
   const {
     containerRef: messagesContainerRef,
@@ -63,13 +66,13 @@ function PureMessages({
 
   return (
     <div
-      className="overscroll-behavior-contain -webkit-overflow-scrolling-touch flex-1 touch-pan-y overflow-y-auto"
+      className={centered ? "flex-none" : "overscroll-behavior-contain -webkit-overflow-scrolling-touch flex-1 touch-pan-y overflow-y-auto"}
       ref={messagesContainerRef}
       style={{ overflowAnchor: "none" }}
     >
       <Conversation className="mx-auto flex min-w-0 max-w-4xl flex-col gap-4 md:gap-6">
         <ConversationContent className="flex flex-col gap-4 px-2 py-4 md:gap-6 md:px-4">
-          {messages.length === 0 && <Greeting onPick={onPick} />}
+          {messages.length === 0 && <Greeting onPick={onPick} wide={centered} />}
 
           {messages.map((message, index) => (
             <PreviewMessage
