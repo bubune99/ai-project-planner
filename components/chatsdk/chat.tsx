@@ -40,6 +40,8 @@ export function Chat({
   autoResume,
   initialLastContext,
   agentIds,
+  context,
+  docked,
 }: {
   id: string;
   initialMessages: ChatMessage[];
@@ -50,6 +52,10 @@ export function Chat({
   initialLastContext?: AppUsage;
   /** Agents this person may pick; omitted = all. */
   agentIds?: string[];
+  /** What the person is looking at (the open project), sent with every message. */
+  context?: { projectId?: string };
+  /** Rendered inside the assistant dock: tighter header. */
+  docked?: boolean;
 }) {
   const { visibilityType } = useChatVisibility({
     chatId: id,
@@ -64,6 +70,8 @@ export function Chat({
   const [showCreditCardAlert, setShowCreditCardAlert] = useState(false);
   const [currentModelId, setCurrentModelId] = useState(initialChatModel);
   const currentModelIdRef = useRef(currentModelId);
+  const contextRef = useRef(context);
+  useEffect(() => { contextRef.current = context }, [context]);
 
   useEffect(() => {
     currentModelIdRef.current = currentModelId;
@@ -92,6 +100,7 @@ export function Chat({
             message: request.messages.at(-1),
             selectedChatModel: currentModelIdRef.current,
             selectedVisibilityType: visibilityType,
+            ...(contextRef.current ? { context: contextRef.current } : {}),
             ...request.body,
           },
         };
@@ -129,7 +138,7 @@ export function Chat({
   const [hasAppendedQuery, setHasAppendedQuery] = useState(false);
 
   useEffect(() => {
-    if (query && !hasAppendedQuery) {
+    if (!docked && query && !hasAppendedQuery) {
       sendMessage({
         role: "user" as const,
         parts: [{ type: "text", text: query }],
@@ -138,7 +147,7 @@ export function Chat({
       setHasAppendedQuery(true);
       window.history.replaceState({}, "", `/chat/${id}`);
     }
-  }, [query, sendMessage, hasAppendedQuery, id]);
+  }, [docked, query, sendMessage, hasAppendedQuery, id]);
 
   const { data: votes } = useSWR<Vote[]>(
     messages.length >= 2 ? `/api/vote?chatId=${id}` : null,
@@ -157,12 +166,14 @@ export function Chat({
   return (
     <>
       <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden", background: "var(--j-bg)" }}>
-        <ChatHeader
-          chatId={id}
-          isReadonly={isReadonly}
-          selectedModelId={currentModelId}
-          selectedVisibilityType={initialVisibilityType}
-        />
+        {!docked && (
+          <ChatHeader
+            chatId={id}
+            isReadonly={isReadonly}
+            selectedModelId={currentModelId}
+            selectedVisibilityType={initialVisibilityType}
+          />
+        )}
 
         <Messages
           onPick={(text) => {

@@ -1,4 +1,5 @@
 import type React from "react"
+import { Suspense } from "react"
 import type { Metadata } from "next"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
@@ -10,6 +11,7 @@ import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister"
 import { FeedbackWidget } from "@/components/feedback/FeedbackWidget"
 import { AskSheet } from "@/components/agents/AskSheet"
 import { Attention } from "@/components/agents/Attention"
+import { AssistantDock } from "@/components/ade/AssistantDock"
 import { Toaster } from "sonner"
 import "./globals.css"
 
@@ -58,6 +60,9 @@ export default function RootLayout({
         <FeedbackWidget source="ai-project-planner" />
         <AskSheet />
         <Attention />
+        <Suspense fallback={null}>
+          <AssistantDock />
+        </Suspense>
       </body>
     </html>
   )

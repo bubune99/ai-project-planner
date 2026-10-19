@@ -146,7 +146,7 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
   const askAbout = useCallback((el: Element) => {
     setMenu(null);
     const text = askStub(el.textContent || "", location.pathname);
-    emit(location.pathname.startsWith("/chat") ? ASK_EVENT : SHEET_EVENT, text);
+    emit(location.pathname.startsWith("/chat") || document.body.classList.contains("ade-open") ? ASK_EVENT : SHEET_EVENT, text);
   }, []);
 
   const messageOf = (el: Element) => el.closest("[data-role]") as HTMLElement | null;

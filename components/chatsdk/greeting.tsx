@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { startTour } from "@/lib/ade/ui/attention-events"
 
@@ -11,7 +12,32 @@ export const STARTERS = [
   { label: "Show me around the planner", hint: "A short walkthrough", tour: true },
 ]
 
-export const Greeting = ({ onPick, agentName = "JARVIS" }: { onPick?: (text: string) => void; agentName?: string }) => (
+/** The one-line briefing: real counts from the person's own todos. Plain text when the numbers are not available. */
+function useBriefing(): string | null {
+  const [line, setLine] = useState<string | null>(null)
+  useEffect(() => {
+    let off = false
+    fetch("/api/todos/stats?period=day")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const o = j?.data?.overview
+        if (off || !o) return
+        const bits = [
+          o.dueToday ? `${o.dueToday} due today` : null,
+          o.overdue ? `${o.overdue} overdue` : null,
+          o.pending + o.inProgress ? `${o.pending + o.inProgress} open` : null,
+        ].filter(Boolean)
+        setLine(bits.length ? bits.join(" · ") : "Nothing due today")
+      })
+      .catch(() => {})
+    return () => { off = true }
+  }, [])
+  return line
+}
+
+export const Greeting = ({ onPick, agentName = "JARVIS" }: { onPick?: (text: string) => void; agentName?: string }) => {
+  const briefing = useBriefing()
+  return (
   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "20px 4px 8px", width: "100%" }}>
     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} style={{ textAlign: "center" }}>
       <p style={{ fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--j-accent)", margin: "0 0 6px" }}>
@@ -20,7 +46,7 @@ export const Greeting = ({ onPick, agentName = "JARVIS" }: { onPick?: (text: str
       <h2 style={{ fontSize: 22, fontWeight: 500, letterSpacing: "-0.02em", margin: "0 0 4px", color: "oklch(0.985 0 0)" }}>
         {agentName} is ready
       </h2>
-      <p style={{ fontSize: 13, color: "oklch(0.62 0 0)", margin: 0 }}>Ask anything, or start here.</p>
+      <p style={{ fontSize: 13, color: "oklch(0.62 0 0)", margin: 0 }}>{briefing ?? "Ask anything, or start here."}</p>
     </motion.div>
 
     <div data-testid="suggested-actions" style={{ display: "grid", gap: 8, width: "100%", maxWidth: 520 }}>
@@ -46,4 +72,5 @@ export const Greeting = ({ onPick, agentName = "JARVIS" }: { onPick?: (text: str
       ))}
     </div>
   </div>
-)
+  )
+}

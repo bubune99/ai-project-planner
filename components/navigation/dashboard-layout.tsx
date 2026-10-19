@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { AppSidebar } from "./app-sidebar"
 import { Icon } from "@/components/jarvis/icons"
+import { DOCK_STATE_EVENT, DOCK_TOGGLE_EVENT } from "@/components/ade/AssistantDock"
 
 const PAGE_META: Record<string, { title: string; sub: string }> = {
   "/dashboard": { title: "Dashboard", sub: "Central Nervous System overview" },
@@ -49,6 +50,13 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
   const [collapsed, setCollapsed] = useState(false)
   const [cmdOpen, setCmdOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  // The assistant dock takes the left of the screen: the planner nav folds to its icon rail beside it.
+  const [dockOpen, setDockOpen] = useState(false)
+  useEffect(() => {
+    const on = (e: Event) => setDockOpen(!!(e as CustomEvent<{ open: boolean }>).detail?.open)
+    window.addEventListener(DOCK_STATE_EVENT, on)
+    return () => window.removeEventListener(DOCK_STATE_EVENT, on)
+  }, [])
   // Deterministic on first render (SSR + hydration); corrected on mount.
   const [vp, setVp] = useState<Viewport>("desktop")
   const pathname = usePathname()
@@ -106,7 +114,7 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
 
   // On mobile the drawer always shows full labels; on tablet the
   // sidebar is forced to the icon rail; on desktop honor the toggle.
-  const effectiveCollapsed = vp === "mobile" ? false : vp === "tablet" ? true : collapsed
+  const effectiveCollapsed = vp === "mobile" ? false : vp === "tablet" ? true : collapsed || dockOpen
 
   return (
     <div
@@ -169,6 +177,16 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
               aria-label="Open search"
             >
               <Icon name="search" size={16} />
+            </button>
+            <button
+              className="j-btn j-btn-ghost"
+              data-ui="dock.toggle"
+              onClick={() => window.dispatchEvent(new Event(DOCK_TOGGLE_EVENT))}
+              title="Show or hide the assistant"
+              style={{ display: vp === "desktop" ? "inline-flex" : "none", gap: 6, alignItems: "center" }}
+            >
+              <Icon name="sparkle" size={14} />
+              <span>Assistant</span>
             </button>
             <button className="j-btn j-btn-icon j-btn-ghost" title="Notifications">
               <Icon name="bell" size={16} />

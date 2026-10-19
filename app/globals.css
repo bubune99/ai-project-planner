@@ -710,3 +710,4 @@ body::before {
 }
 
 @media (max-width: 768px) { .j-topbar-hide-phone { display: none; } }
+body.ade-open{padding-left:var(--ade-w,0px)}
