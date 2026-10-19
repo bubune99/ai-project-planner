@@ -1,6 +1,6 @@
 /** Where the assistant dock shows, and how wide it may be. Pure so it can be asserted. */
 export const DOCK_MIN = 340
-export const DOCK_DEFAULT_RATIO = 0.4
+export const DOCK_DEFAULT_RATIO = 0.32
 export const DOCK_MAX_RATIO = 0.7
 export const DOCK_MIN_VIEWPORT = 1100
 export const DOCK_STEP = 40

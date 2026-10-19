@@ -24,7 +24,7 @@ export const DOCK_TOGGLE_EVENT = "ade:toggle-assistant"
 export const DOCK_STATE_EVENT = "ade:dock-state" // detail: { open: boolean }
 
 const KEY_OPEN = "ade-dock-open"
-const KEY_WIDTH = "ade-dock-width"
+const KEY_WIDTH = "ade-dock-width-v2"
 const read = (k: string): string | null => { try { return localStorage.getItem(k) } catch { return null } }
 const write = (k: string, v: string) => { try { localStorage.setItem(k, v) } catch { /* private mode */ } }
 
@@ -125,12 +125,14 @@ export function AssistantDock() {
       aria-label="Assistant"
       style={{
         position: "fixed", left: 0, top: 0, bottom: 0, width: w, zIndex: 30, display: "flex", flexDirection: "column",
-        background: "var(--j-bg)", borderRight: "1px solid var(--j-hairline)",
+        background: "oklch(0.125 0 0)", borderRight: "1px solid var(--j-ring)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid var(--j-hairline)", flexShrink: 0 }}>
-        <strong style={{ fontSize: 14 }}>Assistant</strong>
-        <span style={{ fontSize: 11.5, color: "oklch(0.58 0 0)" }}>{projectId ? "on this project" : "across everything"}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 16px", height: 92, borderBottom: "1px solid var(--j-hairline)", flexShrink: 0 }}>
+        <div style={{ minWidth: 0, lineHeight: 1.25 }}>
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-0.01em" }}>Assistant</div>
+          <div style={{ fontSize: 12.5, color: "oklch(0.6 0 0)" }}>{projectId ? "Working on this project" : "Across all your projects"}</div>
+        </div>
         <div style={{ flex: 1 }} />
         <button type="button" data-ui="dock.new" onClick={() => { setInitial([]); setChatId(generateUUID()); setPanel("chat") }} style={dockBtn} title="Start a new conversation">New</button>
         <button type="button" data-ui="dock.history" onClick={() => setPanel(panel === "history" ? "chat" : "history")} aria-pressed={panel === "history"} style={{ ...dockBtn, background: panel === "history" ? "oklch(0.870 0.045 252 / 0.15)" : "transparent" }} title="Your past conversations">History</button>

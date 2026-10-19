@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { startTour } from "@/lib/ade/ui/attention-events"
+import { briefingLine } from "@/lib/ade/briefing"
 
 /** The one set of starters (the old SuggestedActions list is gone). */
 export const STARTERS = [
@@ -17,18 +18,9 @@ function useBriefing(): string | null {
   const [line, setLine] = useState<string | null>(null)
   useEffect(() => {
     let off = false
-    fetch("/api/todos/stats?period=day")
+    fetch("/api/ade/briefing", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        const o = j?.data?.overview
-        if (off || !o) return
-        const bits = [
-          o.dueToday ? `${o.dueToday} due today` : null,
-          o.overdue ? `${o.overdue} overdue` : null,
-          o.pending + o.inProgress ? `${o.pending + o.inProgress} open` : null,
-        ].filter(Boolean)
-        setLine(bits.length ? bits.join(" · ") : "Nothing due today")
-      })
+      .then((j) => { if (!off) setLine(briefingLine(j)) })
       .catch(() => {})
     return () => { off = true }
   }, [])
