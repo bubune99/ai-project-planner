@@ -264,7 +264,7 @@ export function AppSidebar({
           data-ui="nav.popout"
           aria-label="Menu"
           style={{
-            position: "fixed", left: railRight + 6, top: 8, bottom: 8, width: 264, zIndex: 2147483000, overflowY: "auto",
+            position: "fixed", left: railRight + 6, top: 8, maxHeight: "calc(100vh - 16px)", width: 264, zIndex: 2147483000, overflowY: "auto",
             background: "oklch(0.16 0 0)", border: "1px solid var(--j-ring)", borderRadius: 14, padding: 10,
             boxShadow: "0 18px 48px rgba(0,0,0,.6)",
           }}
