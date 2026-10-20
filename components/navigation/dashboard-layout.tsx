@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { AppSidebar } from "./app-sidebar"
+import { AppSidebar, OPEN_POPOUT_EVENT } from "./app-sidebar"
 import { Icon } from "@/components/jarvis/icons"
 import { DOCK_STATE_EVENT, DOCK_TOGGLE_EVENT } from "@/components/ade/AssistantDock"
 
@@ -116,12 +116,14 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
 
   // On mobile the drawer always shows full labels; on tablet the
   // sidebar is forced to the icon rail; on desktop honor the toggle.
-  const effectiveCollapsed = vp === "mobile" ? false : vp === "tablet" ? true : collapsed || dockOpen
+  const effectiveCollapsed = vp === "mobile" ? false : vp === "tablet" ? true : collapsed
+  // With the assistant open there is no rail: the header hamburger opens the menu (like Dzidzor and BYB).
+  const navHidden = dockOpen && vp === "desktop"
 
   return (
     <div
       className={
-        `j-app${effectiveCollapsed ? " j-collapsed" : ""}${mobileOpen ? " j-drawer-open" : ""}`
+        `j-app${effectiveCollapsed ? " j-collapsed" : ""}${mobileOpen ? " j-drawer-open" : ""}${navHidden ? " j-nav-hidden" : ""}`
       }
       /*
         noPad pages (chat) own their scrolling. .j-app is min-height: 100vh with
@@ -137,7 +139,7 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
         onCollapsedChange={setCollapsed}
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
-        dockOpen={dockOpen}
+        navHidden={navHidden}
       />
       {mobileOpen && (
         <div
@@ -150,6 +152,21 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
       <div className="j-main" style={noPad ? { minHeight: 0, overflow: "hidden" } : undefined}>
         <header className={`j-topbar${hideTopbarOnPhone ? " j-topbar-hide-phone" : ""}`}>
           <div className="j-topbar-left">
+            {navHidden && (
+              <button
+                className="j-btn j-btn-ghost"
+                data-ui="nav.hamburger"
+                aria-label="Open the menu"
+                onClick={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect()
+                  window.dispatchEvent(new CustomEvent(OPEN_POPOUT_EVENT, { detail: { left: Math.round(r.left), top: Math.round(r.bottom + 8) } }))
+                }}
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 12px", minHeight: 36 }}
+              >
+                <Icon name="list" size={16} />
+                <span>Menu</span>
+              </button>
+            )}
             <button
               className="j-btn j-btn-icon j-btn-ghost j-nav-toggle"
               onClick={() => setMobileOpen(true)}

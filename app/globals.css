@@ -711,3 +711,6 @@ body::before {
 
 @media (max-width: 768px) { .j-topbar-hide-phone { display: none; } }
 body.ade-open{padding-left:var(--ade-w,0px)}
+
+.j-app.j-nav-hidden { grid-template-columns: minmax(0, 1fr); }
+.j-app.j-nav-hidden > .j-sidebar { display: none; }

@@ -7,6 +7,8 @@ import { usePathname } from "next/navigation"
 import { useUser } from "@stackframe/stack"
 import { Icon, type IconName } from "@/components/jarvis/icons"
 
+export const OPEN_POPOUT_EVENT = "app:toggle-menu-popout" // detail: { left, top }
+
 interface NavItem {
   title: string
   href: string
@@ -70,8 +72,8 @@ interface AppSidebarProps {
   onCollapsedChange?: (collapsed: boolean) => void
   mobileOpen?: boolean
   onCloseMobile?: () => void
-  /** The assistant dock is open: the nav is a rail and its chevron opens the popout menu instead of expanding. */
-  dockOpen?: boolean
+  /** The assistant dock is open: no rail at all; the header's hamburger opens the popout menu. */
+  navHidden?: boolean
 }
 
 export function AppSidebar({
@@ -79,7 +81,7 @@ export function AppSidebar({
   onCollapsedChange,
   mobileOpen = false,
   onCloseMobile,
-  dockOpen = false,
+  navHidden = false,
 }: AppSidebarProps) {
   const pathname = usePathname()
   const user = useUser()
@@ -101,6 +103,16 @@ export function AppSidebar({
   const rootRef = useRef<HTMLDivElement>(null)
   const [tip, setTip] = useState<{ title: string; badge?: string; top: number; left: number } | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [anchor, setAnchor] = useState<{ left: number; top: number } | null>(null)
+  useEffect(() => {
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<{ left: number; top: number }>).detail
+      if (d) setAnchor(d)
+      setMenuOpen((v) => !v)
+    }
+    window.addEventListener(OPEN_POPOUT_EVENT, on)
+    return () => window.removeEventListener(OPEN_POPOUT_EVENT, on)
+  }, [])
   const showTip = (el: HTMLElement, title: string, badge?: string) => {
     if (!collapsed || mobileOpen) return
     const r = el.getBoundingClientRect()
@@ -111,7 +123,7 @@ export function AppSidebar({
     if (!menuOpen) return
     const away = (e: PointerEvent) => {
       const t = e.target as Element | null
-      if (t && !t.closest('[data-ui="nav.popout"], [data-ui="nav.rail.menu"], [data-ui="nav.rail.chevron"]')) setMenuOpen(false)
+      if (t && !t.closest('[data-ui="nav.popout"], [data-ui="nav.rail.menu"], [data-ui="nav.rail.chevron"], [data-ui="nav.hamburger"]')) setMenuOpen(false)
     }
     const key = (e: KeyboardEvent) => e.key === "Escape" && setMenuOpen(false)
     document.addEventListener("pointerdown", away, true)
@@ -209,8 +221,8 @@ export function AppSidebar({
       {/* Collapse toggle */}
       <button
         data-ui="nav.rail.chevron"
-        onClick={() => (collapsed && dockOpen ? setMenuOpen((v) => !v) : onCollapsedChange?.(!collapsed))}
-        aria-label={collapsed && dockOpen ? "Open the menu" : collapsed ? "Expand the menu" : "Collapse the menu"}
+        onClick={() => onCollapsedChange?.(!collapsed)}
+        aria-label={collapsed ? "Expand the menu" : "Collapse the menu"}
         className="j-nav-item"
         style={{ marginTop: "auto", justifyContent: collapsed ? "center" : undefined }}
       >
@@ -259,12 +271,12 @@ export function AppSidebar({
         document.body
       )}
 
-      {menuOpen && collapsed && !mobileOpen && typeof document !== "undefined" && createPortal(
+      {menuOpen && (collapsed || navHidden) && !mobileOpen && typeof document !== "undefined" && createPortal(
         <nav
           data-ui="nav.popout"
           aria-label="Menu"
           style={{
-            position: "fixed", left: railRight + 6, top: 8, maxHeight: "calc(100vh - 16px)", width: 264, zIndex: 2147483000, overflowY: "auto",
+            position: "fixed", left: anchor?.left ?? railRight + 6, top: anchor?.top ?? 8, maxHeight: `calc(100vh - ${(anchor?.top ?? 8) + 8}px)`, width: 264, zIndex: 2147483000, overflowY: "auto",
             background: "oklch(0.16 0 0)", border: "1px solid var(--j-ring)", borderRadius: 14, padding: 10,
             boxShadow: "0 18px 48px rgba(0,0,0,.6)",
           }}
