@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useUser } from "@stackframe/stack"
@@ -243,26 +244,27 @@ export function AppSidebar({
         </div>
       )}
 
-      {tip && collapsed && !menuOpen && (
+      {tip && collapsed && !menuOpen && typeof document !== "undefined" && createPortal(
         <div
           role="tooltip"
           style={{
-            position: "fixed", left: tip.left, top: tip.top, transform: "translateY(-50%)", zIndex: 80, pointerEvents: "none",
+            position: "fixed", left: tip.left, top: tip.top, transform: "translateY(-50%)", zIndex: 2147483000, pointerEvents: "none",
             background: "oklch(0.2 0 0)", color: "oklch(0.96 0 0)", border: "1px solid var(--j-ring)", borderRadius: 8,
             padding: "6px 10px", fontSize: 13, whiteSpace: "nowrap", boxShadow: "0 8px 24px rgba(0,0,0,.5)", display: "flex", gap: 8, alignItems: "center",
           }}
         >
           {tip.title}
           {tip.badge && <span className="j-nav-badge">{tip.badge}</span>}
-        </div>
+        </div>,
+        document.body
       )}
 
-      {menuOpen && collapsed && !mobileOpen && (
+      {menuOpen && collapsed && !mobileOpen && typeof document !== "undefined" && createPortal(
         <nav
           data-ui="nav.popout"
           aria-label="Menu"
           style={{
-            position: "fixed", left: railRight + 6, top: 8, bottom: 8, width: 264, zIndex: 80, overflowY: "auto",
+            position: "fixed", left: railRight + 6, top: 8, bottom: 8, width: 264, zIndex: 2147483000, overflowY: "auto",
             background: "oklch(0.16 0 0)", border: "1px solid var(--j-ring)", borderRadius: 14, padding: 10,
             boxShadow: "0 18px 48px rgba(0,0,0,.6)",
           }}
@@ -299,7 +301,8 @@ export function AppSidebar({
               <button type="button" onClick={() => user.signOut()} className="j-btn j-btn-ghost" style={{ fontSize: 12 }}>Sign out</button>
             </div>
           )}
-        </nav>
+        </nav>,
+        document.body
       )}
     </div>
   )
