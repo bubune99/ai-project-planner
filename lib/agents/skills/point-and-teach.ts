@@ -3,7 +3,7 @@ import type { Skill } from "./index"
 
 export const POINT_AND_TEACH: Skill = {
   id: "point-and-teach",
-  tools: ["show_unit"],
+  tools: ["show_unit", "go_to"],
   use_when: [
     "The person asks where something is or how to do something in the app (\"where is my history\", \"how do I talk to you\").",
     "You want them to look at a specific control while you explain it.",
@@ -13,7 +13,9 @@ export const POINT_AND_TEACH: Skill = {
     "They ask about their data (todos, projects): answer with the data tools; the cards show it.",
   ],
   order: [
-    "Call show_unit once per control, with the person's own words in unit.",
+    "The context lists the controls visible on the person's screen: use those labels in show_unit.",
+    "To take the person to another page or a project tab, call go_to (then say you opened it); to show them a control on the current screen, call show_unit.",
+    "Call show_unit once per control.",
     "mode 'highlight' for anything you are working on or want reviewed; mode 'spotlight' ONLY when teaching how to use the app.",
     "After pointing, explain in one or two sentences what it does and what to tap.",
   ],

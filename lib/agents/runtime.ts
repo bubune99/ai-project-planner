@@ -20,6 +20,7 @@ import { collectTools, toAiTools, type CollectedTool, type ToolObserver } from "
 import { REGISTRY, contextBlock, toolsForRequest, type AgentDefinition } from "./registry"
 import { toolTitle, summarizeResult, type TraceRecorder } from "./trace"
 import { toWidget } from "./widgets"
+import type { ScreenInfo } from "@/lib/ade/ui/screen-units"
 import { enforceRisk } from "./risk"
 import { scopesForRole, scopesForTools, toolsAllowedForRole, type ProjectRole } from "./access"
 import { getProjectAccess } from "@/lib/auth/collaboration-access"
@@ -48,6 +49,8 @@ export interface AgentRequest {
   memory?: boolean
   /** The chat this request belongs to — excluded from search_chats. */
   chatId?: string | null
+  /** The person's current screen (path, title, visible controls), sent by the dock. */
+  screen?: ScreenInfo | null
   /**
    * Spend metering for this request (lib/ai/spend-limits.ts). Every model
    * step, main agent and delegates alike, adds to the budget and is recorded

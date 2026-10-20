@@ -19,6 +19,7 @@
 
 import { AGENTS, DEFAULT_AGENT_ID, type AgentId } from "./catalog"
 import { skillInstructions } from "./skills"
+import { screenLine, type ScreenInfo } from "@/lib/ade/ui/screen-units"
 import type { ProjectRole } from "./access"
 
 export const MODELS = {
@@ -76,7 +77,7 @@ const DEFS: Record<AgentId, Omit<AgentDefinition, "id" | "name">> = {
       "get_answer",
       "create_task", "update_task", "add_task_comment", "create_todo", "update_todo", "toggle_todo",
       "create_decision", "add_progress_note", "create_event", "create_idea",
-      "catch_me_up", "my_work", "show_unit",
+      "catch_me_up", "my_work", "show_unit", "go_to",
     ],
     instructions: `You are JARVIS, the assistant inside the project planner. You work for whoever is signed in and see the projects they own or have joined; never mention or infer anyone else's private projects.
 
@@ -163,6 +164,8 @@ export function contextBlock(opts: {
   role?: ProjectRole | null
   /** The signed-in person's own display name. */
   userName?: string | null
+  /** Where the person is and what they can see (the dock sends it with each message). */
+  screen?: ScreenInfo | null
 }): string {
   const lines = [`\n## Context`, `- Today: ${opts.today}`]
   if (opts.memory) {
@@ -172,5 +175,7 @@ export function contextBlock(opts: {
     ? `- ${lookingAt(opts)} project "${opts.projectName ?? "unknown"}" (${opts.projectId}). Tools that take a projectId default to it.`
     : `- No project is open. Ask which project, or use list_projects, before project-specific work.`)
   if (opts.projectId && opts.role !== undefined) lines.push(`- ${roleLine(opts)}`)
+  const sl = screenLine(opts.screen)
+  if (sl) lines.push(sl)
   return lines.join("\n")
 }

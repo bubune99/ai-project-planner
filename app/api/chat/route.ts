@@ -96,6 +96,7 @@ interface ChatRequestBody {
     selectedTask?: unknown;
     selectedDocument?: unknown;
     projectId?: string;
+    screen?: { path?: string; title?: string; units?: { key: string; label: string }[] };
   };
   conversationId?: string;
   contextType?: string;
@@ -274,6 +275,7 @@ export async function POST(request: Request) {
             thinking: body.thinking === true,
             memory: body.memory === true,
             chatId: conversation.id,
+            screen: context?.screen ?? null,
             spend: {
               budget: new RunBudget(limits.perRequest),
               record: (tokens) => recordUsage(userId, tokens, limits),

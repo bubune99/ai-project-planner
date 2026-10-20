@@ -14,9 +14,19 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import {
   ACK_EVENT, ATTENTION_EVENT, TOUR_EVENT, type PointDetail, type TourStep,
 } from "@/lib/ade/ui/attention-events"
+import { resolveUnit } from "@/lib/ade/ui/control"
+import { scanUnits } from "@/lib/ade/ui/scan"
 
 type Mode = "idle" | "highlight" | "spotlight"
 interface Shown { key: string; caption: string; step?: { n: number; of: number } }
+
+/** The key to point at: an explicit one if it is on screen, else the visible control whose label matches the asked words. */
+function resolveKey(d: PointDetail): string | null {
+  if (d.key && document.querySelector(`[data-ui="${d.key}"]`)) return d.key
+  if (!d.ask) return null
+  const units = scanUnits(document, 200).map((u) => ({ key: u.key, label: u.label, selector: `[data-ui="${u.key}"]`, aliases: [] as string[] }))
+  return resolveUnit(d.ask, units)?.key ?? null
+}
 
 const find = (key: string): HTMLElement | null => {
   const el = document.querySelector<HTMLElement>(`[data-ui="${key}"]`)
@@ -73,9 +83,10 @@ export function Attention() {
   useEffect(() => {
     const onPoint = (e: Event) => {
       const d = (e as CustomEvent<PointDetail>).detail
-      if (!d?.key) return
+      if (!d?.key && !d?.ask) return
       steps.current = []
-      if (!show(d.key, d.caption ?? "", d.mode === "spotlight" ? "spotlight" : "highlight")) { notOnScreen("That part"); return }
+      const key = resolveKey(d)
+      if (!key || !show(key, d.caption ?? "", d.mode === "spotlight" ? "spotlight" : "highlight")) { notOnScreen(d.ask ?? "That part"); return }
       if (d.mode !== "spotlight") timer.current = setTimeout(clear, 7000)
     }
     const onTour = (e: Event) => {

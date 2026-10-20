@@ -24,6 +24,7 @@ import { ChatSDKError } from "@/lib/chatsdk/errors";
 import type { Attachment, ChatMessage } from "@/lib/chatsdk/types";
 import type { AppUsage } from "@/lib/chatsdk/usage";
 import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/chatsdk/utils";
+import { scanUnits } from "@/lib/ade/ui/scan";
 import { useDataStream } from "./data-stream-provider";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
@@ -100,7 +101,9 @@ export function Chat({
             message: request.messages.at(-1),
             selectedChatModel: currentModelIdRef.current,
             selectedVisibilityType: visibilityType,
-            ...(contextRef.current ? { context: contextRef.current } : {}),
+            ...(contextRef.current || docked
+              ? { context: { ...(contextRef.current ?? {}), ...(docked ? { screen: { path: location.pathname + location.search, title: document.title, units: scanUnits(document, 80).map((u) => ({ key: u.key, label: u.label })) } } : {}) } }
+              : {}),
             ...request.body,
           },
         };

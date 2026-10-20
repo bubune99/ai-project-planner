@@ -3,7 +3,7 @@ export const ATTENTION_EVENT = "ade:attention" // detail: PointDetail
 export const TOUR_EVENT = "ade:tour" // detail: { steps }
 export const ACK_EVENT = "ade:ack" // detail: { key, action }  (the person pressed Got it / Skip / Stop)
 
-export interface PointDetail { key: string; mode: "highlight" | "spotlight"; caption?: string }
+export interface PointDetail { key?: string; ask?: string; mode: "highlight" | "spotlight"; caption?: string }
 export interface TourStep { key: string; caption: string }
 
 /** The built-in walkthrough of the chat screen ("Show me around the planner"). */

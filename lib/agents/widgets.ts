@@ -18,7 +18,8 @@ export type Widget =
   | { kind: "steps"; title: string; items: StepItem[]; more: number }
   | { kind: "catchup"; title: string; items: CatchUpItem[]; quiet: number }
   | { kind: "projects"; title: string; items: ProjectItem[]; more: number }
-  | { kind: "point"; key: string; label: string; mode: "highlight" | "spotlight"; caption: string }
+  | { kind: "point"; key?: string; ask?: string; label: string; mode: "highlight" | "spotlight"; caption: string }
+  | { kind: "navigate"; path: string; label: string }
 
 const MAX = 6
 const clip = (v: unknown, n = 90): string => {
@@ -83,11 +84,19 @@ export function toWidget(tool: string, text: string): Widget | null {
   }
 
   if (tool === "show_unit") {
-    if (data.ok !== true || typeof data.key !== "string") return null
+    if (data.ok !== true) return null
+    const key = typeof data.key === "string" ? data.key : undefined
+    const ask = typeof data.ask === "string" ? data.ask : undefined
+    if (!key && !ask) return null
     return {
-      kind: "point", key: data.key, label: clip(data.shown, 40),
+      kind: "point", ...(key ? { key } : {}), ...(ask ? { ask: clip(ask, 60) } : {}), label: clip(data.shown, 40),
       mode: data.mode === "spotlight" ? "spotlight" : "highlight", caption: clip(data.caption, 140),
     }
+  }
+
+  if (tool === "go_to") {
+    if (data.ok !== true || typeof data.path !== "string" || !data.path.startsWith("/") || data.path.startsWith("//")) return null
+    return { kind: "navigate", path: data.path, label: clip(data.label, 60) }
   }
 
   if (tool === "list_projects") {

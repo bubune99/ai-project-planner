@@ -41,7 +41,7 @@ export const PLANNER_TOOL_RISK: Readonly<Record<string, PlannerToolMeta>> = {
   library_search: R, list_agent_jobs: R, list_agents: R, list_awaiting_unlocks: R, list_collaborators: R,
   list_decisions: R, list_document_versions: R, list_documents: R, list_ideas: R, list_phases: R, list_projects: R,
   list_sources_for_job: R, list_sources_for_step: R, list_stale_surfaces: R, list_todos: R, list_workers: R,
-  catch_me_up: R, my_work: R, show_unit: R, planner_agent_guide: R, project_workload: R, read_document: R, resolve_workspace: R, search_chats: R, search_memory: R,
+  catch_me_up: R, my_work: R, show_unit: R, go_to: R, planner_agent_guide: R, project_workload: R, read_document: R, resolve_workspace: R, search_chats: R, search_memory: R,
 
   // ── finance (money domain): never in the in-app chat ──
   get_finance_summary: FIN_R, list_accounts: FIN_R, list_transactions: FIN_R,

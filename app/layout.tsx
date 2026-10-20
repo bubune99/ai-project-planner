@@ -11,6 +11,7 @@ import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister"
 import { FeedbackWidget } from "@/components/feedback/FeedbackWidget"
 import { AskSheet } from "@/components/agents/AskSheet"
 import { Attention } from "@/components/agents/Attention"
+import { UnitMarker } from "@/components/ade/UnitMarker"
 import { AssistantDock } from "@/components/ade/AssistantDock"
 import { Toaster } from "sonner"
 import "./globals.css"
@@ -60,6 +61,7 @@ export default function RootLayout({
         <FeedbackWidget source="ai-project-planner" />
         <AskSheet />
         <Attention />
+        <UnitMarker />
         <Suspense fallback={null}>
           <AssistantDock />
         </Suspense>

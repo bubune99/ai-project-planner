@@ -9,6 +9,7 @@
  */
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { point } from "@/lib/ade/ui/attention-events"
 import type { AgentSpan } from "@/lib/agents/trace"
@@ -114,7 +115,14 @@ function Card({ w }: { w: Widget }) {
             Pointed at <strong>{w.label}</strong>
             {w.caption ? <div style={sub}>{w.caption}</div> : null}
           </div>
-          <button type="button" style={btn} onClick={() => point({ key: w.key, mode: w.mode, caption: w.caption })}>Show again</button>
+          <button type="button" style={btn} onClick={() => point({ key: w.key, ask: w.ask, mode: w.mode, caption: w.caption })}>Show again</button>
+        </div>
+      )
+    case "navigate":
+      return (
+        <div style={{ ...card, display: "flex", alignItems: "center", gap: 10, padding: "8px 12px" }} data-ui="widget.navigate">
+          <div style={{ flex: 1, minWidth: 0, fontSize: 13 }}>Opened <strong>{w.label}</strong></div>
+          <Link href={w.path} style={btn}>Open again</Link>
         </div>
       )
     case "projects":
@@ -135,16 +143,21 @@ function Card({ w }: { w: Widget }) {
 export function AgentWidgets({ spans, fresh = false }: { spans: AgentSpan[]; fresh?: boolean }) {
   // Point once, and only for a reply that streamed in during this visit (never when an old chat is reopened).
   const fired = useRef(new Set<string>())
+  const router = useRouter()
   useEffect(() => {
     if (!fresh) return
     for (const s of spans) {
       const w = s.widget
       if (s.status === "ok" && w?.kind === "point" && !fired.current.has(s.id)) {
         fired.current.add(s.id)
-        point({ key: w.key, mode: w.mode, caption: w.caption })
+        point({ key: w.key, ask: w.ask, mode: w.mode, caption: w.caption })
+      }
+      if (s.status === "ok" && w?.kind === "navigate" && !fired.current.has(s.id)) {
+        fired.current.add(s.id)
+        router.push(w.path)
       }
     }
-  }, [spans, fresh])
+  }, [spans, fresh, router])
 
   const seen = new Set<string>()
   const widgets = spans
