@@ -137,6 +137,7 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
         onCollapsedChange={setCollapsed}
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
+        dockOpen={dockOpen}
       />
       {mobileOpen && (
         <div
