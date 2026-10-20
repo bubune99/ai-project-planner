@@ -29,7 +29,9 @@ function resolveKey(d: PointDetail): string | null {
 }
 
 const find = (key: string): HTMLElement | null => {
-  const el = document.querySelector<HTMLElement>(`[data-ui="${key}"]`)
+  const found = document.querySelector<HTMLElement>(`[data-ui="${key}"]`)
+  // A section heading stands for its whole card.
+  const el = key.startsWith("section.") ? ((found?.closest(".j-card") as HTMLElement | null) ?? found) : found
   if (!el) return null
   const r = el.getBoundingClientRect()
   const hidden = r.width === 0 || r.height === 0 || getComputedStyle(el).visibility === "hidden"
