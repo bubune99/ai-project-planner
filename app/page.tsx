@@ -3,14 +3,15 @@ import { stackServerApp } from "@/lib/auth/stack-auth";
 import { redirect } from "next/navigation";
 
 export default async function LandingPage() {
+  // redirect() works by throwing, so it must never sit inside a try/catch:
+  // the catch would swallow it and a signed-in user would see the signed-out page.
+  let user = null;
   try {
-    const user = await stackServerApp.getUser();
-    if (user) {
-      redirect("/dashboard");
-    }
+    user = await stackServerApp.getUser();
   } catch {
     console.warn("Auth check failed on landing page, showing public view");
   }
+  if (user) redirect("/dashboard");
 
   return (
     <div style={{ minHeight: "100vh", background: "oklch(0.110 0.028 268)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>

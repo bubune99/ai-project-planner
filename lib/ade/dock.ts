@@ -5,8 +5,8 @@ export const DOCK_MAX_RATIO = 0.7
 export const DOCK_MIN_VIEWPORT = 1100
 export const DOCK_STEP = 40
 
-/** Routes where the dock never shows: the full-page chat, sign-in/auth, invites, OAuth, API. */
-const NO_DOCK = ["/chat", "/sign-in", "/sign-up", "/handler", "/invite", "/oauth", "/mcp", "/api", "/feedback", "/auth"]
+/** Routes where the dock never shows: the signed-out landing page ("/" exactly), the full-page chat, sign-in/auth, invites, OAuth, API. */
+const NO_DOCK = ["/", "/chat", "/sign-in", "/sign-up", "/handler", "/invite", "/oauth", "/mcp", "/api", "/feedback", "/auth"]
 
 export function dockAllowed(pathname: string, viewportWidth: number): boolean {
   if (viewportWidth < DOCK_MIN_VIEWPORT) return false
