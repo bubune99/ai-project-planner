@@ -1,9 +1,9 @@
-import nodemailer from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 
 // Lazy-initialize transporter to avoid errors during build
-let transporter: nodemailer.Transporter | null = null;
+let transporter: Transporter | null = null;
 
-function getTransporter(): nodemailer.Transporter | null {
+function getTransporter(): Transporter | null {
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
     return null;
   }
