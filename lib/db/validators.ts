@@ -31,7 +31,7 @@ export const projectInsertSchema = z.object({
   due_date: z.date().nullable().optional(),
   completed_date: z.date().nullable().optional(),
   github_repo_url: z.string().url().nullable().optional(),
-  metadata: z.record(z.any()).nullable().optional(),
+  metadata: z.record(z.string(), z.any()).nullable().optional(),
 })
 
 export const projectUpdateSchema = projectInsertSchema.partial()
@@ -49,7 +49,7 @@ export const projectStepInsertSchema = z.object({
   actual_hours: z.number().nonnegative().default(0),
   order_index: z.number().int().nonnegative(),
   tasks: z.array(z.string()).default([]),
-  metadata: z.record(z.any()).nullable().optional(),
+  metadata: z.record(z.string(), z.any()).nullable().optional(),
 })
 
 export const projectStepUpdateSchema = projectStepInsertSchema.partial().omit({ project_id: true })
@@ -119,7 +119,7 @@ export const businessContextInsertSchema = z.object({
   revenue_model: z.string().min(1),
   competitive_advantage: z.string().min(1),
   success_metrics: z.array(successMetricSchema).nullable().optional(),
-  market_analysis: z.record(z.any()).nullable().optional(),
+  market_analysis: z.record(z.string(), z.any()).nullable().optional(),
   risk_assessment: z.array(riskSchema).nullable().optional(),
   stakeholders: z.array(stakeholderSchema).nullable().optional(),
   budget_info: budgetInfoSchema.nullable().optional(),
@@ -134,9 +134,9 @@ export const executionHistoryInsertSchema = z.object({
   event_type: eventTypeSchema,
   agent_type: z.string().nullable().optional(),
   description: z.string().min(1),
-  old_value: z.record(z.any()).nullable().optional(),
-  new_value: z.record(z.any()).nullable().optional(),
-  metadata: z.record(z.any()).nullable().optional(),
+  old_value: z.record(z.string(), z.any()).nullable().optional(),
+  new_value: z.record(z.string(), z.any()).nullable().optional(),
+  metadata: z.record(z.string(), z.any()).nullable().optional(),
 })
 
 // Document schemas

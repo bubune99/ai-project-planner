@@ -2456,7 +2456,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         ideaId: z.string().describe("Idea ID"),
         facetType: z.enum(["pros_cons", "timeline", "market_research", "technical_specs", "financials", "dependencies", "risks", "alternatives", "custom"]).describe("Type of facet"),
         name: z.string().optional().describe("Custom name for the facet"),
-        data: z.record(z.unknown()).describe("Facet data (structure depends on facet type)"),
+        data: z.record(z.string(), z.unknown()).describe("Facet data (structure depends on facet type)"),
       },
       async ({ ideaId, facetType, name, data }) => {
         try {
@@ -3421,7 +3421,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         description: z.string().optional().describe("Job description/instructions"),
         projectId: z.string().optional().describe("Link to project"),
         priority: z.enum(["low", "medium", "high", "urgent"]).optional().describe("Priority (default: medium)"),
-        metadata: z.record(z.unknown()).optional().describe("Additional metadata"),
+        metadata: z.record(z.string(), z.unknown()).optional().describe("Additional metadata"),
       },
       async ({ title, description, projectId, priority = "medium", metadata }) => {
         try {
@@ -3472,7 +3472,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         jobId: z.string().describe("Job ID"),
         status: z.enum(["claimed", "in_progress", "completed", "failed", "cancelled"]).describe("New status"),
         checkpoint: z.string().optional().describe("Checkpoint data for resuming"),
-        result: z.record(z.unknown()).optional().describe("Result data (for completed jobs)"),
+        result: z.record(z.string(), z.unknown()).optional().describe("Result data (for completed jobs)"),
         error: z.string().optional().describe("Error message (for failed jobs)"),
       },
       async ({ jobId, status, checkpoint, result, error }) => {
@@ -3763,10 +3763,10 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
       {
         kind: z.string().describe("Worker kind, e.g. claude_code_local, openai_gpt5, human_owner"),
         name: z.string().describe("Human-readable worker name"),
-        capabilities: z.record(z.unknown()).optional().describe("Capability descriptor: { tools, models, max_context, supports_unlock, ... }"),
+        capabilities: z.record(z.string(), z.unknown()).optional().describe("Capability descriptor: { tools, models, max_context, supports_unlock, ... }"),
         status: z.enum(["active", "inactive", "busy", "error"]).optional().describe("Initial status (default: active)"),
         shared: z.boolean().optional().describe("Not supported over MCP: shared/system workers (user_id = null) are seeded by migration. Passing true is rejected."),
-        metadata: z.record(z.unknown()).optional().describe("Freeform metadata"),
+        metadata: z.record(z.string(), z.unknown()).optional().describe("Freeform metadata"),
       },
       async ({ kind, name, capabilities, status, shared, metadata }) => {
         try {
@@ -4116,7 +4116,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         externalId: z.string().optional().describe("Upstream record id"),
         externalUrl: z.string().optional().describe("Upstream deep link"),
         status: z.string().optional().describe("Upstream status snapshot"),
-        metadata: z.record(z.unknown()).optional().describe("Freeform metadata"),
+        metadata: z.record(z.string(), z.unknown()).optional().describe("Freeform metadata"),
       },
       async ({ kind, stepId, jobId, todoId, externalId, externalUrl, status, metadata }) => {
         try {
@@ -5303,7 +5303,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         step_id: z.string().describe("Step UUID"),
         event_type: z.enum(["claim", "progress", "blocker", "protocol_violation", "retry", "completion", "failure", "release"]).describe("Event type"),
         message: z.string().optional().describe("Human-readable message for this event"),
-        payload: z.record(z.unknown()).optional().describe("Structured event data"),
+        payload: z.record(z.string(), z.unknown()).optional().describe("Structured event data"),
         outcome_summary: z.string().optional().describe("Required on completion/failure — summary of what happened"),
         outcome_artifacts: z.array(z.object({
           kind: z.string(),
@@ -6231,8 +6231,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         canonical_id: z.string().describe("Stable human-readable ID (e.g. 'route:GET /api/skills', 'db:skills', 'tool:catalog_list')"),
         kind: z.string().describe("Surface kind — must be a SURFACE_KINDS value"),
         project_id: z.string().optional().describe("Optional project UUID scope"),
-        location: z.record(z.unknown()).optional().describe("Location descriptor (file_path, line_start, url_pattern, table_name, etc.)"),
-        signature: z.record(z.unknown()).optional().describe("Canonical signature for drift detection (shape varies by kind)"),
+        location: z.record(z.string(), z.unknown()).optional().describe("Location descriptor (file_path, line_start, url_pattern, table_name, etc.)"),
+        signature: z.record(z.string(), z.unknown()).optional().describe("Canonical signature for drift detection (shape varies by kind)"),
         first_seen_commit_sha: z.string().optional().describe("Git commit SHA where this surface first appeared"),
         rationale: z.string().describe("Why this surface exists — required for the 5W+H envelope"),
       },
