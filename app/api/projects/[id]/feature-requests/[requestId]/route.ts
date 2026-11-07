@@ -5,7 +5,11 @@ import { verifyCollaboratorAccess } from "@/lib/auth/collaboration-access"
 
 export const dynamic = "force-dynamic"
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string; requestId: string } }) {
+export async function PATCH(
+  request: NextRequest,
+  props: { params: Promise<{ id: string; requestId: string }> }
+) {
+  const params = await props.params;
   try {
     const { id, requestId } = params
 

@@ -31,7 +31,8 @@ async function ownedSop(id: string, userId: string) {
 }
 
 /** GET /api/sops/[id] */
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const authContext = await getAuthContext()
     if (!authContext) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
@@ -49,7 +50,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 /** PATCH /api/sops/[id]  Body: any of { title, content, category, status, projectId } */
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const authContext = await getAuthContext()
     if (!authContext) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
@@ -113,7 +115,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 }
 
 /** DELETE /api/sops/[id]  (soft delete) */
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const authContext = await getAuthContext()
     if (!authContext) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)

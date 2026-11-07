@@ -67,10 +67,8 @@ function transformStep(row: Record<string, unknown>) {
 // GET /api/work-orders/[id]
 // ============================================================================
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const auth = await getAuthContext()
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
@@ -134,10 +132,8 @@ const STATUS_TRANSITIONS: Record<string, string[]> = {
   failed:      ['approved'], // allow re-open
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const auth = await getAuthContext()
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
@@ -221,10 +217,8 @@ export async function PATCH(
 // DELETE /api/work-orders/[id]
 // ============================================================================
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const auth = await getAuthContext()
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)

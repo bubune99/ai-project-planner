@@ -9,7 +9,8 @@ export const dynamic = "force-dynamic"
  * GET /api/projects/[id]/documents
  * Get all documents for a project (chapters and pages)
  */
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const projectId = params.id
 
@@ -64,7 +65,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
  * POST /api/projects/[id]/documents
  * Create a new document (chapter or page)
  */
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const projectId = params.id
 

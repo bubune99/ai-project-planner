@@ -37,11 +37,12 @@ function errorRedirect(redirectUri: string, state: string, error: string, desc: 
   redirect(u.toString())
 }
 
-export default async function AuthorizePage({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>
-}) {
+export default async function AuthorizePage(
+  props: {
+    searchParams: Promise<SearchParams>
+  }
+) {
+  const searchParams = await props.searchParams;
   const params = await searchParams
 
   const responseType = first(params.response_type)

@@ -10,10 +10,8 @@ export const dynamic = "force-dynamic"
  * GET /api/projects/[id]/phases
  * Get all phases for a project
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const { id } = await Promise.resolve(params)
     const authContext = await getAuthContext()
@@ -49,10 +47,8 @@ export async function GET(
  * POST /api/projects/[id]/phases
  * Transition to a new phase
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const { id } = await Promise.resolve(params)
     const authContext = await getAuthContext()

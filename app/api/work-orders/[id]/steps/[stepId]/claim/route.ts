@@ -19,8 +19,9 @@ type AgentType = typeof VALID_AGENT_TYPES[number]
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string; stepId: string } }
+  props: { params: Promise<{ id: string; stepId: string }> }
 ) {
+  const params = await props.params;
   try {
     const auth = await getAuthContext()
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)

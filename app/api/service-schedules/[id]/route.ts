@@ -38,7 +38,8 @@ async function getOwned(id: string, userId: string) {
 }
 
 /** GET /api/service-schedules/[id] */
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const authContext = await getAuthContext()
     if (!authContext) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
@@ -58,7 +59,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
  * fields: { title, description, frequency, nextOccurrence, projectId, sopId,
  * amount, currency, endDate, isActive }
  */
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const authContext = await getAuthContext()
     if (!authContext) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
@@ -153,7 +155,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 }
 
 /** DELETE /api/service-schedules/[id] — soft delete */
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const authContext = await getAuthContext()
     if (!authContext) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)

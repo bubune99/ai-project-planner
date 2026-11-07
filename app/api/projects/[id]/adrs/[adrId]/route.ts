@@ -6,7 +6,11 @@ import { mergeEnvelopeForPatch, envelopeForSql } from "@/lib/api/envelope-helper
 
 export const dynamic = "force-dynamic"
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string; adrId: string } }) {
+export async function PATCH(
+  request: NextRequest,
+  props: { params: Promise<{ id: string; adrId: string }> }
+) {
+  const params = await props.params;
   try {
     const { id, adrId } = params
 
