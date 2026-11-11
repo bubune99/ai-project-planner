@@ -284,7 +284,161 @@ export function registerFlowTools(server: any): void {
         const failed = results.filter((x) => !x.ok)
         const line = `\n\n- Run ${new Date().toISOString().slice(0, 16)} · ${env} · ${build} · @${r.flow.version}: ${results.length - failed.length}/${results.length} passed${failed.length ? ` · failed: ${failed.map((f) => `${f.step} "${f.trigger}" (${f.problem})`).join("; ")}` : ""}`
         await saveBody(r.doc, `${(r.doc.content ?? "").replace(/\s+$/, "")}${line}\n`, userId)
-        return ok({ passed: results.length - failed.length, total: results.length, results })
+        let runId: string | null = null
+        try {
+          const [run] = (await sql`
+            INSERT INTO flow_runs (project_id, document_id, flow_id, flow_version, env, build, passed, total, results, created_by)
+            VALUES (${r.doc.project_id}, ${r.doc.id}, ${r.flow.id}, ${r.flow.version}, ${env}, ${build},
+              ${results.length - failed.length}, ${results.length}, ${JSON.stringify(results)}::jsonb, ${userId})
+            RETURNING id
+          `) as { id: string }[]
+          runId = run.id
+        } catch (e) {
+          // Before migration 062 the table doesn't exist; the document line is the record.
+          if (!(e instanceof Error && /flow_runs/.test(e.message))) throw e
+        }
+        return ok({ runId, passed: results.length - failed.length, total: results.length, results, next_actions: runId ? ["Attach a screenshot per step with flow_attach_frame (runId, passed)."] : [] })
+      } catch (e) {
+        return fail(e instanceof Error ? e.message : "Unknown error")
+      }
+    },
+  )
+
+  server.tool(
+    "flow_attach_frame",
+    "Attach a frame to a flow step: a screenshot (WebP or JPEG preferred, PNG accepted; base64), or a link to a mock-up/wireframe, or words. Screenshots from a verification run pass runId + passed so the retention rule can keep the latest passing one per step and environment.",
+    {
+      documentId: z.string(),
+      step: z.string().describe("Step id, e.g. G3"),
+      kind: z.enum(["words", "wireframe", "mockup", "screenshot"]),
+      imageBase64: z.string().optional().describe("Image bytes, base64 (no data: prefix). Max 4 MB."),
+      url: z.string().url().optional().describe("Link to a mock-up/wireframe instead of uploading"),
+      caption: z.string().optional(),
+      env: z.enum(["staging", "prod"]).optional(),
+      build: z.string().optional(),
+      runId: z.string().optional(),
+      passed: z.boolean().optional(),
+    },
+    async (a: { documentId: string; step: string; kind: "words" | "wireframe" | "mockup" | "screenshot"; imageBase64?: string; url?: string; caption?: string; env?: "staging" | "prod"; build?: string; runId?: string; passed?: boolean }) => {
+      try {
+        requireMcpScope("write")
+        const userId = getMcpUserId()
+        const r = await loadFlow(a.documentId, true)
+        if (typeof r === "string") return fail(r)
+        if (!r.flow.steps.some((s) => s.id === a.step)) return fail(`Step ${a.step} is not in ${r.flow.id}@${r.flow.version}`)
+        if (a.kind === "screenshot" && !a.imageBase64) return fail("A screenshot needs imageBase64")
+        if (a.kind !== "words" && !a.imageBase64 && !a.url) return fail("Pass imageBase64 or url")
+        let blobKey: string | null = null
+        let byteSize: number | null = null
+        if (a.imageBase64) {
+          const raw = Buffer.from(a.imageBase64, "base64")
+          if (raw.length > 4 * 1024 * 1024) return fail("Image is over 4 MB")
+          // Callers send WebP or JPEG where they can (Field Trip captures can be WebP); PNG is accepted as-is.
+          const type =
+            raw.subarray(0, 4).toString("ascii") === "RIFF" && raw.subarray(8, 12).toString("ascii") === "WEBP" ? "webp"
+            : raw[0] === 0xff && raw[1] === 0xd8 ? "jpeg"
+            : raw.subarray(1, 4).toString("ascii") === "PNG" ? "png"
+            : null
+          if (!type) return fail("Image must be WebP, JPEG or PNG")
+          const { uploadToR2, isR2Configured } = await import("@/lib/storage/r2-client")
+          if (!isR2Configured()) return fail("File storage is not configured on this server")
+          blobKey = `flows/${r.doc.project_id}/${r.doc.id}/${crypto.randomUUID()}.${type === "jpeg" ? "jpg" : type}`
+          await uploadToR2(blobKey, raw, `image/${type}`)
+          byteSize = raw.length
+        }
+        const [frame] = (await sql`
+          INSERT INTO flow_frames (project_id, document_id, flow_id, flow_version, step, kind, env, build, run_id, blob_key, url, caption, passed, open_finding, byte_size, created_by)
+          VALUES (${r.doc.project_id}, ${r.doc.id}, ${r.flow.id}, ${r.flow.version}, ${a.step}, ${a.kind}, ${a.env ?? null}, ${a.build ?? null},
+            ${a.runId ?? null}, ${blobKey}, ${a.url ?? null}, ${a.caption ?? null}, ${a.passed ?? null}, ${a.passed === false}, ${byteSize}, ${userId})
+          RETURNING id
+        `) as { id: string }[]
+        let swept = null
+        try {
+          const { sweepFlowFrames } = await import("@/lib/flows/sweep")
+          swept = await sweepFlowFrames(new Date(), { documentId: r.doc.id })
+        } catch {
+          // Cleanup is best-effort; the frame is saved either way.
+        }
+        return ok({ frameId: frame.id, stored: blobKey ? "image" : a.url ? "link" : "words", byteSize, swept })
+      } catch (e) {
+        return fail(e instanceof Error ? e.message : "Unknown error")
+      }
+    },
+  )
+
+  server.tool(
+    "flow_frames",
+    "List a flow's frames per step, newest first, with the best frame per step marked (latest passing screenshot, else newest mock-up/wireframe, else words). Image links are short-lived signed URLs.",
+    { documentId: z.string(), step: z.string().optional() },
+    async ({ documentId, step }: { documentId: string; step?: string }) => {
+      try {
+        requireMcpScope("read")
+        const r = await loadFlow(documentId, false)
+        if (typeof r === "string") return fail(r)
+        const rows = (await sql`
+          SELECT id, step, kind, env, build, run_id, blob_key, url, caption, passed, open_finding, pinned, byte_size, captured_at
+          FROM flow_frames WHERE document_id = ${documentId} AND deleted_at IS NULL
+            AND (${step ?? null}::text IS NULL OR step = ${step ?? null})
+          ORDER BY step, captured_at DESC
+        `) as { id: string; step: string; kind: string; passed: boolean | null; blob_key: string | null; url: string | null; captured_at: string }[]
+        const { getSignedDownloadUrl } = await import("@/lib/storage/r2-client")
+        const rank = (f: (typeof rows)[number]) => (f.kind === "screenshot" && f.passed ? 3 : f.kind === "mockup" ? 2 : f.kind === "wireframe" ? 1 : 0)
+        const best = new Map<string, string>()
+        for (const f of rows) {
+          const cur = rows.find((x) => x.id === best.get(f.step))
+          if (!cur || rank(f) > rank(cur)) best.set(f.step, f.id)
+        }
+        const frames = await Promise.all(
+          rows.map(async (f) => ({ ...f, best: best.get(f.step) === f.id, imageUrl: f.blob_key ? await getSignedDownloadUrl(f.blob_key, 3600) : f.url })),
+        )
+        return ok({ flow: `${r.flow.id}@${r.flow.version}`, steps: r.flow.steps.map((s) => s.id), frames })
+      } catch (e) {
+        return fail(e instanceof Error ? e.message : "Unknown error")
+      }
+    },
+  )
+
+  server.tool(
+    "flow_update_frame",
+    "Pin a frame for training (kept until unpinned), or mark a failure's finding resolved (it then expires 14 days later).",
+    { frameId: z.string(), pinned: z.boolean().optional(), findingResolved: z.boolean().optional() },
+    async ({ frameId, pinned, findingResolved }: { frameId: string; pinned?: boolean; findingResolved?: boolean }) => {
+      try {
+        requireMcpScope("write")
+        const [f] = (await sql`SELECT document_id FROM flow_frames WHERE id = ${frameId} AND deleted_at IS NULL`) as { document_id: string }[]
+        if (!f) return fail("Frame not found")
+        const r = await loadFlow(f.document_id, true)
+        if (typeof r === "string") return fail(r)
+        await sql`
+          UPDATE flow_frames SET
+            pinned = COALESCE(${pinned ?? null}, pinned),
+            open_finding = CASE WHEN ${findingResolved ?? null}::boolean IS TRUE THEN false ELSE open_finding END,
+            finding_resolved_at = CASE WHEN ${findingResolved ?? null}::boolean IS TRUE THEN now() ELSE finding_resolved_at END
+          WHERE id = ${frameId}
+        `
+        return ok({ updated: true })
+      } catch (e) {
+        return fail(e instanceof Error ? e.message : "Unknown error")
+      }
+    },
+  )
+
+  server.tool(
+    "flow_prune_frames",
+    "Apply the screenshot retention rule now, for one flow or a whole project: keeps the latest passing screenshot per step and environment, failures until resolved + 14 days, pinned frames; deletes other screenshots older than 30 days. Returns how many were removed and the space freed.",
+    { documentId: z.string().optional(), projectId: z.string().optional() },
+    async ({ documentId, projectId }: { documentId?: string; projectId?: string }) => {
+      try {
+        requireMcpScope("write")
+        if (!documentId && !projectId) return fail("Pass documentId or projectId")
+        if (documentId) {
+          const r = await loadFlow(documentId, true)
+          if (typeof r === "string") return fail(r)
+        } else {
+          await requireMcpProjectWriteAccess(projectId as string)
+        }
+        const { sweepFlowFrames } = await import("@/lib/flows/sweep")
+        return ok(await sweepFlowFrames(new Date(), { documentId, projectId }))
       } catch (e) {
         return fail(e instanceof Error ? e.message : "Unknown error")
       }

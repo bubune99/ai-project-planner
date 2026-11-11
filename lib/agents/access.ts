@@ -33,6 +33,9 @@ export const WRITE_TOOL_SCOPE: Readonly<Record<string, WriteScope>> = {
   flow_request_merge: "project-role-checked", // requireMcpProjectWriteAccess on both documents
   flow_merge: "project-role-checked", // requireMcpProjectWriteAccess + the owner's Merge answer
   flow_check_run: "project-role-checked", // requireMcpProjectWriteAccess
+  flow_attach_frame: "project-role-checked", // requireMcpProjectWriteAccess via loadFlow(id, true)
+  flow_update_frame: "project-role-checked", // requireMcpProjectWriteAccess via loadFlow(frame doc, true)
+  flow_prune_frames: "project-role-checked", // requireMcpProjectWriteAccess (flow doc or project)
   assign_task: "project-role-checked", // requireMcpProjectWriteAccess
   compose_work_order: "project-role-checked", // verifyMcpProjectAccess + canWrite
   create_agent_job: "project-role-checked", // projectId given: canWrite or role check (closed 2026-10-18)

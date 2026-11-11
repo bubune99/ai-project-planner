@@ -25,7 +25,7 @@ for (const name of projectScopedWriteTools()) {
   const block = blocks.get(name) ?? ""
   eq(`${name}: registered`, block.length > 0, true)
   // flow-tools handlers load their document with loadFlow(id, true), which runs requireMcpProjectWriteAccess (checked below).
-  const flowWriteLoad = /loadFlow\([A-Za-z]+, true\)/.test(block)
+  const flowWriteLoad = /loadFlow\([\w.]+, true\)/.test(block)
   eq(`${name}: handler refuses a viewer`, GUARDS.some((g) => block.includes(g)) || flowWriteLoad, true)
 }
 eq("flow-tools loadDoc runs requireMcpProjectWriteAccess when writing", /if \(needWrite\) \{\s*try \{\s*await requireMcpProjectWriteAccess\(doc\.project_id\)/.test(flowSrc), true)
