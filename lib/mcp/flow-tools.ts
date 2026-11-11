@@ -202,6 +202,7 @@ export function registerFlowTools(server: any): void {
         if (errors.length) return fail(`Fix contract errors first: ${errors.map((i) => `${i.where}: ${i.message}`).join("; ")}`)
         const d = diffFlows(m.flow, b.flow)
         const summary = [
+          d.flow.filter((k) => k !== "status").length ? `changes the flow's ${d.flow.filter((k) => k !== "status").join(", ")}` : "",
           d.added.length ? `adds ${d.added.join(", ")}` : "",
           d.removed.length ? `removes ${d.removed.join(", ")}` : "",
           d.changed.length ? `changes ${d.changed.map((c) => `${c.id} (${c.fields.join(", ")})`).join("; ")}` : "",

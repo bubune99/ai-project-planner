@@ -151,6 +151,8 @@ export function validateFlow(flow: Flow, opts: { openDecisionIds?: string[] } = 
 }
 
 export interface FlowDiff {
+  /** Flow-level fields that differ (actors, status, retired). */
+  flow: string[]
   added: string[]
   removed: string[]
   changed: { id: string; fields: string[] }[]
@@ -162,6 +164,9 @@ export function diffFlows(main: Flow, branch: Flow): FlowDiff {
   const b = new Map(branch.steps.map((s) => [s.id, s]))
   const added = [...b.keys()].filter((id) => !a.has(id))
   const removed = [...a.keys()].filter((id) => !b.has(id))
+  const flow = (["actors", "status", "retired"] as const).filter(
+    (k) => JSON.stringify(main[k] ?? null) !== JSON.stringify(branch[k] ?? null),
+  )
   const changed: FlowDiff["changed"] = []
   for (const [id, sb] of b) {
     const sa = a.get(id)
@@ -171,7 +176,7 @@ export function diffFlows(main: Flow, branch: Flow): FlowDiff {
     )
     if (fields.length) changed.push({ id, fields: fields as string[] })
   }
-  return { added, removed, changed }
+  return { flow: [...flow], added, removed, changed }
 }
 
 /** Starts a proposal: a copy of main tagged with the branch key. */

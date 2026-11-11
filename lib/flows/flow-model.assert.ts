@@ -118,6 +118,14 @@ ok("branch, diff and merge (refund-at-close rejected, lock-price merged)", () =>
   assert.throws(() => mergeFlow(group, { ...b, id: "byb.other" }))
 })
 
+ok("diff reports flow-level changes like a new actor", () => {
+  const b = branchFlow(group, "add-actor")
+  b.actors = [...b.actors, "printer"]
+  const d = diffFlows(group, b)
+  assert.deepEqual(d.flow, ["actors", "status"])
+  assert.deepEqual([d.added, d.removed, d.changed], [[], [], []])
+})
+
 ok("collects decision ids once, in step order", () => {
   assert.deepEqual(flowDecisionIds(group), ["d-who-pays", "d-lock"])
 })
