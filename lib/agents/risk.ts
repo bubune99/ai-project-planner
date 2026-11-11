@@ -42,6 +42,7 @@ export const PLANNER_TOOL_RISK: Readonly<Record<string, PlannerToolMeta>> = {
   list_decisions: R, list_document_versions: R, list_documents: R, list_ideas: R, list_phases: R, list_projects: R,
   list_sources_for_job: R, list_sources_for_step: R, list_stale_surfaces: R, list_todos: R, list_workers: R,
   catch_me_up: R, my_work: R, show_unit: R, go_to: R, planner_agent_guide: R, project_workload: R, read_document: R, resolve_workspace: R, search_chats: R, search_memory: R,
+  flow_get: R, flow_diff: R,
 
   // ── finance (money domain): never in the in-app chat ──
   get_finance_summary: FIN_R, list_accounts: FIN_R, list_transactions: FIN_R,
@@ -62,6 +63,9 @@ export const PLANNER_TOOL_RISK: Readonly<Record<string, PlannerToolMeta>> = {
   register_surface: W, reorder_todos: W, score_prompt: W, score_template: W, transition_phase: W, update_document: W,
   update_idea: W, update_project: W, update_task: W, update_todo: W, catalog_scan_now: W, record_attempt: W,
   record_mlp_attempt: W, record_prompt_fire: W, record_spec_outcome: W, work_order_check_in: W, work_order_claim_step: W,
+  flow_save: W, flow_branch: W, flow_check_run: W,
+  // merging applies the owner's inbox answer; the tool refuses without a "Merge" answer
+  flow_merge: W,
 
   // ── owner/admin controls (spend limits): never in the in-app chat; resetting a limit removes a guard ──
   get_ai_limits: { effect: "read", domain: "admin" },
@@ -70,7 +74,7 @@ export const PLANNER_TOOL_RISK: Readonly<Record<string, PlannerToolMeta>> = {
   // ── worker / plumbing / caller-scoped: never in the in-app chat ──
   claim_job: WORKER_W, heartbeat_worker: WORKER_W, register_worker: WORKER_W, request_unlock: WORKER_W,
   resolve_unlock: WORKER_W, update_job_status: WORKER_W, set_active_project: WORKER_W, register_workspace: WORKER_W,
-  ask_owner: WORKER_W,
+  ask_owner: WORKER_W, flow_request_merge: WORKER_W,
 }
 
 /** Class of a tool for one call. Unknown tools are treated as destructive: not offered until classified. */

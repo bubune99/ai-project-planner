@@ -234,6 +234,10 @@ export function registerFlowTools(server: any): void {
       try {
         requireMcpScope("write")
         const userId = getMcpUserId()
+        const m = await loadFlow(mainDocumentId, true)
+        if (typeof m === "string") return fail(m)
+        const b = await loadFlow(branchDocumentId, true)
+        if (typeof b === "string") return fail(b)
         const [job] = (await sql`
           SELECT status, result, input FROM agent_jobs
           WHERE id = ${questionId} AND created_by = ${userId} AND 'flow-merge' = ANY(tags)
@@ -243,10 +247,6 @@ export function registerFlowTools(server: any): void {
         if (!String((job.input as { context?: string })?.context ?? "").includes(marker)) return fail("That question is about a different merge")
         if (job.status === "awaiting-unlock") return fail("The owner has not answered yet")
         const option = (job.result as { answer?: { option?: string | null } } | null)?.answer?.option ?? null
-        const m = await loadFlow(mainDocumentId, true)
-        if (typeof m === "string") return fail(m)
-        const b = await loadFlow(branchDocumentId, true)
-        if (typeof b === "string") return fail(b)
         const today = new Date().toISOString().slice(0, 10)
         if (option !== MERGE_OPTION) {
           await saveBody(b.doc, `${(b.doc.content ?? "").replace(/\s+$/, "")}\n\n**Rejected by the owner ${today}.** Kept for history.\n`, userId)

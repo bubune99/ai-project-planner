@@ -28,6 +28,11 @@ export const WRITE_TOOL_SCOPE: Readonly<Record<string, WriteScope>> = {
   add_progress_note: "project-role-checked", // requireMcpProjectWriteAccess
   add_task_comment: "project-role-checked", // requireMcpProjectWriteAccess
   ask_owner: "project-role-checked", // requireMcpProjectWriteAccess on the project it is about
+  flow_save: "project-role-checked", // requireMcpProjectWriteAccess on the flow document's project
+  flow_branch: "project-role-checked", // requireMcpProjectWriteAccess
+  flow_request_merge: "project-role-checked", // requireMcpProjectWriteAccess on both documents
+  flow_merge: "project-role-checked", // requireMcpProjectWriteAccess + the owner's Merge answer
+  flow_check_run: "project-role-checked", // requireMcpProjectWriteAccess
   assign_task: "project-role-checked", // requireMcpProjectWriteAccess
   compose_work_order: "project-role-checked", // verifyMcpProjectAccess + canWrite
   create_agent_job: "project-role-checked", // projectId given: canWrite or role check (closed 2026-10-18)

@@ -16,14 +16,19 @@ eq("no scope decision for a non-write tool", decided.filter((t) => !writeTools.i
 // (b) Static source check: every project-role-checked tool's handler refuses a viewer.
 const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8").replace(/\r/g, "")
 const src = read("../mcp/planner-tools.ts")
-const starts = [...src.matchAll(/server\.tool\(\s*["']([a-z0-9_]+)["']/g)].map((m) => ({ name: m[1], at: m.index! }))
-const blocks = new Map(starts.map((t, i) => [t.name, src.slice(t.at, starts[i + 1]?.at ?? src.length)]))
+const flowSrc = read("../mcp/flow-tools.ts")
+const allSrc = `${src}\n${flowSrc}`
+const starts = [...allSrc.matchAll(/server\.tool\(\s*["']([a-z0-9_]+)["']/g)].map((m) => ({ name: m[1], at: m.index! }))
+const blocks = new Map(starts.map((t, i) => [t.name, allSrc.slice(t.at, starts[i + 1]?.at ?? allSrc.length)]))
 const GUARDS = ["requireMcpProjectWriteAccess", "canWrite", "projectWriteRoleError(", "stepWriteError(", "rowProjectWriteError(", "sourceParentAccessError(", "updateProjectWorkspace("]
 for (const name of projectScopedWriteTools()) {
   const block = blocks.get(name) ?? ""
   eq(`${name}: registered`, block.length > 0, true)
-  eq(`${name}: handler refuses a viewer`, GUARDS.some((g) => block.includes(g)), true)
+  // flow-tools handlers load their document with loadFlow(id, true), which runs requireMcpProjectWriteAccess (checked below).
+  const flowWriteLoad = /loadFlow\([A-Za-z]+, true\)/.test(block)
+  eq(`${name}: handler refuses a viewer`, GUARDS.some((g) => block.includes(g)) || flowWriteLoad, true)
 }
+eq("flow-tools loadDoc runs requireMcpProjectWriteAccess when writing", /if \(needWrite\) \{\s*try \{\s*await requireMcpProjectWriteAccess\(doc\.project_id\)/.test(flowSrc), true)
 
 // The guards that live outside the handler really do check the role.
 const fnBody = (text: string, header: string) => { const at = text.indexOf(header); return at < 0 ? "" : text.slice(at, at + 1400) }
