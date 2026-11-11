@@ -13,6 +13,7 @@
 
 import { registerCatchupTools } from "./catchup-tools"
 import { registerUiTools } from "./ui-tools"
+import { registerFlowTools } from "./flow-tools"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import { sql } from "@/lib/db/client"
@@ -6906,4 +6907,6 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
   registerCatchupTools(server)
   // show_unit: point at a part of the screen (lib/mcp/ui-tools.ts), read-only.
   registerUiTools(server)
+  // Flow-first planning: flows, branches, owner-approved merges, button checks (lib/mcp/flow-tools.ts)
+  registerFlowTools(server)
 }
