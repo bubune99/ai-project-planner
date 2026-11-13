@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
+import { Plus, History, Maximize2, PanelLeftClose } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { Chat } from "@/components/chatsdk/chat"
 import { DataStreamProvider } from "@/components/chatsdk/data-stream-provider"
@@ -106,8 +107,9 @@ export function AssistantDock() {
         aria-label="Show the assistant"
         style={{
           position: "fixed", left: 0, top: "50%", transform: "translateY(-50%)", zIndex: 30,
-          writingMode: "vertical-rl", background: "oklch(0.18 0 0)", color: "oklch(0.85 0 0)", border: "1px solid var(--j-ring)",
-          borderLeft: 0, borderRadius: "0 10px 10px 0", padding: "14px 8px", fontSize: 12, cursor: "pointer", fontFamily: "inherit",
+          writingMode: "vertical-rl", background: "var(--opx-card)", color: "var(--opx-ink)", border: 0,
+          borderRadius: "0 14px 14px 0", padding: "16px 9px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+          boxShadow: "0 6px 20px rgb(0 0 0 / 0.25)",
         }}
       >
         Assistant
@@ -125,19 +127,20 @@ export function AssistantDock() {
       aria-label="Assistant"
       style={{
         position: "fixed", left: 0, top: 0, bottom: 0, width: w, zIndex: 30, display: "flex", flexDirection: "column",
-        background: "oklch(0.125 0 0)", borderRight: "1px solid var(--j-ring)",
+        background: "var(--opx-bg)", padding: "10px 0 10px 10px", color: "var(--opx-ink)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 16px", height: 92, borderBottom: "1px solid var(--j-hairline)", flexShrink: 0 }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: "var(--opx-card)", borderRadius: 26, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "16px 14px 12px 20px", flexShrink: 0 }}>
         <div style={{ minWidth: 0, lineHeight: 1.25 }}>
-          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-0.01em" }}>Assistant</div>
-          <div style={{ fontSize: 12.5, color: "oklch(0.6 0 0)" }}>{projectId ? "Working on this project" : "Across all your projects"}</div>
+          <div style={{ fontSize: 17, fontWeight: 600 }}>Assistant</div>
+          <div style={{ fontSize: 12.5, color: "var(--opx-muted)" }}>{projectId ? "Working on this project" : "Across all your projects"}</div>
         </div>
         <div style={{ flex: 1 }} />
-        <button type="button" data-ui="dock.new" onClick={() => { setInitial([]); setChatId(generateUUID()); setPanel("chat") }} style={dockBtn} title="Start a new conversation">New</button>
-        <button type="button" data-ui="dock.history" onClick={() => setPanel(panel === "history" ? "chat" : "history")} aria-pressed={panel === "history"} style={{ ...dockBtn, background: panel === "history" ? "oklch(0.870 0.045 252 / 0.15)" : "transparent" }} title="Your past conversations">History</button>
-        <Link href="/chat" data-ui="dock.full" style={{ ...dockBtn, textDecoration: "none" }} title="Open the full chat and your history">Full chat</Link>
-        <button type="button" data-ui="dock.hide" onClick={() => setOpenPersist(false)} aria-label="Hide the assistant" style={dockBtn}>Hide</button>
+        <button type="button" data-ui="dock.new" className="opx-ib" onClick={() => { setInitial([]); setChatId(generateUUID()); setPanel("chat") }} title="New conversation" aria-label="New conversation"><Plus size={17} strokeWidth={1.9} /></button>
+        <button type="button" data-ui="dock.history" className={`opx-ib${panel === "history" ? " on" : ""}`} onClick={() => setPanel(panel === "history" ? "chat" : "history")} aria-pressed={panel === "history"} title="Past conversations" aria-label="Past conversations"><History size={17} strokeWidth={1.9} /></button>
+        <Link href="/chat" data-ui="dock.full" className="opx-ib" title="Open the full chat" aria-label="Open the full chat"><Maximize2 size={16} strokeWidth={1.9} /></Link>
+        <button type="button" data-ui="dock.hide" className="opx-ib" onClick={() => setOpenPersist(false)} title="Hide the assistant" aria-label="Hide the assistant"><PanelLeftClose size={17} strokeWidth={1.9} /></button>
       </div>
       {panel === "history" && (
         <DockHistory
@@ -165,6 +168,7 @@ export function AssistantDock() {
           </DataStreamProvider>
         </SidebarProvider>
       </div>
+      </div>
       <div
         role="separator"
         aria-orientation="vertical"
@@ -184,8 +188,8 @@ export function AssistantDock() {
 }
 
 const dockBtn: React.CSSProperties = {
-  background: "transparent", border: "1px solid var(--j-ring)", borderRadius: 7, color: "oklch(0.85 0 0)",
-  padding: "4px 10px", minHeight: 30, fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center",
+  background: "var(--opx-card)", border: "1px solid var(--opx-line)", borderRadius: 999, color: "var(--opx-ink)",
+  padding: "4px 12px", minHeight: 30, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center",
 }
 
 type HistoryRow = { id: string; title: string; createdAt: string }
@@ -223,23 +227,23 @@ function DockHistory({ onOpen, onClose }: { onOpen: (id: string, messages: ChatM
   return (
     <div data-ui="dock.history-panel" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 8px 16px" }}>
       <div style={{ display: "flex", alignItems: "center", padding: "6px 8px" }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: "oklch(0.8 0 0)" }}>Your conversations</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--opx-ink)" }}>Your conversations</span>
         <div style={{ flex: 1 }} />
         <button type="button" onClick={onClose} style={dockBtn}>Back to chat</button>
       </div>
-      {rows === null && <div style={{ padding: 16, fontSize: 13, color: "oklch(0.6 0 0)" }}>Loading…</div>}
-      {rows !== null && rows.length === 0 && !err && <div style={{ padding: 16, fontSize: 13, color: "oklch(0.6 0 0)" }}>No conversations yet.</div>}
+      {rows === null && <div style={{ padding: 16, fontSize: 13, color: "var(--opx-muted)" }}>Loading…</div>}
+      {rows !== null && rows.length === 0 && !err && <div style={{ padding: 16, fontSize: 13, color: "var(--opx-muted)" }}>No conversations yet.</div>}
       {err && <div style={{ padding: "6px 10px", fontSize: 12.5, color: "var(--j-neg)" }}>{err}</div>}
       {["Today", "Yesterday", "This week", "Older"].filter((g) => groups[g]?.length).map((g) => (
         <div key={g}>
-          <p style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "oklch(0.5 0 0)", padding: "10px 10px 2px", margin: 0 }}>{g}</p>
+          <p style={{ fontSize: 12, fontWeight: 600, color: "var(--opx-muted)", padding: "12px 10px 2px", margin: 0 }}>{g}</p>
           {groups[g].map((r) => (
             <button
               key={r.id}
               type="button"
               onClick={() => open(r.id)}
               disabled={busy !== null}
-              style={{ display: "block", width: "100%", textAlign: "left", background: "transparent", border: 0, borderRadius: 8, padding: "9px 10px", minHeight: 40, fontSize: 13, color: busy === r.id ? "var(--j-accent)" : "oklch(0.88 0 0)", cursor: "pointer", fontFamily: "inherit", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+              style={{ display: "block", width: "100%", textAlign: "left", background: "transparent", border: 0, borderRadius: 12, padding: "9px 10px", minHeight: 40, fontSize: 13.5, color: busy === r.id ? "var(--opx-accent)" : "var(--opx-ink)", cursor: "pointer", fontFamily: "inherit", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
             >
               {r.title || "Untitled"}
             </button>

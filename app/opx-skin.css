@@ -374,3 +374,10 @@ code, pre, kbd, samp, .font-mono { font-family: var(--font-inter), Inter, system
 .opx-pc p { margin: 0; font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 @media (max-width: 1400px) { .opx-projs { grid-template-columns: repeat(2, minmax(0,1fr)); } }
 @media (max-width: 700px) { .opx-projs { grid-template-columns: 1fr; } .opx-pbar h1 { font-size: 28px !important; } }
+
+/* ---------- Assistant dock: icon buttons ---------- */
+.opx-ib { width: 34px; height: 34px; border-radius: 999px; border: 0; background: transparent; color: var(--opx-muted); display: inline-grid; place-items: center; cursor: pointer; text-decoration: none; transition: background .15s, color .15s; }
+.opx-ib:hover { background: var(--opx-soft); color: var(--opx-ink); }
+.opx-ib.on { background: var(--opx-ink); color: var(--opx-card); }
+.opx-ib:focus-visible { outline: 2px solid var(--opx-accent); outline-offset: 2px; }
+[data-ui="dock"] [data-ui="chat.composer"] textarea { font-size: 14.5px; color: var(--opx-ink); }

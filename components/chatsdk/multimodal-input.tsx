@@ -17,6 +17,7 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
+import { Brain, BookOpenText, Paperclip } from "lucide-react";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import { saveChatModelAsCookie } from "@/app/chat/actions";
 import { SelectItem } from "@/components/chatsdk/ui/select";
@@ -39,7 +40,6 @@ import {
 import {
   ArrowUpIcon,
   ChevronDownIcon,
-  PaperclipIcon,
   StopIcon,
 } from "./icons";
 import { PreviewAttachment } from "./preview-attachment";
@@ -277,7 +277,7 @@ function PureMultimodalInput({
 
       <PromptInput
         data-ui="chat.composer"
-        className="rounded-xl border border-border bg-background p-3 shadow-xs transition-all duration-200 focus-within:border-border hover:border-muted-foreground/50"
+        className="rounded-[20px] border border-transparent bg-[var(--opx-soft,#e9edf2)] p-2.5 shadow-none transition-colors duration-200 focus-within:border-[var(--opx-accent,#527bb0)]"
         onSubmit={(event) => {
           event.preventDefault();
           if (status !== "ready") {
@@ -329,7 +329,7 @@ function PureMultimodalInput({
             maxHeight={200}
             minHeight={44}
             onChange={handleInput}
-            placeholder="Send a message..."
+            placeholder="Ask about your projects, or plan something…"
             ref={textareaRef}
             rows={1}
             value={input}
@@ -355,11 +355,11 @@ function PureMultimodalInput({
               aria-pressed={thinking}
               title={thinking ? "Thinking on: the agent shows its reasoning (slower)" : "Show the agent's reasoning on the next message"}
               className={cn(
-                "flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs transition-colors",
-                thinking ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent"
+                "flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[12.5px] font-medium transition-colors",
+                thinking ? "bg-[var(--opx-ink,#20355b)] text-[var(--opx-card,#fff)]" : "text-[var(--opx-muted,#5a687c)] hover:bg-[var(--opx-card,#fff)] hover:text-[var(--opx-ink,#20355b)]"
               )}
             >
-              <span aria-hidden>✦</span>
+              <Brain aria-hidden size={15} strokeWidth={1.9} />
               <span>Think</span>
             </button>
             <button
@@ -369,11 +369,11 @@ function PureMultimodalInput({
               aria-pressed={memory}
               title={memory ? "Memory on: the agent can search your past chats and memory" : "Let the agent search your past chats and memory"}
               className={cn(
-                "flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs transition-colors",
-                memory ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent"
+                "flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[12.5px] font-medium transition-colors",
+                memory ? "bg-[var(--opx-ink,#20355b)] text-[var(--opx-card,#fff)]" : "text-[var(--opx-muted,#5a687c)] hover:bg-[var(--opx-card,#fff)] hover:text-[var(--opx-ink,#20355b)]"
               )}
             >
-              <span aria-hidden>◷</span>
+              <BookOpenText aria-hidden size={15} strokeWidth={1.9} />
               <span>Memory</span>
             </button>
           </PromptInputTools>
@@ -387,7 +387,7 @@ function PureMultimodalInput({
           ) : (
             <PromptInputSubmit
               data-ui="chat.send"
-              className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
+              className="size-9 rounded-full bg-[var(--opx-ink,#20355b)] text-[var(--opx-card,#fff)] transition-opacity duration-200 hover:opacity-90 disabled:opacity-35"
               disabled={!(input && input.length > 0) || uploadQueue.length > 0}
               status={status}
             >
@@ -436,8 +436,10 @@ function PureAttachmentsButton({
 
   return (
     <Button
-      className="aspect-square h-8 rounded-lg p-1 transition-colors hover:bg-accent"
+      className="aspect-square h-8 rounded-full p-1 text-[var(--opx-muted,#5a687c)] transition-colors hover:bg-[var(--opx-card,#fff)] hover:text-[var(--opx-ink,#20355b)]"
       data-testid="attachments-button"
+      aria-label="Attach a file"
+      title="Attach a file"
       disabled={status !== "ready" || isReasoningModel}
       onClick={(event) => {
         event.preventDefault();
@@ -445,7 +447,7 @@ function PureAttachmentsButton({
       }}
       variant="ghost"
     >
-      <PaperclipIcon size={14} style={{ width: 14, height: 14 }} />
+      <Paperclip size={16} strokeWidth={1.9} />
     </Button>
   );
 }
@@ -475,7 +477,7 @@ function PureModelSelectorCompact({
   // One agent only (siblings get JARVIS): a plain label, no dropdown.
   if (agents.length <= 1) {
     return (
-      <span data-ui="chat.agent" className="flex h-8 items-center px-2 font-medium text-muted-foreground text-xs">
+      <span data-ui="chat.agent" className="flex h-8 items-center rounded-full px-2.5 font-medium text-[12.5px] text-[var(--opx-muted,#5a687c)]">
         {(agents[0] ?? selectedModel)?.name}
       </span>
     );

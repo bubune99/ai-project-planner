@@ -1,5 +1,7 @@
 "use client";
 
+import { Mic } from "lucide-react";
+
 import { useEffect, useRef, useState } from "react";
 
 type Rec = {
@@ -67,12 +69,12 @@ export function HoldToTalk({ onText, disabled }: { onText: (text: string) => voi
       onContextMenu={(e) => e.preventDefault()}
       title="Hold to talk"
       style={{
-        width: 36, height: 36, borderRadius: 999, border: "1px solid var(--j-ring)", cursor: "pointer",
-        background: live ? "var(--j-accent)" : "transparent", color: live ? "oklch(0.15 0 0)" : "oklch(0.78 0 0)",
-        fontSize: 16, touchAction: "none", userSelect: "none", WebkitUserSelect: "none",
+        width: 36, height: 36, borderRadius: 999, border: 0, cursor: "pointer", display: "grid", placeItems: "center",
+        background: live ? "var(--opx-hot)" : "transparent", color: live ? "#fff" : "var(--opx-muted)",
+        touchAction: "none", userSelect: "none", WebkitUserSelect: "none",
       }}
     >
-      {live ? "●" : "🎙"}
+      <Mic size={17} strokeWidth={1.9} />
     </button>
   );
 }
