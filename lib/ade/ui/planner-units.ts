@@ -15,9 +15,7 @@ const u = (key: string, label: string, aliases: string[] = []): ControlUnit => (
 
 export const PLANNER_UNITS: ReadonlyArray<ControlUnit> = [
   u("chat.composer", "Message box", ["composer", "chat box", "where I type", "input", "text box"]),
-  u("chat.agent", "Agent picker", ["agent", "which agent", "who am I talking to", "model", "jarvis"]),
-  u("chat.think", "Think switch", ["thinking", "reasoning", "think"]),
-  u("chat.memory", "Memory switch", ["memory", "past chats", "remember"]),
+  u("chat.plus", "Add menu", ["plus", "add", "agent", "which agent", "who am I talking to", "model", "jarvis", "thinking", "reasoning", "think", "memory", "past chats", "remember", "attach"]),
   u("chat.mic", "Hold to talk", ["microphone", "mic", "voice", "dictate", "talk"]),
   u("chat.send", "Send button", ["send", "submit"]),
   u("chat.history", "Chat history", ["history", "past conversations", "old chats", "previous chats"]),

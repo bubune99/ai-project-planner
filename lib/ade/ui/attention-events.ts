@@ -9,9 +9,7 @@ export interface TourStep { key: string; caption: string }
 /** The built-in walkthrough of the chat screen ("Show me around the planner"). */
 export const CHAT_TOUR: ReadonlyArray<TourStep> = [
   { key: "chat.composer", caption: "Type here to ask or tell me anything. I can look things up and make changes for you." },
-  { key: "chat.agent", caption: "This is who you are talking to. JARVIS hands work to specialists when needed." },
-  { key: "chat.think", caption: "Turn on Think to see my reasoning on the next message." },
-  { key: "chat.memory", caption: "Turn on Memory so I can search your past chats." },
+  { key: "chat.plus", caption: "The + has the rest: who you are talking to, searching your past chats, and seeing my reasoning." },
   { key: "chat.mic", caption: "Hold to talk, let go, and your words land in the box." },
   { key: "chat.history", caption: "Your past conversations live here." },
   { key: "chat.new", caption: "Start a fresh chat any time." },

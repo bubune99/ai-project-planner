@@ -68,13 +68,10 @@ export function HoldToTalk({ onText, disabled }: { onText: (text: string) => voi
       onPointerCancel={stop}
       onContextMenu={(e) => e.preventDefault()}
       title="Hold to talk"
-      style={{
-        width: 36, height: 36, flexShrink: 0, borderRadius: 999, border: 0, cursor: "pointer", display: "grid", placeItems: "center",
-        background: live ? "var(--opx-hot)" : "transparent", color: live ? "#fff" : "var(--opx-muted)",
-        touchAction: "none", userSelect: "none", WebkitUserSelect: "none",
-      }}
+      className={`opx-chat-ib${live ? " live" : ""}`}
+      style={{ touchAction: "none", userSelect: "none", WebkitUserSelect: "none" }}
     >
-      <Mic size={17} strokeWidth={1.9} />
+      <Mic size={18} strokeWidth={1.9} aria-hidden />
     </button>
   );
 }

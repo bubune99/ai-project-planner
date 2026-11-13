@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { agentChoices, chatBody, errorText, groupChats, toView, type ChatMessage } from "./view"
+import { agentChoices, chatBody, errorText, groupChats, plusItems, toView, type ChatMessage } from "./view"
 
 let n = 0
 const ok = (name: string, fn: () => void) => { fn(); n++; console.log("ok ", name) }
@@ -64,6 +64,14 @@ ok("agent choices respect what the person is allowed", () => {
   assert.ok(agentChoices().length >= 1)
   assert.deepEqual(agentChoices(["operator"]).map((a) => a.id), ["operator"])
   assert.deepEqual(agentChoices([]), [])
+})
+
+ok("the + menu: files wait for an upload place; memory and reasoning are real switches", () => {
+  const items = plusItems({ canAttach: false, memory: true, reasoning: false })
+  assert.deepEqual(items.map((i) => i.id), ["files", "skills", "connectors", "memory", "reasoning"])
+  assert.deepEqual(items.filter((i) => i.soon).map((i) => i.id), ["files", "skills", "connectors"])
+  assert.deepEqual(items.filter((i) => !i.soon).map((i) => [i.id, i.on]), [["memory", true], ["reasoning", false]])
+  assert.equal(plusItems({ canAttach: true, memory: false, reasoning: false })[0].soon, false)
 })
 
 console.log(`\n${n} checks passed`)

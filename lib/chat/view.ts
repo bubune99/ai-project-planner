@@ -123,3 +123,23 @@ export const STARTERS: { label: string; hint: string; tour?: boolean }[] = [
   { label: "What changed since I was last here?", hint: "New activity across projects" },
   { label: "Show me around the planner", hint: "A short walkthrough", tour: true },
 ]
+
+/**
+ * The composer's "+" menu, the same list as BYB's admin assistant: add files,
+ * then Skills, Connectors and Memory. Here Memory already works (it is a
+ * switch); the rest are shown as coming, not usable. `canAttach` is false
+ * until the planner has somewhere to upload a chat file to.
+ */
+export type PlusItemId = "files" | "skills" | "connectors" | "memory" | "reasoning"
+export interface PlusItem { id: PlusItemId; label: string; hint?: string; soon: boolean; group: "add" | "more"; on?: boolean }
+export const SOON_LABEL = "Soon"
+
+export function plusItems(o: { canAttach: boolean; memory: boolean; reasoning: boolean }): PlusItem[] {
+  return [
+    { id: "files", label: "Add files or photos", soon: !o.canAttach, group: "add" },
+    { id: "skills", label: "Skills", soon: true, group: "more" },
+    { id: "connectors", label: "Connectors", soon: true, group: "more" },
+    { id: "memory", label: "Memory", hint: "Search your past chats and memory", soon: false, group: "more", on: o.memory },
+    { id: "reasoning", label: "Show reasoning", hint: "See how it thought it through (slower)", soon: false, group: "more", on: o.reasoning },
+  ]
+}
