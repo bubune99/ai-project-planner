@@ -337,7 +337,7 @@ function PureMultimodalInput({
           {usage ? <Context {...contextProps} /> : null}
         </div>
         <PromptInputToolbar className="!border-top-0 border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
-          <PromptInputTools className="gap-0 sm:gap-0.5">
+          <PromptInputTools className="min-w-0 gap-0 sm:gap-0.5">
             <AttachmentsButton
               fileInputRef={fileInputRef}
               selectedModelId={selectedModelId}
@@ -360,7 +360,7 @@ function PureMultimodalInput({
               )}
             >
               <Brain aria-hidden size={15} strokeWidth={1.9} />
-              <span>Think</span>
+              <span className={docked ? "sr-only" : undefined}>Think</span>
             </button>
             <button
               type="button"
@@ -374,10 +374,11 @@ function PureMultimodalInput({
               )}
             >
               <BookOpenText aria-hidden size={15} strokeWidth={1.9} />
-              <span>Memory</span>
+              <span className={docked ? "sr-only" : undefined}>Memory</span>
             </button>
           </PromptInputTools>
 
+          <span className="ml-auto flex shrink-0 items-center gap-1">
           <HoldToTalk
             disabled={status !== "ready"}
             onText={(t) => setInput((prev) => (prev ? `${prev} ${t}` : t))}
@@ -387,13 +388,14 @@ function PureMultimodalInput({
           ) : (
             <PromptInputSubmit
               data-ui="chat.send"
-              className="size-9 rounded-full bg-[var(--opx-ink,#20355b)] text-[var(--opx-card,#fff)] transition-opacity duration-200 hover:opacity-90 disabled:opacity-35"
+              className="size-9 shrink-0 rounded-full bg-[var(--opx-ink,#20355b)] text-[var(--opx-card,#fff)] transition-opacity duration-200 hover:opacity-90 disabled:opacity-35"
               disabled={!(input && input.length > 0) || uploadQueue.length > 0}
               status={status}
             >
               <ArrowUpIcon size={14} />
             </PromptInputSubmit>
           )}
+          </span>
         </PromptInputToolbar>
       </PromptInput>
     </div>
@@ -499,7 +501,7 @@ function PureModelSelectorCompact({
     >
       <Trigger
         data-ui="chat.agent"
-        className="flex h-8 items-center gap-2 rounded-lg border-0 bg-background px-2 text-foreground shadow-none transition-colors hover:bg-accent focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="flex h-8 min-w-0 items-center gap-1.5 rounded-full border-0 bg-transparent px-2.5 text-[var(--opx-muted,#5a687c)] shadow-none transition-colors hover:bg-[var(--opx-card,#fff)] hover:text-[var(--opx-ink,#20355b)] focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
         type="button"
       >
         <span className="font-medium text-xs">
@@ -534,7 +536,7 @@ function PureStopButton({
 }) {
   return (
     <Button
-      className="size-7 rounded-full bg-foreground p-1 text-background transition-colors duration-200 hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground"
+      className="size-9 shrink-0 rounded-full bg-[var(--opx-ink,#20355b)] p-1 text-[var(--opx-card,#fff)] transition-opacity duration-200 hover:opacity-90"
       data-testid="stop-button"
       onClick={(event) => {
         event.preventDefault();

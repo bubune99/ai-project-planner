@@ -69,7 +69,7 @@ export function HoldToTalk({ onText, disabled }: { onText: (text: string) => voi
       onContextMenu={(e) => e.preventDefault()}
       title="Hold to talk"
       style={{
-        width: 36, height: 36, borderRadius: 999, border: 0, cursor: "pointer", display: "grid", placeItems: "center",
+        width: 36, height: 36, flexShrink: 0, borderRadius: 999, border: 0, cursor: "pointer", display: "grid", placeItems: "center",
         background: live ? "var(--opx-hot)" : "transparent", color: live ? "#fff" : "var(--opx-muted)",
         touchAction: "none", userSelect: "none", WebkitUserSelect: "none",
       }}
