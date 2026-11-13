@@ -168,6 +168,8 @@ export interface KanbanBoardProps
   renderColumnMenu?: (column: KanbanColumn) => React.ReactNode;
   /** Rendered in a card's trailing slot; shown on hover and on keyboard focus. */
   renderCardMenu?: (task: KanbanTask, columnId: string) => React.ReactNode;
+  /** Added (planner redesign): quick actions under the title — done, start, flag, date. */
+  renderCardActions?: (task: KanbanTask, columnId: string) => React.ReactNode;
   /** Foot-of-column "Add task". Omit to hide the button entirely. */
   onAddTask?: (columnId: string) => void;
   /** Click (not drag) on a card body. */
@@ -197,6 +199,7 @@ export const KanbanBoard = React.forwardRef<HTMLDivElement, KanbanBoardProps>(
       onTaskMove,
       renderColumnMenu,
       renderCardMenu,
+      renderCardActions,
       onAddTask,
       onTaskOpen,
       ...props
@@ -618,9 +621,9 @@ export const KanbanBoard = React.forwardRef<HTMLDivElement, KanbanBoardProps>(
                     else colRefs.current.delete(col.id);
                   }}
                   className={cn(
-                    "group/col w-[286px] shrink-0 rounded-[16px] p-3 transition-colors duration-200",
-                    "bg-neutral-100/70 dark:bg-white/[0.04]",
-                    isTarget && "bg-neutral-200/60 dark:bg-white/[0.08]",
+                    "group/col w-[320px] shrink-0 rounded-[22px] p-3 transition-colors duration-200",
+                    "bg-[var(--opx-card,#fff)]",
+                    isTarget && "ring-2 ring-[var(--opx-accent,#527bb0)]",
                     SQUIRCLE,
                   )}
                 >
@@ -670,6 +673,7 @@ export const KanbanBoard = React.forwardRef<HTMLDivElement, KanbanBoardProps>(
                               onPointerDown={(e) => startDrag(e, task, col.id, i)}
                               onKeyDown={(e) => onCardKeyDown(e, task, col.id)}
                               menu={renderCardMenu?.(task, col.id)}
+                              actions={renderCardActions?.(task, col.id)}
                               onOpen={
                                 onTaskOpen
                                   ? () => {
@@ -922,9 +926,11 @@ function Card({
   onPointerDown,
   onKeyDown,
   menu,
+  actions,
   onOpen,
 }: {
   task: KanbanTask;
+  actions?: React.ReactNode;
   grabbed: boolean;
   reduceMotion: boolean;
   elRef: (el: HTMLDivElement | null) => void;
@@ -962,7 +968,7 @@ function Card({
         SQUIRCLE,
       )}
     >
-      <CardShell task={task} menu={menu} />
+      <CardShell task={task} menu={menu} actions={actions} />
     </motion.div>
   );
 }
@@ -971,25 +977,27 @@ function CardShell({
   task,
   floating,
   menu,
+  actions,
 }: {
   task: KanbanTask;
   floating?: boolean;
   menu?: React.ReactNode;
+  actions?: React.ReactNode;
 }) {
+  /*
+   * Planner redesign (owner 2026-11-13): the title carries the card. The
+   * description is read on hover, tags are dropped (mostly "from-todo"
+   * migration noise), and a due date shows only when the step has one.
+   */
   return (
     <div
       className={cn(
-        "rounded-[12px] border p-3",
-        "border-black/[0.06] bg-white dark:border-white/[0.08] dark:bg-neutral-900",
-        floating
-          ? "shadow-[0_16px_32px_-12px_rgb(0_0_0/0.28)]"
-          : "shadow-[0_1px_2px_rgb(0_0_0/0.05)]",
+        "group/shell relative rounded-[16px] p-3",
+        "bg-[var(--opx-soft,#e9edf2)] text-[var(--opx-ink,#20355b)]",
+        floating ? "shadow-[0_16px_32px_-12px_rgb(0_0_0/0.35)]" : "",
         SQUIRCLE,
       )}
     >
-      {/* Added: the menu shares the chip row, so a card with no chips still
-          has somewhere to put it. data-kanban-no-drag keeps a click on the
-          trigger from starting a drag. */}
       {menu && (
         <span
           data-kanban-no-drag
@@ -999,95 +1007,59 @@ function CardShell({
         </span>
       )}
 
-      <div className="flex flex-wrap items-center gap-1.5">
+      <p
+        className={cn(
+          "m-0 text-[15px] font-semibold leading-snug",
+          task.done && "text-[var(--opx-muted,#5a687c)] line-through",
+        )}
+      >
+        {task.title}
+      </p>
+
+      {task.note && !floating && (
+        <div
+          role="tooltip"
+          className={cn(
+            "pointer-events-none invisible absolute left-3 right-3 top-full z-30 mt-1 max-h-[260px] overflow-hidden whitespace-pre-wrap rounded-[14px] p-3 text-[13px] leading-relaxed opacity-0 transition-opacity delay-300",
+            "bg-[var(--opx-card,#fff)] text-[var(--opx-ink,#20355b)] shadow-[0_12px_40px_rgb(0_0_0/0.35)]",
+            "group-hover/card:visible group-hover/card:opacity-100",
+          )}
+        >
+          {task.note.slice(0, 600)}
+        </div>
+      )}
+
+      <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[12px] text-[var(--opx-muted,#5a687c)]">
         {task.priority && (
           <span className={cn(CHIP, "font-medium", PRIORITY_STYLES[task.priority], SQUIRCLE)}>
             <Flag aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2.25} />
             <span>{PRIORITY_LABELS[task.priority]}</span>
           </span>
         )}
-        {task.category && (
+        {task.due && (
           <span
             className={cn(
-              CHIP,
-              "font-normal",
-              "bg-neutral-100 text-neutral-600 dark:bg-white/[0.07] dark:text-neutral-300",
-              SQUIRCLE,
+              "inline-flex items-center gap-1 tabular-nums",
+              task.dueSoon && "text-[var(--opx-hot,#d65a3e)]",
             )}
           >
-            <TaskIcon icon={task.icon} />
-            <span>{task.category}</span>
+            <CalendarDays aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2.25} />
+            {task.due}
+          </span>
+        )}
+        {task.progress != null && task.progress > 0 && <ProgressRing value={task.progress} />}
+        {task.footnotes?.map((f) => (
+          <span key={f.label} title={f.title} className="tabular-nums">
+            {f.label}
+          </span>
+        ))}
+        <AvatarStack people={task.assignees ?? []} />
+        {actions && (
+          <span data-kanban-no-drag className="ml-auto flex items-center gap-1">
+            {actions}
           </span>
         )}
       </div>
-
-      <p
-        className={cn(
-          "m-0 mt-2.5 text-[14px] font-medium leading-snug tracking-[-0.005em]",
-          task.done && "text-neutral-400 line-through dark:text-neutral-500",
-        )}
-      >
-        {task.title}
-      </p>
-
-      {task.note && (
-        <p className="m-0 mt-1 line-clamp-2 text-[12px] font-normal leading-snug text-neutral-500 dark:text-neutral-400">
-          {task.note}
-        </p>
-      )}
-
-      {/* Added: tags beyond the one shown as the category chip. */}
-      {task.tags && task.tags.length > 0 && (
-        <div className="mt-2 flex flex-wrap items-center gap-1">
-          {task.tags.map((t) => (
-            <span
-              key={t.label}
-              style={{ backgroundColor: `${t.color}26`, color: t.color }}
-              className={cn("rounded-full px-1.5 py-px text-[10px] font-medium", SQUIRCLE)}
-            >
-              {t.label}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {(task.assignees?.length ||
-        task.due ||
-        task.progress != null ||
-        task.footnotes?.length) && (
-        <>
-          <div className="mt-3 h-px bg-black/[0.06] dark:bg-white/[0.08]" />
-          <div className="mt-2.5 flex items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2.5">
-              {task.due && (
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1 text-[11.5px] font-normal tabular-nums",
-                    task.dueSoon
-                      ? "text-amber-600 dark:text-amber-400"
-                      : "text-neutral-500 dark:text-neutral-400",
-                  )}
-                >
-                  <CalendarDays aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2.25} />
-                  {task.due}
-                </span>
-              )}
-              {task.progress != null && <ProgressRing value={task.progress} />}
-              {/* Added: estimate / subtasks / checklist / dependencies. */}
-              {task.footnotes?.map((f) => (
-                <span
-                  key={f.label}
-                  title={f.title}
-                  className="inline-flex items-center text-[11.5px] font-normal tabular-nums text-neutral-500 dark:text-neutral-400"
-                >
-                  {f.label}
-                </span>
-              ))}
-            </div>
-            <AvatarStack people={task.assignees ?? []} />
-          </div>
-        </>
-      )}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import { KanbanBoard, type KanbanTask } from "./kanban/KanbanBoard"
 import { toKanbanColumns } from "./kanban/adapt"
 import { ColumnMenu } from "./kanban/ColumnMenu"
 import { CardMenu } from "./kanban/CardMenu"
+import { CardActions } from "./kanban/CardActions"
 import { Plus } from "lucide-react"
 import { toast } from "sonner"
 import {
@@ -605,6 +606,21 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
                   />
                 ) : null
               }
+              renderCardActions={(task) => {
+                const step = stepById.get(task.id)
+                if (!step) return null
+                const kind = statusMap[step.status]?.kind ?? "open"
+                return (
+                  <CardActions
+                    step={step}
+                    isDone={kind === "done"}
+                    isActive={kind === "active"}
+                    activeKey={statuses.find((s) => s.kind === "active")?.key ?? null}
+                    onToggleComplete={handleToggleComplete}
+                    onPatch={patchStep}
+                  />
+                )
+              }}
               renderCardMenu={(task) => {
                 const step = stepById.get(task.id)
                 if (!step) return null

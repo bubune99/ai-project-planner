@@ -36,7 +36,10 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
         category,
         last_edited_by,
         updated_at,
-        created_at
+        created_at,
+        file_type,
+        file_size,
+        (blob_key IS NOT NULL) AS is_file
       FROM documents
       WHERE project_id = ${projectId}
         AND deleted_at IS NULL
