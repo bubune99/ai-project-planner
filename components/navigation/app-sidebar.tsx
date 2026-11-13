@@ -162,8 +162,8 @@ export function AppSidebar({
         )}
         {!collapsed && (
           <div className="j-brand-name">
-            <strong>JARVIS</strong>
-            <span>Central Nervous System</span>
+            <strong>Planner</strong>
+            <span>Everything you're building</span>
           </div>
         )}
         <button

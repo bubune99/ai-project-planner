@@ -3,12 +3,13 @@
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useTheme } from "next-themes"
 import { AppSidebar, OPEN_POPOUT_EVENT } from "./app-sidebar"
 import { Icon } from "@/components/jarvis/icons"
 import { DOCK_STATE_EVENT, DOCK_TOGGLE_EVENT } from "@/components/ade/AssistantDock"
 
 const PAGE_META: Record<string, { title: string; sub: string }> = {
-  "/dashboard": { title: "Dashboard", sub: "Central Nervous System overview" },
+  "/dashboard": { title: "Dashboard", sub: "Across every project" },
   "/projects": { title: "Projects", sub: "All ventures and initiatives" },
   "/clients": { title: "Clients", sub: "Ongoing client work and retainers" },
   "/todos": { title: "Today", sub: "Daily focus and tasks" },
@@ -17,7 +18,7 @@ const PAGE_META: Record<string, { title: string; sub: string }> = {
   "/memory": { title: "Memory", sub: "Knowledge base and notes" },
   "/agents": { title: "Agent Dashboard", sub: "AI worker jobs and status" },
   "/calendar": { title: "Calendar", sub: "Schedule and events" },
-  "/chat": { title: "AI Chat", sub: "Conversation with JARVIS" },
+  "/chat": { title: "AI Chat", sub: "Talk to the planner" },
   "/settings": { title: "Settings", sub: "Preferences and configuration" },
   "/sops": { title: "SOPs", sub: "Standard operating procedures" },
 }
@@ -47,6 +48,9 @@ function viewportFor(width: number): Viewport {
 export const OPEN_MENU_EVENT = "app:open-menu"
 
 export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: DashboardLayoutProps) {
+  const { resolvedTheme, setTheme } = useTheme()
+  const [themeReady, setThemeReady] = useState(false)
+  useEffect(() => setThemeReady(true), [])
   const [collapsed, setCollapsed] = useState(false)
   const [cmdOpen, setCmdOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -63,7 +67,7 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
   const [vp, setVp] = useState<Viewport>("desktop")
   const pathname = usePathname()
 
-  const meta = PAGE_META[pathname] || { title: "JARVIS", sub: "Central Nervous System" }
+  const meta = PAGE_META[pathname] || (pathname.startsWith("/project/") ? { title: "Project", sub: "" } : { title: "Planner", sub: "" })
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -198,6 +202,16 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
             >
               <Icon name="search" size={16} />
             </button>
+            {themeReady && (
+              <button
+                className="j-btn j-btn-ghost"
+                data-ui="theme.toggle"
+                onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+                aria-label={resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              >
+                {resolvedTheme === "dark" ? "Light" : "Dark"}
+              </button>
+            )}
             <button
               className="j-btn j-btn-ghost"
               data-ui="dock.toggle"
