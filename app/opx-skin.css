@@ -560,3 +560,11 @@ button.opx-chat-tool.on:hover { background: var(--opx-ink); color: var(--opx-car
 .opx-tabs-menu button[aria-current="true"] { background: var(--opx-soft); }
 .opx-tabs button:focus-visible, .opx-dock-btn:focus-visible { outline: 2px solid var(--opx-accent); outline-offset: -2px; }
 .opx-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- Finance: money by project ---------- */
+.opx-mt { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(4, minmax(0, 1fr)); gap: 10px; align-items: center; padding: 11px 0; border-top: 1px solid var(--opx-line); color: inherit; text-decoration: none; font-size: 14px; }
+a.opx-mt:hover b { text-decoration: underline; }
+.opx-mt b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.opx-mt > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.opx-mth { border-top: 0; font-size: 12.5px; color: var(--opx-muted); padding-top: 4px; padding-bottom: 6px; }
+@media (max-width: 760px) { .opx-mt { grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr)); } .opx-mt > :nth-child(2), .opx-mt > :nth-child(4) { display: none; } }

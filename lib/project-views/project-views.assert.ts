@@ -3,6 +3,7 @@
  * Run: npx -y tsx@4.23.15 lib/project-views/project-views.assert.ts
  */
 import assert from "node:assert/strict"
+import { formatMoney, hasMoney, moneyRollup, moneyTotals } from "./money"
 import { type Plannable, rangeOf, byDay, dedupeTodos, unscheduled, monthCells, addDays, dayKey, dayOf, dayTicks } from "./schedule"
 import { projectMetrics, weekOf, lastWeeks, medianLabel } from "./metrics"
 import { parseIdeaPlan, featureName, ideaStage, ideasForProject } from "./ideas"
@@ -163,6 +164,38 @@ ok("timeline: newest first, code blocks stripped, months grouped", () => {
   assert.equal(ev[4].summary, "Owner said")
   assert.deepEqual(byMonth(ev).map((m) => [m.month, m.events.length]), [["November 2026", 4], ["October 2026", 1]])
   assert.equal(cleanSummary("a [step:abc] b"), "a b")
+})
+
+ok("money: nothing entered is null, never 0", () => {
+  const t = moneyTotals(null)
+  assert.deepEqual([t.budget, t.monthly, t.putIn, t.broughtIn, t.budgetUsed, t.warn, hasMoney(t)], [null, null, null, null, null, false, false])
+  assert.equal(moneyTotals({ costs: [{ id: "1", name: "Hosting", service: "Vercel", monthly: null }] }).monthly, null)
+  assert.equal(formatMoney(null), "—")
+  assert.equal(formatMoney(1200), "$1,200")
+})
+
+ok("money: monthly cost against a monthly budget, with the warning level", () => {
+  const t = moneyTotals({ budget: 100, warnAt: 80, costs: [{ id: "1", name: "a", service: "Vercel", monthly: 60 }, { id: "2", name: "b", service: "Neon", monthly: 25 }, { id: "3", name: "c", service: "x", monthly: null }] })
+  assert.equal(t.monthly, 85)
+  assert.equal(t.budgetUsed, 0.85)
+  assert.equal(t.warn, true)
+  assert.equal(moneyTotals({ budget: 100, budgetPeriod: "total", costs: [{ id: "1", name: "a", service: "s", monthly: 90 }] }).budgetUsed, null)
+})
+
+ok("money roll-up: per currency, empty projects left out, services merged", () => {
+  const r = moneyRollup([
+    { id: "a", name: "Alpha", money: { budget: 50, costs: [{ id: "1", name: "Hosting", service: "Vercel", monthly: 20 }], putIn: [{ id: "1", date: "2026-01-01", amount: 500, note: "" }] } },
+    { id: "b", name: "Beta", money: { budget: 900, budgetPeriod: "total", costs: [{ id: "1", name: "Hosting", service: "vercel", monthly: 40 }, { id: "2", name: "DB", service: "Neon", monthly: 19 }], broughtIn: [{ id: "1", date: "2026-02-01", amount: 300, note: "" }] } },
+    { id: "c", name: "Empty", money: {} },
+    { id: "d", name: "Euro", money: { currency: "EUR", budget: 10 } },
+    { id: "e", name: "None" },
+  ])
+  assert.deepEqual(r.map((x) => [x.currency, x.rows.map((p) => p.name)]), [["USD", ["Beta", "Alpha"]], ["EUR", ["Euro"]]])
+  const usd = r[0]
+  assert.deepEqual([usd.monthlyBudget, usd.monthly, usd.putIn, usd.broughtIn, usd.net], [50, 79, 500, 300, -200])
+  assert.deepEqual(usd.services, [{ service: "Vercel", monthly: 60, projects: 2 }, { service: "Neon", monthly: 19, projects: 1 }])
+  assert.deepEqual([r[1].monthly, r[1].net], [null, null])
+  assert.deepEqual(moneyRollup([]), [])
 })
 
 console.log(`\n${passed} checks passed`)

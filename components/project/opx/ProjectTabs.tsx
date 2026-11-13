@@ -8,6 +8,7 @@
  */
 
 import { useMemo, useState } from "react"
+import { formatMoney, moneyTotals } from "@/lib/project-views/money"
 import { toast } from "sonner"
 import { projectMetrics, medianLabel } from "@/lib/project-views/metrics"
 import { CORE_SLOTS } from "./DocsTab"
@@ -99,12 +100,10 @@ export function MetricsTab({ projectId }: { projectId: string }) {
 
 export function MoneyTab({ projectId, project, onChange }: { projectId: string; project: any; onChange: () => void }) {
   const money = uiOf(project).money || {}
-  const cur = money.currency || "USD"
-  const fmt = (n: number | null | undefined) => (n == null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: cur, maximumFractionDigits: 0 }).format(n))
+  // Same math as the Finance page's roll-up (lib/project-views/money.ts).
+  const totals = moneyTotals(money)
+  const fmt = (n: number | null | undefined) => formatMoney(n, totals.currency)
   const costs = money.costs || [], putIn = money.putIn || [], brought = money.broughtIn || []
-  const monthly = costs.reduce((a, c) => a + (c.monthly || 0), 0)
-  const hasMonthly = costs.some((c) => c.monthly != null)
-  const sum = (l: { amount: number }[]) => l.reduce((a, x) => a + x.amount, 0)
   const [form, setForm] = useState<{ kind: "cost" | "in" | "out" | "budget" | null; a: string; b: string; c: string }>({ kind: null, a: "", b: "", c: "" })
   const [busy, setBusy] = useState(false)
   const write = async (next: PlannerUi["money"]) => {
@@ -115,14 +114,14 @@ export function MoneyTab({ projectId, project, onChange }: { projectId: string; 
   }
   const num = (s: string) => { const n = Number(s.replace(/[^0-9.]/g, "")); return Number.isFinite(n) && s.trim() ? n : null }
   const today = new Date().toISOString().slice(0, 10)
-  const budgetUsed = money.budget && money.budgetPeriod !== "total" && hasMonthly ? monthly / money.budget : null
+  const budgetUsed = totals.budgetUsed
   return (
     <div className="opx-col" style={{ gap: 12 }}>
       <div className="opx-stats">
-        <div className={`opx-stat${budgetUsed != null && budgetUsed * 100 >= (money.warnAt ?? 80) ? " hot" : ""}`}><b>{money.budget != null ? fmt(money.budget) : "—"}</b><span>Budget{money.budget != null ? (money.budgetPeriod === "total" ? ", total" : " per month") : ""}</span></div>
-        <div className="opx-stat"><b>{hasMonthly ? fmt(monthly) : "—"}</b><span>Costs to run, per month</span></div>
-        <div className="opx-stat"><b>{putIn.length ? fmt(sum(putIn)) : "—"}</b><span>Put in so far</span></div>
-        <div className="opx-stat"><b>{brought.length ? fmt(sum(brought)) : "—"}</b><span>Brought in so far</span></div>
+        <div className={`opx-stat${totals.warn ? " hot" : ""}`}><b>{money.budget != null ? fmt(money.budget) : "—"}</b><span>Budget{money.budget != null ? (money.budgetPeriod === "total" ? ", total" : " per month") : ""}</span></div>
+        <div className="opx-stat"><b>{fmt(totals.monthly)}</b><span>Costs to run, per month</span></div>
+        <div className="opx-stat"><b>{fmt(totals.putIn)}</b><span>Put in so far</span></div>
+        <div className="opx-stat"><b>{fmt(totals.broughtIn)}</b><span>Brought in so far</span></div>
       </div>
       <div className="opx-2col">
         <Section title="What it costs to run" action={<button className="opx-link" onClick={() => setForm({ kind: "cost", a: "", b: "", c: "" })}>＋ Add a cost</button>}>

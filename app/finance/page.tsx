@@ -1,161 +1,84 @@
 "use client"
-import { Wallet } from "lucide-react"
 
-import { useState, useEffect } from "react"
-import { useUser } from "@stackframe/stack"
+/*
+ * Finance — the money on every project, in one place (owner 2026-11-13).
+ * It totals what was entered on each project's Money tab: budget, monthly
+ * running cost, money put in and money brought in. Rules and totals are in
+ * lib/project-views/money.ts; nothing here is estimated, and a number nobody
+ * entered shows as "—".
+ */
+
+import Link from "next/link"
 import { DashboardLayout } from "@/components/navigation"
-import { FinanceSummaryCards, AccountCard, TransactionList } from "@/components/finance"
-import type { FinanceAccount, FinanceTransaction, FinanceSummary } from "@/lib/types"
+import { Failed, Loading, Section, unwrap, useJson } from "@/components/project/opx/shared"
+import { formatMoney, moneyRollup, type MoneyRollup, type ProjectMoney } from "@/lib/project-views/money"
 
-const TABS = ["overview", "accounts", "transactions", "budgets"] as const
-type Tab = typeof TABS[number]
+interface ProjectRow { id: string; name: string; status?: string | null; money?: ProjectMoney | null }
+
+function Rollup({ r, many }: { r: MoneyRollup; many: boolean }) {
+  const f = (n: number | null | undefined) => formatMoney(n, r.currency)
+  const used = r.monthlyBudget && r.monthly != null ? Math.round((r.monthly / r.monthlyBudget) * 100) : null
+  return (
+    <>
+      {many && <h2 className="opx-muted" style={{ fontSize: 13, fontWeight: 600, margin: "6px 4px -4px" }}>In {r.currency}</h2>}
+      <div className="opx-stats" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", display: "grid" }}>
+        <div className="opx-stat"><b>{f(r.monthly)}</b><span>Costs to run, per month</span></div>
+        <div className={`opx-stat${used != null && used >= 100 ? " hot" : ""}`}><b>{f(r.monthlyBudget)}</b><span>Monthly budgets{used != null ? ` · ${used}% used` : ""}</span></div>
+        <div className="opx-stat"><b>{f(r.putIn)}</b><span>Put in so far</span></div>
+        <div className="opx-stat"><b>{f(r.broughtIn)}</b><span>Brought in so far</span></div>
+        <div className={`opx-stat${r.net != null && r.net < 0 ? " hot" : ""}`}><b>{f(r.net)}</b><span>Brought in minus put in</span></div>
+      </div>
+      <div className="opx-2col">
+        <Section title="By project" count={r.rows.length}>
+          <div className="opx-mt opx-mth"><span>Project</span><span>Budget</span><span>Per month</span><span>Put in</span><span>Brought in</span></div>
+          {r.rows.map((p) => (
+            <Link key={p.id} href={`/project/${p.id}?tab=finance`} className="opx-mt">
+              <b>{p.name}</b>
+              <span>{p.budget != null ? `${f(p.budget)}${p.budgetPeriod === "total" ? " total" : " / mo"}` : "—"}</span>
+              <span style={p.warn ? { color: "var(--opx-hot)", fontWeight: 600 } : undefined}>{f(p.monthly)}{p.budgetUsed != null ? ` · ${Math.round(p.budgetUsed * 100)}%` : ""}</span>
+              <span>{f(p.putIn)}</span>
+              <span>{f(p.broughtIn)}</span>
+            </Link>
+          ))}
+        </Section>
+        <Section title="What you pay each month, by service" count={r.services.length || undefined}>
+          {r.services.length === 0 && <p className="opx-muted" style={{ margin: 0 }}>No running costs with an amount yet. Add them on a project's Money tab.</p>}
+          {r.services.map((s) => (
+            <div key={s.service} className="opx-agr" style={{ gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr) auto" }}>
+              <span>{s.service}<small className="opx-muted" style={{ marginLeft: 6 }}>{s.projects} project{s.projects === 1 ? "" : "s"}</small></span>
+              <span className="opx-pg" style={{ height: 9 }}><i style={{ width: `${r.monthly ? (s.monthly / r.monthly) * 100 : 0}%`, background: "var(--opx-accent)" }} /></span>
+              <b>{f(s.monthly)}</b>
+            </div>
+          ))}
+        </Section>
+      </div>
+    </>
+  )
+}
 
 export default function FinancePage() {
-  const user = useUser()
-  const [summary, setSummary] = useState<FinanceSummary | null>(null)
-  const [accounts, setAccounts] = useState<FinanceAccount[]>([])
-  const [transactions, setTransactions] = useState<FinanceTransaction[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<Tab>("overview")
-
-  useEffect(() => {
-    if (user) fetchData()
-  }, [user])
-
-  const fetchData = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      const [summaryRes, accountsRes, transactionsRes] = await Promise.all([
-        fetch("/api/finance/summary"),
-        fetch("/api/finance/accounts"),
-        fetch("/api/finance/transactions?limit=50"),
-      ])
-      if (!summaryRes.ok || !accountsRes.ok || !transactionsRes.ok) {
-        throw new Error("Failed to fetch finance data")
-      }
-      const [summaryData, accountsData, transactionsData] = await Promise.all([
-        summaryRes.json(),
-        accountsRes.json(),
-        transactionsRes.json(),
-      ])
-      setSummary(summaryData.data)
-      setAccounts(accountsData.data || [])
-      setTransactions(transactionsData.data || [])
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  if (!user) {
-    return (
-      <DashboardLayout>
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 300 }}>
-          <div className="j-dot-pulse" />
-        </div>
-      </DashboardLayout>
-    )
-  }
+  const { data, loading, error, reload } = useJson("/api/projects")
+  const projects = unwrap<ProjectRow[]>(data) || []
+  const rollups = moneyRollup(projects)
+  const without = projects.filter((p) => !rollups.some((r) => r.rows.some((x) => x.id === p.id)))
 
   return (
     <DashboardLayout>
-      <div className="j-content j-col j-gap-4">
-        {/* Action strip */}
-        <div className="j-row j-between">
-          <div className="j-row j-gap-2">
-            {TABS.map(t => (
-              <button
-                key={t}
-                onClick={() => setActiveTab(t)}
-                className={`j-pill ${activeTab === t ? "j-proj" : "j-ghost"}`}
-                style={{ cursor: "pointer", border: "none", textTransform: "capitalize" }}
-              >
-                {t === "accounts" ? `Accounts (${accounts.length})` : t.charAt(0).toUpperCase() + t.slice(1)}
-              </button>
-            ))}
-          </div>
-          <div className="j-row j-gap-2">
-            <button className="j-btn j-btn-ghost" onClick={fetchData} disabled={isLoading}>↻ Refresh</button>
-            <button className="j-btn j-btn-primary">+ Add transaction</button>
-          </div>
-        </div>
-
-        {error && (
-          <div className="j-card" style={{ textAlign: "center", padding: 32 }}>
-            <p style={{ color: "var(--j-neg)", marginBottom: 12 }}>{error}</p>
-            <button className="j-btn j-btn-ghost" onClick={fetchData}>Try again</button>
+      <div className="opx-page">
+        {loading && !data && <Loading what="your projects' money" />}
+        {error && <Failed what="your projects' money" error={error} retry={reload} />}
+        {!loading && !error && rollups.length === 0 && (
+          <div className="opx-empty" style={{ textAlign: "left" }}>
+            <b style={{ color: "var(--opx-ink)" }}>No money recorded on any project yet.</b> Open a project, go to its Money tab, and add a budget, what it costs to run, or what you've put in. This page totals those across projects.
           </div>
         )}
-
-        {!error && (
-          <>
-            {/* Summary cards */}
-            <FinanceSummaryCards summary={summary} isLoading={isLoading} />
-
-            {/* Overview tab */}
-            {activeTab === "overview" && (
-              <div className="j-split">
-                {/* Accounts overview */}
-                <div className="j-card">
-                  <div className="j-card-head">
-                    <p className="j-card-title">Accounts</p>
-                    <button className="j-btn j-btn-ghost" style={{ fontSize: 12 }} onClick={() => setActiveTab("accounts")}>View all</button>
-                  </div>
-                  {isLoading ? (
-                    <div className="j-col j-gap-2">
-                      {[1,2,3].map(i => <div key={i} style={{ height: 64, background: "oklch(1 0 0 / 0.04)", borderRadius: 8 }} />)}
-                    </div>
-                  ) : accounts.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: 32 }}>
-                      <p className="j-muted" style={{ marginBottom: 12 }}>No accounts yet.</p>
-                      <button className="j-btn j-btn-primary">+ Add account</button>
-                    </div>
-                  ) : (
-                    <div className="j-col j-gap-2">
-                      {accounts.slice(0, 4).map(a => <AccountCard key={a.id} account={a} />)}
-                    </div>
-                  )}
-                </div>
-
-                {/* Recent transactions */}
-                <TransactionList transactions={transactions.slice(0, 10)} isLoading={isLoading} />
-              </div>
-            )}
-
-            {/* Accounts tab */}
-            {activeTab === "accounts" && (
-              <div className="j-grid j-cols-3">
-                {isLoading ? (
-                  [1,2,3,4,5,6].map(i => <div key={i} className="j-card" style={{ height: 128 }} />)
-                ) : accounts.length === 0 ? (
-                  <div className="j-card" style={{ gridColumn: "1 / -1", textAlign: "center", padding: 48 }}>
-                    <p className="j-muted" style={{ marginBottom: 12 }}>No accounts yet.</p>
-                    <button className="j-btn j-btn-primary">+ Add account</button>
-                  </div>
-                ) : (
-                  accounts.map(a => <AccountCard key={a.id} account={a} />)
-                )}
-              </div>
-            )}
-
-            {/* Transactions tab */}
-            {activeTab === "transactions" && (
-              <TransactionList transactions={transactions} isLoading={isLoading} />
-            )}
-
-            {/* Budgets tab */}
-            {activeTab === "budgets" && (
-              <div className="j-coming-soon">
-                <Wallet size={30} strokeWidth={1.7} style={{ color: "var(--opx-muted)" }} />
-                <span className="j-eyebrow" style={{ color: "var(--j-accent)" }}>Coming soon</span>
-                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 500 }}>Budget tracking</h2>
-                <p className="j-muted" style={{ fontSize: 14, margin: 0 }}>Set spending limits and track your progress.</p>
-              </div>
-            )}
-          </>
+        {rollups.map((r) => <Rollup key={r.currency} r={r} many={rollups.length > 1} />)}
+        {!error && data != null && without.length > 0 && (
+          <Section title="Projects with no money entered" count={without.length}>
+            <div className="opx-row" style={{ gap: 8, flexWrap: "wrap" }}>
+              {without.map((p) => <Link key={p.id} href={`/project/${p.id}?tab=finance`} className="opx-btn sm">{p.name}</Link>)}
+            </div>
+          </Section>
         )}
       </div>
     </DashboardLayout>

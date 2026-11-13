@@ -37,6 +37,8 @@ export interface ProjectSummary {
   completedTasks: number
   activeAgents: number
   health: "excellent" | "good" | "attention" | "critical"
+  /** What was entered on the project's Money tab (lib/project-views/money.ts), or null. */
+  money?: import("@/lib/project-views/money").ProjectMoney | null
 }
 
 export interface ProjectStep {

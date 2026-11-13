@@ -40,6 +40,8 @@ function transformToProjectSummary(row: any): ProjectSummary {
     completedTasks,
     activeAgents: row.in_progress_tasks || 0, // Use in-progress tasks as proxy for active agents
     health,
+    // What was entered on the project's Money tab; the Finance page totals it across projects.
+    money: row.metadata?.planner_ui?.money ?? null,
   }
 }
 

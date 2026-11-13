@@ -32,7 +32,6 @@
     "@radix-ui/react-popover": "1.1.4",
     "@radix-ui/react-radio-group": "1.2.2",
     "@radix-ui/react-progress": "latest",
-    "@radix-ui/react-scroll-area": "1.2.2",
     "@radix-ui/react-select": "latest",
     "@radix-ui/react-slot": "latest",
     "@stackframe/stack": "^2.8.108",

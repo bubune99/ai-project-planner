@@ -15,7 +15,7 @@ const PAGE_META: Record<string, { title: string; sub: string }> = {
   "/clients": { title: "Clients", sub: "Ongoing client work and retainers" },
   "/todos": { title: "Today", sub: "Daily focus and tasks" },
   "/ideas": { title: "Ideas Incubator", sub: "Capture and refine new ideas" },
-  "/finance": { title: "Finance", sub: "Revenue, expenses, and net worth" },
+  "/finance": { title: "Finance", sub: "Money across your projects" },
   "/memory": { title: "Memory", sub: "Knowledge base and notes" },
   "/agents": { title: "Agent Dashboard", sub: "AI worker jobs and status" },
   "/calendar": { title: "Calendar", sub: "Schedule and events" },
