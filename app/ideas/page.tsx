@@ -143,7 +143,7 @@ export default function IdeasPage() {
         <div className="j-row j-between">
           <div className="j-row j-gap-2">
             <span className="j-pill j-idea" style={{ fontSize: 12 }}>
-              💡 {total} ideas
+              {total} ideas
             </span>
             {exploringCount > 0 && (
               <span className="j-pill j-warn">{exploringCount} exploring</span>

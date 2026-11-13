@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
+import { Moon, Sun } from "lucide-react"
 import { AppSidebar, OPEN_POPOUT_EVENT } from "./app-sidebar"
 import { Icon } from "@/components/jarvis/icons"
 import { DOCK_STATE_EVENT, DOCK_TOGGLE_EVENT } from "@/components/ade/AssistantDock"
@@ -50,7 +51,8 @@ export const OPEN_MENU_EVENT = "app:open-menu"
 export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: DashboardLayoutProps) {
   const { resolvedTheme, setTheme } = useTheme()
   const [themeReady, setThemeReady] = useState(false)
-  useEffect(() => setThemeReady(true), [])
+  const [isMac, setIsMac] = useState(false)
+  useEffect(() => { setThemeReady(true); setIsMac(/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) }, [])
   const [collapsed, setCollapsed] = useState(false)
   const [cmdOpen, setCmdOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -192,7 +194,7 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
             >
               <Icon name="search" size={14} />
               <span>Search or jump to…</span>
-              <span className="j-kbd">⌘K</span>
+              <span className="j-kbd">{isMac ? "⌘K" : "Ctrl K"}</span>
             </button>
             <button
               className="j-btn j-btn-icon j-btn-ghost j-search-mobile"
@@ -204,12 +206,13 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
             </button>
             {themeReady && (
               <button
-                className="j-btn j-btn-ghost"
+                className="opx-ib"
                 data-ui="theme.toggle"
+                title={resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
                 onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
                 aria-label={resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
               >
-                {resolvedTheme === "dark" ? "Light" : "Dark"}
+                {resolvedTheme === "dark" ? <Sun size={17} strokeWidth={1.9} /> : <Moon size={17} strokeWidth={1.9} />}
               </button>
             )}
             <button

@@ -384,7 +384,7 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
                 wordBreak: "break-all",
               }}
             >
-              🎯 <code>{target.snapshot.tag}</code>{" "}
+              <code>{target.snapshot.tag}</code>{" "}
               {target.snapshot.text ? `“${target.snapshot.text.slice(0, 40)}”` : ""}
               <div style={{ opacity: 0.7, marginTop: 2 }}>{target.selector}</div>
             </div>

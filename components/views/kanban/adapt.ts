@@ -120,7 +120,7 @@ export function toFootnotes(
   const subs = opts.subtasksOf?.(step.id) ?? []
   if (subs.length > 0) {
     const done = subs.filter((s) => kindOf(s, opts.statusMap) === "done").length
-    out.push({ label: `☑ ${done}/${subs.length}`, title: "Subtasks" })
+    out.push({ label: `${done}/${subs.length} subtasks`, title: "Subtasks" })
   }
 
   const checklist = normalizeChecklist(step.tasks)

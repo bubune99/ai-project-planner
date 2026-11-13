@@ -1,4 +1,5 @@
 "use client"
+import { AlertTriangle } from "lucide-react"
 
 import {
   useState,
@@ -1835,7 +1836,7 @@ export default function IdeaDetailPage() {
               fontSize: 28,
             }}
           >
-            ⚠
+            <AlertTriangle size={26} strokeWidth={1.8} />
           </div>
           <h3 style={{ fontSize: 20, fontWeight: 500, marginBottom: 8 }}>
             Failed to load idea

@@ -1,4 +1,5 @@
 "use client"
+import { Wallet } from "lucide-react"
 
 import { useState, useEffect } from "react"
 import { useUser } from "@stackframe/stack"
@@ -148,7 +149,7 @@ export default function FinancePage() {
             {/* Budgets tab */}
             {activeTab === "budgets" && (
               <div className="j-coming-soon">
-                <span style={{ fontSize: 32 }}>💰</span>
+                <Wallet size={30} strokeWidth={1.7} style={{ color: "var(--opx-muted)" }} />
                 <span className="j-eyebrow" style={{ color: "var(--j-accent)" }}>Coming soon</span>
                 <h2 style={{ margin: 0, fontSize: 22, fontWeight: 500 }}>Budget tracking</h2>
                 <p className="j-muted" style={{ fontSize: 14, margin: 0 }}>Set spending limits and track your progress.</p>

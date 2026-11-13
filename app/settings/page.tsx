@@ -1,4 +1,5 @@
 "use client"
+import { Calendar, CalendarClock, GitBranch, Plug } from "lucide-react"
 
 import { useState, useEffect, useCallback } from "react"
 import { useUser } from "@stackframe/stack"
@@ -260,7 +261,7 @@ function McpTab() {
       {/* Revealed key banner */}
       {revealedKey && (
         <div className="j-card" style={{ background: "oklch(0.870 0.045 252 / 0.08)", boxShadow: "0 0 0 1px oklch(0.870 0.045 252 / 0.3)" }}>
-          <p style={{ fontSize: 12, color: "var(--j-accent)", fontWeight: 600, margin: "0 0 8px" }}>⚠ Save this key — it won't be shown again</p>
+          <p style={{ fontSize: 12, color: "var(--j-accent)", fontWeight: 600, margin: "0 0 8px" }}>Save this key — it won't be shown again</p>
           <div style={{ display: "flex", gap: 8 }}>
             <input
               readOnly
@@ -494,18 +495,18 @@ function AppearanceTab() {
 
 function IntegrationsTab() {
   const PLANNED = [
-    { icon: "📅", name: "Google", description: "Sync calendar events, contacts, and Drive documents", status: "planned" },
-    { icon: "⬡", name: "GitHub", description: "Link projects to repositories, sync issues as todos", status: "planned" },
-    { icon: "🗓", name: "Calendly", description: "Embed scheduling links and sync booked appointments", status: "planned" },
+    { icon: <Calendar size={20} strokeWidth={1.8} />, name: "Google", description: "Sync calendar events, contacts, and Drive documents", status: "planned" },
+    { icon: <GitBranch size={20} strokeWidth={1.8} />, name: "GitHub", description: "Link projects to repositories, sync issues as todos", status: "planned" },
+    { icon: <CalendarClock size={20} strokeWidth={1.8} />, name: "Calendly", description: "Embed scheduling links and sync booked appointments", status: "planned" },
   ]
 
   return (
     <div className="j-col j-gap-4">
       <div className="j-card" style={{ textAlign: "center", padding: 32 }}>
-        <div style={{ fontSize: 28, marginBottom: 12 }}>🔌</div>
+        <div style={{ marginBottom: 12, display: "flex", justifyContent: "center", color: "var(--opx-muted)" }}><Plug size={28} strokeWidth={1.7} /></div>
         <h3 style={{ margin: "0 0 8px", fontWeight: 500 }}>Integrations coming soon</h3>
         <p className="j-muted" style={{ fontSize: 13, margin: 0, maxWidth: 400, marginInline: "auto" }}>
-          Connect JARVIS to external tools. The integrations below are planned for an upcoming release.
+          Connect the planner to external tools. The integrations below are planned for an upcoming release.
         </p>
       </div>
 

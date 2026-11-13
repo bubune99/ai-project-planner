@@ -1,4 +1,5 @@
 "use client";
+import { Menu } from "lucide-react";
 
 import { useRouter } from "next/navigation";
 import { memo } from "react";
@@ -36,10 +37,10 @@ function PureChatHeader({
           aria-label="Open menu"
           style={{
             background: "transparent", border: "1px solid var(--j-ring)", borderRadius: 7,
-            width: 36, height: 36, color: "oklch(0.78 0 0)", cursor: "pointer", fontSize: 16, lineHeight: 1,
+            width: 36, height: 36, color: "var(--opx-muted)", cursor: "pointer", display: "grid", placeItems: "center",
           }}
         >
-          ☰
+          <Menu size={17} strokeWidth={1.9} />
         </button>
       )}
       {narrow && agent && (

@@ -204,7 +204,7 @@ eq(
     statusMap,
     subtasksOf: () => [{ ...base, id: "a", status: "shipped" }, { ...base, id: "b", status: "todo" }] as never,
   }),
-  [{ label: "☑ 1/2", title: "Subtasks" }],
+  [{ label: "1/2 subtasks", title: "Subtasks" }],
   "subtasks are counted by status kind, not by a flag",
 )
 
@@ -213,7 +213,7 @@ eq(
     { ...base, estimated_hours: 3, tasks: ["a"], dependencies: [{ depends_on_step_id: "x", dependency_type: "hard" }] } as never,
     { statusMap, subtasksOf: () => [{ ...base, id: "a", status: "todo" }] as never },
   ).map((f) => f.label),
-  ["3h", "☑ 0/1", "✓ 0/1", "⇄ 1"],
+  ["3h", "0/1 subtasks", "✓ 0/1", "⇄ 1"],
   "counters keep a stable order: estimate, subtasks, checklist, dependencies",
 )
 

@@ -82,7 +82,7 @@ export function DocumentBrowser({ projectId, open, onOpenChange, onDocumentSelec
       <SheetContent side="right" className="w-[400px] sm:w-[500px] p-0 flex flex-col">
         <SheetHeader className="p-6 pb-4 border-b border-border">
           <div className="flex items-center justify-between">
-            <SheetTitle className="text-lg font-semibold">📄 Project Documents</SheetTitle>
+            <SheetTitle className="text-lg font-semibold">Project Documents</SheetTitle>
             <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
 
             </Button>
