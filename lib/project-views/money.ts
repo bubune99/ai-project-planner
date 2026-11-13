@@ -57,6 +57,8 @@ export interface MoneyRollup {
   rows: MoneyRow[]
   /** Monthly budgets only; a total budget is a different kind of number and is not added in. */
   monthlyBudget: number | null
+  /** Share of the monthly budgets used by the running costs of the projects that have one; null when none do. */
+  budgetUsed: number | null
   monthly: number | null
   putIn: number | null
   broughtIn: number | null
@@ -74,14 +76,14 @@ const add = (a: number | null, b: number | null) => (a == null && b == null ? nu
  * left out of the rows.
  */
 export function moneyRollup(projects: { id: string; name: string; money?: ProjectMoney | null }[]): MoneyRollup[] {
-  const by = new Map<string, MoneyRollup & { svc: Map<string, { monthly: number; projects: Set<string> }> }>()
+  const by = new Map<string, MoneyRollup & { against: number; svc: Map<string, { monthly: number; projects: Set<string> }> }>()
   for (const p of projects) {
     const t = moneyTotals(p.money)
     if (!hasMoney(t)) continue
     let r = by.get(t.currency)
-    if (!r) { r = { currency: t.currency, rows: [], monthlyBudget: null, monthly: null, putIn: null, broughtIn: null, net: null, services: [], svc: new Map() }; by.set(t.currency, r) }
+    if (!r) { r = { currency: t.currency, rows: [], monthlyBudget: null, budgetUsed: null, against: 0, monthly: null, putIn: null, broughtIn: null, net: null, services: [], svc: new Map() }; by.set(t.currency, r) }
     r.rows.push({ id: p.id, name: p.name, ...t })
-    if (t.budgetPeriod === "month") r.monthlyBudget = add(r.monthlyBudget, t.budget)
+    if (t.budgetPeriod === "month" && t.budget != null) { r.monthlyBudget = add(r.monthlyBudget, t.budget); r.against += t.monthly || 0 }
     r.monthly = add(r.monthly, t.monthly)
     r.putIn = add(r.putIn, t.putIn)
     r.broughtIn = add(r.broughtIn, t.broughtIn)
@@ -91,12 +93,16 @@ export function moneyRollup(projects: { id: string; name: string; money?: Projec
       const s = r.svc.get(key.toLowerCase()) || { monthly: 0, projects: new Set<string>() }
       s.monthly += c.monthly; s.projects.add(p.id)
       r.svc.set(key.toLowerCase(), s)
-      if (!r.services.some((x) => x.service.toLowerCase() === key.toLowerCase())) r.services.push({ service: key, monthly: 0, projects: 0 })
+      const shown = r.services.find((x) => x.service.toLowerCase() === key.toLowerCase())
+      if (!shown) r.services.push({ service: key, monthly: 0, projects: 0 })
+      // "vercel" and "Vercel" are one service; show the capitalized spelling when someone typed one.
+      else if (shown.service === shown.service.toLowerCase() && key !== key.toLowerCase()) shown.service = key
     }
   }
   return [...by.values()]
-    .map(({ svc, ...r }) => ({
+    .map(({ svc, against, ...r }) => ({
       ...r,
+      budgetUsed: r.monthlyBudget ? against / r.monthlyBudget : null,
       net: r.putIn == null && r.broughtIn == null ? null : (r.broughtIn || 0) - (r.putIn || 0),
       rows: r.rows.sort((a, b) => (b.monthly ?? -1) - (a.monthly ?? -1) || a.name.localeCompare(b.name)),
       services: r.services.map((x) => ({ service: x.service, monthly: svc.get(x.service.toLowerCase())!.monthly, projects: svc.get(x.service.toLowerCase())!.projects.size })).sort((a, b) => b.monthly - a.monthly),

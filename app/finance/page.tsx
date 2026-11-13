@@ -17,7 +17,7 @@ interface ProjectRow { id: string; name: string; status?: string | null; money?:
 
 function Rollup({ r, many }: { r: MoneyRollup; many: boolean }) {
   const f = (n: number | null | undefined) => formatMoney(n, r.currency)
-  const used = r.monthlyBudget && r.monthly != null ? Math.round((r.monthly / r.monthlyBudget) * 100) : null
+  const used = r.budgetUsed != null ? Math.round(r.budgetUsed * 100) : null
   return (
     <>
       {many && <h2 className="opx-muted" style={{ fontSize: 13, fontWeight: 600, margin: "6px 4px -4px" }}>In {r.currency}</h2>}

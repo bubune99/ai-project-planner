@@ -194,6 +194,11 @@ ok("money roll-up: per currency, empty projects left out, services merged", () =
   const usd = r[0]
   assert.deepEqual([usd.monthlyBudget, usd.monthly, usd.putIn, usd.broughtIn, usd.net], [50, 79, 500, 300, -200])
   assert.deepEqual(usd.services, [{ service: "Vercel", monthly: 60, projects: 2 }, { service: "Neon", monthly: 19, projects: 1 }])
+  // Only Alpha has a monthly budget (50) and it costs 20 a month: 40% used, whatever Beta costs.
+  assert.equal(usd.budgetUsed, 0.4)
+  const lower = moneyRollup([{ id: "x", name: "X", money: { costs: [{ id: "1", name: "h", service: "vercel", monthly: 5 }] } }, { id: "y", name: "Y", money: { costs: [{ id: "1", name: "h", service: "Vercel", monthly: 5 }] } }])
+  assert.deepEqual(lower[0].services, [{ service: "Vercel", monthly: 10, projects: 2 }])
+  assert.equal(lower[0].budgetUsed, null)
   assert.deepEqual([r[1].monthly, r[1].net], [null, null])
   assert.deepEqual(moneyRollup([]), [])
 })
