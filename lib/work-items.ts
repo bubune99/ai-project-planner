@@ -30,6 +30,8 @@ export interface WorkItem {
   statusKind: "open" | "active" | "done" | "closed"
   priority: WorkPriority | null
   dueDate: string | null
+  /** Steps only: when work is planned to begin. Todos have no start date. */
+  startDate?: string | null
   projectId: string | null
   projectName: string | null
   createdAt: string

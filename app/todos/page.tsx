@@ -23,7 +23,8 @@ import { DashboardLayout } from "@/components/navigation"
 
 import { TodoQuickAdd } from "@/components/todos/TodoQuickAdd"
 import { TodoEditModal } from "@/components/todos/TodoEditModal"
-import { WorkTable } from "@/components/work/WorkTable"
+import { WorkList, WorkCalendar } from "@/components/work/opx-work"
+import { Seg } from "@/components/project/opx/shared"
 import type { Todo, TodoPriority } from "@/lib/types"
 
 interface Project {
@@ -38,6 +39,13 @@ export default function TodosPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [isAdding, setIsAdding] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  // Same pair as a project's task views: List · Calendar. Kept in the URL so a link or refresh keeps it.
+  const [view, setView] = useState<"list" | "calendar">("list")
+  useEffect(() => { if (new URLSearchParams(window.location.search).get("view") === "calendar") setView("calendar") }, [])
+  const pickView = (v: "list" | "calendar") => {
+    setView(v)
+    const u = new URL(window.location.href); u.searchParams.set("view", v); window.history.replaceState(null, "", u)
+  }
 
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -140,12 +148,20 @@ export default function TodosPage() {
 
   return (
     <DashboardLayout>
-      <div className="j-content j-col j-gap-4">
-        <div className="j-card">
+      <div className="opx-page">
+        <header className="opx-pbar">
+          <div style={{ flex: 1, minWidth: 260 }}>
+            <h1>My work</h1>
+            <div className="opx-muted">Every project&apos;s tasks and your own todos, each shown once.</div>
+          </div>
+          <Seg label="View" value={view} onChange={pickView} options={[["list", "List"], ["calendar", "Calendar"]]} />
+        </header>
+        <section className="opx-sec">
           <TodoQuickAdd onAdd={handleAdd} projects={projects} isLoading={isAdding} />
-        </div>
-
-        <WorkTable refreshKey={refreshKey} onEditTodo={handleEditTodo} />
+        </section>
+        {view === "list"
+          ? <WorkList refreshKey={refreshKey} onEditTodo={handleEditTodo} />
+          : <WorkCalendar refreshKey={refreshKey} />}
       </div>
 
       <TodoEditModal

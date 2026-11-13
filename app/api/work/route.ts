@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       view === 'open'
         ? await sql`
             SELECT ps.id, ps.title, ps.description, ps.status, ps.priority,
-                   ps.end_date, ps.project_id, p.name AS project_name,
+                   ps.start_date, ps.end_date, ps.project_id, p.name AS project_name,
                    ps.created_at, ps.updated_at,
                    step_status_kind(ps.project_id, ps.status) AS status_kind
               FROM project_steps ps
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
           `
         : await sql`
             SELECT ps.id, ps.title, ps.description, ps.status, ps.priority,
-                   ps.end_date, ps.project_id, p.name AS project_name,
+                   ps.start_date, ps.end_date, ps.project_id, p.name AS project_name,
                    ps.created_at, ps.updated_at,
                    step_status_kind(ps.project_id, ps.status) AS status_kind
               FROM project_steps ps
@@ -130,6 +130,7 @@ export async function GET(request: NextRequest) {
         statusKind: s.status_kind,
         priority: s.priority ?? null,
         dueDate: iso(s.end_date),
+        startDate: iso(s.start_date),
         projectId: s.project_id,
         projectName: s.project_name ?? null,
         createdAt: iso(s.created_at)!,

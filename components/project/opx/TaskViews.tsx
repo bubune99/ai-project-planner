@@ -6,7 +6,7 @@
  * [Timeline · Calendar]. Rules live in lib/project-views/schedule.ts.
  */
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 import { toast } from "sonner"
 import {
   DAY, addDays, byDay, dayKey, dayOf, dayTicks, dedupeTodos, monthCells, priorityRank, rangeOf, unscheduled,
@@ -25,6 +25,8 @@ export interface Step extends Plannable {
   tags?: string[] | null
 }
 interface Todo extends Plannable { status?: string | null; stepId?: string | null }
+/** Cross-project fields, present when an item comes from /api/work. */
+interface Owned { projectId?: string | null; projectName?: string | null; description?: string | null }
 
 async function patchJson(url: string, body: unknown) {
   const r = await fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
@@ -153,7 +155,45 @@ export function TaskCalendar({ projectId }: { projectId: string }) {
   const steps = useMemo(() => topLevel(unwrap<Step[]>(stepsQ.data, "steps") || []), [stepsQ.data])
   const todos = useMemo(() => dedupeTodos(unwrap<Todo[]>(todosQ.data) || [], steps.map((s) => s.title)), [todosQ.data, steps])
   const items: Item[] = useMemo(() => [...steps.map((item) => ({ item, kind: "step" as const })), ...todos.map((item) => ({ item, kind: "todo" as const }))], [steps, todos])
+  return (
+    <PlanCalendar
+      items={items}
+      loading={(stepsQ.loading && !stepsQ.data) || (todosQ.loading && !todosQ.data)}
+      error={stepsQ.error}
+      reload={() => { stepsQ.reload(); todosQ.reload() }}
+      markDone={(e, next) => e.kind === "step"
+        ? patchJson(`/api/projects/${projectId}/steps/${e.item.id}`, { status: next ? "completed" : "pending" })
+        : patchJson(`/api/todos/${e.item.id}`, { status: next ? "completed" : "pending" })}
+      saveRange={(e, p) => e.kind === "todo"
+        ? patchJson(`/api/todos/${e.item.id}`, { dueDate: p.due || p.start })
+        : patchJson(`/api/projects/${projectId}/steps/${e.item.id}`, { start_date: p.start, end_date: p.due || p.start })}
+      groupOf={(e) => {
+        const ph = e.kind === "step" ? (e.item as Step).phase : null
+        return e.kind === "todo" ? "Todos" : ph && !/^\d+$/.test(ph) ? ph.charAt(0).toUpperCase() + ph.slice(1) : "Tasks"
+      }}
+    />
+  )
+}
 
+/** A read-only entry from the shared calendar: an event, milestone or bill. */
+export interface CalExtra { id: string; title: string; day: string; type: string; color?: string | null }
+
+interface PlanCalendarProps {
+  items: Item[]
+  loading: boolean
+  error: string | null
+  reload: () => void
+  markDone: (e: Item, done: boolean) => Promise<void>
+  saveRange: (e: Item, p: PlannedRange) => Promise<void>
+  groupOf: (e: Item) => string
+  extras?: CalExtra[]
+  toolbar?: ReactNode
+}
+
+const EXTRA_LABEL: Record<string, string> = { event: "Events", milestone: "Milestones", bill: "Bills" }
+
+/** The calendar itself: month grid, day panel, Plan mode. Data and writes come from the wrapper. */
+export function PlanCalendar({ items, loading, error, reload, markDone, saveRange, groupOf, extras = [], toolbar }: PlanCalendarProps) {
   const now = dayOf(new Date())!
   const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1, 12))
   const [sel, setSel] = useState<Date>(now)
@@ -169,8 +209,14 @@ export function TaskCalendar({ projectId }: { projectId: string }) {
   const backlog = useMemo(() => unscheduled(items, planned), [items, planned])
   const cells = monthCells(month.getFullYear(), month.getMonth())
 
-  if ((stepsQ.loading && !stepsQ.data) || (todosQ.loading && !todosQ.data)) return <Loading what="the calendar" />
-  if (stepsQ.error) return <Failed what="the calendar" error={stepsQ.error} retry={stepsQ.reload} />
+  const extrasByDay = useMemo(() => {
+    const m = new Map<string, CalExtra[]>()
+    for (const x of extras) m.set(x.day, [...(m.get(x.day) || []), x])
+    return m
+  }, [extras])
+
+  if (loading) return <Loading what="the calendar" />
+  if (error) return <Failed what="the calendar" error={error} retry={reload} />
 
   const isDone = (e: Item) => done[e.item.id] ?? e.item.status === "completed"
   const dayList = (days.get(dayKey(sel)) || []).map((e) => ({ item: e.item, kind: e.kind }))
@@ -178,10 +224,10 @@ export function TaskCalendar({ projectId }: { projectId: string }) {
   const shown = tab === "left" ? left : tab === "done" ? finished : dayList
   const groups = new Map<string, Item[]>()
   for (const e of shown) {
-    const ph = e.kind === "step" ? (e.item as Step).phase : null
-    const g = e.kind === "todo" ? "Todos" : ph && !/^\d+$/.test(ph) ? ph.charAt(0).toUpperCase() + ph.slice(1) : "Tasks"
+    const g = groupOf(e)
     groups.set(g, [...(groups.get(g) || []), e])
   }
+  const dayExtras = extrasByDay.get(dayKey(sel)) || []
   const inMonth = new Set<string>()
   for (const [k, list] of days) if (k.startsWith(`${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`)) list.forEach((e) => inMonth.add(e.item.id))
   const isToday = dayKey(sel) === dayKey(now)
@@ -191,8 +237,7 @@ export function TaskCalendar({ projectId }: { projectId: string }) {
     const next = !isDone(e)
     setDone((d) => ({ ...d, [e.item.id]: next }))
     try {
-      if (e.kind === "step") await patchJson(`/api/projects/${projectId}/steps/${e.item.id}`, { status: next ? "completed" : "pending" })
-      else await patchJson(`/api/todos/${e.item.id}`, { status: next ? "completed" : "pending" })
+      await markDone(e, next)
     } catch (err) {
       setDone((d) => ({ ...d, [e.item.id]: !next }))
       toast.error(err instanceof Error ? err.message : "Couldn't update it")
@@ -205,19 +250,17 @@ export function TaskCalendar({ projectId }: { projectId: string }) {
    */
   const save = async () => {
     setSaving(true)
-    const kinds = new Map(items.map((e) => [e.item.id, e.kind]))
+    const byId = new Map(items.map((e) => [e.item.id, e]))
     const failed: string[] = []
     for (const [id, p] of Object.entries(planned)) {
-      try {
-        if (kinds.get(id) === "todo") await patchJson(`/api/todos/${id}`, { dueDate: p.due || p.start })
-        else await patchJson(`/api/projects/${projectId}/steps/${id}`, { start_date: p.start, end_date: p.due || p.start })
-      } catch { failed.push(id) }
+      const e = byId.get(id)
+      try { if (!e) throw new Error("gone"); await saveRange(e, p) } catch { failed.push(id) }
     }
     setSaving(false)
     if (failed.length) toast.error(`${failed.length} of ${nPlanned} couldn't be saved; they're still planned here.`)
     else toast.success(`Saved ${nPlanned} schedule${nPlanned > 1 ? "s" : ""}`)
     setPlanned((p) => Object.fromEntries(Object.entries(p).filter(([id]) => failed.includes(id))))
-    stepsQ.reload(); todosQ.reload()
+    reload()
   }
 
   const onDrop = (d: Date, id: string) => {
@@ -232,6 +275,7 @@ export function TaskCalendar({ projectId }: { projectId: string }) {
       <div className="opx-row">
         <button className={`opx-btn${plan ? " on" : ""}`} onClick={() => setPlan((v) => !v)} aria-pressed={plan}>{plan ? "Done planning" : "Plan mode"}</button>
         {plan && <span className="opx-muted" style={{ fontSize: 13 }}>Drag a task onto a day to set its start, then pick its due date in the day panel.</span>}
+        {toolbar && <span className="opx-row" style={{ marginLeft: "auto", gap: 8 }}>{toolbar}</span>}
       </div>
       {nPlanned > 0 && (
         <div className="opx-savebar">
@@ -257,7 +301,7 @@ export function TaskCalendar({ projectId }: { projectId: string }) {
               {blist.slice(0, 80).map((e) => (
                 <div key={e.item.id} className="opx-bi" draggable onDragStart={(ev) => ev.dataTransfer.setData("text/plain", e.item.id)}>
                   <b>{e.item.title}</b>
-                  <div className="opx-row" style={{ gap: 8, marginTop: 5, fontSize: 12.5, color: "var(--opx-muted)" }}><Priority p={e.item.priority} /><span>{e.kind === "todo" ? "Todo" : "Task"}</span></div>
+                  <div className="opx-row" style={{ gap: 8, marginTop: 5, fontSize: 12.5, color: "var(--opx-muted)" }}><Priority p={e.item.priority} /><span>{e.kind === "todo" ? "Todo" : "Task"}</span>{(e.item as Owned).projectName && <span>· {(e.item as Owned).projectName}</span>}</div>
                 </div>
               ))}
             </div>
@@ -278,12 +322,14 @@ export function TaskCalendar({ projectId }: { projectId: string }) {
             {cells.map((d) => {
               const k = dayKey(d)
               const list = days.get(k) || []
+              const ex = extrasByDay.get(k) || []
+              const total = list.length + ex.length
               return (
                 <div
                   key={k}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${fmtDate(d, { weekday: "long", month: "long", day: "numeric" })}, ${list.length} due`}
+                  aria-label={`${fmtDate(d, { weekday: "long", month: "long", day: "numeric" })}, ${total} on this day`}
                   className={`opx-cc${d.getMonth() !== month.getMonth() ? " out" : ""}${k === dayKey(now) ? " today" : ""}${k === dayKey(sel) ? " sel" : ""}${dropDay === k ? " drop" : ""}`}
                   onClick={() => setSel(d)}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSel(d) } }}
@@ -299,7 +345,10 @@ export function TaskCalendar({ projectId }: { projectId: string }) {
                       {e.first ? e.item.title : " "}
                     </div>
                   ))}
-                  {list.length > 3 && <div className="opx-muted" style={{ fontSize: 11.5 }}>+{list.length - 3} more</div>}
+                  {ex.slice(0, Math.max(0, 3 - list.length)).map((x) => (
+                    <div key={x.id} title={x.title} className="opx-ce ev" style={{ ["--c" as string]: x.color || "var(--opx-accent)" }}>{x.title}</div>
+                  ))}
+                  {total > 3 && <div className="opx-muted" style={{ fontSize: 11.5 }}>+{total - 3} more</div>}
                 </div>
               )
             })}
@@ -357,7 +406,18 @@ export function TaskCalendar({ projectId }: { projectId: string }) {
               })}
             </div>
           ))}
-          {!groups.size && <div className="opx-empty">Nothing on this day.{plan ? " Drag something here from the list." : " Turn on Plan mode to schedule work here."}</div>}
+          {dayExtras.length > 0 && (
+            <div className="opx-dpg">
+              <div className="opx-row" style={{ marginBottom: 4 }}><b>On the calendar</b><span className="opx-muted">{dayExtras.length}</span></div>
+              {dayExtras.map((x) => (
+                <div key={x.id} className="opx-dpi">
+                  <i className="opx-dot" style={{ background: x.color || "var(--opx-accent)", marginTop: 6 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}><b>{x.title}</b><small>{EXTRA_LABEL[x.type]?.replace(/s$/, "") || x.type}</small></div>
+                </div>
+              ))}
+            </div>
+          )}
+          {!groups.size && !dayExtras.length && <div className="opx-empty">Nothing on this day.{plan ? " Drag something here from the list." : " Turn on Plan mode to schedule work here."}</div>}
         </aside>
       </div>
     </div>
