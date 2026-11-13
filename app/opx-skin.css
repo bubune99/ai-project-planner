@@ -583,19 +583,23 @@ a.opx-mt:hover b { text-decoration: underline; }
 .opx-mth { border-top: 0; font-size: 12.5px; color: var(--opx-muted); padding-top: 4px; padding-bottom: 6px; }
 @media (max-width: 760px) { .opx-mt { grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr)); } .opx-mt > :nth-child(2), .opx-mt > :nth-child(4) { display: none; } }
 
-/* ---------- Dashboard banner: animated mesh gradient ----------
- * The banner keeps one look in light and dark: a deep gradient with light text. */
-.opx-pbar-mesh { position: relative; overflow: hidden; isolation: isolate; color: #f3f6fb; background: #20355b; }
-.opx-pbar-mesh > :not(.opx-mesh) { position: relative; }
-.opx-mesh, .opx-mesh-paint, .opx-mesh-grain { position: absolute; inset: 0; }
-.opx-mesh { z-index: -1; }
-.opx-mesh-grain { opacity: .5; mix-blend-mode: overlay; background-size: 120px 120px; background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.33'/></svg>"); }
-.opx-pbar-mesh h1 { color: #fff; }
-.opx-pbar-mesh .opx-muted { color: rgb(255 255 255 / .78); }
-.opx-pbar-mesh .opx-stat { background: rgb(255 255 255 / .12); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .14); }
-.opx-pbar-mesh .opx-stat b { color: #fff; }
-.opx-pbar-mesh .opx-stat span { color: rgb(255 255 255 / .78); }
-.opx-pbar-mesh .opx-stat.hot b { color: #ffc2b3; }
+/* ---------- Dashboard banner: animated dither grid ----------
+ * The grid sweeps from dark to light, so the words sit on dark glass panels
+ * and stay readable wherever the sweep is. One look in light and dark. */
+.opx-pbar-shader { position: relative; overflow: hidden; isolation: isolate; color: #f3f6fb; background: #20355b; }
+.opx-pbar-shader > :not(.opx-shader) { position: relative; }
+.opx-shader, .opx-shader > * { position: absolute; inset: 0; }
+.opx-shader { z-index: -1; }
+.opx-shader canvas { width: 100%; height: 100%; image-rendering: pixelated; }
+.opx-shader-vignette { background: radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0) 52%, rgba(0, 0, 0, 0.64) 100%); }
+.opx-shader-grain { mix-blend-mode: overlay; background-size: 120px 120px; background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.35'/></svg>"); }
+.opx-pbar-shader .opx-hero-text, .opx-pbar-shader .opx-stat { background: rgb(16 26 51 / .58); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .14); }
+.opx-pbar-shader .opx-hero-text { border-radius: 20px; padding: 14px 20px 16px; }
+.opx-pbar-shader h1 { color: #fff; margin-bottom: 4px; }
+.opx-pbar-shader .opx-muted { color: rgb(255 255 255 / .82); }
+.opx-pbar-shader .opx-stat b { color: #fff; }
+.opx-pbar-shader .opx-stat span { color: rgb(255 255 255 / .82); }
+.opx-pbar-shader .opx-stat.hot b { color: #ffc2b3; }
 
 /* ---------- A plain scrolling list of links ---------- */
 .opx-plain-list { max-height: 264px; overflow-y: auto; margin: 0 -8px; }

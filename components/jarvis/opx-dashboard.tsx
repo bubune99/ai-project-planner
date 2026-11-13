@@ -11,7 +11,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { useUser } from "@stackframe/stack"
 import { toast } from "sonner"
-import { MeshBanner } from "./MeshBanner"
+import { DitherBanner } from "./DitherBanner"
 import { Section, ago, askAssistant, unwrap, useJson } from "@/components/project/opx/shared"
 
 interface Project { id: string; name: string; description?: string | null; status?: string | null; progress?: number | null; updated_at?: string | null; updatedAt?: string | null }
@@ -60,9 +60,9 @@ export function OpxDashboard() {
 
   return (
     <div className="opx-page">
-      <header className="opx-pbar opx-pbar-mesh" style={{ padding: "28px 30px" }}>
-        <MeshBanner />
-        <div style={{ flex: 1, minWidth: 300 }}>
+      <header className="opx-pbar opx-pbar-shader" style={{ padding: "28px 30px" }}>
+        <DitherBanner />
+        <div className="opx-hero-text" style={{ flex: "0 1 auto", minWidth: 300, marginRight: "auto" }}>
           <div className="opx-muted">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</div>
           <h1 style={{ fontSize: 40 }}>{greet}{first ? `, ${first}` : ""}</h1>
           <div className="opx-muted" style={{ fontSize: 15 }}>
