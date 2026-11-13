@@ -24,12 +24,19 @@ export interface PlannedRange { start: string; due: string }
 
 export interface Range { start: Date; end: Date }
 
-/** Parse a date or ISO string to local noon, so DST shifts never move it a day. */
+/** Parse a date or ISO string to local noon on its calendar day, so DST and time zones never move it. */
 export function dayOf(v: string | Date | null | undefined): Date | null {
   if (!v) return null
-  const s = typeof v === "string" ? v : v.toISOString()
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s)
-  if (m && typeof v === "string" && s.length <= 10) return new Date(+m[1], +m[2] - 1, +m[3], 12)
+  /*
+   * Start and due dates are calendar days. Postgres hands them back as
+   * "2026-11-18T00:00:00.000Z"; read through the local clock that is the
+   * evening of Nov 17 anywhere west of UTC, which drew every saved range a
+   * day early. So a string's date part is the day, whatever its time.
+   */
+  if (typeof v === "string") {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v)
+    if (m) return new Date(+m[1], +m[2] - 1, +m[3], 12)
+  }
   const d = new Date(v)
   if (Number.isNaN(+d)) return null
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12)

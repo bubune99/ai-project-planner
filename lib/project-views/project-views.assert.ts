@@ -43,6 +43,12 @@ ok("a range shows on every day, restarting at each Sunday", () => {
   assert.equal(m.get("2026-11-16")![0].planned, true)
 })
 
+ok("a stored UTC-midnight date stays on its own day in any time zone", () => {
+  const r = rangeOf({ id: "a", title: "x", start_date: "2026-11-18T00:00:00.000Z", end_date: "2026-11-25T00:00:00.000Z" })!
+  assert.equal(dayKey(r.start), "2026-11-18")
+  assert.equal(dayKey(r.end), "2026-11-25")
+})
+
 ok("dates survive the November clock change", () => {
   assert.equal(addDays("2026-10-31", 7), "2026-11-07")
   assert.equal(dayKey(dayOf("2026-11-02")!), "2026-11-02")

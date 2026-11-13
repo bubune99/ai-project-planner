@@ -55,7 +55,10 @@ export function toDue(
   today: Date = new Date(),
 ): { due?: string; dueSoon?: boolean } {
   if (!step.end_date) return {}
-  const d = new Date(step.end_date)
+  // A due date is a calendar day: Postgres returns "2026-11-18T00:00:00Z",
+  // which local time west of UTC reads as Nov 17. Use the date part.
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})/.exec(step.end_date)
+  const d = ymd ? new Date(+ymd[1], +ymd[2] - 1, +ymd[3], 12) : new Date(step.end_date)
   if (Number.isNaN(d.getTime())) return {}
 
   const day = startOfDay(d)
