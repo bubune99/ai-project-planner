@@ -1,12 +1,12 @@
 "use client"
 
 import { DashboardLayout } from "@/components/navigation"
-import { JarvisDashboard } from "@/components/jarvis/dashboard"
+import { OpxDashboard } from "@/components/jarvis/opx-dashboard"
 
 export default function DashboardPage() {
   return (
     <DashboardLayout>
-      <JarvisDashboard />
+      <OpxDashboard />
     </DashboardLayout>
   )
 }

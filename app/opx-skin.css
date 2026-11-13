@@ -365,3 +365,12 @@ code, pre, kbd, samp, .font-mono { font-family: var(--font-inter), Inter, system
 .opx-ptabs button.on { background: var(--opx-soft); color: var(--opx-ink); font-weight: 600; }
 .opx-ptabs button em { font-style: normal; font-size: 11.5px; color: var(--opx-muted); }
 .opx-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* ---------- Dashboard ---------- */
+.opx-projs { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }
+.opx-pc { background: var(--opx-soft); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 6px; color: inherit; text-decoration: none; min-height: 170px; }
+.opx-pc:hover { box-shadow: inset 0 0 0 1px var(--opx-line); }
+.opx-pc b { font-size: 16px; font-weight: 600; }
+.opx-pc p { margin: 0; font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+@media (max-width: 1400px) { .opx-projs { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+@media (max-width: 700px) { .opx-projs { grid-template-columns: 1fr; } .opx-pbar h1 { font-size: 28px !important; } }
