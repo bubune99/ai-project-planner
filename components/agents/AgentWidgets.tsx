@@ -16,10 +16,10 @@ import type { AgentSpan } from "@/lib/agents/trace"
 import type { Widget } from "@/lib/agents/widgets"
 
 const card: React.CSSProperties = {
-  border: "1px solid var(--j-ring)", borderRadius: 12, background: "oklch(1 0 0 / 0.03)", overflow: "hidden",
+  border: "1px solid var(--opx-line)", borderRadius: 12, background: "var(--opx-soft)", overflow: "hidden",
 }
 const head: React.CSSProperties = {
-  padding: "8px 12px", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.6 0 0)",
+  padding: "8px 12px", fontSize: 12.5, fontWeight: 600, color: "var(--opx-muted)",
   borderBottom: "1px solid var(--j-hairline)",
 }
 const row: React.CSSProperties = {
@@ -27,11 +27,11 @@ const row: React.CSSProperties = {
   borderBottom: "1px solid var(--j-hairline)",
 }
 const btn: React.CSSProperties = {
-  background: "oklch(0.870 0.045 252 / 0.15)", border: "1px solid oklch(0.870 0.045 252 / 0.3)", borderRadius: 8,
+  background: "var(--opx-card)", border: "1px solid var(--opx-line)", borderRadius: 8,
   padding: "6px 12px", minHeight: 36, fontSize: 12, color: "var(--j-accent)", cursor: "pointer", fontFamily: "inherit",
   textDecoration: "none", display: "inline-flex", alignItems: "center", touchAction: "manipulation", whiteSpace: "nowrap",
 }
-const sub: React.CSSProperties = { fontSize: 11.5, color: "oklch(0.6 0 0)", marginTop: 2 }
+const sub: React.CSSProperties = { fontSize: 11.5, color: "var(--opx-muted)", marginTop: 2 }
 
 function fmtDue(d?: string | null): string | null {
   if (!d) return null
@@ -100,7 +100,7 @@ function Card({ w }: { w: Widget }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 500 }}>{i.name}</div>
                 <div style={sub}>{i.summary}</div>
-                {i.highlights.map((h, n) => <div key={n} style={{ fontSize: 12.5, color: "oklch(0.78 0 0)", marginTop: 3 }}>• {h}</div>)}
+                {i.highlights.map((h, n) => <div key={n} style={{ fontSize: 12.5, color: "var(--opx-muted)", marginTop: 3 }}>• {h}</div>)}
               </div>
               <Link href={`/project/${i.projectId}`} style={btn}>Show me</Link>
             </div>

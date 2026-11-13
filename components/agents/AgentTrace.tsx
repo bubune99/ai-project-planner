@@ -73,9 +73,9 @@ export function AgentTrace({ spans, nowMs, title }: { spans: AgentSpan[]; nowMs?
   const META = "92px"
 
   return (
-    <div style={{ borderRadius: 12, background: "var(--j-surface)", boxShadow: "0 0 0 1px var(--j-ring)", overflow: "hidden", fontSize: 12 }}>
+    <div style={{ borderRadius: 12, background: "var(--j-surface)", boxShadow: "0 0 0 1px var(--opx-line)", overflow: "hidden", fontSize: 12 }}>
       <div className="j-row" style={{ gap: 10, padding: "10px 12px", borderBottom: "1px solid var(--j-hairline)", alignItems: "center" }}>
-        <span aria-hidden style={{ width: 7, height: 7, borderRadius: 99, background: running ? "var(--j-accent)" : "oklch(0.45 0 0)" }} />
+        <span aria-hidden style={{ width: 7, height: 7, borderRadius: 99, background: running ? "var(--j-accent)" : "var(--opx-muted)" }} />
         <span style={{ fontFamily: "inherit", fontWeight: 500 }}>{title ?? "Agent run"}</span>
         <span className="j-muted">{rows.length} steps · {formatMs(total)}</span>
         <span className="j-pill j-ghost" style={{ marginLeft: "auto", fontSize: 10.5 }}>{running ? "Running" : "Completed"}</span>
@@ -101,7 +101,7 @@ export function AgentTrace({ spans, nowMs, title }: { spans: AgentSpan[]; nowMs?
             const p = dur > 0 ? clamp((head - r.start) / dur, 0, 1) : head >= r.start ? 1 : 0
             const state = head < r.start ? "queued" : r.status === "running" && t === null ? "running" : p < 1 ? "running" : r.status
             const isAgent = r.kind === "agent"
-            const fill = r.status === "error" ? "var(--j-neg)" : isAgent ? "var(--j-accent)" : "oklch(1 0 0 / 0.45)"
+            const fill = r.status === "error" ? "var(--j-neg)" : isAgent ? "var(--j-accent)" : "var(--opx-muted)"
             const Icon = isAgent ? Bot : Wrench
             return (
               <li key={r.id}>
@@ -111,21 +111,21 @@ export function AgentTrace({ spans, nowMs, title }: { spans: AgentSpan[]; nowMs?
                   aria-label={`${r.title}, ${formatMs(dur)}, ${state === "error" ? "failed" : state}`}
                   style={{
                     display: "flex", alignItems: "center", width: "100%", height: 30, padding: "0 12px",
-                    background: selected === r.id ? "oklch(1 0 0 / 0.04)" : "transparent", border: "none", color: "inherit", cursor: "pointer", textAlign: "left",
+                    background: selected === r.id ? "var(--opx-soft)" : "transparent", border: "none", color: "inherit", cursor: "pointer", textAlign: "left",
                   }}
                 >
                   <span style={{ width: GUTTER, flexShrink: 0, display: "flex", alignItems: "center", gap: 6, paddingLeft: r.depth * 14, minWidth: 0, opacity: state === "queued" ? 0.45 : 1 }}>
-                    <Icon aria-hidden size={13} style={{ flexShrink: 0, color: isAgent ? "var(--j-accent)" : "oklch(0.6 0 0)" }} />
+                    <Icon aria-hidden size={13} style={{ flexShrink: 0, color: isAgent ? "var(--j-accent)" : "var(--opx-muted)" }} />
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</span>
                   </span>
                   <span style={{ position: "relative", flex: 1, height: "100%" }}>
-                    <span style={{ position: "absolute", top: "50%", height: 8, transform: "translateY(-50%)", left: `${(r.start / total) * 100}%`, width: `max(3px, ${(dur / total) * 100}%)`, borderRadius: 99, overflow: "hidden", background: "oklch(1 0 0 / 0.08)" }}>
+                    <span style={{ position: "absolute", top: "50%", height: 8, transform: "translateY(-50%)", left: `${(r.start / total) * 100}%`, width: `max(3px, ${(dur / total) * 100}%)`, borderRadius: 99, overflow: "hidden", background: "var(--opx-soft)" }}>
                       <span style={{ position: "absolute", inset: 0, background: fill, transformOrigin: "left", transform: `scaleX(${p})` }} />
                     </span>
                   </span>
                   <span style={{ width: META, flexShrink: 0, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 4, fontFamily: "inherit", fontSize: 11, opacity: state === "queued" ? 0 : 1 }}>
                     {r.status === "error" && <CircleAlert aria-hidden size={12} style={{ color: "var(--j-neg)" }} />}
-                    <span style={{ color: r.status === "error" ? "var(--j-neg)" : "oklch(0.75 0 0)" }}>{formatMs(dur * p)}</span>
+                    <span style={{ color: r.status === "error" ? "var(--j-neg)" : "var(--opx-muted)" }}>{formatMs(dur * p)}</span>
                   </span>
                 </button>
               </li>
@@ -143,7 +143,7 @@ export function AgentTrace({ spans, nowMs, title }: { spans: AgentSpan[]; nowMs?
         <div style={{ padding: "8px 12px", borderTop: "1px solid var(--j-hairline)", display: "flex", gap: 10, flexWrap: "wrap" }}>
           <strong style={{ fontWeight: 500 }}>{sel.title}</strong>
           <span className="j-muted" style={{ fontFamily: "inherit" }}>{sel.label}</span>
-          {sel.detail && <span style={{ color: sel.status === "error" ? "var(--j-neg)" : "oklch(0.8 0 0)" }}>{sel.detail}</span>}
+          {sel.detail && <span style={{ color: sel.status === "error" ? "var(--j-neg)" : "var(--opx-muted)" }}>{sel.detail}</span>}
           {sel.tokens != null && <span className="j-muted">{sel.tokens.toLocaleString("en-US")} tokens</span>}
           <span className="j-muted">starts {formatMs(sel.start)} · took {formatMs(sel.endAt - sel.start)}</span>
         </div>
@@ -165,7 +165,7 @@ export function AgentTrace({ spans, nowMs, title }: { spans: AgentSpan[]; nowMs?
           }}
           style={{ position: "relative", flex: 1, height: 20, cursor: "ew-resize" }}
         >
-          <span style={{ position: "absolute", left: 0, right: 0, top: "50%", height: 4, transform: "translateY(-50%)", borderRadius: 99, background: "oklch(1 0 0 / 0.08)", overflow: "hidden" }}>
+          <span style={{ position: "absolute", left: 0, right: 0, top: "50%", height: 4, transform: "translateY(-50%)", borderRadius: 99, background: "var(--opx-soft)", overflow: "hidden" }}>
             <span style={{ position: "absolute", inset: 0, background: "var(--j-accent)", transformOrigin: "left", transform: `scaleX(${head / total})` }} />
           </span>
         </div>

@@ -119,7 +119,7 @@ export function Attention() {
   return (
     <div data-fbw="attention" data-attention={mode} style={{ position: "fixed", inset: 0, zIndex: 2147483644, pointerEvents: "none" }}>
       {note && (
-        <div role="status" style={{ position: "fixed", left: "50%", bottom: 88, transform: "translateX(-50%)", background: "oklch(0.2 0 0)", color: "oklch(0.95 0 0)", border: "1px solid var(--j-ring)", borderRadius: 999, padding: "8px 14px", fontSize: 13 }}>
+        <div role="status" style={{ position: "fixed", left: "50%", bottom: 88, transform: "translateX(-50%)", background: "var(--opx-soft)", color: "var(--opx-ink)", border: "1px solid var(--opx-line)", borderRadius: 999, padding: "8px 14px", fontSize: 13 }}>
           {note}
         </div>
       )}
@@ -130,7 +130,7 @@ export function Attention() {
             style={{
               position: "fixed", left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12,
               borderRadius: 12, border: "2px solid var(--j-accent)", transition: "all .2s ease",
-              boxShadow: mode === "spotlight" ? "0 0 0 9999px rgba(0,0,0,.66)" : "0 0 0 4px oklch(0.870 0.045 252 / 0.25)",
+              boxShadow: mode === "spotlight" ? "0 0 0 9999px rgba(0,0,0,.66)" : "0 0 0 4px color-mix(in srgb, var(--opx-accent) 35%, transparent)",
             }}
           />
           {mode === "spotlight" && <div style={{ position: "fixed", inset: 0, pointerEvents: "auto" }} onClick={() => undefined} />}
@@ -141,11 +141,11 @@ export function Attention() {
                 position: "fixed", pointerEvents: "auto", maxWidth: "min(320px, calc(100vw - 24px))",
                 left: Math.max(12, Math.min(rect.left, window.innerWidth - 332)),
                 top: rect.bottom + 14 + 150 > window.innerHeight ? Math.max(12, rect.top - 14 - (mode === "spotlight" ? 150 : 44)) : rect.bottom + 14,
-                background: "oklch(0.2 0 0)", color: "oklch(0.96 0 0)", border: "1px solid var(--j-ring)", borderRadius: 12,
+                background: "var(--opx-soft)", color: "var(--opx-ink)", border: "1px solid var(--opx-line)", borderRadius: 12,
                 padding: "10px 12px", fontSize: 13, lineHeight: 1.45, boxShadow: "0 12px 30px rgba(0,0,0,.5)",
               }}
             >
-              {shown?.step && <div style={{ fontSize: 11, color: "oklch(0.65 0 0)", marginBottom: 4 }}>{shown.step.n} of {shown.step.of}</div>}
+              {shown?.step && <div style={{ fontSize: 11, color: "var(--opx-muted)", marginBottom: 4 }}>{shown.step.n} of {shown.step.of}</div>}
               <div>{shown?.caption}</div>
               {mode === "spotlight" && (
                 <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
@@ -154,7 +154,7 @@ export function Attention() {
                   <button type="button" style={chip} onClick={() => ack("stop")}>Stop</button>
                   <button
                     type="button"
-                    style={{ ...chip, background: "var(--j-accent)", color: "oklch(0.15 0 0)", border: 0, fontWeight: 600, marginLeft: "auto" }}
+                    style={{ ...chip, background: "var(--opx-ink)", color: "var(--opx-card)", border: 0, fontWeight: 600, marginLeft: "auto" }}
                     onClick={() => (isTour && !last ? goStep(index.current + 1, 1) : ack("gotit"))}
                   >
                     {isTour && !last ? "Next" : "Got it"}
@@ -170,6 +170,6 @@ export function Attention() {
 }
 
 const chip: React.CSSProperties = {
-  background: "transparent", border: "1px solid var(--j-ring)", borderRadius: 8, color: "oklch(0.9 0 0)",
+  background: "transparent", border: "1px solid var(--opx-line)", borderRadius: 8, color: "var(--opx-ink)",
   minHeight: 36, padding: "6px 12px", fontSize: 12, cursor: "pointer", fontFamily: "inherit", touchAction: "manipulation",
 }

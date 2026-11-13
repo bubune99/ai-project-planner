@@ -1,8 +1,8 @@
 /**
- * Assertions for lib/chatsdk/safe-markdown.ts — renders hostile model output
+ * Assertions for lib/chat/safe-markdown.ts — renders hostile model output
  * through Streamdown with the default plugins (to prove the hole) and with
  * safeRehypePlugins (to prove it is closed).
- *   npx -y tsx@4.23.15 lib/chatsdk/safe-markdown.assert.ts
+ *   npx -y tsx@4.23.15 lib/chat/safe-markdown.assert.ts
  */
 
 import { createElement } from "react"

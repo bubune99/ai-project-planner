@@ -1,15 +1,16 @@
 "use client"
 
 /*
- * AskSheet — pull-up "Ask JARVIS" from any page. Long-press (or right-click)
- * something, choose "Ask JARVIS about this", and this sheet opens with the
+ * AskSheet — pull-up "Ask the assistant" from any page. Long-press (or right-click)
+ * something, choose "Ask about this", and this sheet opens with the
  * question started. Sending hands off to the full-screen chat (/chat?query=),
  * so there is one conversation surface, not a second chat to maintain.
  */
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { SHEET_EVENT, type TextDetail } from "@/lib/chatsdk/chat-events"
+import { X } from "lucide-react"
+import { SHEET_EVENT, type TextDetail } from "@/lib/chat/events"
 
 export function AskSheet() {
   const router = useRouter()
@@ -47,16 +48,16 @@ export function AskSheet() {
       <div onClick={() => setOpen(false)} aria-hidden style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.55)" }} />
       <div
         role="dialog"
-        aria-label="Ask JARVIS"
+        aria-label="Ask the assistant"
         style={{
           position: "absolute", left: 0, right: 0, bottom: 0, margin: "0 auto", maxWidth: 560,
-          background: "oklch(0.155 0 0)", borderRadius: "16px 16px 0 0", border: "1px solid var(--j-ring)",
+          background: "var(--opx-card)", borderRadius: "16px 16px 0 0", border: "1px solid var(--opx-line)",
           padding: "14px 14px calc(14px + env(safe-area-inset-bottom))", display: "grid", gap: 10,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <strong style={{ fontSize: 14 }}>Ask JARVIS</strong>
-          <button type="button" onClick={() => setOpen(false)} aria-label="Close" style={{ background: "none", border: 0, color: "oklch(0.7 0 0)", fontSize: 18, minWidth: 36, minHeight: 36 }}>✕</button>
+          <strong style={{ fontSize: 14 }}>Ask the assistant</strong>
+          <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="opx-ib"><X size={17} strokeWidth={1.9} /></button>
         </div>
         <textarea
           ref={ref}
@@ -66,7 +67,7 @@ export function AskSheet() {
           rows={4}
           placeholder="Ask anything about this…"
           style={{
-            width: "100%", background: "oklch(0.2 0 0)", color: "oklch(0.95 0 0)", border: "1px solid var(--j-ring)",
+            width: "100%", background: "var(--opx-soft)", color: "var(--opx-ink)", border: "1px solid var(--opx-line)",
             borderRadius: 10, padding: "10px 12px", fontSize: 16, fontFamily: "inherit", resize: "none", boxSizing: "border-box",
           }}
         />
@@ -75,7 +76,7 @@ export function AskSheet() {
           onClick={send}
           disabled={!text.trim()}
           style={{
-            background: "var(--j-accent)", color: "oklch(0.15 0 0)", border: 0, borderRadius: 10, minHeight: 44,
+            background: "var(--opx-ink)", color: "var(--opx-card)", border: 0, borderRadius: 10, minHeight: 44,
             fontSize: 14, fontWeight: 600, cursor: "pointer", opacity: text.trim() ? 1 : 0.5,
           }}
         >

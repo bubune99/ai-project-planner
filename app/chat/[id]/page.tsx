@@ -7,9 +7,8 @@
  * NEXT_PUBLIC_APP_URL or localhost — so every past chat opened as a 404.
  */
 import { notFound } from "next/navigation";
-import { Chat } from "@/components/chatsdk/chat";
-import { DEFAULT_CHAT_MODEL } from "@/lib/chatsdk/ai/models";
-import type { ChatMessage } from "@/lib/chatsdk/types";
+import { ChatThread } from "@/components/chat/ChatThread";
+import { DEFAULT_AGENT, type ChatMessage } from "@/lib/chat/view";
 import { getAuthContext } from "@/lib/auth/auth-utils";
 import { getConversation, getConversationMessages } from "@/lib/ai/conversation-queries";
 import { toUIMessages, isUuid } from "@/lib/ai/chat-format";
@@ -33,13 +32,11 @@ export default async function ChatDetailPage({ params }: { params: Promise<{ id:
   const initialMessages = toUIMessages(rows as never[]) as unknown as ChatMessage[];
 
   return (
-    <Chat
+    <ChatThread
+      key={id}
       id={id}
       initialMessages={initialMessages}
-      initialChatModel={isAgentId(conversation.modelId) ? conversation.modelId : DEFAULT_CHAT_MODEL}
-      initialVisibilityType="private"
-      isReadonly={false}
-      autoResume={false}
+      initialAgent={isAgentId(conversation.modelId) ? conversation.modelId : DEFAULT_AGENT}
       agentIds={allowedAgentIds(auth.userId)}
     />
   );

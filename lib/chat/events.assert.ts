@@ -1,4 +1,4 @@
-import { asQuote, askStub } from "./chat-events"
+import { asQuote, askStub } from "./events"
 let pass = 0, fail = 0
 const eq = (m: string, a: unknown, b: unknown) => { a === b ? pass++ : (fail++, console.log("FAIL", m, JSON.stringify(a), JSON.stringify(b))) }
 eq("quote basic", asQuote("hello  world"), "> hello world\n\n")

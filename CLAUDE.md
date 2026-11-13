@@ -177,7 +177,9 @@ components/project/opx/  the project page: shared.tsx + one file per tab
 components/work/         List and Calendar across all projects
 components/views/kanban/ the board (forked KanbanBoard + adapt.ts)
 components/navigation/   shell: menu, top bar (DashboardLayout)
-components/ade/, chatsdk/ the assistant panel and chat
+components/chat/         the chat: useAssistantChat (stream) + display-only panel
+components/ade/          the assistant panel beside a page (uses components/chat)
+lib/chat/                chat rules: view model, request body, history groups
 lib/project-views/       pure rules for the views, with asserts
 lib/<domain>/            everything else, by domain (agents, auth, mcp, ...)
 ```
@@ -212,6 +214,16 @@ reference.
 Design rules (owner): Inter everywhere and no monospace; no emoji as icons
 (lucide icons or text); no colored side-stripes; dark by default with light
 kept working; US English; never invent dates or numbers.
+
+## The chat
+
+`components/chat/useAssistantChat.ts` is the only code that talks to
+`/api/chat`. It returns a plain model; `ChatPanel`, `Composer`, `MessageView`
+and `HistoryList` draw it and never fetch or stream. The panel beside a page
+(`components/ade/AssistantDock.tsx`) and the full page (`/chat`) are the same
+pieces. Model output is untrusted: render it only through `MessageView`,
+which uses `lib/chat/safe-markdown.ts`. There is no chat template library in
+this repo any more; do not add one.
 
 ## Keeping it clean
 

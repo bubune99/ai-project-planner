@@ -61,7 +61,7 @@ export function AgentActivity({ spans, live = true }: { spans: AgentSpan[]; live
           type="button"
           onClick={() => setUserToggled(!open)}
           aria-expanded={open}
-          style={{ display: "flex", alignItems: "center", gap: 7, background: "none", border: "none", padding: "2px 0", color: "oklch(0.72 0 0)", cursor: "pointer", fontSize: 13 }}
+          style={{ display: "flex", alignItems: "center", gap: 7, background: "none", border: "none", padding: "2px 0", color: "var(--opx-muted)", cursor: "pointer", fontSize: 13 }}
         >
           {running ? (
             <Loader2 aria-hidden size={14} className="animate-spin" style={{ color: "var(--j-accent)" }} />
@@ -104,13 +104,13 @@ export function AgentActivity({ spans, live = true }: { spans: AgentSpan[]; live
                 ) : (
                   <Check aria-label="done" size={12} style={{ color: "var(--j-pos)", flexShrink: 0 }} />
                 )}
-                <span style={{ color: s.status === "running" ? "oklch(0.92 0 0)" : "oklch(0.72 0 0)", fontWeight: s.kind === "agent" ? 500 : 400, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span style={{ color: s.status === "running" ? "var(--opx-ink)" : "var(--opx-muted)", fontWeight: s.kind === "agent" ? 500 : 400, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {s.title}
                 </span>
                 {s.detail && (
-                  <span style={{ color: s.status === "error" ? "var(--j-neg)" : "oklch(0.55 0 0)", fontSize: 12, whiteSpace: "nowrap" }}>{s.detail}</span>
+                  <span style={{ color: s.status === "error" ? "var(--j-neg)" : "var(--opx-muted)", fontSize: 12, whiteSpace: "nowrap" }}>{s.detail}</span>
                 )}
-                <span style={{ marginLeft: "auto", color: "oklch(0.5 0 0)", fontSize: 11, fontFamily: "inherit", flexShrink: 0 }}>
+                <span style={{ marginLeft: "auto", color: "var(--opx-muted)", fontSize: 11, fontFamily: "inherit", flexShrink: 0 }}>
                   {formatMs(Math.max(0, dur))}
                 </span>
               </li>

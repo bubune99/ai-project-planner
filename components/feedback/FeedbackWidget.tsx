@@ -23,7 +23,7 @@ import {
   type CapturedTarget,
   type SelectController,
 } from "@/lib/feedback/core";
-import { ASK_EVENT, QUOTE_EVENT, SHEET_EVENT, askStub, emit } from "@/lib/chatsdk/chat-events";
+import { ASK_EVENT, QUOTE_EVENT, SHEET_EVENT, askStub, emit } from "@/lib/chat/events";
 
 type MenuState = { x: number; y: number; el: Element; touch: boolean };
 
