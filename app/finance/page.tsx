@@ -75,8 +75,11 @@ export default function FinancePage() {
         {rollups.map((r) => <Rollup key={r.currency} r={r} many={rollups.length > 1} />)}
         {!error && data != null && without.length > 0 && (
           <Section title="Projects with no money entered" count={without.length}>
-            <div className="opx-row" style={{ gap: 8, flexWrap: "wrap" }}>
-              {without.map((p) => <Link key={p.id} href={`/project/${p.id}?tab=finance`} className="opx-btn sm">{p.name}</Link>)}
+            {/* A scrolling list, not a wall of chips (owner 2026-11-13). */}
+            <div className="opx-plain-list">
+              {without.map((p) => (
+                <Link key={p.id} href={`/project/${p.id}?tab=finance`}><span>{p.name}</span><small>Add money ›</small></Link>
+              ))}
             </div>
           </Section>
         )}
