@@ -381,3 +381,17 @@ code, pre, kbd, samp, .font-mono { font-family: var(--font-inter), Inter, system
 .opx-ib.on { background: var(--opx-ink); color: var(--opx-card); }
 .opx-ib:focus-visible { outline: 2px solid var(--opx-accent); outline-offset: 2px; }
 [data-ui="dock"] [data-ui="chat.composer"] textarea { font-size: 14.5px; color: var(--opx-ink); }
+.opx-ce.ev { background: transparent; box-shadow: inset 0 0 0 1px var(--c); color: var(--opx-ink); }
+.opx-lv.opx-lvp { grid-template-columns: 44px minmax(0,1fr) 150px 110px 90px 90px; }
+@media (max-width: 760px) { .opx-lvp { grid-template-columns: 28px minmax(0,1fr) 90px; } .opx-lvp > :nth-child(n+4) { display: none; } }
+
+/* ---------- Menu: capture button ---------- */
+.opx-capture { position: relative; margin: 2px 6px 12px; }
+.opx-cta { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 0; border-radius: 999px; padding: 11px 16px; background: var(--opx-ink); color: var(--opx-card); font: inherit; font-weight: 600; font-size: 14px; cursor: pointer; }
+.opx-cta span { font-size: 18px; line-height: 1; }
+.opx-cta:hover { opacity: .92; }
+.opx-capmenu { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; background: var(--opx-soft); border-radius: 16px; padding: 6px; }
+.opx-capmenu a, .opx-capmenu button { display: block; text-align: left; border: 0; background: transparent; color: var(--opx-ink); text-decoration: none; font: inherit; border-radius: 12px; padding: 8px 10px; cursor: pointer; }
+.opx-capmenu a:hover, .opx-capmenu button:hover { background: var(--opx-card); }
+.opx-capmenu b { display: block; font-size: 13.5px; font-weight: 600; }
+.opx-capmenu small { display: block; font-size: 12px; color: var(--opx-muted); }

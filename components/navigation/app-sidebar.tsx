@@ -22,50 +22,69 @@ interface NavSection {
   items: NavItem[]
 }
 
+/*
+ * Grouped as in the 2026-11-13 mock-up: Work, Think, Run, with Settings
+ * pinned at the bottom. SOPs live inside Library; AI Chat left the menu
+ * (the assistant panel replaces it; /chat still works). "Impact" (/impact) stays hidden: it reads catalog
+ * surfaces, and the catalog scanner has never run.
+ */
 const NAV_SECTIONS: NavSection[] = [
   {
-    title: "Overview",
+    title: "Work",
     items: [
       { title: "Dashboard", href: "/dashboard", icon: "grid" },
       { title: "Projects", href: "/projects", icon: "folder" },
-      { title: "Clients", href: "/clients", icon: "users" },
       { title: "Today", href: "/todos", icon: "target" },
       { title: "Inbox", href: "/inbox", icon: "bell" },
-    ],
-  },
-  {
-    title: "Modules",
-    items: [
-      { title: "Ideas", href: "/ideas", icon: "bulb", badge: "New", soon: true },
-      { title: "Finance", href: "/finance", icon: "wallet", badge: "New", soon: true },
-      { title: "Memory", href: "/memory", icon: "brain", badge: "New", soon: true },
-      { title: "Agents", href: "/agents", icon: "bot" },
-    ],
-  },
-  {
-    title: "Tools",
-    items: [
       { title: "Calendar", href: "/calendar", icon: "cal" },
-      { title: "AI Chat", href: "/chat", icon: "msg" },
-      { title: "SOPs", href: "/sops", icon: "sop" },
+    ],
+  },
+  {
+    title: "Think",
+    items: [
+      { title: "Ideas", href: "/ideas", icon: "bulb" },
+      { title: "Memory", href: "/memory", icon: "brain" },
       { title: "Library", href: "/library", icon: "library" },
       { title: "Catalog", href: "/catalog", icon: "layers" },
-      /*
-        "Impact" (/impact) hidden 2026-10-03. It is the Catalog Impact Graph —
-        Idea H wave 5 — and it reads from catalog surfaces, of which there are
-        none: the catalog scanner has never run, so the page opened onto an
-        empty graph nobody could place. The route and its 575 lines are kept;
-        restore this entry once the scanner has populated the catalog.
-      */
     ],
   },
   {
-    title: "System",
+    title: "Run",
     items: [
-      { title: "Settings", href: "/settings", icon: "cog" },
+      { title: "Agents", href: "/agents", icon: "bot" },
+      { title: "Clients", href: "/clients", icon: "users" },
+      { title: "Finance", href: "/finance", icon: "wallet" },
     ],
   },
 ]
+const SETTINGS: NavItem = { title: "Settings", href: "/settings", icon: "cog" }
+
+/** "Capture something": the three things people capture most, one tap each. */
+const CAPTURE: { title: string; hint: string; href?: string; ask?: string }[] = [
+  { title: "New task", hint: "On a project, or just for you", href: "/todos" },
+  { title: "Capture an idea", hint: "Rough is fine", href: "/ideas" },
+  { title: "Log a decision", hint: "With the assistant", ask: "Help me log a decision: ask me what I decided, why, and which options I weighed, then record it on the right project." },
+]
+
+function CaptureButton({ onDone }: { onDone?: () => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="opx-capture">
+      <button type="button" className="opx-cta" data-ui="nav.capture" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        Capture something <span aria-hidden>+</span>
+      </button>
+      {open && (
+        <div className="opx-capmenu" role="menu">
+          {CAPTURE.map((c) => c.href ? (
+            <Link key={c.title} role="menuitem" href={c.href} onClick={() => { setOpen(false); onDone?.() }}><b>{c.title}</b><small>{c.hint}</small></Link>
+          ) : (
+            <button key={c.title} role="menuitem" type="button" onClick={() => { setOpen(false); onDone?.(); window.dispatchEvent(new CustomEvent("jarvis:sheet", { detail: { text: c.ask } })) }}><b>{c.title}</b><small>{c.hint}</small></button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface AppSidebarProps {
   collapsed?: boolean
@@ -177,10 +196,12 @@ export function AppSidebar({
         </button>
       </div>
 
+      {!collapsed && <CaptureButton onDone={onCloseMobile} />}
+
       {/* Navigation */}
-      {NAV_SECTIONS.map(section => (
+      {[...NAV_SECTIONS, { title: "", items: [SETTINGS] }].map(section => (
         <div key={section.title} className="j-nav-section">
-          {!collapsed && (
+          {!collapsed && section.title && (
             <div className="j-nav-section-title">{section.title}</div>
           )}
           {section.items.map(item => {
@@ -261,8 +282,8 @@ export function AppSidebar({
           role="tooltip"
           style={{
             position: "fixed", left: tip.left, top: tip.top, transform: "translateY(-50%)", zIndex: 2147483000, pointerEvents: "none",
-            background: "oklch(0.2 0 0)", color: "oklch(0.96 0 0)", border: "1px solid var(--j-ring)", borderRadius: 8,
-            padding: "6px 10px", fontSize: 13, whiteSpace: "nowrap", boxShadow: "0 8px 24px rgba(0,0,0,.5)", display: "flex", gap: 8, alignItems: "center",
+            background: "var(--opx-ink)", color: "var(--opx-card)", border: 0, borderRadius: 10,
+            padding: "6px 10px", fontSize: 13, whiteSpace: "nowrap", boxShadow: "0 8px 24px rgb(0 0 0 / .3)", display: "flex", gap: 8, alignItems: "center",
           }}
         >
           {tip.title}
@@ -277,13 +298,18 @@ export function AppSidebar({
           aria-label="Menu"
           style={{
             position: "fixed", left: anchor?.left ?? railRight + 6, top: anchor?.top ?? 8, maxHeight: `calc(100vh - ${(anchor?.top ?? 8) + 8}px)`, width: 264, zIndex: 2147483000, overflowY: "auto",
-            background: "oklch(0.16 0 0)", border: "1px solid var(--j-ring)", borderRadius: 14, padding: 10,
-            boxShadow: "0 18px 48px rgba(0,0,0,.6)",
+            background: "var(--opx-card)", color: "var(--opx-ink)", border: "1px solid var(--opx-line)", borderRadius: 22, padding: 12,
+            boxShadow: "0 18px 48px rgb(0 0 0 / 0.28)", display: "flex", flexDirection: "column",
           }}
         >
-          {NAV_SECTIONS.map((section) => (
-            <div key={section.title} style={{ marginBottom: 6 }}>
-              <div style={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "oklch(0.5 0 0)", padding: "8px 10px 4px" }}>{section.title}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 6px 10px" }}>
+            <div className="j-brand-mark">P</div>
+            <div style={{ lineHeight: 1.25 }}><div style={{ fontWeight: 600, fontSize: 15 }}>Planner</div><div style={{ fontSize: 12, color: "var(--opx-muted)" }}>Everything you&apos;re building</div></div>
+          </div>
+          <CaptureButton onDone={() => setMenuOpen(false)} />
+          {[...NAV_SECTIONS, { title: "", items: [SETTINGS] }].map((section) => (
+            <div key={section.title || "bottom"} style={{ marginBottom: 6, ...(section.title ? {} : { borderTop: "1px solid var(--opx-line)", paddingTop: 6 }) }}>
+              {section.title && <div style={{ fontSize: 12, fontWeight: 600, color: "var(--opx-muted)", padding: "8px 10px 4px" }}>{section.title}</div>}
               {section.items.map((item) => {
                 const active = pathname === item.href || pathname?.startsWith(`${item.href}/`)
                 const badge = item.href === "/inbox" ? (inboxCount > 0 ? String(inboxCount) : undefined) : item.badge
@@ -304,11 +330,11 @@ export function AppSidebar({
             </div>
           ))}
           {user && (
-            <div style={{ borderTop: "1px solid var(--j-hairline)", marginTop: 8, paddingTop: 10, display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ borderTop: "1px solid var(--opx-line)", marginTop: 8, paddingTop: 10, display: "flex", alignItems: "center", gap: 10 }}>
               <div className="j-avatar">{initials}</div>
               <div style={{ flex: 1, minWidth: 0, lineHeight: 1.25 }}>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{user.displayName || "User"}</div>
-                <div style={{ fontSize: 11.5, color: "oklch(0.6 0 0)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.primaryEmail}</div>
+                <div style={{ fontSize: 11.5, color: "var(--opx-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.primaryEmail}</div>
               </div>
               <button type="button" onClick={() => user.signOut()} className="j-btn j-btn-ghost" style={{ fontSize: 12 }}>Sign out</button>
             </div>
