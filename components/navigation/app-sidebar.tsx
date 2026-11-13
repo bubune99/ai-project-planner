@@ -155,10 +155,10 @@ export function AppSidebar({
             onMouseLeave={() => setTip(null)}
             style={{ border: 0, cursor: "pointer", font: "inherit" }}
           >
-            J
+            P
           </button>
         ) : (
-          <div className="j-brand-mark">J</div>
+          <div className="j-brand-mark">P</div>
         )}
         {!collapsed && (
           <div className="j-brand-name">

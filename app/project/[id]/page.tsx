@@ -6,7 +6,7 @@ import { DashboardLayout } from "@/components/navigation"
 import { KanbanView } from "@/components/views/KanbanView"
 import { transformStepsToPhases } from "@/lib/data-transforms"
 import { ActivityFeed } from "@/components/project/activity-feed"
-import { Seg } from "@/components/project/opx/shared"
+import { Seg, unwrap, useJson } from "@/components/project/opx/shared"
 import { TaskList, TaskTimeline, TaskCalendar } from "@/components/project/opx/TaskViews"
 import { DocsTab } from "@/components/project/opx/DocsTab"
 import { IdeasDecisions } from "@/components/project/opx/IdeasDecisions"
@@ -400,6 +400,12 @@ export default function ProjectDashboardPage() {
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   const projectId = params.id as string
+  /*
+   * Header stats need is_subtask, parent_task_id and priority, which the
+   * project record's own step list leaves out (it counted 29 subtasks and
+   * saw no urgent work on production). Read the full step list instead.
+   */
+  const stepsQ = useJson(projectId ? `/api/projects/${projectId}/steps` : null)
 
   const fetchProjectData = useCallback(async (silent = false) => {
     try {
@@ -456,8 +462,9 @@ export default function ProjectDashboardPage() {
   }
 
   const { project, steps } = projectData
-  const top = (steps || []).filter((s: any) => !s.is_subtask && !s.parent_task_id && !s.deleted_at)
-  const counted = ui.progressCountsSubtasks ? (steps || []).filter((s: any) => !s.deleted_at) : top
+  const allSteps: any[] = unwrap<any[]>(stepsQ.data, "steps") || steps || []
+  const top = allSteps.filter((s: any) => !s.is_subtask && !s.parent_task_id && !s.deleted_at)
+  const counted = ui.progressCountsSubtasks ? allSteps.filter((s: any) => !s.deleted_at) : top
   const doneN = counted.filter((s: any) => s.status === "completed").length
   const pct = counted.length ? Math.round((doneN / counted.length) * 100) : 0
   const inProg = top.filter((s: any) => s.status === "in-progress").length
@@ -479,7 +486,7 @@ export default function ProjectDashboardPage() {
             {(project.current_phase_name || project.phase) && <span className="opx-chip">{project.current_phase_name || project.phase}</span>}
             {project.health && <span className="opx-chip"><i className="opx-dot" style={{ background: project.health === "critical" ? "var(--opx-hot)" : project.health === "attention" ? "var(--opx-warn)" : "var(--opx-good)", width: 6, height: 6 }} />{project.health}</span>}
             {project.updated_at && <span className="opx-muted" style={{ fontSize: 12.5 }}>Updated {new Date(project.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
-            <button className="opx-link" onClick={() => fetchProjectData(true)} aria-label="Refresh">{isRefreshing ? "Refreshing…" : "↺ Refresh"}</button>
+            <button className="opx-link" onClick={() => { fetchProjectData(true); stepsQ.reload() }} aria-label="Refresh">{isRefreshing ? "Refreshing…" : "↺ Refresh"}</button>
           </div>
         </div>
         <div className="opx-stats">
