@@ -515,3 +515,48 @@ button.opx-chat-tool.on:hover { background: var(--opx-ink); color: var(--opx-car
 .opx-hist-del:hover { opacity: 1; color: var(--opx-hot); }
 .opx-hist-more { display: block; margin: 8px auto; }
 .opx-hist-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; padding: 10px 6px 2px; border-top: 1px solid var(--opx-line); }
+
+/* ---------- Top bar: menu button, title and subtitle on one row ---------- */
+.j-topbar { padding: 10px 18px; gap: 12px; }
+.j-topbar-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.j-topbar-titles { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.j-topbar-titles h1 { white-space: nowrap; }
+.j-topbar-left .j-topbar-titles p { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+@media (max-width: 1280px) { .j-topbar-left .j-topbar-titles p { display: none; } }
+
+/* ---------- Assistant panel header (row 1) and tab strip (row 2) ---------- */
+.opx-dock-head { display: flex; align-items: center; gap: 10px; height: 52px; flex-shrink: 0; padding: 0 10px 0 14px; }
+.opx-dock-tile { width: 28px; height: 28px; border-radius: 9px; background: var(--opx-ink); color: var(--opx-card); display: grid; place-items: center; font-size: 12.5px; font-weight: 600; flex-shrink: 0; }
+.opx-dock-name { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; white-space: nowrap; overflow: hidden; }
+.opx-dock-name b { font-size: 14px; font-weight: 600; } .opx-dock-name small { font-size: 12.5px; color: var(--opx-muted); overflow: hidden; text-overflow: ellipsis; }
+.opx-dock-btn { width: 30px; height: 30px; border-radius: 8px; border: 0; background: transparent; color: var(--opx-muted); display: inline-grid; place-items: center; cursor: pointer; flex-shrink: 0; }
+.opx-dock-btn:hover { background: var(--opx-soft); color: var(--opx-ink); }
+.opx-dock-div { width: 1px; height: 16px; background: var(--opx-line); margin: 0 2px; flex-shrink: 0; }
+
+.opx-tabs { display: flex; align-items: flex-end; flex-shrink: 0; height: 40px; padding: 0 6px; background: var(--opx-soft); border-top: 1px solid var(--opx-line); border-bottom: 1px solid var(--opx-line); }
+.opx-tabs-btn { align-self: center; width: 28px; height: 28px; border-radius: 7px; border: 0; background: transparent; color: var(--opx-muted); display: inline-grid; place-items: center; cursor: pointer; flex-shrink: 0; font: inherit; }
+.opx-tabs-btn:hover:not(:disabled), .opx-tabs-btn[aria-pressed="true"] { background: color-mix(in srgb, var(--opx-ink) 9%, transparent); color: var(--opx-ink); }
+.opx-tabs-btn:disabled { opacity: .35; cursor: default; }
+.opx-tabs-btn.sm { width: 24px; height: 24px; border-radius: 6px; } .opx-tabs-btn.count { width: auto; min-width: 32px; padding: 0 6px; font-size: 12px; font-weight: 600; }
+.opx-tabs-div { align-self: center; width: 1px; height: 16px; margin: 0 6px 0 4px; background: var(--opx-line); flex-shrink: 0; }
+.opx-tabs-area { flex: 1; min-width: 0; align-self: stretch; display: flex; align-items: flex-end; }
+.opx-tabs-list { flex: 0 1 auto; min-width: 0; display: flex; align-items: flex-end; overflow: hidden; padding: 2px 1px 0; margin-bottom: -1px; }
+.opx-tab { position: relative; display: flex; align-items: center; gap: 4px; height: 32px; padding: 0 6px 0 10px; border-radius: 9px 9px 0 0; font-size: 12.5px; color: var(--opx-muted); margin-bottom: 1px; }
+.opx-tab:hover { background: color-mix(in srgb, var(--opx-ink) 6%, transparent); }
+/* The open tab takes the conversation's color and covers the strip's bottom line, so the two join. */
+.opx-tab.on { background: var(--opx-card); color: var(--opx-ink); font-weight: 600; box-shadow: 0 0 0 1px var(--opx-line); clip-path: inset(-1px -1px 0 -1px); margin-bottom: 0; height: 33px; z-index: 1; }
+.opx-tab > button[role="tab"] { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; height: 100%; border: 0; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; text-align: left; }
+.opx-tab > button[role="tab"] > span:not(.opx-sr):not(.opx-tab-ring) { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.opx-tab-x { width: 18px; height: 18px; border-radius: 5px; border: 0; background: transparent; color: var(--opx-muted); display: grid; place-items: center; cursor: pointer; flex-shrink: 0; opacity: 0; }
+.opx-tab.on .opx-tab-x, .opx-tab:hover .opx-tab-x, .opx-tab:focus-within .opx-tab-x { opacity: 1; }
+@media (hover: none) { .opx-tab-x { opacity: 1; } }
+.opx-tab-x:hover { background: color-mix(in srgb, var(--opx-ink) 10%, transparent); color: var(--opx-ink); }
+.opx-tab-sep { flex-shrink: 0; align-self: center; width: 1px; height: 14px; background: var(--opx-line); }
+.opx-tab-ring { width: 12px; height: 12px; flex: none; border-radius: 50%; border: 1.75px solid color-mix(in srgb, currentColor 18%, transparent); border-top-color: currentColor; animation: opx-spin .8s linear infinite; }
+@keyframes opx-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .opx-tab-ring { animation-duration: 2.4s; } }
+.opx-tabs-more { align-self: center; margin-left: auto; display: flex; align-items: center; gap: 2px; flex-shrink: 0; padding-left: 4px; position: relative; }
+.opx-tabs-menu { top: calc(100% + 8px); bottom: auto; left: auto; right: 0; width: 230px; }
+.opx-tabs-menu button[aria-current="true"] { background: var(--opx-soft); }
+.opx-tabs button:focus-visible, .opx-dock-btn:focus-visible { outline: 2px solid var(--opx-accent); outline-offset: -2px; }
+.opx-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

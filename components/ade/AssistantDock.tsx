@@ -1,23 +1,27 @@
 "use client"
 
 /*
- * AssistantDock — the ADE view for the planner: the assistant as a resizable
- * panel beside whatever screen you are on (same shape as Dzidzor and BYB).
- * It lives in the root layout, so the conversation survives page-to-page
- * navigation; it knows the open project; it is hidden on the full-page chat,
- * sign-in pages and anything under 1100px (phones use the Ask tab instead).
- * Keyboard: Left/Right/Home/End on the handle. State is remembered per browser.
+ * AssistantDock — the assistant as a resizable panel beside whatever screen
+ * you are on (the same shape as BYB's admin assistant). Row 1: the brand tile
+ * and name, full chat, hide. Row 2: the tab strip (history, one tab per open
+ * chat, "+"). Every open chat stays mounted, so one can keep working while
+ * you talk to another. It lives in the root layout, so conversations survive
+ * page-to-page navigation; it is hidden on the full-page chat, sign-in pages
+ * and anything under 1100px. Keyboard: Left/Right/Home/End on the handle.
+ * Width, open/closed and the open tabs are remembered per browser.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
-import { Plus, History, Maximize2, PanelLeftClose } from "lucide-react"
+import { Maximize2, PanelLeftClose } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { toast } from "sonner"
 import { ChatPanel } from "@/components/chat/ChatPanel"
 import { HistoryList } from "@/components/chat/HistoryList"
+import { TabStrip } from "@/components/chat/TabStrip"
 import { useAssistantChat } from "@/components/chat/useAssistantChat"
 import { DEFAULT_AGENT, newChatId, type ChatMessage } from "@/lib/chat/view"
+import { NEW_TITLE, addThread, closeDecision, closeThread, fromSaved, newThread, openSaved, titleFrom, toSaved, type Thread, type ThreadStatus } from "@/lib/chat/threads"
 import { clampDock, defaultDock, dockAllowed, dockKey, projectIdFromPath } from "@/lib/ade/dock"
 
 export const DOCK_TOGGLE_EVENT = "ade:toggle-assistant"
@@ -25,6 +29,7 @@ export const DOCK_STATE_EVENT = "ade:dock-state" // detail: { open: boolean }
 
 const KEY_OPEN = "ade-dock-open"
 const KEY_WIDTH = "ade-dock-width-v2"
+const KEY_TABS = "ade-dock-tabs"
 const read = (k: string): string | null => { try { return localStorage.getItem(k) } catch { return null } }
 const write = (k: string, v: string) => { try { localStorage.setItem(k, v) } catch { /* private mode */ } }
 
@@ -34,27 +39,58 @@ export function AssistantDock() {
   const [vw, setVw] = useState(0)
   const [open, setOpen] = useState(true)
   const [width, setWidth] = useState(0)
-  const [chatId, setChatId] = useState<string>("")
-  const [initial, setInitial] = useState<ChatMessage[]>([])
+  const [threads, setThreads] = useState<Thread[]>([])
+  const [activeId, setActiveId] = useState<string | null>(null)
   const [panel, setPanel] = useState<"chat" | "history">("chat")
   const [agentIds, setAgentIds] = useState<string[] | undefined>(undefined)
-  const [opening, setOpening] = useState<string | null>(null)
 
-  // Open a past conversation in the panel.
-  const openChat = async (id: string) => {
-    setOpening(id)
-    try {
-      const r = await fetch(`/api/chat/messages?id=${id}`, { credentials: "include" })
-      if (!r.ok) throw new Error(String(r.status))
-      const j = await r.json()
-      setInitial((j.messages ?? []) as ChatMessage[]); setChatId(id); setPanel("chat")
-    } catch {
-      toast.error("Couldn't open that conversation.")
-    } finally {
-      setOpening(null)
-    }
+  // Remember which tabs are open (not what they are doing) across page loads.
+  useEffect(() => { if (threads.length) write(KEY_TABS, JSON.stringify(toSaved(threads, activeId))) }, [threads, activeId])
+
+  const activate = (id: string) => { setActiveId(id); setPanel("chat") }
+  const newChat = () => {
+    const t = newThread(newChatId())
+    const r = addThread(threads, t)
+    if (!r.ok) { toast.message(r.error); return }
+    setThreads(r.threads); activate(t.id)
   }
-  const newChat = () => { setInitial([]); setChatId(newChatId()); setPanel("chat") }
+  // From history: its own tab, or in place of an unused new chat.
+  const openChat = (id: string, title?: string) => {
+    const r = openSaved(threads, activeId, id, title ?? "")
+    if (!r.ok) { toast.message(r.error); return }
+    setThreads(r.threads); activate(id)
+  }
+  const closeTab = (id: string) => {
+    const t = threads.find((x) => x.id === id)
+    if (!t) return
+    let decision = closeDecision({ status: t.status, count: threads.length })
+    if (decision === "confirm") {
+      if (!confirm(`"${t.title}" is still working. Closing the tab stops it; the conversation stays in history. Stop and close?`)) return
+      decision = closeDecision({ status: t.status, count: threads.length, confirmed: true })
+    }
+    if (decision === "reset") { const fresh = newThread(newChatId()); setThreads([fresh]); activate(fresh.id); return }
+    const next = closeThread(threads, id, activeId)
+    setThreads(next.threads); setActiveId(next.activeId)
+  }
+  // A deleted conversation can't stay open in a tab.
+  const dropDeleted = (ids: string[]) => {
+    let next = { threads, activeId }
+    for (const id of ids) next = closeThread(next.threads, id, next.activeId)
+    if (next.threads.length === threads.length) return
+    if (!next.threads.length) { const fresh = newThread(newChatId()); next = { threads: [fresh], activeId: fresh.id } }
+    setThreads(next.threads); setActiveId(next.activeId)
+  }
+  // Each chat reports what it is doing; the first question names its tab.
+  const onStatus = useCallback((id: string, status: ThreadStatus, firstAsk?: string) => {
+    setThreads((prev) => {
+      const t = prev.find((x) => x.id === id)
+      if (!t) return prev
+      const title = t.title === NEW_TITLE && firstAsk ? titleFrom(firstAsk) : t.title
+      const fresh = t.fresh && status === "idle"
+      if (t.status === status && t.title === title && !!t.fresh === !!fresh) return prev
+      return prev.map((x) => (x.id === id ? { id: x.id, title, status, ...(fresh ? { fresh: true } : {}) } : x))
+    })
+  }, [])
   const drag = useRef<{ x: number; w: number } | null>(null)
 
   useEffect(() => {
@@ -63,7 +99,11 @@ export function AssistantDock() {
     setOpen(read(KEY_OPEN) !== "0")
     const saved = Number(read(KEY_WIDTH))
     setWidth(saved > 0 ? clampDock(saved, w) : defaultDock(w))
-    setChatId(newChatId())
+    let savedTabs: unknown = null
+    try { savedTabs = JSON.parse(read(KEY_TABS) || "null") } catch { /* start fresh */ }
+    const tabs = fromSaved(savedTabs)
+    if (tabs.threads.length) { setThreads(tabs.threads); setActiveId(tabs.activeId) }
+    else { const t = newThread(newChatId()); setThreads([t]); setActiveId(t.id) }
     const onResize = () => setVw(window.innerWidth)
     window.addEventListener("resize", onResize)
     return () => window.removeEventListener("resize", onResize)
@@ -112,7 +152,7 @@ export function AssistantDock() {
 
   const setW = (w: number) => { const c = clampDock(w, vw); setWidth(c); write(KEY_WIDTH, String(c)) }
 
-  if (!pathAllowed || authed !== true || !chatId) return null
+  if (!pathAllowed || authed !== true || !activeId) return null
 
   if (!open) {
     return (
@@ -147,25 +187,35 @@ export function AssistantDock() {
       }}
     >
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: "var(--opx-card)", borderRadius: 26, overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "16px 14px 12px 20px", flexShrink: 0 }}>
-        <div style={{ minWidth: 0, lineHeight: 1.25 }}>
-          <div style={{ fontSize: 17, fontWeight: 600 }}>Assistant</div>
-          <div style={{ fontSize: 12.5, color: "var(--opx-muted)" }}>{projectId ? "Working on this project" : "Across all your projects"}</div>
-        </div>
-        <div style={{ flex: 1 }} />
-        <button type="button" data-ui="dock.new" className="opx-ib" onClick={newChat} title="New conversation" aria-label="New conversation"><Plus size={17} strokeWidth={1.9} /></button>
-        <button type="button" data-ui="dock.history" className={`opx-ib${panel === "history" ? " on" : ""}`} onClick={() => setPanel(panel === "history" ? "chat" : "history")} aria-pressed={panel === "history"} title="Past conversations" aria-label="Past conversations"><History size={17} strokeWidth={1.9} /></button>
-        <Link href="/chat" data-ui="dock.full" className="opx-ib" title="Open the full chat" aria-label="Open the full chat"><Maximize2 size={16} strokeWidth={1.9} /></Link>
-        <button type="button" data-ui="dock.hide" className="opx-ib" onClick={() => setOpenPersist(false)} title="Hide the assistant" aria-label="Hide the assistant"><PanelLeftClose size={17} strokeWidth={1.9} /></button>
+      <div className="opx-dock-head" data-ui="chat.header">
+        <span className="opx-dock-tile" aria-hidden>P</span>
+        <span className="opx-dock-name"><b>Planner</b>{projectId && <small>This project</small>}</span>
+        <Link href="/chat" data-ui="dock.full" className="opx-dock-btn" title="Open the full chat" aria-label="Open the full chat"><Maximize2 size={16} strokeWidth={1.9} /></Link>
+        <span className="opx-dock-div" aria-hidden />
+        <button type="button" data-ui="dock.hide" className="opx-dock-btn" onClick={() => setOpenPersist(false)} title="Hide the assistant" aria-label="Hide the assistant"><PanelLeftClose size={16} strokeWidth={1.9} /></button>
       </div>
+      <TabStrip
+        threads={threads}
+        activeId={activeId}
+        historyOpen={panel === "history"}
+        onHistory={() => setPanel(panel === "history" ? "chat" : "history")}
+        onActivate={activate}
+        onClose={closeTab}
+        onNew={newChat}
+      />
       {panel === "history" && (
-        <div data-ui="dock.history-panel" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "0 10px 10px" }}>
-          <HistoryList activeId={chatId} onOpen={openChat} onActiveDeleted={newChat} busyId={opening} />
+        <div data-ui="dock.history-panel" style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "8px 10px 10px" }}>
+          <HistoryList activeId={activeId} onOpen={openChat} onDeleted={dropDeleted} />
         </div>
       )}
-      <div style={{ flex: 1, minHeight: 0, display: panel === "history" ? "none" : "flex", flexDirection: "column" }}>
-        <DockChat key={chatId} id={chatId} initialMessages={initial} agentIds={agentIds} projectId={projectId} />
-      </div>
+      {threads.map((t) => {
+        const showing = t.id === activeId && panel !== "history"
+        return (
+          <div key={t.id} role="tabpanel" aria-label={t.title} hidden={!showing} style={{ flex: 1, minHeight: 0, display: showing ? "flex" : "none", flexDirection: "column" }}>
+            <ThreadPane thread={t} active={showing} agentIds={agentIds} projectId={projectId} onStatus={onStatus} />
+          </div>
+        )
+      })}
       </div>
       <div
         role="separator"
@@ -185,8 +235,27 @@ export function AssistantDock() {
   )
 }
 
-/** The conversation in the panel. Keyed by chat id, so a new or reopened chat starts clean. */
-function DockChat({ id, initialMessages, agentIds, projectId }: { id: string; initialMessages: ChatMessage[]; agentIds?: string[]; projectId: string | null }) {
-  const model = useAssistantChat({ id, initialMessages, initialAgent: DEFAULT_AGENT, agentIds, projectId, docked: true })
+/** One open chat. A saved one loads its messages first; then it stays mounted while its tab is open. */
+function ThreadPane({ thread, active, agentIds, projectId, onStatus }: { thread: Thread; active: boolean; agentIds?: string[]; projectId: string | null; onStatus: (id: string, status: ThreadStatus, firstAsk?: string) => void }) {
+  const [messages, setMessages] = useState<ChatMessage[] | null>(thread.fresh ? [] : null)
+  const id = thread.id
+  useEffect(() => {
+    if (messages !== null) return
+    let live = true
+    fetch(`/api/chat/messages?id=${id}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : { messages: [] })) // never saved, or gone: start empty
+      .then((j) => { if (live) setMessages((j.messages ?? []) as ChatMessage[]) })
+      .catch(() => { if (live) setMessages([]) })
+    return () => { live = false }
+    // Load once per conversation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
+  const report = useCallback((status: ThreadStatus, firstAsk?: string) => onStatus(id, status, firstAsk), [id, onStatus])
+  if (messages === null) return <div className="opx-muted" style={{ flex: 1, display: "grid", placeItems: "center", fontSize: 13.5 }}>Loading the conversation…</div>
+  return <ThreadChat id={id} initialMessages={messages} active={active} agentIds={agentIds} projectId={projectId} onStatus={report} />
+}
+
+function ThreadChat({ id, initialMessages, active, agentIds, projectId, onStatus }: { id: string; initialMessages: ChatMessage[]; active: boolean; agentIds?: string[]; projectId: string | null; onStatus: (status: ThreadStatus, firstAsk?: string) => void }) {
+  const model = useAssistantChat({ id, initialMessages, initialAgent: DEFAULT_AGENT, agentIds, projectId, docked: true, active, onStatus })
   return <ChatPanel model={model} compact />
 }

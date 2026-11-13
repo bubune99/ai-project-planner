@@ -208,11 +208,12 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
               <button
                 className="opx-ib"
                 data-ui="theme.toggle"
-                title={resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
+                title={resolvedTheme === "dark" ? "Dark mode is on. Switch to light" : "Light mode is on. Switch to dark"}
                 onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
                 aria-label={resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
               >
-                {resolvedTheme === "dark" ? <Sun size={17} strokeWidth={1.9} /> : <Moon size={17} strokeWidth={1.9} />}
+                {/* Shows the mode you are in: moon in dark, sun in light. */}
+                {resolvedTheme === "dark" ? <Moon size={17} strokeWidth={1.9} /> : <Sun size={17} strokeWidth={1.9} />}
               </button>
             )}
             <button

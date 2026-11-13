@@ -17,14 +17,16 @@ const PAGE = 30
 
 interface Props {
   activeId?: string
-  onOpen: (id: string) => void
+  onOpen: (id: string, title: string) => void
   /** The open conversation was deleted. */
   onActiveDeleted?: () => void
+  /** These conversations were deleted (so open tabs for them can close). */
+  onDeleted?: (ids: string[]) => void
   /** A conversation is being opened (shows it as busy). */
   busyId?: string | null
 }
 
-export function HistoryList({ activeId, onOpen, onActiveDeleted, busyId }: Props) {
+export function HistoryList({ activeId, onOpen, onActiveDeleted, onDeleted, busyId }: Props) {
   const [chats, setChats] = useState<ChatSummary[] | null>(null)
   const [hasMore, setHasMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -55,7 +57,7 @@ export function HistoryList({ activeId, onOpen, onActiveDeleted, busyId }: Props
   }, [load])
 
   const pick = (id: string) => setPicked((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
-  const done = (ids: string[]) => { setPicked(new Set()); setSelecting(false); load(); if (activeId && ids.includes(activeId)) onActiveDeleted?.() }
+  const done = (ids: string[]) => { setPicked(new Set()); setSelecting(false); load(); onDeleted?.(ids); if (activeId && ids.includes(activeId)) onActiveDeleted?.() }
 
   const remove = async (ids: string[]) => {
     if (!ids.length) return
@@ -104,7 +106,7 @@ export function HistoryList({ activeId, onOpen, onActiveDeleted, busyId }: Props
             {list.map((c) => (
               <div key={c.id} className={`opx-hist-row${c.id === activeId ? " on" : ""}`}>
                 {selecting && <input type="checkbox" checked={picked.has(c.id)} onChange={() => pick(c.id)} aria-label={`Select ${c.title || "Untitled"}`} />}
-                <button type="button" className="opx-hist-open" disabled={!!busyId} onClick={() => (selecting ? pick(c.id) : onOpen(c.id))}>
+                <button type="button" className="opx-hist-open" disabled={!!busyId} onClick={() => (selecting ? pick(c.id) : onOpen(c.id, c.title))}>
                   {busyId === c.id ? "Opening…" : c.title || "Untitled"}
                 </button>
                 {!selecting && (

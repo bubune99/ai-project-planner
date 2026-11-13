@@ -13,6 +13,7 @@ import { toast } from "sonner"
 import { scanUnits } from "@/lib/ade/ui/scan"
 import { briefingLine } from "@/lib/ade/briefing"
 import { ASK_EVENT, QUOTE_EVENT, asQuote, type TextDetail } from "@/lib/chat/events"
+import { deriveStatus, type ThreadStatus } from "@/lib/chat/threads"
 import { agentChoices, chatBody, errorText, newChatId, toView, type AgentChoice, type ChatMessage, type MessageView } from "@/lib/chat/view"
 
 export const HISTORY_CHANGED_EVENT = "chat:history-changed"
@@ -62,6 +63,10 @@ export interface AssistantChatOptions {
   docked?: boolean
   /** Called when the person sends (the chat page uses it to put the chat id in the address). */
   onSend?: () => void
+  /** False for a chat open in a background tab: it keeps streaming but leaves the shared draft and page events alone. */
+  active?: boolean
+  /** Reports what this chat is doing, and the first thing asked (a tab's status and name). */
+  onStatus?: (status: ThreadStatus, firstAsk?: string) => void
 }
 
 export function useAssistantChat(o: AssistantChatOptions): ChatModel {
@@ -112,18 +117,34 @@ export function useAssistantChat(o: AssistantChatOptions): ChatModel {
   })
 
   const busy = status === "submitted" || status === "streaming"
+  // Closing a tab or leaving the page stops a reply that is still coming.
+  const stopRef = useRef(stop)
+  stopRef.current = stop
+  useEffect(() => () => { void stopRef.current() }, [])
+  const active = o.active !== false
+  const activeRef = useRef(active)
+  activeRef.current = active
+
+  const firstAsk = useMemo(() => {
+    const first = messages.find((m) => m.role === "user")
+    const part = first?.parts?.find((p) => p.type === "text")
+    return part && "text" in part ? part.text : undefined
+  }, [messages])
+  const onStatus = o.onStatus
+  const threadStatus = deriveStatus(status, messages.length)
+  useEffect(() => { onStatus?.(threadStatus, firstAsk) }, [onStatus, threadStatus, firstAsk])
 
   // Draft: kept per browser so a half-written message survives a page change.
-  useEffect(() => { const saved = read(DRAFT); if (saved) setInputState(saved) }, [])
+  useEffect(() => { const saved = activeRef.current ? read(DRAFT) : null; if (saved) setInputState(saved) }, [])
   const setInput = useCallback((v: string | ((prev: string) => string)) => {
-    setInputState((prev) => { const next = typeof v === "function" ? v(prev) : v; write(DRAFT, next); return next })
+    setInputState((prev) => { const next = typeof v === "function" ? v(prev) : v; if (activeRef.current) write(DRAFT, next); return next })
   }, [])
 
   // Long-press menus and swipes hand text to the composer through window events.
   useEffect(() => {
     const text = (e: Event) => (e as CustomEvent<TextDetail>).detail?.text
-    const onQuote = (e: Event) => { const t = text(e); if (t) { setInput((prev) => asQuote(t) + prev); inputRef.current?.focus() } }
-    const onAsk = (e: Event) => { const t = text(e); if (t) { setInput(t); inputRef.current?.focus() } }
+    const onQuote = (e: Event) => { const t = text(e); if (t && activeRef.current) { setInput((prev) => asQuote(t) + prev); inputRef.current?.focus() } }
+    const onAsk = (e: Event) => { const t = text(e); if (t && activeRef.current) { setInput(t); inputRef.current?.focus() } }
     window.addEventListener(QUOTE_EVENT, onQuote)
     window.addEventListener(ASK_EVENT, onAsk)
     return () => { window.removeEventListener(QUOTE_EVENT, onQuote); window.removeEventListener(ASK_EVENT, onAsk) }
