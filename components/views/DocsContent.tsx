@@ -79,7 +79,7 @@ export function DocsContent({ title, content, lastUpdated = "2 days ago", update
               return !inline && match ? (
                 <div className="relative my-4 rounded-lg bg-[#1e1e1e] border border-border/50 overflow-hidden">
                   <div className="flex items-center justify-between px-4 py-2 bg-accent/30 border-b border-border/50">
-                    <span className="text-xs text-muted-foreground font-mono">{language}</span>
+                    <span className="text-xs text-muted-foreground font-sans">{language}</span>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -90,13 +90,13 @@ export function DocsContent({ title, content, lastUpdated = "2 days ago", update
                     </Button>
                   </div>
                   <pre className="p-4 overflow-x-auto">
-                    <code className="text-sm font-mono text-gray-300" {...props}>
+                    <code className="text-sm font-sans text-gray-300" {...props}>
                       {children}
                     </code>
                   </pre>
                 </div>
               ) : (
-                <code className="bg-accent px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+                <code className="bg-accent px-1.5 py-0.5 rounded text-sm font-sans" {...props}>
                   {children}
                 </code>
               )

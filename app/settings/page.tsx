@@ -99,7 +99,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
           style={{
             flex: 1, background: "oklch(1 0 0 / 0.02)", border: "1px solid var(--j-ring)",
             borderRadius: 8, padding: "8px 12px", color: "oklch(0.556 0 0)",
-            fontSize: 13, fontFamily: "var(--font-geist-mono, monospace)", outline: "none",
+            fontSize: 13, fontFamily: "inherit", outline: "none",
           }}
         />
         <button
@@ -245,7 +245,7 @@ function McpTab() {
         </div>
         <pre style={{
           background: "oklch(0.09 0 0)", borderRadius: 8, padding: "12px 14px",
-          fontSize: 12, fontFamily: "var(--font-geist-mono, monospace)", color: "oklch(0.780 0 0)",
+          fontSize: 12, fontFamily: "inherit", color: "oklch(0.780 0 0)",
           margin: 0, overflow: "auto", lineHeight: 1.6,
         }}>
           {claudeConfig}
@@ -268,7 +268,7 @@ function McpTab() {
               style={{
                 flex: 1, background: "oklch(0.09 0 0)", border: "1px solid oklch(0.870 0.045 252 / 0.4)",
                 borderRadius: 8, padding: "8px 12px", color: "oklch(0.870 0.045 252)",
-                fontSize: 12, fontFamily: "var(--font-geist-mono, monospace)", outline: "none",
+                fontSize: 12, fontFamily: "inherit", outline: "none",
               }}
             />
             <button className="j-btn j-btn-ghost" style={{ fontSize: 12, flexShrink: 0 }} onClick={() => copyText(revealedKey, "Key copied")}>Copy</button>
@@ -342,7 +342,7 @@ function McpTab() {
                     {!key.isActive && <span className="j-pill" style={{ fontSize: 9, background: "oklch(0.545 0.199 27 / 0.15)", color: "var(--j-neg)" }}>Revoked</span>}
                   </div>
                   <div className="j-row" style={{ gap: 12 }}>
-                    <span style={{ fontSize: 11, fontFamily: "var(--font-geist-mono, monospace)", color: "oklch(0.556 0 0)" }}>
+                    <span style={{ fontSize: 11, fontFamily: "inherit", color: "oklch(0.556 0 0)" }}>
                       {key.keyPrefix}••••
                     </span>
                     <span className="j-muted" style={{ fontSize: 11 }}>Last used: {relativeDate(key.lastUsedAt)}</span>
@@ -434,7 +434,7 @@ function AiTab() {
             </div>
           </Field>
           <p className="j-muted" style={{ fontSize: 11, margin: 0 }}>
-            The API key is set server-side via Vercel environment variables. To rotate it, update <code style={{ fontFamily: "var(--font-geist-mono, monospace)" }}>ANTHROPIC_API_KEY</code> in your Vercel project settings.
+            The API key is set server-side via Vercel environment variables. To rotate it, update <code style={{ fontFamily: "inherit" }}>ANTHROPIC_API_KEY</code> in your Vercel project settings.
           </p>
         </div>
       </div>

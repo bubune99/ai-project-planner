@@ -427,7 +427,7 @@ export default function AgentsPage() {
                 {selectedJob.error && (
                   <div style={{ padding: 12, borderRadius: 8, border: "1px solid oklch(0.396 0.141 22 / 0.4)", background: "oklch(0.396 0.141 22 / 0.1)" }}>
                     <Label className="text-xs" style={{ color: "var(--j-neg)" }}>Error</Label>
-                    <p style={{ fontSize: 12, marginTop: 4, fontFamily: "monospace", color: "var(--j-neg)" }}>{selectedJob.error}</p>
+                    <p style={{ fontSize: 12, marginTop: 4, fontFamily: "inherit", color: "var(--j-neg)" }}>{selectedJob.error}</p>
                   </div>
                 )}
               </div>

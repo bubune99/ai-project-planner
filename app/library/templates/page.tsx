@@ -517,7 +517,7 @@ export default function TemplatesPage() {
                         </button>
                         {promptsOpen[i] && prompt.body && (
                           <div style={{ padding: "0 12px 12px", borderTop: "1px solid var(--j-ring)" }}>
-                            <pre style={{ margin: "10px 0 0", fontSize: 12, whiteSpace: "pre-wrap", lineHeight: 1.6, color: "oklch(0.860 0 0)", fontFamily: "monospace" }}>
+                            <pre style={{ margin: "10px 0 0", fontSize: 12, whiteSpace: "pre-wrap", lineHeight: 1.6, color: "oklch(0.860 0 0)", fontFamily: "inherit" }}>
                               {prompt.body}
                             </pre>
                           </div>

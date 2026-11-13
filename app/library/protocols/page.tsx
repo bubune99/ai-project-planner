@@ -275,7 +275,7 @@ export default function ProtocolsPage() {
                 value={newForm.ruleBody}
                 rows={4}
                 onChange={e => setNewForm(f => ({ ...f, ruleBody: e.target.value }))}
-                style={{ ...textareaStyle, fontFamily: "monospace" }}
+                style={{ ...textareaStyle, fontFamily: "inherit" }}
               />
               <textarea
                 placeholder="Rationale * — why this protocol is in the library"
@@ -514,7 +514,7 @@ export default function ProtocolsPage() {
                     <div className="j-col" style={{ gap: 6 }}>
                       <textarea autoFocus rows={6} value={editValue}
                         onChange={e => setEditValue(e.target.value)}
-                        style={{ ...textareaStyle, fontFamily: "monospace" }} />
+                        style={{ ...textareaStyle, fontFamily: "inherit" }} />
                       <div className="j-row" style={{ gap: 6 }}>
                         <button className="j-btn j-btn-primary" style={{ padding: "5px 12px", fontSize: 12 }}
                           onClick={() => saveField("ruleBody", editValue)} disabled={fieldSaving}>
@@ -526,7 +526,7 @@ export default function ProtocolsPage() {
                     </div>
                   ) : (
                     <pre
-                      style={{ margin: 0, fontSize: 12, lineHeight: 1.6, fontFamily: "monospace", whiteSpace: "pre-wrap", cursor: "text", color: "oklch(0.860 0 0)" }}
+                      style={{ margin: 0, fontSize: 12, lineHeight: 1.6, fontFamily: "inherit", whiteSpace: "pre-wrap", cursor: "text", color: "oklch(0.860 0 0)" }}
                       onClick={() => { setEditField("rule_body"); setEditValue(selected.ruleBody) }}
                     >
                       {selected.ruleBody || "(empty)"}

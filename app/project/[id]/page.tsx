@@ -337,7 +337,7 @@ function DecisionsFacet({ projectId }: { projectId: string }) {
             <tbody>
               {adrs.map((a, i) => (
                 <tr key={a.id}>
-                  <td className="j-muted" style={{ fontSize: 11, fontFamily: "monospace" }}>ADR-{String(i + 1).padStart(3, "0")}</td>
+                  <td className="j-muted" style={{ fontSize: 11, fontFamily: "inherit" }}>ADR-{String(i + 1).padStart(3, "0")}</td>
                   <td style={{ fontWeight: 500 }}>{a.title}</td>
                   <td><span className={`j-pill ${tone[a.status] || "j-muted"}`}>{a.status}</span></td>
                   <td className="j-muted" style={{ fontSize: 12 }}>{a.created_at ? new Date(a.created_at).toLocaleDateString() : "—"}</td>

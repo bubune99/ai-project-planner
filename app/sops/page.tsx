@@ -149,7 +149,7 @@ export default function SopsPage() {
                 style={{
                   width: "100%", background: "oklch(1 0 0 / 0.04)", color: "oklch(0.985 0 0)",
                   border: "none", boxShadow: "0 0 0 1px var(--j-ring)", borderRadius: 8,
-                  padding: 12, fontFamily: "var(--font-geist-mono, monospace)", fontSize: 13, resize: "vertical",
+                  padding: 12, fontFamily: "inherit", fontSize: 13, resize: "vertical",
                 }}
               />
               {err && <div className="j-pill j-neg" style={{ alignSelf: "flex-start" }}>{err}</div>}
@@ -200,7 +200,7 @@ export default function SopsPage() {
                 {s.content?.trim() && (
                   <pre style={{
                     whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0,
-                    fontFamily: "var(--font-geist-mono, monospace)", fontSize: 12.5,
+                    fontFamily: "inherit", fontSize: 12.5,
                     color: "oklch(0.78 0 0)", maxHeight: 200, overflow: "auto",
                   }}>{s.content}</pre>
                 )}

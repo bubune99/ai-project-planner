@@ -83,7 +83,7 @@ function InfoRow({
   return (
     <div className="flex items-center justify-between text-xs">
       <span className="text-muted-foreground">{label}</span>
-      <div className="flex items-center gap-2 font-mono">
+      <div className="flex items-center gap-2 font-sans">
         <span className="min-w-[4ch] text-right">
           {tokens === undefined ? "—" : tokens.toLocaleString()}
         </span>
@@ -168,7 +168,7 @@ export const Context = ({ className, usage, ...props }: ContextProps) => {
                 <Separator className="mt-1" />
                 <div className="flex items-center justify-between pt-1 text-xs">
                   <span className="text-muted-foreground">Total cost</span>
-                  <div className="flex items-center gap-2 font-mono">
+                  <div className="flex items-center gap-2 font-sans">
                     <span className="min-w-[4ch] text-right" />
                     <span>
                       {Number.isNaN(

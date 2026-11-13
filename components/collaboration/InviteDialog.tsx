@@ -309,7 +309,7 @@ export function InviteDialog({
                     <Input
                       value={generatedLink}
                       readOnly
-                      className="text-xs font-mono"
+                      className="text-xs font-sans"
                     />
                     <Button
                       variant="outline"

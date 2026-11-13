@@ -669,7 +669,7 @@ function FacetsTab({
                       overflow: "auto",
                       maxHeight: 240,
                       margin: 0,
-                      fontFamily: "var(--font-geist-mono, monospace)",
+                      fontFamily: "inherit",
                       whiteSpace: "pre-wrap",
                       wordBreak: "break-word",
                     }}
@@ -1579,7 +1579,7 @@ function DocumentsTab({ ideaId }: { ideaId: string }) {
                       margin: 0,
                       whiteSpace: "pre-wrap",
                       wordBreak: "break-word",
-                      fontFamily: "var(--font-geist-mono, monospace)",
+                      fontFamily: "inherit",
                     }}
                   >
                     {d.content}
@@ -1671,9 +1671,9 @@ function RelatedTab({ ideaId }: { ideaId: string }) {
                     <span className={`j-pill ${REL_PILL[r.relationship_type] || "j-ghost"}`}>
                       {r.relationship_type.replace(/_/g, " ")}
                     </span>
-                    <span className="j-muted" style={{ fontSize: 13, fontFamily: "monospace" }}>{direction}</span>
+                    <span className="j-muted" style={{ fontSize: 13, fontFamily: "inherit" }}>{direction}</span>
                     <Link href={`/ideas/${otherId}`} onClick={(e) => e.stopPropagation()}>
-                      <span style={{ fontSize: 12, color: "var(--j-accent)", fontFamily: "monospace", textDecoration: "underline", cursor: "pointer" }}>
+                      <span style={{ fontSize: 12, color: "var(--j-accent)", fontFamily: "inherit", textDecoration: "underline", cursor: "pointer" }}>
                         {otherId.slice(0, 12)}…
                       </span>
                     </Link>

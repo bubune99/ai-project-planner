@@ -102,7 +102,7 @@ export function PromptGenerator({ projectId, stepId, type = "task", onSendToClau
             ) : (
               <ScrollArea className="h-[600px]">
                 <div className="prose prose-invert max-w-none">
-                  <pre className="whitespace-pre-wrap font-mono text-sm text-gray-300">{prompt}</pre>
+                  <pre className="whitespace-pre-wrap font-sans text-sm text-gray-300">{prompt}</pre>
                 </div>
               </ScrollArea>
             )}
@@ -141,7 +141,7 @@ export function PromptGenerator({ projectId, stepId, type = "task", onSendToClau
         <TabsContent value="markdown">
           <div className="bg-black/40 border border-white/10 rounded-lg p-4">
             <ScrollArea className="h-[600px]">
-              <pre className="text-sm text-gray-300 whitespace-pre-wrap font-mono">{prompt}</pre>
+              <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans">{prompt}</pre>
             </ScrollArea>
           </div>
         </TabsContent>

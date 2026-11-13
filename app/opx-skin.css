@@ -1,0 +1,203 @@
+/* ============================================================
+   OpEx skin for the planner (owner direction 2026-11-13)
+   Same system as OpEx and Health & Habits: soft canvas, rounded
+   panels, Inter, navy ink in light mode, charcoal (not black) in dark.
+   Loaded after globals.css; it re-points the j-* tokens and classes,
+   so every existing page picks up the look without being rewritten.
+   ============================================================ */
+
+:root {
+  --opx-bg: #f0f0f0;
+  --opx-card: #ffffff;
+  --opx-soft: #e9edf2;
+  --opx-ink: #20355b;
+  --opx-title: #5d636f;
+  --opx-muted: #5a687c;
+  --opx-line: #d9dfe8;
+  --opx-accent: #527bb0;
+  --opx-good: #307e59;
+  --opx-warn: #c17115;
+  --opx-hot: #d65a3e;
+  --opx-violet: #865ec9;
+  --opx-band: linear-gradient(180deg, #dde4ee, #e9edf2 70%, #eef1f5);
+  --opx-r: 26px;
+  --opx-r-md: 18px;
+  --opx-r-sm: 12px;
+
+  --j-accent: var(--opx-accent);
+  --j-accent-2: var(--opx-accent);
+  --j-bg: var(--opx-bg);
+  --j-surface: var(--opx-card);
+  --j-surface-2: var(--opx-soft);
+  --j-ring: var(--opx-line);
+  --j-ring-strong: var(--opx-line);
+  --j-hairline: var(--opx-line);
+  --j-pos: var(--opx-good);
+  --j-neg: var(--opx-hot);
+  --j-warn: var(--opx-warn);
+  --j-info: var(--opx-accent);
+  --j-idea: #b07d12;
+  --j-biz: var(--opx-violet);
+}
+
+.dark {
+  --opx-bg: #262626;
+  --opx-card: #2f2f31;
+  --opx-soft: #3a3b3e;
+  --opx-ink: #e8ecf2;
+  --opx-title: #b9c0cb;
+  --opx-muted: #a3abb8;
+  --opx-line: #44464b;
+  --opx-band: linear-gradient(180deg, #34383f, #303236 70%, #2f2f31);
+  --j-idea: #e0b44a;
+  color-scheme: dark;
+}
+
+body {
+  background: var(--opx-bg);
+  color: var(--opx-ink);
+  font-family: var(--font-inter), Inter, system-ui, sans-serif !important;
+}
+/* Owner rule: no monospace anywhere. */
+code, pre, kbd, samp, .font-mono { font-family: var(--font-inter), Inter, system-ui, sans-serif !important; }
+
+/* ---------- Shell ---------- */
+.j-app { background: var(--opx-bg); color: var(--opx-ink); font-size: 14px; gap: 10px; padding: 10px; }
+.j-sidebar {
+  background: var(--opx-card); border-right: 0; border-radius: var(--opx-r);
+  height: calc(100vh - 20px); top: 10px;
+}
+.j-brand { border-bottom-color: var(--opx-line); }
+.j-brand-mark { background: var(--opx-ink); color: var(--opx-card); box-shadow: none; border-radius: 10px; }
+.j-brand-name span { letter-spacing: 0; text-transform: none; font-size: 11.5px; color: var(--opx-muted); }
+.j-nav-section-title { letter-spacing: 0; text-transform: none; font-size: 12px; font-weight: 600; color: var(--opx-muted); }
+.j-nav-item { color: var(--opx-title); border-radius: 12px; font-size: 14px; padding: 8px 12px; }
+.j-nav-item:hover { background: var(--opx-soft); color: var(--opx-ink); }
+.j-nav-item.j-active { background: var(--opx-soft); color: var(--opx-ink); box-shadow: none; font-weight: 600; }
+.j-nav-item .j-nav-icon { color: var(--opx-muted); }
+.j-nav-item.j-active .j-nav-icon, .j-nav-item:hover .j-nav-icon { color: var(--opx-ink); }
+.j-nav-badge { background: var(--opx-soft); color: var(--opx-ink); letter-spacing: 0; }
+.j-sidebar-foot { border-top-color: var(--opx-line); }
+.j-avatar { background: var(--opx-ink); color: var(--opx-card); }
+.j-foot-meta span { color: var(--opx-muted); }
+
+.j-main { background: var(--opx-card); border-radius: var(--opx-r); overflow: clip; min-height: calc(100vh - 20px); }
+.j-topbar {
+  background: var(--opx-card); backdrop-filter: none; border-bottom: 1px solid var(--opx-line);
+  padding: 14px 22px;
+}
+.j-topbar-left h1 { font-size: 17px; font-weight: 600; letter-spacing: 0; }
+.j-topbar-left p { color: var(--opx-muted); }
+.j-search { background: var(--opx-soft); box-shadow: none; border-radius: 999px; color: var(--opx-muted); padding: 8px 14px; font-size: 13px; }
+.j-kbd { background: var(--opx-card); color: var(--opx-muted); }
+
+.j-btn { border-radius: 999px; padding: 7px 14px; font-weight: 600; }
+.j-btn-primary { background: var(--opx-ink); color: var(--opx-card); }
+.j-btn-primary:hover { background: var(--opx-ink); opacity: .9; }
+.j-btn-ghost { background: var(--opx-card); color: var(--opx-ink); box-shadow: inset 0 0 0 1px var(--opx-line); }
+.j-btn-ghost:hover { background: var(--opx-soft); }
+.j-btn-icon { padding: 8px; }
+
+.j-content { padding: 22px; gap: 14px; }
+
+/* ---------- Cards and type ---------- */
+.j-card { background: var(--opx-card); border-radius: 22px; box-shadow: none; }
+.j-main .j-card { background: var(--opx-soft); }
+.j-card-title { font-size: 16px; font-weight: 600; }
+.j-card-sub, .j-muted { color: var(--opx-muted); }
+.j-eyebrow { letter-spacing: 0; text-transform: none; font-size: 12.5px; font-weight: 600; color: var(--opx-muted); }
+
+.j-pill { height: auto; padding: 3px 10px; font-size: 12.5px; }
+.j-pill.j-pos  { background: color-mix(in srgb, var(--opx-good) 18%, transparent); color: var(--opx-good); }
+.j-pill.j-neg  { background: color-mix(in srgb, var(--opx-hot) 18%, transparent); color: var(--opx-hot); }
+.j-pill.j-warn { background: color-mix(in srgb, var(--opx-warn) 18%, transparent); color: var(--opx-warn); }
+.j-pill.j-info, .j-pill.j-proj { background: color-mix(in srgb, var(--opx-accent) 18%, transparent); color: var(--opx-accent); }
+.j-pill.j-biz  { background: color-mix(in srgb, var(--opx-violet) 18%, transparent); color: var(--opx-violet); }
+.j-pill.j-muted, .j-pill.j-ghost { background: var(--opx-soft); color: var(--opx-title); box-shadow: none; }
+.dark .j-pill.j-pos { color: #6bc79c; } .dark .j-pill.j-neg { color: #e88a74; } .dark .j-pill.j-info, .dark .j-pill.j-proj { color: #8fb0db; }
+
+.j-progress { background: var(--opx-soft); }
+.j-progress > span { background: var(--opx-accent); }
+
+.j-tabs { background: var(--opx-soft); box-shadow: none; border-radius: 999px; padding: 4px; }
+.j-tab { border-radius: 999px; color: var(--opx-muted); font-size: 13px; padding: 6px 14px; }
+.j-tab.j-active { background: var(--opx-ink); color: var(--opx-card); }
+.j-tab:hover:not(.j-active) { color: var(--opx-ink); }
+
+.j-table th { text-transform: none; letter-spacing: 0; font-size: 12.5px; color: var(--opx-muted); border-bottom-color: var(--opx-line); }
+.j-table td { border-bottom-color: var(--opx-line); }
+.j-table tr:hover td { background: var(--opx-soft); }
+
+.j-focus-mode { background: var(--opx-band); box-shadow: none; border-radius: var(--opx-r); }
+.j-focus-mode::before { display: none; }
+.j-coming-soon { background: var(--opx-soft); box-shadow: none; }
+.j-cal-day { background: var(--opx-soft); border-radius: 10px; }
+.j-cal-day.j-today { box-shadow: inset 0 0 0 1.5px var(--opx-hot); }
+.j-gantt-track { background: var(--opx-soft); }
+.j-gantt-bar { background: var(--opx-accent); color: #fff; }
+.j-gantt-today { background: var(--opx-hot); box-shadow: none; }
+.j-graph-label { background: var(--opx-card); color: var(--opx-ink); box-shadow: inset 0 0 0 1px var(--opx-line); }
+.j-graph-dot { box-shadow: 0 0 0 4px var(--opx-card), 0 0 0 5px currentColor; }
+.j-divider { background: var(--opx-line); }
+.j-spark-rail > span { background: var(--opx-soft); }
+.j-spark-rail > span.j-hi { background: var(--opx-accent); }
+.j-dot-pulse::after { display: none; }
+
+@media (max-width: 768px) {
+  .j-app { padding: 0; gap: 0; }
+  .j-main { border-radius: 0; }
+  .j-sidebar, .j-sidebar.j-collapsed { border-radius: 0 var(--opx-r) var(--opx-r) 0; height: 100vh; top: 0; }
+  .j-tabbar { background: var(--opx-card); border-top-color: var(--opx-line); }
+  .j-tab-active, .j-tab-center { color: var(--opx-ink); }
+  .j-tab-center svg { background: var(--opx-soft); box-shadow: none; }
+}
+
+/* ============================================================
+   opx-* building blocks for the redesigned project pages
+   ============================================================ */
+.opx-page { display: flex; flex-direction: column; gap: 12px; padding: 12px; background: var(--opx-bg); min-height: 100%; }
+.opx-sec { background: var(--opx-card); border-radius: 22px; padding: 20px 22px; min-width: 0; }
+.opx-sech { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.opx-sech h2 { font-size: 17px; font-weight: 600; margin: 0; }
+.opx-sech .opx-link { margin-left: auto; font-size: 13px; color: var(--opx-muted); cursor: pointer; background: none; border: 0; }
+.opx-n { font-size: 12px; background: var(--opx-soft); border-radius: 999px; padding: 1px 8px; color: var(--opx-muted); font-weight: 500; }
+.opx-muted { color: var(--opx-muted); }
+.opx-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--opx-line); background: var(--opx-card); color: var(--opx-ink); border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 13px; cursor: pointer; }
+.opx-btn:hover { background: var(--opx-soft); }
+.opx-btn.sm { padding: 3px 10px; font-size: 12.5px; }
+.opx-btn.primary { background: var(--opx-ink); color: var(--opx-card); border-color: var(--opx-ink); font-weight: 600; }
+.opx-btn.on { background: var(--opx-accent); border-color: var(--opx-accent); color: #fff; }
+.opx-btn.danger { color: var(--opx-hot); border-color: color-mix(in srgb, var(--opx-hot) 40%, transparent); }
+.opx-btn:disabled { opacity: .5; cursor: default; }
+.opx-seg { display: inline-flex; background: var(--opx-soft); border-radius: 999px; padding: 3px; gap: 2px; }
+.opx-seg button { border: 0; background: none; border-radius: 999px; padding: 5px 13px; font: inherit; font-size: 13px; color: var(--opx-muted); cursor: pointer; }
+.opx-seg button.on { background: var(--opx-ink); color: var(--opx-card); }
+.opx-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; background: var(--opx-soft); border-radius: 999px; padding: 3px 10px; }
+.opx-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.opx-card { position: relative; background: var(--opx-soft); border-radius: 16px; padding: 13px 14px 10px; }
+.opx-row { display: flex; align-items: center; gap: 10px; }
+.opx-ck { width: 20px; height: 20px; border-radius: 50%; border: 1.6px solid var(--opx-muted); background: none; cursor: pointer; flex: none; position: relative; padding: 0; }
+.opx-ck.on { background: var(--opx-good); border-color: var(--opx-good); }
+.opx-ck.on::after { content: ''; position: absolute; left: 6px; top: 2px; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.opx-input { width: 100%; font: inherit; font-size: 14px; color: var(--opx-ink); background: var(--opx-soft); border: 1px solid transparent; border-radius: 12px; padding: 9px 12px; resize: vertical; }
+.opx-input:focus { outline: none; border-color: var(--opx-accent); }
+.opx-empty { background: var(--opx-soft); border-radius: 16px; padding: 22px; color: var(--opx-muted); text-align: center; }
+.opx-stat { background: var(--opx-card); border-radius: 18px; padding: 14px 18px; min-width: 140px; }
+.opx-stat b { display: block; font-size: 26px; font-weight: 600; }
+.opx-stat span { font-size: 12.5px; color: var(--opx-muted); }
+.opx-stat.hot b { color: var(--opx-hot); }
+.opx-md { line-height: 1.65; font-size: 14.5px; max-width: 120ch; overflow-wrap: anywhere; }
+.opx-md h1, .opx-md h2, .opx-md h3 { font-size: 21px; margin: 22px 0 8px; }
+.opx-md h4, .opx-md h5 { font-size: 17px; margin: 18px 0 6px; }
+.opx-md p { margin: 0 0 10px; }
+.opx-md ul, .opx-md ol { margin: 0 0 10px; padding-left: 20px; }
+.opx-md code { background: var(--opx-soft); border-radius: 5px; padding: 1px 5px; font-size: 13px; }
+.opx-md pre { background: var(--opx-soft); border-radius: 12px; padding: 12px; overflow: auto; font-size: 12.5px; }
+.opx-md table { border-collapse: collapse; margin: 4px 0 16px; width: 100%; font-size: 13.5px; }
+.opx-md th { text-align: left; font-weight: 600; color: var(--opx-muted); padding: 7px 10px; border-bottom: 1px solid var(--opx-line); }
+.opx-md td { padding: 8px 10px; border-bottom: 1px solid var(--opx-line); vertical-align: top; }
+.opx-sw { width: 38px; height: 22px; border-radius: 999px; background: var(--opx-soft); position: relative; display: inline-block; box-shadow: inset 0 0 0 1px var(--opx-line); border: 0; cursor: pointer; padding: 0; flex: none; }
+.opx-sw::after { content: ''; position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--opx-muted); transition: .15s; }
+.opx-sw.on { background: var(--opx-good); box-shadow: none; }
+.opx-sw.on::after { left: 19px; background: #fff; }
+.opx-tip { position: fixed; z-index: 80; max-width: 420px; background: var(--opx-card); color: var(--opx-ink); border-radius: 14px; padding: 12px 14px; font-size: 13px; line-height: 1.5; box-shadow: 0 12px 40px rgba(0,0,0,.35), inset 0 0 0 1px var(--opx-line); white-space: pre-wrap; pointer-events: none; }

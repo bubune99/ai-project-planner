@@ -237,7 +237,7 @@ export function CrossLinkPanel({
             value={newRel.toId}
             onChange={(e) => setNewRel({ ...newRel, toId: e.target.value })}
             placeholder="target UUID"
-            style={{ ...inputStyle, width: "100%", marginBottom: 8, fontFamily: "monospace", fontSize: 11 }}
+            style={{ ...inputStyle, width: "100%", marginBottom: 8, fontFamily: "inherit", fontSize: 11 }}
           />
           {searchResults.length > 0 && (
             <div style={{ marginBottom: 8, maxHeight: 200, overflowY: "auto" }}>
@@ -310,7 +310,7 @@ function RelationRow({
 }) {
   return (
     <div style={rowStyle}>
-      <span style={{ color: "var(--j-muted, #94a3b8)", fontSize: 10, fontFamily: "monospace" }}>
+      <span style={{ color: "var(--j-muted, #94a3b8)", fontSize: 10, fontFamily: "inherit" }}>
         {direction === "out" ? rel.relationType : `← ${rel.relationType}`}
       </span>
       <ArrowRight size={10} style={{ color: "var(--j-muted, #94a3b8)" }} />

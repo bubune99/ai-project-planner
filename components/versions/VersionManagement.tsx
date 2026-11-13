@@ -218,7 +218,7 @@ export function VersionManagement({ projectId, onViewVersionDetails }: VersionMa
                   placeholder="Payment integration&#10;Analytics dashboard&#10;Email notifications"
                   value={formData.goals}
                   onChange={(e) => setFormData({ ...formData, goals: e.target.value })}
-                  className="bg-black/40 border-white/10 min-h-[100px] font-mono text-sm"
+                  className="bg-black/40 border-white/10 min-h-[100px] font-sans text-sm"
                 />
               </div>
               <Button

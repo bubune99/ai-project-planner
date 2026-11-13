@@ -575,7 +575,7 @@ function EditableTextArea({
             rows={rows}
             value={editValue}
             onChange={e => setEditValue(e.target.value)}
-            style={{ ...textareaStyle, fontFamily: mono ? "monospace" : "inherit" }}
+            style={{ ...textareaStyle, fontFamily: "inherit" }}
           />
           <div className="j-row" style={{ gap: 6 }}>
             <button className="j-btn j-btn-primary" style={{ padding: "5px 12px", fontSize: 12 }} onClick={() => onSave(field, editValue)} disabled={saving}>
@@ -593,7 +593,7 @@ function EditableTextArea({
             fontSize: 13,
             lineHeight: 1.6,
             color: value && value !== "(empty)" ? "oklch(0.860 0 0)" : "oklch(0.556 0 0)",
-            fontFamily: mono ? "monospace" : "inherit",
+            fontFamily: "inherit",
             whiteSpace: "pre-wrap",
             cursor: "text",
           }}

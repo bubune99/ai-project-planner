@@ -122,7 +122,7 @@ function layoutNodes(graph: GraphResponse): { nodes: Node[]; edges: Edge[] } {
           borderRadius: 8,
           fontSize: 12,
           maxWidth: 220,
-          fontFamily: "var(--j-mono, ui-monospace, monospace)",
+          fontFamily: "inherit",
         },
       })
     })
@@ -133,7 +133,7 @@ function layoutNodes(graph: GraphResponse): { nodes: Node[]; edges: Edge[] } {
     source: e.source,
     target: e.target,
     label: e.type,
-    labelStyle: { fontSize: 9, fill: "#94a3b8", fontFamily: "var(--j-mono, monospace)" },
+    labelStyle: { fontSize: 9, fill: "#94a3b8", fontFamily: "inherit" },
     labelBgPadding: [4, 2],
     labelBgBorderRadius: 3,
     labelBgStyle: { fill: "rgba(15, 23, 42, 0.7)" },
@@ -394,7 +394,7 @@ export default function KnowledgeGraphPage() {
                 {Object.entries(selectedNode.metadata).map(([k, v]) => (
                   <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
                     <span style={{ color: "var(--j-muted, #94a3b8)" }}>{k}</span>
-                    <span style={{ color: "var(--j-text, #e2e8f0)", fontFamily: "monospace" }}>
+                    <span style={{ color: "var(--j-text, #e2e8f0)", fontFamily: "inherit" }}>
                       {String(v ?? "")}
                     </span>
                   </div>
@@ -452,7 +452,7 @@ const inputStyle: React.CSSProperties = {
   padding: "6px 8px",
   color: "var(--j-text, #e2e8f0)",
   fontSize: 12,
-  fontFamily: "monospace",
+  fontFamily: "inherit",
 }
 
 function chipStyle(active: boolean, accent?: string): React.CSSProperties {
@@ -464,7 +464,7 @@ function chipStyle(active: boolean, accent?: string): React.CSSProperties {
     color: active ? accent ?? "var(--j-accent, #3b82f6)" : "var(--j-muted, #94a3b8)",
     fontSize: 10,
     cursor: "pointer",
-    fontFamily: "monospace",
+    fontFamily: "inherit",
   }
 }
 

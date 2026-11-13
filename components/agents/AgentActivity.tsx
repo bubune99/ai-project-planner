@@ -110,7 +110,7 @@ export function AgentActivity({ spans, live = true }: { spans: AgentSpan[]; live
                 {s.detail && (
                   <span style={{ color: s.status === "error" ? "var(--j-neg)" : "oklch(0.55 0 0)", fontSize: 12, whiteSpace: "nowrap" }}>{s.detail}</span>
                 )}
-                <span style={{ marginLeft: "auto", color: "oklch(0.5 0 0)", fontSize: 11, fontFamily: "var(--font-geist-mono, monospace)", flexShrink: 0 }}>
+                <span style={{ marginLeft: "auto", color: "oklch(0.5 0 0)", fontSize: 11, fontFamily: "inherit", flexShrink: 0 }}>
                   {formatMs(Math.max(0, dur))}
                 </span>
               </li>

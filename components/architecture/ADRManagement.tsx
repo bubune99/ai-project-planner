@@ -233,7 +233,7 @@ export function ADRManagement({ projectId }: ADRManagementProps) {
                   placeholder="MongoDB (original choice)&#10;MySQL&#10;DynamoDB"
                   value={formData.alternatives}
                   onChange={(e) => setFormData({ ...formData, alternatives: e.target.value })}
-                  className="bg-black/40 border-white/10 min-h-[80px] font-mono text-sm"
+                  className="bg-black/40 border-white/10 min-h-[80px] font-sans text-sm"
                 />
               </div>
               <Button

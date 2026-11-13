@@ -76,7 +76,7 @@ export function AgentTrace({ spans, nowMs, title }: { spans: AgentSpan[]; nowMs?
     <div style={{ borderRadius: 12, background: "var(--j-surface)", boxShadow: "0 0 0 1px var(--j-ring)", overflow: "hidden", fontSize: 12 }}>
       <div className="j-row" style={{ gap: 10, padding: "10px 12px", borderBottom: "1px solid var(--j-hairline)", alignItems: "center" }}>
         <span aria-hidden style={{ width: 7, height: 7, borderRadius: 99, background: running ? "var(--j-accent)" : "oklch(0.45 0 0)" }} />
-        <span style={{ fontFamily: "var(--font-geist-mono, monospace)", fontWeight: 500 }}>{title ?? "Agent run"}</span>
+        <span style={{ fontFamily: "inherit", fontWeight: 500 }}>{title ?? "Agent run"}</span>
         <span className="j-muted">{rows.length} steps · {formatMs(total)}</span>
         <span className="j-pill j-ghost" style={{ marginLeft: "auto", fontSize: 10.5 }}>{running ? "Running" : "Completed"}</span>
       </div>
@@ -87,7 +87,7 @@ export function AgentTrace({ spans, nowMs, title }: { spans: AgentSpan[]; nowMs?
           <div style={{ width: GUTTER, flexShrink: 0 }} />
           <div style={{ position: "relative", flex: 1, cursor: "ew-resize" }} onPointerDown={(e) => seek(e.clientX, e.currentTarget)}>
             {ticks.map((tk) => (
-              <span key={tk} className="j-muted" style={{ position: "absolute", top: 6, left: `${(tk / total) * 100}%`, transform: "translateX(-50%)", fontSize: 10, fontFamily: "var(--font-geist-mono, monospace)" }}>
+              <span key={tk} className="j-muted" style={{ position: "absolute", top: 6, left: `${(tk / total) * 100}%`, transform: "translateX(-50%)", fontSize: 10, fontFamily: "inherit" }}>
                 {tk < 1000 ? `${tk}ms` : `${tk / 1000}s`}
               </span>
             ))}
@@ -123,7 +123,7 @@ export function AgentTrace({ spans, nowMs, title }: { spans: AgentSpan[]; nowMs?
                       <span style={{ position: "absolute", inset: 0, background: fill, transformOrigin: "left", transform: `scaleX(${p})` }} />
                     </span>
                   </span>
-                  <span style={{ width: META, flexShrink: 0, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 4, fontFamily: "var(--font-geist-mono, monospace)", fontSize: 11, opacity: state === "queued" ? 0 : 1 }}>
+                  <span style={{ width: META, flexShrink: 0, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 4, fontFamily: "inherit", fontSize: 11, opacity: state === "queued" ? 0 : 1 }}>
                     {r.status === "error" && <CircleAlert aria-hidden size={12} style={{ color: "var(--j-neg)" }} />}
                     <span style={{ color: r.status === "error" ? "var(--j-neg)" : "oklch(0.75 0 0)" }}>{formatMs(dur * p)}</span>
                   </span>
@@ -142,7 +142,7 @@ export function AgentTrace({ spans, nowMs, title }: { spans: AgentSpan[]; nowMs?
       {sel && (
         <div style={{ padding: "8px 12px", borderTop: "1px solid var(--j-hairline)", display: "flex", gap: 10, flexWrap: "wrap" }}>
           <strong style={{ fontWeight: 500 }}>{sel.title}</strong>
-          <span className="j-muted" style={{ fontFamily: "var(--font-geist-mono, monospace)" }}>{sel.label}</span>
+          <span className="j-muted" style={{ fontFamily: "inherit" }}>{sel.label}</span>
           {sel.detail && <span style={{ color: sel.status === "error" ? "var(--j-neg)" : "oklch(0.8 0 0)" }}>{sel.detail}</span>}
           {sel.tokens != null && <span className="j-muted">{sel.tokens.toLocaleString("en-US")} tokens</span>}
           <span className="j-muted">starts {formatMs(sel.start)} · took {formatMs(sel.endAt - sel.start)}</span>
@@ -169,7 +169,7 @@ export function AgentTrace({ spans, nowMs, title }: { spans: AgentSpan[]; nowMs?
             <span style={{ position: "absolute", inset: 0, background: "var(--j-accent)", transformOrigin: "left", transform: `scaleX(${head / total})` }} />
           </span>
         </div>
-        <span className="j-muted" style={{ fontFamily: "var(--font-geist-mono, monospace)", fontSize: 11, minWidth: 92, textAlign: "right" }}>
+        <span className="j-muted" style={{ fontFamily: "inherit", fontSize: 11, minWidth: 92, textAlign: "right" }}>
           {formatMs(head)} / {formatMs(total)}
         </span>
       </div>

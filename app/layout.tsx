@@ -2,7 +2,7 @@ import type React from "react"
 import { Suspense } from "react"
 import type { Metadata } from "next"
 import { GeistSans } from "geist/font/sans"
-import { GeistMono } from "geist/font/mono"
+import { Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { StackProvider, StackTheme } from "@stackframe/stack"
 import { stackServerApp } from "@/lib/auth/stack-auth"
@@ -15,9 +15,12 @@ import { UnitMarker } from "@/components/ade/UnitMarker"
 import { AssistantDock } from "@/components/ade/AssistantDock"
 import { Toaster } from "sonner"
 import "./globals.css"
+import "./opx-skin.css"
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" })
 
 export const metadata: Metadata = {
-  title: "JARVIS — Central Nervous System",
+  title: "Planner",
   description: "Intelligent project management and life operating system",
   manifest: "/manifest.json",
   appleWebApp: {
@@ -39,10 +42,10 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#0a0a0a" />
+        <meta name="theme-color" content="#262626" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />
       </head>
-      <body className={`${GeistSans.variable} ${GeistMono.variable} antialiased`} style={{ fontFamily: "var(--font-geist-sans, system-ui, sans-serif)" }}>
+      <body className={`${GeistSans.variable} ${inter.variable} antialiased`} style={{ fontFamily: "var(--font-inter), Inter, system-ui, sans-serif" }}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -55,7 +58,7 @@ export default function RootLayout({
             </StackTheme>
           </StackProvider>
         </ThemeProvider>
-        <Toaster position="top-center" theme="dark" richColors />
+        <Toaster position="top-center" theme="system" richColors />
         <Analytics />
         <ServiceWorkerRegister />
         <FeedbackWidget source="ai-project-planner" />

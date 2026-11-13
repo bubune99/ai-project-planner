@@ -109,7 +109,7 @@ function DepRow({ dep, direction, onNavigate }: DepRowProps) {
         <span className="j-pill j-ghost" style={{ fontSize: 10, flexShrink: 0 }}>{dep.kind}</span>
         <button
           className="j-btn j-btn-ghost"
-          style={{ padding: "1px 6px", fontSize: 11, fontFamily: "monospace", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          style={{ padding: "1px 6px", fontSize: 11, fontFamily: "inherit", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
           onClick={() => onNavigate(targetId)}
           title={targetId}
         >
@@ -138,7 +138,7 @@ function ScanEventRow({ ev }: { ev: CatalogScanEvent }) {
               href={githubCommitUrl(ev.commit_sha)}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ fontFamily: "monospace", fontSize: 11, color: "var(--j-accent, #3b82f6)" }}
+              style={{ fontFamily: "inherit", fontSize: 11, color: "var(--j-accent, #3b82f6)" }}
             >
               {shortSha(ev.commit_sha)}
             </a>
@@ -200,7 +200,7 @@ function MarkStaleDialog({
         </div>
         <div className="j-col" style={{ gap: 10 }}>
           <p className="j-muted" style={{ fontSize: 12 }}>
-            Surface: <code style={{ fontFamily: "monospace" }}>{surface.canonical_id}</code>
+            Surface: <code style={{ fontFamily: "inherit" }}>{surface.canonical_id}</code>
           </p>
           <textarea
             placeholder="Reason (optional)"
@@ -309,7 +309,7 @@ function DetailPane({ surface, onClose, onNavigate, onRefresh }: DetailPaneProps
           {/* Header */}
           <div className="j-card-head">
             <div className="j-col" style={{ gap: 4, flex: 1, minWidth: 0 }}>
-              <code style={{ fontSize: 14, fontFamily: "monospace", fontWeight: 600, wordBreak: "break-all" }}>
+              <code style={{ fontSize: 14, fontFamily: "inherit", fontWeight: 600, wordBreak: "break-all" }}>
                 {surface.canonical_id}
               </code>
               <div className="j-row j-wrap" style={{ gap: 6 }}>
@@ -359,7 +359,7 @@ function DetailPane({ surface, onClose, onNavigate, onRefresh }: DetailPaneProps
                 href={githubFileUrl(filePath, lineStart)}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ fontFamily: "monospace", fontSize: 12, color: "var(--j-accent, #3b82f6)", wordBreak: "break-all" }}
+                style={{ fontFamily: "inherit", fontSize: 12, color: "var(--j-accent, #3b82f6)", wordBreak: "break-all" }}
               >
                 {filePath}
                 {lineStart != null && <span style={{ color: "oklch(0.556 0 0)" }}>#{lineStart}{lineEnd && lineEnd !== lineStart ? `–${lineEnd}` : ""}</span>}
@@ -369,7 +369,7 @@ function DetailPane({ surface, onClose, onNavigate, onRefresh }: DetailPaneProps
             <span className="j-muted" style={{ fontSize: 12 }}>No file path recorded</span>
           )}
           {loc.url_pattern && (
-            <code style={{ fontSize: 12, fontFamily: "monospace", color: "oklch(0.860 0 0)", marginTop: 4, display: "block" }}>
+            <code style={{ fontSize: 12, fontFamily: "inherit", color: "oklch(0.860 0 0)", marginTop: 4, display: "block" }}>
               {loc.url_pattern as string}
             </code>
           )}
@@ -392,7 +392,7 @@ function DetailPane({ surface, onClose, onNavigate, onRefresh }: DetailPaneProps
                 overflow: "auto",
                 maxHeight: 240,
                 fontSize: 11,
-                fontFamily: "monospace",
+                fontFamily: "inherit",
                 color: "oklch(0.760 0 0)",
                 margin: 0,
               }}>
@@ -412,7 +412,7 @@ function DetailPane({ surface, onClose, onNavigate, onRefresh }: DetailPaneProps
             <span className="j-muted">First seen</span>
             {surface.first_seen_commit_sha ? (
               <a href={githubCommitUrl(surface.first_seen_commit_sha)} target="_blank" rel="noopener noreferrer"
-                style={{ fontFamily: "monospace", color: "var(--j-accent, #3b82f6)" }}>
+                style={{ fontFamily: "inherit", color: "var(--j-accent, #3b82f6)" }}>
                 {shortSha(surface.first_seen_commit_sha)}
               </a>
             ) : <span className="j-muted">—</span>}
@@ -420,7 +420,7 @@ function DetailPane({ surface, onClose, onNavigate, onRefresh }: DetailPaneProps
             <span className="j-muted">Last seen</span>
             {surface.last_seen_commit_sha ? (
               <a href={githubCommitUrl(surface.last_seen_commit_sha)} target="_blank" rel="noopener noreferrer"
-                style={{ fontFamily: "monospace", color: "var(--j-accent, #3b82f6)" }}>
+                style={{ fontFamily: "inherit", color: "var(--j-accent, #3b82f6)" }}>
                 {shortSha(surface.last_seen_commit_sha)}
               </a>
             ) : <span className="j-muted">—</span>}
@@ -429,7 +429,7 @@ function DetailPane({ surface, onClose, onNavigate, onRefresh }: DetailPaneProps
               <>
                 <span className="j-muted">Deprecated in</span>
                 <a href={githubCommitUrl(surface.deprecated_in_commit_sha)} target="_blank" rel="noopener noreferrer"
-                  style={{ fontFamily: "monospace", color: "var(--j-neg, #f87171)" }}>
+                  style={{ fontFamily: "inherit", color: "var(--j-neg, #f87171)" }}>
                   {shortSha(surface.deprecated_in_commit_sha)}
                 </a>
               </>
@@ -524,7 +524,7 @@ function SurfaceRow({ surface, selected, onClick }: { surface: Surface; selected
       }}
       onClick={onClick}
     >
-      <code style={{ fontSize: 11.5, fontFamily: "monospace", display: "block", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <code style={{ fontSize: 11.5, fontFamily: "inherit", display: "block", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {surface.canonical_id}
       </code>
       <div className="j-row j-wrap" style={{ gap: 4 }}>
@@ -681,7 +681,7 @@ export default function CatalogPage() {
                   color: kinds.includes(k as SurfaceKind) ? "oklch(0.85 0.12 260)" : "oklch(0.556 0 0)",
                   fontSize: 10,
                   cursor: "pointer",
-                  fontFamily: "monospace",
+                  fontFamily: "inherit",
                 }}
               >
                 {k}

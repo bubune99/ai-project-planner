@@ -108,7 +108,7 @@ function layoutNodes(
           borderRadius: 8,
           fontSize: 11,
           maxWidth: 180,
-          fontFamily: "var(--j-mono, ui-monospace, monospace)",
+          fontFamily: "inherit",
         },
       })
     })
@@ -124,7 +124,7 @@ function layoutNodes(
       source: d.from_surface_id,
       target: d.to_surface_id,
       label: d.kind,
-      labelStyle: { fontSize: 9, fill: "#94a3b8", fontFamily: "var(--j-mono, monospace)" },
+      labelStyle: { fontSize: 9, fill: "#94a3b8", fontFamily: "inherit" },
       labelBgPadding: [4, 2] as [number, number],
       labelBgBorderRadius: 3,
       labelBgStyle: { fill: "rgba(15, 23, 42, 0.7)" },
@@ -218,7 +218,7 @@ function NodeDetailPanel({ surface, onClose }: { surface: Surface; onClose: () =
           <X size={14} />
         </button>
       </div>
-      <code style={{ fontSize: 12, fontFamily: "monospace", display: "block", wordBreak: "break-all", color: "#e2e8f0", marginBottom: 8 }}>
+      <code style={{ fontSize: 12, fontFamily: "inherit", display: "block", wordBreak: "break-all", color: "#e2e8f0", marginBottom: 8 }}>
         {surface.canonical_id}
       </code>
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 10 }}>
@@ -229,7 +229,7 @@ function NodeDetailPanel({ surface, onClose }: { surface: Surface; onClose: () =
       {loc.file_path && (
         <div style={{ marginBottom: 8 }}>
           <div style={{ fontSize: 10, color: "#64748b", marginBottom: 3 }}>FILE</div>
-          <code style={{ fontSize: 11, fontFamily: "monospace", color: "#60a5fa", wordBreak: "break-all" }}>
+          <code style={{ fontSize: 11, fontFamily: "inherit", color: "#60a5fa", wordBreak: "break-all" }}>
             {loc.file_path as string}
           </code>
         </div>
@@ -264,7 +264,7 @@ const btnStyle: React.CSSProperties = {
 const inputStyle: React.CSSProperties = {
   background: "var(--j-surface, #0f172a)", border: "1px solid var(--j-border, #334155)",
   borderRadius: 4, padding: "6px 8px", color: "var(--j-text, #e2e8f0)",
-  fontSize: 12, fontFamily: "monospace",
+  fontSize: 12, fontFamily: "inherit",
 }
 
 const labelStyle: React.CSSProperties = {
@@ -276,7 +276,7 @@ function chipStyle(active: boolean, accent?: string): React.CSSProperties {
     padding: "3px 8px", background: active ? "rgba(30,41,59,0.9)" : "transparent",
     border: `1px solid ${active ? accent ?? "#3b82f6" : "#334155"}`,
     borderRadius: 12, color: active ? accent ?? "#3b82f6" : "#94a3b8",
-    fontSize: 10, cursor: "pointer", fontFamily: "monospace",
+    fontSize: 10, cursor: "pointer", fontFamily: "inherit",
   }
 }
 
@@ -418,7 +418,7 @@ export default function ImpactGraphPage() {
           </span>
         )}
         {focusCanonical && (
-          <span style={{ fontSize: 11, color: "#60a5fa", fontFamily: "monospace", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: 11, color: "#60a5fa", fontFamily: "inherit", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             focus: {focusCanonical}
           </span>
         )}
