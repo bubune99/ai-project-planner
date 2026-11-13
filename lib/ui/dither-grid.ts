@@ -1,7 +1,7 @@
 /**
  * The dashboard banner's animated background (owner 2026-11-13): the
  * "sunset/sunrise" Dither Grid from 21st.dev, drawn the way the original
- * draws it, with the sunset colors swapped for the planner's.
+ * draws it, with the sunset colors swapped for grays.
  *
  * How it works: a coarse grid of cells is stretched over the banner. Each
  * cell has a position along a ramp that runs at ANGLE across the grid; a 4x4
@@ -14,13 +14,17 @@
 
 export type Rgb = [number, number, number]
 
-/** The ramp, dark to light, then a muted tone that only shows at the very end. Positions are the original's. */
+/**
+ * The ramp in grays (owner 2026-11-13: a grayscale gradient), dark to light,
+ * then a mid gray that only shows at the very end. The darkest is the app's
+ * own charcoal. Positions are the original's.
+ */
 export const PALETTE: readonly { hex: string; pos: number; was: string }[] = [
-  { hex: "#20355b", pos: 0, was: "Plum" }, // ink navy
-  { hex: "#527bb0", pos: 33, was: "Rose" }, // accent blue
-  { hex: "#b3a4e3", pos: 67, was: "Peach" }, // a tint of our violet
-  { hex: "#e9edf2", pos: 100, was: "Butter" }, // soft
-  { hex: "#5a687c", pos: 100, was: "Iris" }, // muted slate
+  { hex: "#262626", pos: 0, was: "Plum" }, // the app's charcoal
+  { hex: "#55575c", pos: 33, was: "Rose" },
+  { hex: "#a3a6ac", pos: 67, was: "Peach" },
+  { hex: "#e8e9ec", pos: 100, was: "Butter" },
+  { hex: "#5e6065", pos: 100, was: "Iris" },
 ]
 
 export const ANGLE = 78

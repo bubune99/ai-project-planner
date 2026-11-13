@@ -16,12 +16,19 @@ ok("hex to OKLab and back returns the same color", () => {
 })
 
 ok("the ramp starts at the first color, ends at the last, and blends between", () => {
-  assert.deepEqual(colorAt(ramp, 0), hexToRgb("#20355b"))
-  assert.deepEqual(colorAt(ramp, 0.0825), hexToRgb("#20355b"))
-  assert.deepEqual(colorAt(ramp, 0.3325), hexToRgb("#527bb0"))
-  assert.deepEqual(colorAt(ramp, 1), hexToRgb("#5a687c"))
+  const sorted = [...PALETTE].sort((x, y) => x.pos - y.pos)
+  assert.deepEqual(colorAt(ramp, 0), hexToRgb(sorted[0].hex))
+  assert.deepEqual(colorAt(ramp, 0.0825), hexToRgb(sorted[0].hex))
+  assert.deepEqual(colorAt(ramp, 0.3325), hexToRgb(sorted[1].hex))
+  assert.deepEqual(colorAt(ramp, 1), hexToRgb(sorted[sorted.length - 1].hex))
   const mid = colorAt(ramp, (0.0825 + 0.3325) / 2)
-  assert.ok(mid[2] > 0x5b && mid[2] < 0xb0)
+  assert.ok(mid[2] > hexToRgb(sorted[0].hex)[2] && mid[2] < hexToRgb(sorted[1].hex)[2])
+})
+
+ok("the palette is gray: no color has a hue", () => {
+  for (const { hex } of PALETTE) { const [r, g, b] = hexToRgb(hex); assert.ok(Math.max(r, g, b) - Math.min(r, g, b) <= 8, hex) }
+  // Blends between grays stay gray too.
+  for (let v = 0; v <= 1; v += 0.05) { const [r, g, b] = colorAt(ramp, v); assert.ok(Math.max(r, g, b) - Math.min(r, g, b) <= 8) }
 })
 
 ok("motion starts at exactly 0, is a sweep within +/- 0.35, and is not rounded", () => {
