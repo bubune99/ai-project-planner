@@ -19,7 +19,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
-import { nodeQuery, placeholderNode, toNode, type GraphNode } from '@/lib/knowledge-graph/lookup'
+import { nodeQueries, placeholderNode, toNode, type GraphNode } from '@/lib/knowledge-graph/lookup'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,15 +39,15 @@ type GraphEdge = {
  * lib/knowledge-graph/lookup.ts); anything else comes back as a bare dot.
  */
 async function resolveNode(entityType: string, entityId: string, userId: string): Promise<GraphNode> {
-  const q = nodeQuery(entityType)
-  if (!q) return placeholderNode(entityType, entityId)
-  try {
-    const rows = await sql.query(q.text, [entityId, userId])
-    return toNode(entityType, entityId, rows[0])
-  } catch (error) {
-    console.error(`knowledge-graph: lookup failed for ${entityType}`, error)
-    return placeholderNode(entityType, entityId)
+  for (const q of nodeQueries(entityType)) {
+    try {
+      const rows = await sql.query(q.text, [entityId, userId])
+      if (rows[0]) return toNode(entityType, entityId, q.lookup, rows[0])
+    } catch (error) {
+      console.error(`knowledge-graph: lookup failed for ${entityType} in ${q.lookup.table}`, error)
+    }
   }
+  return placeholderNode(entityType, entityId)
 }
 
 export async function GET(request: NextRequest) {
