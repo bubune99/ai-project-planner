@@ -7,14 +7,15 @@
  */
 
 import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Plus } from "lucide-react"
 import { HISTORY_TOGGLE_EVENT, useIsNarrow } from "@/lib/chat/history-drawer"
 import { HistoryList } from "./HistoryList"
 
 export function ChatShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
-  const activeId = useParams()?.id as string | undefined
+  // From the address, not route params: a new chat gets its id put in the address on first send.
+  const activeId = (usePathname() || "").match(/^\/chat\/([0-9a-f-]{36})$/i)?.[1]
   const narrow = useIsNarrow()
   const [drawer, setDrawer] = useState(false)
 
