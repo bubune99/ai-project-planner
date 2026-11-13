@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react"
 const PATHS: Record<string, string> = {
   grid: "M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z",
   target: "M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zm0-6a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0-2a2 2 0 1 1 0-4 2 2 0 0 1 0 4z",
@@ -46,9 +47,10 @@ interface IconProps {
   name: IconName
   size?: number
   className?: string
+  style?: CSSProperties
 }
 
-export function Icon({ name, size = 16, className }: IconProps) {
+export function Icon({ name, size = 16, className, style }: IconProps) {
   const d = PATHS[name]
   if (!d) return null
   return (
@@ -58,6 +60,7 @@ export function Icon({ name, size = 16, className }: IconProps) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
+      style={style}
       strokeWidth="1.75"
       strokeLinecap="round"
       strokeLinejoin="round"

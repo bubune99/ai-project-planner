@@ -115,7 +115,7 @@ function layoutNodes(
   }
 
   const idToSurface = new Map(surfaces.map(s => [s.id, s]))
-  const flowEdges: Edge[] = deps.map((d) => {
+  const flowEdges: Edge[] = deps.map((d): Edge | null => {
     const fromSurface = idToSurface.get(d.from_surface_id)
     const toSurface = idToSurface.get(d.to_surface_id)
     if (!fromSurface || !toSurface) return null

@@ -57,11 +57,11 @@ async function getRowCount(table: string, userId: string): Promise<number> {
   `
   if (!hasUserCol.length) {
     // No user_id column — return total count
-    const r = await sql.unsafe(`SELECT COUNT(*)::int AS n FROM ${table}`)
+    const r = await sql.query(`SELECT COUNT(*)::int AS n FROM ${table}`)
     return r[0]?.n ?? 0
   }
   const softDelete = NO_SOFT_DELETE.has(table) ? '' : 'AND deleted_at IS NULL'
-  const r = await sql.unsafe(
+  const r = await sql.query(
     `SELECT COUNT(*)::int AS n FROM ${table} WHERE ${userCol} = $1 ${softDelete}`,
     [userId]
   )
@@ -96,7 +96,7 @@ async function getEnvelopeStats(table: string, userId: string): Promise<{
     FROM ${table}
     WHERE ${userClause} 1=1 ${softDelete}
   `
-  const r = await sql.unsafe(query, params)
+  const r = await sql.query(query, params)
   return {
     total: r[0].total,
     withEnvelope: r[0].with_envelope,
@@ -171,7 +171,7 @@ export async function GET(request: NextRequest) {
       const userCol = USER_ID_COLUMNS[table] ?? 'user_id'
       const softDelete = NO_SOFT_DELETE.has(table) ? '' : 'AND deleted_at IS NULL'
       const limit = Math.min(Number.parseInt(sp.get('limit') ?? '50', 10), 200)
-      const r = await sql.unsafe(
+      const r = await sql.query(
         `SELECT id, documentation_5wh,
            (documentation_5wh = '{}'::jsonb) AS is_empty,
            (documentation_5wh->'why'->>'rationale' IS NULL OR documentation_5wh->'why'->>'rationale' = '') AS missing_rationale

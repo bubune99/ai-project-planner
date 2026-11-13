@@ -1,8 +1,15 @@
-import { neon, neonConfig, Pool } from '@neondatabase/serverless'
+import { neon, neonConfig, Pool, type NeonQueryFunction } from '@neondatabase/serverless'
+
+/**
+ * Queries return plain rows. The untyped neon() result is a union (rows,
+ * arrays or full results), which made every `rows.length` and `rows[0]` in
+ * the app a type error.
+ */
+type Sql = NeonQueryFunction<false, false>
 
 neonConfig.fetchConnectionCache = true
 
-let _sql: ReturnType<typeof neon> | null = null
+let _sql: Sql | null = null
 let _pool: Pool | null = null
 
 function dbUrl(): string {
@@ -34,10 +41,10 @@ function getPool() {
   return _pool
 }
 
-export const sql = new Proxy(function sql() {} as unknown as ReturnType<typeof neon>, {
+export const sql = new Proxy(function sql() {} as unknown as Sql, {
   apply: (_t, thisArg, args) => Reflect.apply(getSql() as unknown as (...a: unknown[]) => unknown, thisArg, args),
   get: (_t, prop) => Reflect.get(getSql(), prop as string),
-}) as ReturnType<typeof neon>
+}) as Sql
 
 export const pool = new Proxy({} as Pool, {
   get: (_t, prop) => Reflect.get(getPool(), prop as string),

@@ -285,7 +285,7 @@ body::before {
   background: var(--j-surface); border-radius: 12px;
   box-shadow: 0 0 0 1px var(--j-ring); padding: calc(20px * var(--j-density)); position: relative;
 }
-.j-card.j-flat { background: transparent; box-shadow: none; padding: 0; }
+
 .j-card.j-tight { padding: 14px; }
 .j-card-head {
   display: flex; align-items: flex-start; justify-content: space-between;
@@ -293,7 +293,7 @@ body::before {
 }
 .j-card-title { font-size: 14px; font-weight: 500; margin: 0; }
 .j-card-sub { font-size: 12px; color: oklch(0.556 0 0); margin: 2px 0 0; }
-.j-card-actions { display: flex; gap: 6px; align-items: center; }
+
 .j-eyebrow {
   font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
   text-transform: uppercase; color: oklch(0.556 0 0);
@@ -317,9 +317,9 @@ body::before {
 
 /* Numbers */
 .j-num { font-variant-numeric: tabular-nums; }
-.j-amount-xl { font-weight: 500; font-size: 32px; letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+
 .j-amount-lg { font-weight: 500; font-size: 22px; letter-spacing: -0.01em; line-height: 1; font-variant-numeric: tabular-nums; }
-.j-amount-md { font-weight: 500; font-size: 17px; font-variant-numeric: tabular-nums; }
+
 .j-muted { color: oklch(0.556 0 0); }
 
 /* ---------- Grids ---------- */
@@ -327,82 +327,20 @@ body::before {
 .j-grid.j-cols-2 { grid-template-columns: repeat(2, 1fr); }
 .j-grid.j-cols-3 { grid-template-columns: repeat(3, 1fr); }
 .j-grid.j-cols-4 { grid-template-columns: repeat(4, 1fr); }
-.j-grid.j-cols-5 { grid-template-columns: repeat(5, 1fr); }
+
 .j-split { display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
 
 /* ---------- Progress ---------- */
 .j-progress { height: 4px; background: oklch(1 0 0 / 0.06); border-radius: 999px; overflow: hidden; }
 .j-progress > span { display: block; height: 100%; background: var(--j-accent); border-radius: 999px; }
-.j-progress.j-thick { height: 6px; }
 
 /* ---------- Focus mode ---------- */
-.j-focus-mode {
-  background: linear-gradient(135deg, oklch(0.155 0.040 266), oklch(0.135 0 0));
-  border-radius: 16px; padding: 28px;
-  box-shadow: 0 0 0 1px var(--j-ring-strong), 0 30px 60px -30px oklch(0.870 0.045 252 / 0.25);
-  position: relative; overflow: hidden;
-}
-.j-focus-mode::before {
-  content: ""; position: absolute; inset: -50% -20% auto auto;
-  width: 480px; height: 480px;
-  background: radial-gradient(circle, oklch(0.870 0.045 252 / 0.10), transparent 60%);
-  pointer-events: none;
-}
 
 /* ---------- Gantt ---------- */
-.j-gantt-row {
-  display: grid; grid-template-columns: 180px 1fr 80px;
-  align-items: center; gap: 12px; padding: 9px 0;
-  border-bottom: 1px solid var(--j-hairline);
-}
-.j-gantt-row:last-child { border-bottom: none; }
-.j-gantt-name { font-size: 13px; display: flex; align-items: center; gap: 8px; }
-.j-gantt-track { position: relative; height: 22px; border-radius: 6px; background: oklch(1 0 0 / 0.03); }
-.j-gantt-bar {
-  position: absolute; top: 4px; bottom: 4px; border-radius: 4px;
-  background: var(--j-accent); display: flex; align-items: center;
-  padding: 0 8px; font-size: 10px; font-weight: 500;
-  color: oklch(0.110 0.028 268); overflow: hidden; white-space: nowrap;
-}
-.j-gantt-bar.j-biz { background: var(--j-biz); color: oklch(0.110 0 0); }
-.j-gantt-bar.j-idea { background: var(--j-idea); color: oklch(0.110 0 0); }
-.j-gantt-bar.j-late { background: var(--j-neg); color: oklch(0.110 0 0); }
-.j-gantt-today {
-  position: absolute; top: -4px; bottom: -4px; width: 1px;
-  background: var(--j-accent); box-shadow: 0 0 8px var(--j-accent); z-index: 2;
-}
 
 /* ---------- Graph ---------- */
-.j-graph-canvas { position: relative; width: 100%; aspect-ratio: 16 / 10; min-height: 380px; }
-.j-graph-node {
-  position: absolute; transform: translate(-50%, -50%);
-  display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer;
-}
-.j-graph-dot {
-  width: 14px; height: 14px; border-radius: 50%;
-  box-shadow: 0 0 0 4px oklch(0.135 0 0), 0 0 0 5px currentColor;
-  background: currentColor;
-}
-.j-graph-dot.j-big { width: 18px; height: 18px; }
-.j-graph-label {
-  font-size: 11px; color: oklch(0.860 0 0); white-space: nowrap;
-  padding: 2px 6px; background: oklch(0.180 0 0); border-radius: 4px;
-  box-shadow: 0 0 0 1px var(--j-ring);
-}
 
 /* ---------- Calendar ---------- */
-.j-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-.j-cal-day {
-  /* aspect-ratio alone made every day a square of 1/7th the viewport width.
-     On a 3440px display that is a 435x435 box holding one line of text, which
-     is why a single scheduled step looked lost in it. Keep the square at normal
-     widths, but stop it growing past a readable day cell. */
-  aspect-ratio: 1; min-height: 88px; max-height: 150px; overflow: hidden;
-  border-radius: 6px; background: oklch(1 0 0 / 0.03);
-  display: flex; flex-direction: column; padding: 5px; font-size: 11px; position: relative;
-}
-.j-cal-day.j-outside { opacity: 0.3; }
-.j-cal-day.j-today { box-shadow: inset 0 0 0 1px var(--j-accent); }
 
 /* ---------- Status dot ---------- */
 .j-dot-pulse { position: relative; width: 8px; height: 8px; border-radius: 50%; background: var(--j-pos); }
@@ -441,13 +379,9 @@ body::before {
 .j-row.j-wrap { flex-wrap: wrap; }
 .j-row.j-between { justify-content: space-between; }
 .j-col { display: flex; flex-direction: column; gap: 8px; }
-.j-gap-2 { gap: 8px; } .j-gap-3 { gap: 12px; } .j-gap-4 { gap: 16px; } .j-gap-6 { gap: 24px; }
-.j-divider { height: 1px; background: var(--j-hairline); margin: 0; border: 0; }
+.j-gap-2 { gap: 8px; } .j-gap-3 { gap: 12px; } .j-gap-4 { gap: 16px; }
 
 /* ---------- Spark rail ---------- */
-.j-spark-rail { display: flex; align-items: flex-end; gap: 2px; height: 28px; }
-.j-spark-rail > span { flex: 1; background: oklch(1 0 0 / 0.12); border-radius: 1px; }
-.j-spark-rail > span.j-hi { background: var(--j-accent); }
 
 /* ============================================================
    JARVIS — Responsive layer
@@ -489,16 +423,14 @@ body::before {
   .j-search > span:first-of-type { display: none; }
 
   /* Multi-column reflow */
-  .j-grid.j-cols-5 { grid-template-columns: repeat(3, 1fr); }
+
   .j-grid.j-cols-4 { grid-template-columns: repeat(2, 1fr); }
   .j-split        { grid-template-columns: 1fr; gap: 16px; }
 
   /* Gantt rows tighter */
-  .j-gantt-row { grid-template-columns: 130px 1fr 50px; gap: 10px; }
-  .j-gantt-name { font-size: 12px; }
 
   /* Graph a touch shorter */
-  .j-graph-canvas { min-height: 320px; }
+
 }
 
 /* ---------- MOBILE — ≤ 768px ---------- */
@@ -567,38 +499,19 @@ body::before {
   .j-card.j-tight { padding: 14px; }
 
   /* All multi-col grids reflow toward 2 */
-  .j-grid.j-cols-5,
+
   .j-grid.j-cols-4,
   .j-grid.j-cols-3 { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .j-grid.j-cols-2 { gap: 10px; }
 
   /* Focus-mode hero */
-  .j-focus-mode { padding: 18px; border-radius: 14px; }
-  .j-focus-mode .j-row.j-between {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 14px;
-  }
-  .j-focus-mode .j-btn { flex: 1; justify-content: center; }
 
   /* Card heads — let actions wrap below the title */
   .j-card-head { flex-wrap: wrap; gap: 10px; }
-  .j-card-head .j-card-actions,
+
   .j-card-head .j-row { flex-wrap: wrap; }
 
   /* Gantt: stack name / track / progress */
-  .j-gantt-row {
-    grid-template-columns: 1fr;
-    grid-template-areas: "name" "track" "progress";
-    gap: 6px;
-    padding: 12px 0;
-  }
-  .j-gantt-name  { grid-area: name; }
-  .j-gantt-track { grid-area: track; }
-  .j-gantt-row > .j-row:last-child {
-    grid-area: progress;
-    justify-content: flex-start;
-  }
 
   /* Tables: horizontal scroll inside the card */
   .j-card:has(> .j-table),
@@ -607,12 +520,8 @@ body::before {
   .j-table th, .j-table td { padding: 9px 10px; }
 
   /* Graph smaller */
-  .j-graph-canvas { min-height: 280px; aspect-ratio: 4 / 5; }
-  .j-graph-label { font-size: 10px; padding: 1px 4px; }
 
   /* Calendar — tighter day cells */
-  .j-cal-grid { gap: 3px; }
-  .j-cal-day { padding: 4px; font-size: 9.5px; }
 
   /* Tab rails scroll horizontally with comfy taps */
   .j-tabs {
@@ -634,13 +543,13 @@ body::before {
   .j-content { padding: 12px 12px 72px; }
 
   /* Everything → single column */
-  .j-grid.j-cols-5,
+
   .j-grid.j-cols-4,
   .j-grid.j-cols-3,
   .j-grid.j-cols-2 { grid-template-columns: 1fr; }
 
   /* Typography */
-  .j-amount-xl { font-size: 26px; }
+
   .j-amount-lg { font-size: 19px; }
 
   /* Drawer covers more of the screen */
@@ -648,15 +557,10 @@ body::before {
   .j-sidebar.j-collapsed { width: 86vw; }
 
   /* Graph: nearly square, hide static labels */
-  .j-graph-canvas { aspect-ratio: 1 / 1.1; min-height: 320px; }
-  .j-graph-label { display: none; }
-  .j-graph-node:hover .j-graph-label,
-  .j-graph-node:active .j-graph-label { display: block; }
 
   /* Card-head stacks fully */
   .j-card-head > *:first-child { flex: 1 1 100%; }
-  .j-card-head > .j-row,
-  .j-card-head > .j-card-actions { flex: 1 1 100%; }
+  .j-card-head > .j-row { flex: 1 1 100%; }
 }
 
 /* ---------- Ideas Kanban — mobile responsive ---------- */
@@ -684,7 +588,6 @@ body::before {
   .j-btn-icon { min-width: 34px; min-height: 34px; }
   .j-pill { height: 22px; padding: 3px 9px; }
 }
-
 
 /* ---------- PHONE BOTTOM TABS (≤ 768px) — Today · Projects · Ask · Inbox · More ---------- */
 .j-tabbar { display: none; }

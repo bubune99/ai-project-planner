@@ -12,6 +12,7 @@ import { DashboardLayout } from "@/components/navigation";
 
 interface FeedbackItem {
   id: string;
+  commitSha?: string | null;
   source: string;
   url: string;
   route: string | null;

@@ -128,19 +128,8 @@ code, pre, kbd, samp, .font-mono { font-family: var(--font-inter), Inter, system
 .j-table td { border-bottom-color: var(--opx-line); }
 .j-table tr:hover td { background: var(--opx-soft); }
 
-.j-focus-mode { background: var(--opx-band); box-shadow: none; border-radius: var(--opx-r); }
-.j-focus-mode::before { display: none; }
 .j-coming-soon { background: var(--opx-soft); box-shadow: none; }
-.j-cal-day { background: var(--opx-soft); border-radius: 10px; }
-.j-cal-day.j-today { box-shadow: inset 0 0 0 1.5px var(--opx-hot); }
-.j-gantt-track { background: var(--opx-soft); }
-.j-gantt-bar { background: var(--opx-accent); color: #fff; }
-.j-gantt-today { background: var(--opx-hot); box-shadow: none; }
-.j-graph-label { background: var(--opx-card); color: var(--opx-ink); box-shadow: inset 0 0 0 1px var(--opx-line); }
-.j-graph-dot { box-shadow: 0 0 0 4px var(--opx-card), 0 0 0 5px currentColor; }
-.j-divider { background: var(--opx-line); }
-.j-spark-rail > span { background: var(--opx-soft); }
-.j-spark-rail > span.j-hi { background: var(--opx-accent); }
+
 .j-dot-pulse::after { display: none; }
 
 @media (max-width: 768px) {
@@ -364,7 +353,6 @@ code, pre, kbd, samp, .font-mono { font-family: var(--font-inter), Inter, system
 .opx-ptabs button { border: 0; background: none; border-radius: 999px; padding: 7px 15px; font: inherit; font-size: 14px; color: var(--opx-title); cursor: pointer; display: inline-flex; gap: 7px; align-items: center; }
 .opx-ptabs button.on { background: var(--opx-soft); color: var(--opx-ink); font-weight: 600; }
 .opx-ptabs button em { font-style: normal; font-size: 11.5px; color: var(--opx-muted); }
-.opx-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
 /* ---------- Dashboard ---------- */
 .opx-projs { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }

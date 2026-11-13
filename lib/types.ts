@@ -292,6 +292,7 @@ export type RecurringFrequency = "daily" | "weekly" | "biweekly" | "monthly" | "
 
 export interface FinanceAccount {
   id: string
+  lastSyncedAt?: string | null
   userId: string
   name: string
   accountType: AccountType
