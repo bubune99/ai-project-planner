@@ -383,3 +383,40 @@ code, pre, kbd, samp, .font-mono { font-family: var(--font-inter), Inter, system
 .opx-capmenu a:hover, .opx-capmenu button:hover { background: var(--opx-card); }
 .opx-capmenu b { display: block; font-size: 13.5px; font-weight: 600; }
 .opx-capmenu small { display: block; font-size: 12px; color: var(--opx-muted); }
+
+/* ---------- One palette ----------
+ * The chat library and the shadcn pieces read these names (bg-background,
+ * text-muted-foreground, bg-primary ...). They used to hold a separate
+ * black-and-blue palette, which is why boxes inside the assistant stayed
+ * black. They now follow the --opx-* tokens, light and dark. */
+:root, .dark {
+  --background: var(--opx-bg);
+  --foreground: var(--opx-ink);
+  --card: var(--opx-card);
+  --card-foreground: var(--opx-ink);
+  --popover: var(--opx-card);
+  --popover-foreground: var(--opx-ink);
+  --primary: var(--opx-ink);
+  --primary-foreground: var(--opx-card);
+  --secondary: var(--opx-soft);
+  --secondary-foreground: var(--opx-ink);
+  --muted: var(--opx-soft);
+  --muted-foreground: var(--opx-muted);
+  --accent: var(--opx-soft);
+  --accent-foreground: var(--opx-ink);
+  --destructive: var(--opx-hot);
+  --destructive-foreground: #fff;
+  --border: var(--opx-line);
+  --input: var(--opx-line);
+  --ring: var(--opx-accent);
+  --sidebar: var(--opx-card);
+  --sidebar-foreground: var(--opx-ink);
+  --sidebar-primary: var(--opx-ink);
+  --sidebar-primary-foreground: var(--opx-card);
+  --sidebar-accent: var(--opx-soft);
+  --sidebar-accent-foreground: var(--opx-ink);
+  --sidebar-border: var(--opx-line);
+  --sidebar-ring: var(--opx-accent);
+}
+/* Inside the assistant panel the surface is the card, so "background" is too. */
+[data-ui="dock"] { --background: var(--opx-card); }
