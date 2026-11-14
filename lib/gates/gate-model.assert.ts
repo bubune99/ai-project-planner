@@ -68,8 +68,8 @@ ok("the owner settles it, and only the owner can waive", () => {
 ok("the summary counts every check once and is done only when all are cleared", () => {
   const rs = [R(k(0), "builder", "passed", "t1"), R(k(1), "builder", "failed", "t1"), R(k(2), "builder", "passed", "t1"), R(k(2), "reviewer", "failed", "t2"), R(k(3), "owner", "waived", "t1")]
   const s = summarize(list, rs)
-  assert.deepEqual({ ...s }, { total: 6, cleared: 2, passed: 1, waived: 1, failed: 1, disputed: 1, pending: 2, reviewed: 1, done: false })
-  assert.equal(s.passed + s.waived + s.failed + s.disputed + s.pending, s.total)
+  assert.deepEqual({ ...s }, { total: 6, cleared: 2, passed: 1, waived: 1, failed: 1, flagged: 0, disputed: 1, pending: 2, reviewed: 1, done: false })
+  assert.equal(s.passed + s.waived + s.failed + s.flagged + s.disputed + s.pending, s.total)
   const all = allChecks(list).map((c) => R(c.key, "builder", "passed", "t1"))
   assert.equal(summarize(list, all).done, true)
   assert.equal(summarize({ ...list, views: [{ ...list.views[0], controls: [] }] }, []).done, false)
@@ -138,11 +138,32 @@ ok("a control the scan found unsound starts as a failed check, so the agent is s
   const flawed = structuredClone(list)
   flawed.views[0].controls[1].issues = ["the link goes nowhere", "it is 12 by 12 pixels"]
   const found = scanFindings(flawed)
-  assert.deepEqual(found, [{ key: "2|Go|Signed in", note: "Found by the scan: the link goes nowhere; it is 12 by 12 pixels." }])
+  assert.deepEqual(found.map((f) => [f.key, f.note]), [["2|Go|Signed in", "Found by the scan: the link goes nowhere; it is 12 by 12 pixels."]])
   assert.deepEqual(scanFindings(list), [])
-  const results = found.map((f) => R(f.key, "builder", "failed", "t1"))
-  assert.equal(nextCheck(flawed, results)?.key, "2|Go|Signed in")
-  assert.equal(summarize(flawed, results).failed, 1)
+  // The same finding with different measurements is recognized as the same finding.
+  flawed.views[0].controls[1].issues = ["the link goes nowhere", "it is 14 by 11 pixels"]
+  assert.equal(scanFindings(flawed)[0].signature, found[0].signature)
+  const key = found[0].key
+  // The scan's word is a claim: flagged, not failed, and it holds the agent until someone validates it.
+  const claim = [R(key, "scan", "failed", "t1")]
+  assert.equal(checkState(claim, key), "flagged")
+  assert.equal(nextCheck(flawed, claim)?.key, key)
+  assert.equal(summarize(flawed, claim).flagged, 1)
+  assert.equal(summarize(flawed, claim).failed, 0)
+  assert.match(hookLine(flawed, claim), /The scan flagged it and nobody has validated that yet/)
+  // The reviewer confirms it: now it is a failure to fix.
+  assert.equal(checkState([...claim, R(key, "reviewer", "failed", "t2")], key), "failed")
+  // The reviewer dismisses it: the claim is gone and the check is back to untouched, not passed.
+  assert.equal(checkState([...claim, R(key, "reviewer", "passed", "t2")], key), "pending")
+  // Work recorded after the claim was dismissed counts as usual.
+  assert.equal(checkState([...claim, R(key, "reviewer", "passed", "t2"), R(key, "builder", "passed", "t3")], key), "passed")
+  // A new scan that claims it again reopens the question, whatever was said before.
+  assert.equal(checkState([...claim, R(key, "reviewer", "passed", "t2"), R(key, "scan", "failed", "t4")], key), "flagged")
+  // A confirmed failure comes before an unvalidated claim, which comes before untouched checks.
+  const other = allChecks(flawed)[0].key
+  assert.equal(nextCheck(flawed, [...claim, R(other, "builder", "failed", "t1")])?.key, other)
+  // The owner can always settle it.
+  assert.equal(checkState([...claim, R(key, "owner", "waived", "t5")], key), "waived")
 })
 
 // ── The plan ────────────────────────────────────────────────────────────────

@@ -65,9 +65,14 @@ export interface Checklist {
   views: View[]
 }
 
-export type Actor = "builder" | "reviewer" | "owner"
+/**
+ * scan: the scripted scanner. What it reports is a claim, not a verdict: it is quick and wide, and sometimes wrong.
+ * A claim has to pass a second gate, a model that looks at the real thing against the criterion, before it counts.
+ */
+export type Actor = "scan" | "builder" | "reviewer" | "owner"
 export type Verdict = "passed" | "failed" | "waived"
-export type CheckState = "pending" | "passed" | "failed" | "waived" | "disputed"
+/** flagged: the scan claims a problem and nobody has validated the claim yet. */
+export type CheckState = "pending" | "flagged" | "passed" | "failed" | "waived" | "disputed"
 
 export interface Result {
   key: string
@@ -93,10 +98,13 @@ export interface CheckRef {
 
 const SEP = "|"
 
-/** The failed verdicts a scan's own findings amount to: one per unsound control, on its first check. */
-export function scanFindings(list: Checklist): { key: string; note: string }[] {
+/** A finding with its measurements taken out, so the same finding on the next scan is recognized ("16 pixels" and "18 pixels" are one finding). */
+export const findingSignature = (view: string, label: string, kind: string, note: string) => [view, kind, label, note.replace(/[\d.]+/g, "#")].join(SEP)
+
+/** The claims a scan's own findings amount to: one per flagged item, on its first check. */
+export function scanFindings(list: Checklist): { key: string; note: string; signature: string }[] {
   return list.views.flatMap((v) => v.controls.filter((c) => c.issues?.length && c.workflows.length && c.states.length)
-    .map((c) => ({ key: checkKey(c.n, c.workflows[0].name, c.states[0]), note: `Found by the scan: ${c.issues!.join("; ")}.` })))
+    .map((c) => ({ key: checkKey(c.n, c.workflows[0].name, c.states[0]), note: `Found by the scan: ${c.issues!.join("; ")}.`, signature: findingSignature(v.key, c.label, c.kind, c.issues!.join("; ")) })))
 }
 
 /** A check's key: control number, workflow name, state. */
@@ -160,8 +168,16 @@ export function checkState(results: Result[], key: string): CheckState {
   const latest = (actor: Actor) => results.filter((r) => r.key === key && r.actor === actor).sort((a, b) => b.at.localeCompare(a.at))[0]
   const owner = latest("owner")
   if (owner) return owner.status
-  const b = latest("builder"), r = latest("reviewer")
+  const b = latest("builder"), r = latest("reviewer"), scan = latest("scan")
   const verdict = (x?: Result): "passed" | "failed" | null => (x && x.status !== "waived" ? x.status : null)
+  // A scan's claim stands as "flagged" until a reviewer has looked since. The reviewer confirming it makes it a
+  // failure; the reviewer dismissing it removes the claim and the check goes back to wherever the work stands.
+  if (scan && scan.status === "failed") {
+    const since = r && r.at >= scan.at ? r : undefined
+    if (!since) return "flagged"
+    if (since.status === "failed") return "failed"
+    return verdict(b && b.at >= scan.at ? b : undefined) ?? "pending"
+  }
   const vb = verdict(b), vr = verdict(r)
   if (vb && vr) return vb === vr ? vb : "disputed"
   return vb ?? vr ?? "pending"
@@ -179,6 +195,8 @@ export interface Summary {
   passed: number
   waived: number
   failed: number
+  /** Claimed by the scan, not yet validated. */
+  flagged: number
   disputed: number
   pending: number
   /** Cleared checks a reviewer or the owner has also looked at. */
@@ -188,7 +206,7 @@ export interface Summary {
 }
 
 export function summarize(list: Checklist, results: Result[]): Summary {
-  const s: Summary = { total: 0, cleared: 0, passed: 0, waived: 0, failed: 0, disputed: 0, pending: 0, reviewed: 0, done: false }
+  const s: Summary = { total: 0, cleared: 0, passed: 0, waived: 0, failed: 0, flagged: 0, disputed: 0, pending: 0, reviewed: 0, done: false }
   for (const c of allChecks(list)) {
     const st = checkState(results, c.key)
     s.total++
@@ -202,8 +220,8 @@ export function summarize(list: Checklist, results: Result[]): Summary {
 /** The next check to work: the first that is not passed or waived. Failed and disputed ones come back before untouched ones. */
 export function nextCheck(list: Checklist, results: Result[]): (CheckRef & { state_now: CheckState }) | null {
   const open = allChecks(list).map((c) => ({ ...c, state_now: checkState(results, c.key) })).filter((c) => c.state_now !== "passed" && c.state_now !== "waived")
-  // A dispute waits for the owner, so the builder is sent to failures first, then untouched checks.
-  return open.find((c) => c.state_now === "failed") ?? open.find((c) => c.state_now === "pending") ?? open[0] ?? null
+  // Confirmed failures first, then the scan's unvalidated claims, then untouched checks. A dispute waits for the owner.
+  return open.find((c) => c.state_now === "failed") ?? open.find((c) => c.state_now === "flagged") ?? open.find((c) => c.state_now === "pending") ?? open[0] ?? null
 }
 
 /** The line a hook gives the agent after each check. */
@@ -211,7 +229,9 @@ export function hookLine(list: Checklist, results: Result[]): string {
   const s = summarize(list, results), next = nextCheck(list, results)
   if (!s.total) return `${list.route} has no checks yet.`
   if (!next) return `All ${s.total} checks on ${list.route} are cleared. You may finish; the evidence goes to the reviewer.`
-  const waiting = next.state_now === "disputed" ? " It is disputed and waits for the owner." : next.state_now === "failed" ? " It failed last time: fix it, then check it again." : ""
+  const waiting = next.state_now === "disputed" ? " It is disputed and waits for the owner."
+    : next.state_now === "failed" ? " It failed last time: fix it, then check it again."
+    : next.state_now === "flagged" ? " The scan flagged it and nobody has validated that yet: look at the real thing against the criterion, then confirm it or dismiss it as the reviewer, with what you saw." : ""
   return `${s.cleared} of ${s.total} checks cleared on ${list.route}. Next: control ${next.n}, ${next.label}: "${next.workflow}" in "${next.state}".${waiting} You cannot finish until all are passed or waived.`
 }
 
@@ -225,7 +245,7 @@ export function controlProgress(c: Control, results: Result[]): { cleared: numbe
     seen.add(st)
     if (st === "passed" || st === "waived") cleared++
   }
-  const worst: CheckState = seen.has("failed") ? "failed" : seen.has("disputed") ? "disputed" : seen.has("pending") ? "pending" : seen.has("waived") && !seen.has("passed") ? "waived" : "passed"
+  const worst: CheckState = seen.has("failed") ? "failed" : seen.has("flagged") ? "flagged" : seen.has("disputed") ? "disputed" : seen.has("pending") ? "pending" : seen.has("waived") && !seen.has("passed") ? "waived" : "passed"
   return { cleared, total, worst }
 }
 

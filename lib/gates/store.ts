@@ -6,7 +6,7 @@
  */
 import { sql } from "@/lib/db/client"
 import {
-  allChecks, checkState, diffChecklists, scanFindings, hookLine, imagesToExpire, nextCheck, sameChecklist, summarize, validateChecklist,
+  allChecks, checkState, diffChecklists, findingSignature, scanFindings, hookLine, imagesToExpire, nextCheck, sameChecklist, summarize, validateChecklist,
   type Actor, type Checklist, type Result, type StoredImage, type Verdict,
 } from "./gate-model"
 
@@ -72,13 +72,32 @@ export async function saveChecklist(a: { projectId: string; userId: string; list
     VALUES (${a.projectId}, ${a.list.route}, ${(prev?.version ?? 0) + 1}, ${a.list.title ?? null}, ${a.env ?? null}, ${a.build ?? null}, ${JSON.stringify(a.list)}::jsonb, ${a.userId})
     RETURNING id, project_id, route, version, title, env, build, doc, created_at
   `) as ChecklistRow[]
-  // What the scan itself found wrong is recorded straight away, as failed checks with the finding as the note.
+  // What the scan found is recorded as claims: flagged, waiting for a reviewer to look at the real thing and confirm
+  // or dismiss each one. A claim a reviewer already dismissed on the last version is dismissed again with the same
+  // reason, so the same false alarm is not put in front of anyone twice.
   const found = scanFindings(a.list)
   if (found.length) {
     await sql`
       INSERT INTO gate_results (checklist_id, check_key, actor, status, note, created_by)
-      SELECT ${row.id}, t.k, 'builder', 'failed', t.n, ${a.userId} FROM unnest(${found.map((f) => f.key)}::text[], ${found.map((f) => f.note)}::text[]) AS t(k, n)
+      SELECT ${row.id}, t.k, 'scan', 'failed', t.n, ${a.userId} FROM unnest(${found.map((f) => f.key)}::text[], ${found.map((f) => f.note)}::text[]) AS t(k, n)
     `
+    if (prev) {
+      const before = await resultsOf(prev.id), old = scanFindings(prev.doc)
+      const dismissed = new Map<string, string>()
+      for (const f of old) {
+        const claim = before.filter((r) => r.key === f.key && r.actor === "scan").at(-1)
+        const after = claim ? before.filter((r) => r.key === f.key && r.actor === "reviewer" && r.at >= claim.at).at(-1) : undefined
+        if (after?.status === "passed") dismissed.set(f.signature, after.note ?? "")
+      }
+      const again = found.filter((f) => dismissed.has(f.signature))
+      if (again.length) {
+        await sql`
+          INSERT INTO gate_results (checklist_id, check_key, actor, status, note, created_by, created_at)
+          SELECT ${row.id}, t.k, 'reviewer', 'passed', t.n, ${a.userId}, now() + interval '1 millisecond'
+          FROM unnest(${again.map((f) => f.key)}::text[], ${again.map((f) => `Dismissed on the last version, for the same reason: ${dismissed.get(f.signature)}`)}::text[]) AS t(k, n)
+        `
+      }
+    }
   }
   return { checklistId: row.id, version: row.version, created: true, findings: found.length, changes: diffChecklists(prev?.doc ?? null, a.list), ...(await progress(row, await resultsOf(row.id))) }
 }
@@ -93,6 +112,11 @@ export async function recordResults(a: { checklist: ChecklistRow; userId: string
   if (!a.keys.length) throw new GateError("Pass at least one check key")
   if (unknown.length) throw new GateError(`Not on this checklist: ${unknown.slice(0, 5).join(", ")}`)
   if (a.status === "failed" && !a.note?.trim()) throw new GateError("A failed check needs a note saying what went wrong")
+  // Dismissing something the scan flagged takes a reason: what was looked at and why it is not a problem.
+  if (a.actor === "reviewer" && a.status === "passed" && (a.note?.trim().length ?? 0) < 12) {
+    const now = await resultsOf(a.checklist.id)
+    if (a.keys.some((k) => checkState(now, k) === "flagged")) throw new GateError("Dismissing a flag needs a note: what you looked at and why it is not a problem")
+  }
   await sql`
     INSERT INTO gate_results (checklist_id, check_key, actor, status, note, created_by)
     SELECT ${a.checklist.id}, k, ${a.actor}, ${a.status}, ${a.note ?? null}, ${a.userId} FROM unnest(${a.keys}::text[]) AS k
@@ -221,6 +245,8 @@ export async function loadPage(row: ChecklistRow) {
   const prev = await latestFor(row.project_id, row.route, row.version)
   return {
     id: row.id, route: row.route, title: row.title, version: row.version, env: row.env, build: row.build, createdAt: iso(row.created_at),
+    // What the scan flagged and nobody has validated yet, with what it claimed: the validator's work list.
+    flagged: allChecks(row.doc).filter((c) => checkState(results, c.key) === "flagged").map((c) => ({ key: c.key, n: c.n, label: c.label, view: c.view, claim: results.filter((r) => r.key === c.key && r.actor === "scan").at(-1)?.note ?? "" })),
     checklist: row.doc, results, images: signed, extracts, changes: diffChecklists(prev?.doc ?? null, row.doc), ...(await progress(row, results)),
   }
 }

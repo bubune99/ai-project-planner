@@ -111,7 +111,7 @@ function PlanSection({ projectId, route, tick, onPick }: { projectId: string; ro
   )
 }
 
-const STATE_WORD: Record<CheckState, string> = { pending: "Not checked", passed: "Passed", failed: "Failed", waived: "Waived", disputed: "Disputed" }
+const STATE_WORD: Record<CheckState, string> = { pending: "Not checked", flagged: "Flagged by the scan, not yet validated", passed: "Passed", failed: "Failed", waived: "Waived", disputed: "Disputed" }
 
 /** A short list of control names: the first few, then how many more. */
 const names = (list: Change[]) => list.slice(0, 5).map((c) => c.label).join(", ") + (list.length > 5 ? `, and ${list.length - 5} more` : "")
@@ -123,7 +123,7 @@ function Mark({ state, small }: { state: CheckState; small?: boolean }) {
       {state === "passed" && <Check size={size} strokeWidth={3} />}
       {state === "failed" && <X size={size} strokeWidth={3} />}
       {state === "waived" && <Minus size={size} strokeWidth={3} />}
-      {state === "disputed" && <AlertTriangle size={size - 1} strokeWidth={2.5} />}
+      {(state === "disputed" || state === "flagged") && <AlertTriangle size={size - 1} strokeWidth={2.5} />}
     </span>
   )
 }
@@ -260,7 +260,7 @@ export function ChecksTab({ projectId }: { projectId: string }) {
         {data && (
           <p className="opx-muted opx-ck-meta">
             Version {data.version}{data.env ? `, scanned on ${data.env}` : ""}, {ago(data.createdAt)}.
-            {s.failed > 0 && ` ${s.failed} failed.`}{s.disputed > 0 && ` ${s.disputed} disputed and waiting for you.`}
+            {s.flagged > 0 && ` ${s.flagged} flagged by the scan and waiting to be validated.`}{s.failed > 0 && ` ${s.failed} confirmed as failing.`}{s.disputed > 0 && ` ${s.disputed} disputed and waiting for you.`}
             {s.cleared > 0 && ` ${s.reviewed} of the ${s.cleared} cleared were also looked at by a second reviewer.`}
             {data.changes.removed.length > 0 && ` Gone since the last version: ${names(data.changes.removed)}.`}
             {data.changes.added.length > 0 && ` New since the last version: ${names(data.changes.added)}.`}
@@ -305,7 +305,7 @@ export function ChecksTab({ projectId }: { projectId: string }) {
             </header>
 
             {!!chosen.c.issues?.length && (
-              <p className="opx-ck-found"><strong>The scan found a problem with this control:</strong> {chosen.c.issues.join("; ")}.</p>
+              <p className="opx-ck-found"><strong>The scan flagged this:</strong> {chosen.c.issues.join("; ")}. A flag is a claim until a reviewer has looked at the real thing and confirmed or dismissed it.</p>
             )}
 
             {data.checklist.views.length > 1 && (
@@ -372,7 +372,7 @@ export function ChecksTab({ projectId }: { projectId: string }) {
                           <button type="button" disabled={!data.canSettle} aria-expanded={settle === key} onClick={() => { setSettle(settle === key ? null : key); setNote(""); setError(null) }}>
                             <Mark state={now} small /><span>{state}</span><small>{STATE_WORD[now]}</small>
                           </button>
-                          {(now === "failed" || now === "disputed") && last?.note && <p className="opx-ck-note">{last.actor === "owner" ? "You" : `The ${last.actor}`}: {last.note}</p>}
+                          {(now === "failed" || now === "disputed" || now === "flagged") && last?.note && <p className="opx-ck-note">{last.actor === "owner" ? "You" : `The ${last.actor}`}: {last.note}</p>}
                           {evidence && <a className="opx-ck-ev" href={evidence.url} target="_blank" rel="noreferrer">See the picture</a>}
                           {settle === key && (
                             <div className="opx-ck-settle">

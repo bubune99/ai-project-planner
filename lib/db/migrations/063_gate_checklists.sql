@@ -9,7 +9,8 @@
 --
 -- WHAT THIS DOES (additive only: three new tables, nothing altered or dropped)
 --   gate_checklists  one row per version of a page's checklist (doc jsonb).
---   gate_results     one row per verdict on one check, by builder, reviewer or
+--   gate_results     one row per verdict on one check: a claim by the scan
+--                    (to be validated), or a verdict by builder, reviewer or
 --                    owner. Never updated: the latest per actor is what counts.
 --   gate_images      one row per stored file: a view's picture, a view's
 --                    extract (its styled HTML, gzipped, which the planner
@@ -41,7 +42,7 @@ CREATE TABLE IF NOT EXISTS gate_results (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   checklist_id  uuid NOT NULL REFERENCES gate_checklists(id) ON DELETE CASCADE,
   check_key     text NOT NULL,
-  actor         text NOT NULL CHECK (actor IN ('builder', 'reviewer', 'owner')),
+  actor         text NOT NULL CHECK (actor IN ('scan', 'builder', 'reviewer', 'owner')),
   status        text NOT NULL CHECK (status IN ('passed', 'failed', 'waived')),
   note          text,
   created_by    text,

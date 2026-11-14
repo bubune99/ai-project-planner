@@ -681,3 +681,4 @@ a.opx-mt:hover b { text-decoration: underline; }
 .opx-ck-guides ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; } .opx-ck-guides ol small { display: block; color: var(--opx-muted); font-size: 11.5px; }
 .opx-ck-found { margin: 0; background: color-mix(in srgb, var(--opx-hot) 18%, transparent); border-radius: 12px; padding: 10px 14px; font-size: 13.5px; }
 .opx-ck-detail.narrow > .opx-ck-found { grid-column: 1 / -1; }
+.opx-ck-mark.flagged { background: none; border-color: var(--opx-warn); color: var(--opx-warn); } .opx-ck-num.flagged, .opx-ck-pin.flagged { background: var(--opx-warn); }
