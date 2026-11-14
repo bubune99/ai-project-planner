@@ -132,3 +132,65 @@ ok("pictures: view pictures stay for this version and the one before; evidence i
 })
 
 console.log(`\n${n} checks passed`)
+
+// ── The plan ────────────────────────────────────────────────────────────────
+import { comparePlan, decideChange, planClear, planLine, validateChange, type Expected, type PlanChange } from "./gate-model"
+
+const E = (id: string, label: string, source: Expected["source"] = "mockup", extra: Partial<Expected> = {}): Expected => ({ id, label, must: "Does its job", source, ...extra })
+const plan = [E("a", "Menu"), E("b", "impact  GRAPH", "mockup", { kind: "Link" }), E("c", "Dashboard", "mockup", { view: "menu" }), E("d", "Export"), E("e", "Filters", "agent")]
+
+ok("plan: a scan is split into matched, missing, waiting on the owner, and unplanned", () => {
+  const c = comparePlan(plan, list, ["e"])
+  assert.deepEqual(c.matched.map((m) => [m.expected.id, m.n]), [["a", 1], ["b", 2], ["c", 3]])
+  assert.deepEqual(c.missing.map((e) => e.id), ["d"])
+  assert.deepEqual(c.waiting.map((e) => e.id), ["e"])
+  assert.deepEqual(c.unplanned, [])
+  assert.equal(planClear(c), false)
+  // Kind and view only count when the plan names them, and then they must agree.
+  assert.equal(comparePlan([E("x", "Impact graph", "mockup", { kind: "Button" })], list).missing.length, 1)
+  assert.equal(comparePlan([E("x", "Dashboard", "mockup", { view: "page" })], list).missing.length, 1)
+  // One control cannot answer two expectations.
+  assert.equal(comparePlan([E("x", "Menu"), E("y", "Menu")], list).missing.length, 1)
+  // Everything on the page that the plan does not name is unplanned.
+  assert.deepEqual(comparePlan([E("a", "Menu")], list).unplanned.map((u) => u.label), ["Impact graph", "Dashboard"])
+  assert.equal(planClear(comparePlan(plan.slice(0, 3), list)), true)
+})
+
+ok("plan: the hook says what is missing and what nobody planned, and is silent when clear", () => {
+  assert.equal(planLine(comparePlan(plan.slice(0, 3), list)), "")
+  const line = planLine(comparePlan([E("a", "Menu"), E("d", "Export")], list))
+  assert.match(line, /^Against the plan: 1 planned control is not on the page \(Export\): build it, or propose removing it/)
+  assert.match(line, /2 controls are on the page but not in the plan \(Impact graph, Dashboard\)/)
+  assert.match(planLine(comparePlan([...plan.slice(0, 3), E("e", "Filters", "agent")], list, ["e"])), /^1 planned control waiting on the owner's answer \(Filters\); carry on/)
+})
+
+ok("plan: a change needs a real reason, and a claim that the owner asked needs their words", () => {
+  const p = (o: Partial<PlanChange>): PlanChange => ({ action: "add", item: E("n", "Sort"), reason: "The mock-up shows a sort control above the list", basis: "evidence", ...o })
+  assert.deepEqual(validateChange(p({})), [])
+  assert.match(validateChange(p({ reason: "because" }))[0].message, /reason/)
+  assert.match(validateChange(p({ basis: "owner_asked" }))[0].message, /owner's words/)
+  assert.match(validateChange(p({ item: { ...E("n", "Sort"), must: "" } }))[0].message, /what it must do/)
+})
+
+ok("plan: the owner is included when their request, the rules and common sense say so, and not otherwise", () => {
+  const ctx = { shipped: false, labels: ["Menu", "Library"] }
+  const p = (o: Partial<PlanChange>): PlanChange => ({ action: "remove", item: E("x", "SOPs"), reason: "It duplicates the Library page", basis: "judgment", ...o })
+  // Their own words settle it, even for something sensitive and shipped.
+  assert.equal(decideChange(p({ basis: "owner_asked", quote: "sops and library can probably be merged together", item: E("x", "Delete project") }), { ...ctx, shipped: true }).needsOwner, false)
+  // Adding only makes the checks stricter...
+  assert.equal(decideChange(p({ action: "add", item: E("n", "Sort") }), ctx).needsOwner, false)
+  // ...unless it is about access, money or destroying data.
+  for (const label of ["Delete project", "Invite a collaborator", "Change price", "Export all data"]) assert.equal(decideChange(p({ action: "add", item: E("n", label) }), ctx).needsOwner, true, label)
+  // A control replaced by another planned one is not lost.
+  assert.equal(decideChange(p({ replacedBy: "library" }), ctx).needsOwner, false)
+  assert.equal(decideChange(p({ replacedBy: "Somewhere else" }), ctx).needsOwner, true)
+  // An agent may withdraw its own guess before the page ships, not after.
+  assert.equal(decideChange(p({ item: E("x", "Filters", "agent") }), ctx).needsOwner, false)
+  assert.equal(decideChange(p({ item: E("x", "Filters", "agent") }), { ...ctx, shipped: true }).needsOwner, true)
+  // What the owner's plan asked for stays until the owner says otherwise.
+  for (const source of ["owner", "mockup", "flow"] as const) assert.equal(decideChange(p({ item: E("x", "SOPs", source) }), ctx).needsOwner, true, source)
+  // Every answer says why.
+  assert.ok(decideChange(p({}), ctx).why.length > 20)
+})
+
+console.log(`${n} checks passed in all`)

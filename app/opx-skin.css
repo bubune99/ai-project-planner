@@ -667,3 +667,8 @@ a.opx-mt:hover b { text-decoration: underline; }
 .opx-ck-detail.narrow > .opx-ck-shot { grid-column: 1; max-height: calc(100vh - 260px); } .opx-ck-detail.narrow > .opx-ck-flows { grid-column: 2; }
 @media (max-width: 1100px) { .opx-ck-split, .opx-ck-detail.narrow { grid-template-columns: 1fr; } .opx-ck-list { max-height: 320px; position: static; } .opx-ck-detail.narrow > .opx-ck-flows { grid-column: 1; } }
 .opx-ck h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.opx-ck-plan { display: grid; gap: 10px; font-size: 13.5px; } .opx-ck-plan .opx-ck-h3, .opx-ck-plan .opx-ck-h4 { margin-left: 0; } .opx-ck-plan p { margin: 0; }
+.opx-ck-plancols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 6px 28px; }
+.opx-ck-plan ul { list-style: none; margin: 0; padding: 0; display: grid; } .opx-ck-plan li { display: grid; gap: 1px; padding: 7px 0; border-top: 1px solid var(--opx-line); }
+.opx-ck-plan li button { border: 0; background: none; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; } .opx-ck-plan li button:hover { color: var(--opx-accent); }
+.opx-ck-plan .opx-ck-settle { margin: 6px 0 0; } .opx-ck-plan summary { cursor: pointer; font-weight: 600; padding: 4px 0; }

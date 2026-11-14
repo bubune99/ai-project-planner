@@ -21,6 +21,95 @@ interface PageData {
   changes: { added: Change[]; removed: Change[]; kept: number }; summary: Summary; hook: string; canSettle: boolean
 }
 
+interface PlanItem { id: string; label: string; kind?: string; view?: string; must: string; source: string }
+interface PlanChangeRow { id: string; action: "add" | "remove" | "seed"; item: PlanItem; reason: string; quote: string | null; needs_owner: boolean; why: string; status: "applied" | "waiting" | "approved" | "rejected"; created_at: string }
+interface PlanData {
+  hasPlan: boolean; items: PlanItem[]; changes: PlanChangeRow[]; canSettle: boolean
+  compare: { matched: { expected: PlanItem; n: number }[]; missing: PlanItem[]; waiting: PlanItem[]; unplanned: { n: number; view: string; label: string; kind: string }[] } | null
+}
+const SOURCE_WORD: Record<string, string> = { owner: "you asked for it", mockup: "from the approved mock-up", flow: "from the flow", agent: "added by an agent" }
+
+/** What the page is supposed to have, set against what the scan found, and the record of every change to that plan. */
+function PlanSection({ projectId, route, tick, onPick }: { projectId: string; route: string; tick: number; onPick: (n: number) => void }) {
+  const plan = useJson<PlanData>(`/api/projects/${projectId}/gates/plan?route=${encodeURIComponent(route)}`)
+  const [error, setError] = useState<string | null>(null)
+  const reload = plan.reload
+  useEffect(() => { if (tick) reload() }, [tick, reload])
+  const d = plan.data
+  if (!d) return null
+  async function decide(changeId: string, approve: boolean) {
+    setError(null)
+    const res = await fetch(`/api/projects/${projectId}/gates/plan`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "decide", route, changeId, approve }) })
+    if (!res.ok) setError((await res.json().catch(() => null))?.error ?? "Could not save that")
+    reload()
+  }
+  if (!d.hasPlan) {
+    return (
+      <section className="opx-sec opx-ck-plan">
+        <h3 className="opx-ck-h3">Against the plan</h3>
+        <p className="opx-muted">No plan is recorded for this page, so it is only checked against what is on it. Before building, an agent records what the page should have, from your request or the approved mock-up; then anything missing or unplanned shows here.</p>
+      </section>
+    )
+  }
+  const c = d.compare, waiting = d.changes.filter((x) => x.status === "waiting")
+  return (
+    <section className="opx-sec opx-ck-plan">
+      <h3 className="opx-ck-h3">Against the plan</h3>
+      {c && (
+        <p className="opx-muted">
+          {c.matched.length} of {d.items.length} planned controls are on the page.
+          {c.missing.length === 0 && c.unplanned.length === 0 && " Nothing is missing and nothing is unplanned."}
+        </p>
+      )}
+      {c && (c.missing.length > 0 || c.unplanned.length > 0) && (
+        <div className="opx-ck-plancols">
+          {c.missing.length > 0 && (
+            <div>
+              <h4 className="opx-ck-h4">Planned, not on the page ({c.missing.length})</h4>
+              <ul>{c.missing.map((e) => <li key={e.id}><b>{e.label}</b><span className="opx-muted">{e.must ? `${e.must}. ` : ""}{SOURCE_WORD[e.source] ?? e.source}</span></li>)}</ul>
+            </div>
+          )}
+          {c.unplanned.length > 0 && (
+            <div>
+              <h4 className="opx-ck-h4">On the page, not in the plan ({c.unplanned.length})</h4>
+              <ul>{c.unplanned.map((u) => <li key={u.n}><button type="button" onClick={() => onPick(u.n)}><b>{u.label}</b></button><span className="opx-muted">{u.kind}, control {u.n}</span></li>)}</ul>
+            </div>
+          )}
+        </div>
+      )}
+      {waiting.length > 0 && (
+        <div>
+          <h4 className="opx-ck-h4">Waiting on you ({waiting.length})</h4>
+          <ul>
+            {waiting.map((w) => (
+              <li key={w.id} className="opx-ck-ask">
+                <b>{w.action === "add" ? "Add" : "Drop"} "{w.item.label}"?</b>
+                <span className="opx-muted">Reason given: {w.reason}</span>
+                <span className="opx-muted">Why you are asked: {w.why}</span>
+                {d.canSettle && <span className="opx-ck-settle"><button type="button" onClick={() => decide(w.id, true)}>Approve the change</button><button type="button" onClick={() => decide(w.id, false)}>Keep it as planned</button></span>}
+              </li>
+            ))}
+          </ul>
+          {error && <p className="opx-ck-note">{error}</p>}
+        </div>
+      )}
+      {d.changes.some((x) => x.status !== "waiting") && (
+        <details>
+          <summary>Changes to the plan ({d.changes.filter((x) => x.status !== "waiting").length})</summary>
+          <ul>
+            {d.changes.filter((x) => x.status !== "waiting").map((x) => (
+              <li key={x.id}>
+                <b>{x.action === "seed" ? `Recorded ${x.item.label}` : `${x.action === "add" ? "Added" : "Dropped"} "${x.item.label}"`}{x.status === "rejected" ? " (you said no)" : x.status === "approved" ? " (you approved)" : ""}</b>
+                <span className="opx-muted">{x.reason} {x.needs_owner ? "You were asked: " : "You were not asked: "}{x.why} {ago(x.created_at)}.</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </section>
+  )
+}
+
 const STATE_WORD: Record<CheckState, string> = { pending: "Not checked", passed: "Passed", failed: "Failed", waived: "Waived", disputed: "Disputed" }
 
 /** A short list of control names: the first few, then how many more. */
@@ -102,11 +191,12 @@ export function ChecksTab({ projectId }: { projectId: string }) {
   const [note, setNote] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<"extract" | "picture" | "wire" | null>(null)
+  const [planTick, setPlanTick] = useState(0)
 
   // Checks clear while an agent works: refresh while the tab is in view.
   const reloadPage = page.reload, reloadPages = pages.reload
   useEffect(() => {
-    const t = setInterval(() => { if (document.visibilityState === "visible") { reloadPage(); reloadPages() } }, 6000)
+    const t = setInterval(() => { if (document.visibilityState === "visible") { reloadPage(); reloadPages(); setPlanTick((t) => t + 1) } }, 6000)
     return () => clearInterval(t)
   }, [reloadPage, reloadPages])
 
@@ -173,6 +263,8 @@ export function ChecksTab({ projectId }: { projectId: string }) {
           </p>
         )}
       </section>
+
+      <PlanSection projectId={projectId} route={current.route} tick={planTick} onPick={(n) => { setPick(n); setSettle(null) }} />
 
       {!data && <section className="opx-sec"><p className="opx-muted">{page.error ? `This checklist could not be loaded: ${page.error}` : "Loading this page's checklist..."}</p></section>}
 

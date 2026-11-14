@@ -288,3 +288,125 @@ export function imagesToExpire(images: StoredImage[], currentVersion: number, st
   }
   return gone
 }
+
+/* ── The plan: what a page is supposed to have ───────────────────────────────
+ * The checklist above is what a scan FOUND. The plan is what was EXPECTED,
+ * written before or during the build (from the owner's words, an approved
+ * mock-up, a flow, or an agent's reading of the task). Comparing the two is
+ * how a new build is held to everything it should have, and how a control that
+ * nobody planned is noticed.
+ */
+
+export type ExpectSource = "owner" | "mockup" | "flow" | "agent"
+
+export interface Expected {
+  id: string
+  label: string
+  /** Only matched when given. */
+  kind?: string
+  /** The view it belongs in. Only matched when given. */
+  view?: string
+  /** What it must do, in words. */
+  must: string
+  source: ExpectSource
+}
+
+export interface PlanCompare {
+  matched: { expected: Expected; n: number }[]
+  /** Expected, not on the page, and nobody is waiting on the owner about it. */
+  missing: Expected[]
+  /** Expected, not on the page, with a removal waiting for the owner. */
+  waiting: Expected[]
+  /** On the page, not in the plan. */
+  unplanned: { n: number; view: string; label: string; kind: string }[]
+}
+
+const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim()
+
+/** Sets what a scan found against what was expected. Each control answers at most one expectation. */
+export function comparePlan(expected: Expected[], list: Checklist, waitingRemoval: string[] = []): PlanCompare {
+  const controls = list.views.flatMap((v) => v.controls.map((c) => ({ n: c.n, view: v.key, label: c.label, kind: c.kind })))
+  const used = new Set<number>()
+  const out: PlanCompare = { matched: [], missing: [], waiting: [], unplanned: [] }
+  for (const e of expected) {
+    const hit = controls.find((c) => !used.has(c.n) && norm(c.label) === norm(e.label) && (!e.kind || norm(e.kind) === norm(c.kind)) && (!e.view || e.view === c.view))
+    if (hit) { used.add(hit.n); out.matched.push({ expected: e, n: hit.n }) }
+    else if (waitingRemoval.includes(e.id)) out.waiting.push(e)
+    else out.missing.push(e)
+  }
+  out.unplanned = controls.filter((c) => !used.has(c.n))
+  return out
+}
+
+/** True when the page has everything planned and nothing unplanned. Waiting on the owner does not hold the agent. */
+export const planClear = (c: PlanCompare) => c.missing.length === 0 && c.unplanned.length === 0
+
+const few = (labels: string[]) => labels.slice(0, 4).join(", ") + (labels.length > 4 ? `, and ${labels.length - 4} more` : "")
+
+/** The plan's part of the line a hook gives the agent. Empty when there is nothing to do. */
+export function planLine(c: PlanCompare): string {
+  const parts: string[] = []
+  if (c.missing.length) parts.push(`${c.missing.length} planned control${c.missing.length === 1 ? " is" : "s are"} not on the page (${few(c.missing.map((e) => e.label))}): build ${c.missing.length === 1 ? "it" : "them"}, or propose removing ${c.missing.length === 1 ? "it" : "them"} from the plan with a reason`)
+  if (c.unplanned.length) parts.push(`${c.unplanned.length} control${c.unplanned.length === 1 ? " is" : "s are"} on the page but not in the plan (${few(c.unplanned.map((u) => u.label))}): add ${c.unplanned.length === 1 ? "it" : "them"} to the plan with a reason, or take ${c.unplanned.length === 1 ? "it" : "them"} out of the build`)
+  if (!parts.length) return c.waiting.length ? `${c.waiting.length} planned control${c.waiting.length === 1 ? "" : "s"} waiting on the owner's answer (${few(c.waiting.map((e) => e.label))}); carry on with the rest.` : ""
+  return `Against the plan: ${parts.join("; ")}.`
+}
+
+/** What a change to the plan rests on. */
+export type Basis = "owner_asked" | "rule" | "evidence" | "judgment"
+
+export interface PlanChange {
+  action: "add" | "remove"
+  item: Expected
+  reason: string
+  basis: Basis
+  /** The owner's own words, when the basis is that the owner asked. */
+  quote?: string
+  /** For a removal: the label of the planned control that takes its place. */
+  replacedBy?: string
+}
+
+export interface PlanContext {
+  /** A version of this page has been checked on production: people use it. */
+  shipped: boolean
+  /** Labels in the plan after this change would apply. */
+  labels: string[]
+}
+
+/** Things that are the owner's call wherever they appear: who can get in, money, and destroying or exposing data. */
+const SENSITIVE = /\b(delete|destroy|erase|sign.?out|log.?out|pay|payment|price|pricing|billing|refund|charge|permission|role|access|admin|password|invite|share|publish|export)\b/i
+
+export function validateChange(p: PlanChange): Issue[] {
+  const issues: Issue[] = []
+  if (!p.item?.label?.trim()) issues.push({ where: "item", message: "Say which control" })
+  if (p.action === "add" && !p.item?.must?.trim()) issues.push({ where: "item", message: "Say what it must do" })
+  if (!p.reason || p.reason.trim().length < 12) issues.push({ where: "reason", message: "Give a reason someone reading later can follow" })
+  if (p.basis === "owner_asked" && (!p.quote || p.quote.trim().length < 8)) issues.push({ where: "quote", message: "Quote the owner's words that asked for this" })
+  return issues
+}
+
+/**
+ * Should the owner be asked before this change to the plan takes effect?
+ * (owner 2026-11-13: this runs on its own; include me when my request, the
+ * rules and common sense say so, not by default.)
+ *
+ * The reasoning, in order:
+ *   - What the owner asked for in their own words is already decided.
+ *   - Anything about access, money or destroying data is theirs to decide.
+ *   - Adding an expectation only makes the checks stricter: safe.
+ *   - An agent may withdraw its own guess while the page has not shipped.
+ *   - A control that was replaced by another planned one is not lost.
+ *   - Dropping something people already use, or something the owner's plan
+ *     asked for, is theirs to decide.
+ * Being asked never stops the work: the item waits and everything else goes on.
+ */
+export function decideChange(p: PlanChange, ctx: PlanContext): { needsOwner: boolean; why: string } {
+  if (p.basis === "owner_asked" && p.quote && p.quote.trim().length >= 8) return { needsOwner: false, why: `The owner asked for it: "${p.quote.trim()}"` }
+  const text = [p.item.label, p.item.must, p.reason].join(" ")
+  if (SENSITIVE.test(text)) return { needsOwner: true, why: "It concerns access, money, or destroying or exposing data, which is the owner's call." }
+  if (p.action === "add") return { needsOwner: false, why: "Adding an expectation only makes the checks stricter." }
+  if (p.replacedBy && ctx.labels.some((l) => norm(l) === norm(p.replacedBy!))) return { needsOwner: false, why: `It is replaced by "${p.replacedBy}", which is in the plan, so nothing is lost.` }
+  if (ctx.shipped) return { needsOwner: true, why: "People already use this page; dropping something from it is the owner's call." }
+  if (p.item.source === "agent") return { needsOwner: false, why: "An agent added it during this build and the page has not shipped, so the agent may withdraw it." }
+  return { needsOwner: true, why: `It came from the ${p.item.source === "owner" ? "owner's own request" : p.item.source === "mockup" ? "approved mock-up" : "flow"}, and the owner has not said to drop it.` }
+}

@@ -11,6 +11,7 @@
 import { z } from "zod"
 import { getMcpUserId, requireMcpProjectWriteAccess, requireMcpScope, verifyMcpProjectAccess } from "@/lib/auth/mcp-context"
 import { attachImage, getChecklist, listPages, loadPage, recordResults, saveChecklist, sweepGateImages, type ChecklistRow } from "@/lib/gates/store"
+import { loadPlan, proposePlanChange, seedPlan } from "@/lib/gates/plan-store"
 
 function ok(data: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(data) }] }
@@ -116,6 +117,53 @@ export function registerGateTools(server: any): void {
         const row = await loadForWrite(a.checklistId)
         if (typeof row === "string") return fail(row)
         return ok(await attachImage({ checklist: row, userId: getMcpUserId(), kind: a.kind, refKey: a.refKey, imageBase64: a.imageBase64 }))
+      } catch (e) { return fail(reason(e)) }
+    },
+  )
+
+  server.tool(
+    "gate_plan",
+    "The plan for a page: the controls it is supposed to have, how the latest scan compares (matched, missing, not planned, waiting on the owner), and the record of every change to the plan with the reason and whether the owner was asked.",
+    { projectId: z.string(), route: z.string() },
+    async ({ projectId, route }: { projectId: string; route: string }) => {
+      try {
+        requireMcpScope("read")
+        if (!(await verifyMcpProjectAccess(projectId)).hasAccess) return fail("Project not found or access denied")
+        const page = (await listPages(projectId)).find((p) => p.route === route)
+        const list = page ? (await getChecklist(page.id))?.doc ?? null : null
+        return ok(await loadPlan(projectId, route, list))
+      } catch (e) { return fail(reason(e)) }
+    },
+  )
+
+  server.tool(
+    "gate_plan_seed",
+    "Start or extend a page's plan from a saved checklist: a scan of the approved mock-up (source mockup), of a flow (source flow), or your own reading of the task (source agent). Use this before building, so the build is held to everything it should have.",
+    { checklistId: z.string().describe("The checklist to take the expected controls from"), route: z.string().optional().describe("The page the plan is for, when it differs from the checklist's own route (a mock-up page standing in for the real one)"), source: z.enum(["mockup", "flow", "agent"]), reason: z.string() },
+    async (a: { checklistId: string; route?: string; source: "mockup" | "flow" | "agent"; reason: string }) => {
+      try {
+        requireMcpScope("write")
+        const row = await loadForWrite(a.checklistId)
+        if (typeof row === "string") return fail(row)
+        return ok(await seedPlan({ projectId: row.project_id, userId: getMcpUserId(), route: a.route ?? row.route, from: row.doc, source: a.source, reason: a.reason }))
+      } catch (e) { return fail(reason(e)) }
+    },
+  )
+
+  server.tool(
+    "gate_plan_change",
+    "Propose adding or removing one expected control on a page's plan, with the reason and what it rests on. Use it when the build shows something should be there that was not planned, or that a planned control should go. The planner decides whether the owner must be asked (their own words settle it; access, money and destroying data are theirs; dropping something shipped or something their plan asked for is theirs) and says why. If the owner is asked, do not wait: carry on with the rest.",
+    {
+      projectId: z.string(), route: z.string(), action: z.enum(["add", "remove"]), label: z.string(),
+      must: z.string().optional().describe("For add: what the control must do"), kind: z.string().optional(), view: z.string().optional(),
+      reason: z.string(), basis: z.enum(["owner_asked", "rule", "evidence", "judgment"]).describe("owner_asked needs the owner's own words in quote"),
+      quote: z.string().optional(), replacedBy: z.string().optional().describe("For remove: the planned control that takes its place"),
+    },
+    async (a: { projectId: string; route: string; action: "add" | "remove"; label: string; must?: string; kind?: string; view?: string; reason: string; basis: "owner_asked" | "rule" | "evidence" | "judgment"; quote?: string; replacedBy?: string }) => {
+      try {
+        requireMcpScope("write")
+        await requireMcpProjectWriteAccess(a.projectId)
+        return ok(await proposePlanChange({ ...a, userId: getMcpUserId() }))
       } catch (e) { return fail(reason(e)) }
     },
   )

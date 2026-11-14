@@ -49,8 +49,14 @@ async function latestFor(projectId: string, route: string, before?: number): Pro
   return row ?? null
 }
 
-function progress(row: ChecklistRow, results: Result[]) {
-  return { summary: summarize(row.doc, results), next: nextCheck(row.doc, results), hook: hookLine(row.doc, results) }
+/** Where a page stands: its checks, and how it compares with its plan. The agent may finish only when both are clear. */
+async function progress(row: ChecklistRow, results: Result[]) {
+  const { planStatus } = await import("./plan-store")
+  const summary = summarize(row.doc, results), plan = await planStatus(row.project_id, row.doc)
+  const hook = summary.done && !plan.clear
+    ? `All ${summary.total} checks on ${row.route} are cleared, but you may not finish yet. ${plan.line}`
+    : [hookLine(row.doc, results), plan.line].filter(Boolean).join(" ")
+  return { summary, next: nextCheck(row.doc, results), hook, plan, mayFinish: summary.done && plan.clear }
 }
 
 /** Saves a page's checklist. An unchanged list keeps its version and its verdicts; a changed one starts a new version. */
@@ -59,14 +65,14 @@ export async function saveChecklist(a: { projectId: string; userId: string; list
   if (issues.length) throw new GateError(issues.slice(0, 8).map((i) => `${i.where}: ${i.message}`).join("; "))
   const prev = await latestFor(a.projectId, a.list.route)
   if (prev && sameChecklist(prev.doc, a.list)) {
-    return { checklistId: prev.id, version: prev.version, created: false, changes: { added: [], removed: [], kept: allControls(prev.doc) }, ...progress(prev, await resultsOf(prev.id)) }
+    return { checklistId: prev.id, version: prev.version, created: false, changes: { added: [], removed: [], kept: allControls(prev.doc) }, ...(await progress(prev, await resultsOf(prev.id))) }
   }
   const [row] = (await sql`
     INSERT INTO gate_checklists (project_id, route, version, title, env, build, doc, created_by)
     VALUES (${a.projectId}, ${a.list.route}, ${(prev?.version ?? 0) + 1}, ${a.list.title ?? null}, ${a.env ?? null}, ${a.build ?? null}, ${JSON.stringify(a.list)}::jsonb, ${a.userId})
     RETURNING id, project_id, route, version, title, env, build, doc, created_at
   `) as ChecklistRow[]
-  return { checklistId: row.id, version: row.version, created: true, changes: diffChecklists(prev?.doc ?? null, a.list), ...progress(row, []) }
+  return { checklistId: row.id, version: row.version, created: true, changes: diffChecklists(prev?.doc ?? null, a.list), ...(await progress(row, [])) }
 }
 
 const allControls = (l: Checklist) => l.views.reduce((t, v) => t + v.controls.length, 0)
@@ -187,8 +193,8 @@ export async function listPages(projectId: string) {
     FROM gate_checklists WHERE project_id = ${projectId} ORDER BY route, version DESC
   `) as ChecklistRow[]
   return Promise.all(rows.map(async (row) => {
-    const p = progress(row, await resultsOf(row.id))
-    return { id: row.id, route: row.route, title: row.title, version: row.version, env: row.env, build: row.build, createdAt: iso(row.created_at), controls: allControls(row.doc), views: row.doc.views.length, summary: p.summary }
+    const p = await progress(row, await resultsOf(row.id))
+    return { id: row.id, route: row.route, title: row.title, version: row.version, env: row.env, build: row.build, createdAt: iso(row.created_at), controls: allControls(row.doc), views: row.doc.views.length, summary: p.summary, mayFinish: p.mayFinish }
   }))
 }
 
@@ -207,6 +213,6 @@ export async function loadPage(row: ChecklistRow) {
   const prev = await latestFor(row.project_id, row.route, row.version)
   return {
     id: row.id, route: row.route, title: row.title, version: row.version, env: row.env, build: row.build, createdAt: iso(row.created_at),
-    checklist: row.doc, results, images: signed, extracts, changes: diffChecklists(prev?.doc ?? null, row.doc), ...progress(row, results),
+    checklist: row.doc, results, images: signed, extracts, changes: diffChecklists(prev?.doc ?? null, row.doc), ...(await progress(row, results)),
   }
 }
