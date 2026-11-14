@@ -63,6 +63,9 @@ const SOURCE_LABEL: Record<string, string> = {
 // so its default post always failed. Every type here has rows in prod.
 const NOTE_TYPES = ["update", "progress", "milestone", "decision", "blocker"] as const
 
+/** Shown before "Show all". Twenty entries were 3,757px of a 4,900px page at phone width (measured 2026-11-14). */
+const FIRST_SHOWN = 5
+
 export function ActivityFeed({ projectId }: { projectId: string }) {
   const [items, setItems] = useState<FeedItem[] | null>(null)
   const [reload, setReload] = useState(0)
@@ -70,6 +73,7 @@ export function ActivityFeed({ projectId }: { projectId: string }) {
   const [noteType, setNoteType] = useState<(typeof NOTE_TYPES)[number]>("update")
   const [posting, setPosting] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [showAll, setShowAll] = useState(false)
 
   const post = async () => {
     const content = draft.trim()
@@ -141,7 +145,7 @@ export function ActivityFeed({ projectId }: { projectId: string }) {
           <p className="j-muted" style={{ fontSize: 13, margin: 0 }}>No activity yet.</p>
         </div>
       ) : (
-        items.map((it) => (
+        (showAll ? items : items.slice(0, FIRST_SHOWN)).map((it) => (
           <div
             key={it.id}
             data-testid="activity-item"
@@ -169,6 +173,15 @@ export function ActivityFeed({ projectId }: { projectId: string }) {
             </span>
           </div>
         ))
+      )}
+      {items !== null && items.length > FIRST_SHOWN && (
+        <div style={{ padding: "4px 16px 8px" }}>
+          <button type="button" className="opx-link" data-testid="activity-more" aria-expanded={showAll}
+            style={{ minHeight: 44, display: "inline-flex", alignItems: "center", padding: 0 }}
+            onClick={() => setShowAll((v) => !v)}>
+            {showAll ? "Show fewer" : `Show all ${items.length}`}
+          </button>
+        </div>
       )}
     </div>
   )
