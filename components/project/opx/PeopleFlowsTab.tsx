@@ -13,7 +13,7 @@ import {
   type ControlRef, type FlowDoc, type PageRecord, type Person, type Step, type StepState,
 } from "@/lib/people/people-model"
 import { shotAt, type Checklist, type Result, type View } from "@/lib/gates/gate-model"
-import { HANDLED_BY, KIND_WORD, type Coverage, type StoredWalk } from "@/lib/walks/walk-model"
+import { KIND_WORD, LENS, SHIP_FLOOR, handledBy, lowScores, type Coverage, type StoredWalk } from "@/lib/walks/walk-model"
 import { Shots, type Piece } from "./ChecksTab"
 import { Failed, Loading, Seg, ago, useJson } from "./shared"
 
@@ -196,8 +196,9 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
                 <div className="opx-pf-walkin">
                   {w.why && <span><small>Why it stopped</small>{w.why}</span>}
                   <ol>{w.steps.map((st, i) => <li key={i} className={st.ok ? "" : "off"}><b>{st.did}</b><span className="opx-muted">{st.expected ? `Expected: ${st.expected}. ` : ""}Saw: {st.saw}</span></li>)}</ol>
+                  {lowScores(w).length > 0 && <div className="opx-pf-six">{lowScores(w).map((x) => <span key={x.lens} className={x.score < SHIP_FLOOR ? "low" : ""} title={LENS[x.lens].asks}><b>{x.score}</b> {LENS[x.lens].name}<small>{x.note}</small></span>)}</div>}
                   {w.findings.length > 0 && <ul>{w.findings.map((f, i) => (
-                    <li key={i}><b>{KIND_WORD[f.kind]}: {f.what}</b><span className="opx-muted">{f.suggest ? `Would help: ${f.suggest}. ` : ""}{HANDLED_BY[f.kind].how}</span>
+                    <li key={i}><b>{KIND_WORD[f.kind]}: {f.what}</b><span className="opx-muted">{f.suggest ? `Would help: ${f.suggest}. ` : ""}{handledBy(f, w.scores).how}</span>
                       {can && f.kind === "gap" && useCase && !doc.flows.find((x) => x.id === useCase)?.steps.some((x) => x.does === f.what) && <button type="button" className="opx-pf-add" onClick={() => edit((d) => { d.flows.find((x) => x.id === useCase)?.steps.push({ id: freshId("s", allIds(), seed), does: f.what, expects: f.suggest ?? "", data: "", ref: null, note: "Found on a walk." }) })}>Add it as a step that is not built</button>}</li>
                   ))}</ul>}
                 </div>

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { HANDLED_BY, coverage, openFindings, parseWalk, walkLine, type StoredWalk, type Walk } from "./walk-model"
+import { HANDLED_BY, LENSES, coverage, handledBy, lowScores, openFindings, parseWalk, walkLine, type StoredWalk, type Walk } from "./walk-model"
 
 let n = 0
 const ok = (name: string, fn: () => void) => { fn(); n++; console.log("ok ", name) }
@@ -59,6 +59,29 @@ ok("the same finding met on two walks is listed once, from the newest", () => {
   const walks = [S("w1", "2026-11-14T10:00:00Z", { findings: [{ kind: "gap", what: "No undo" }] }), S("w2", "2026-11-14T12:00:00Z", { findings: [{ kind: "gap", what: "no undo" }, { kind: "error", what: "Save fails" }] })]
   const open = openFindings(walks)
   assert.deepEqual(open.map((f) => [f.what, f.walk, f.who]), [["no undo", "w2", "agents"], ["Save fails", "w2", "agents"]])
+})
+
+ok("the six are scored 1 to 5, each with what was seen", () => {
+  assert.equal(LENSES.length, 6)
+  const scored = { ...good, scores: { back: { score: 5, note: "Back button restores the list where I left it" }, find: { score: 4, note: "Add a transaction is the first button" } } }
+  assert.deepEqual(parseWalk(scored).errors, []); assert.deepEqual(parseWalk(scored).walk.scores, scored.scores)
+  assert.ok(parseWalk({ ...good, scores: { back: { score: 7, note: "x" } } }).errors.some((x) => x.includes("from 1 to 5")))
+  assert.ok(parseWalk({ ...good, scores: { back: { score: 4 } } }).errors.some((x) => x.includes("what was seen")))
+  assert.equal("scores" in parseWalk({ ...good, scores: { nonsense: { score: 3, note: "x" } } }).walk, false)
+})
+
+ok("below 3 is a fix: it must say what is wrong, and it is the agents' to fix, not a preference", () => {
+  const low = { ...good, scores: { back: { score: 1, note: "After opening a stage there was no way out" } } }
+  assert.ok(parseWalk(low).errors.some((x) => x.includes("Getting back scored 1") && x.includes("name what is wrong")))
+  const named = { ...low, findings: [{ kind: "friction", lens: "back", what: "No way back out of a stage" }, { kind: "friction", lens: "density", what: "A lot of empty space on the right" }] }
+  const { walk, errors } = parseWalk(named)
+  assert.deepEqual(errors, [])
+  assert.equal(handledBy(walk.findings[0], walk.scores).who, "agents")      // scored below the line: fixed, never asked
+  assert.equal(handledBy(walk.findings[1], walk.scores).who, "owner")       // not scored low: a preference
+  assert.equal(handledBy({ kind: "taste", what: "x", lens: "back" }, walk.scores).who, "owner")
+  assert.deepEqual(lowScores(walk).map((x) => [x.lens, x.score]), [["back", 1]])
+  assert.equal(walkLine(walk), "Reached the goal in 2 steps: 2 hard. Below the line: getting back 1.")
+  assert.equal(openFindings([S("w9", "2026-11-14T10:00:00Z", walk)])[0].who, "agents")
 })
 
 console.log(`\n${n} checks passed`)
