@@ -10,7 +10,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { AlertTriangle, Check, Minus, ThumbsUp, X } from "lucide-react"
-import { allChecks, checkKey, checkState, controlProgress, type CheckState, type Checklist, type Control, type LogEntry, type Result, type Scorecard, type Summary, type View } from "@/lib/gates/gate-model"
+import { allChecks, checkKey, checkState, controlProgress, shotAt, type Shot, type CheckState, type Checklist, type Control, type LogEntry, type Result, type Scorecard, type Summary, type View } from "@/lib/gates/gate-model"
 import { GuidesSection } from "./GuidesSection"
 import { ago, useJson } from "./shared"
 
@@ -33,6 +33,8 @@ function RecordSection({ data, onPick }: { data: PageData; onPick: (n: number) =
   const flagged = allChecks(data.checklist).filter((c) => checkState(data.results, c.key) === "flagged")
   const noteOf = (key: string) => [...data.results].reverse().find((r) => r.key === key && r.note)?.note
   const pct = (n: number, of: number) => (of ? `${Math.round((n / of) * 100)}%` : "none yet")
+  // The newest picture kept as proof for a check, shown beside its entries in the log.
+  const proofOf = (key: string) => data.images.find((i) => i.kind === "evidence" && i.key === key)?.url
   return (
     <section className="opx-sec opx-ck-record">
       <div>
@@ -78,6 +80,7 @@ function RecordSection({ data, onPick }: { data: PageData; onPick: (n: number) =
                 <span className="opx-muted">{e.workflow} in {e.state}, {ago(e.at)}</span>
                 {e.note && <span className="opx-muted">{e.note}</span>}
               </div>
+              {proofOf(e.key) && <a className="opx-ck-proof" href={proofOf(e.key)} target="_blank" rel="noreferrer" aria-label={`Proof for ${e.label}`}><img src={proofOf(e.key)} alt="" /></a>}
             </li>
           ))}
         </ol>
@@ -194,7 +197,7 @@ function Mark({ state, small }: { state: CheckState; small?: boolean }) {
 
 const SHOWN = {
   extract: "The page itself, redrawn from the HTML and styles the scan stored.",
-  picture: "Picture taken during the scan.",
+  picture: "Screenshots taken during the scan.",
   wire: "Wireframe, drawn from where the scan found each control.",
 }
 
@@ -232,16 +235,33 @@ function Extract({ url, view }: { url: string; view: View }) {
   )
 }
 
+type Piece = Shot & { url: string }
+
 /** A control's own picture, cut from its view's picture rather than stored. */
-function Crop({ view, c, src }: { view: View; c: Control; src?: string }) {
-  const pad = 6, z = Math.min(2, 28 / (c.h + pad * 2))
+function Crop({ view, c, src, pieces }: { view: View; c: Control; src?: string; pieces: Piece[] }) {
+  const pad = 6, z = Math.min(2, 28 / (c.h + pad * 2)), width = Math.min(96, (c.w + pad * 2) * z)
+  // From a real screenshot: the one that shows this control, shifted to where the control sits in it.
+  const shot = shotAt(view, c.y + c.h / 2), piece = shot && pieces.find((p) => p.id === shot.id)
+  if (piece) {
+    return <span className="opx-ck-crop" style={{ width, backgroundImage: `url("${piece.url}")`, backgroundSize: `${piece.vw * z}px ${piece.vh * z}px`, backgroundPosition: `${-(piece.x + c.x - pad) * z}px ${-(piece.y + c.y - piece.at - pad) * z}px` }} />
+  }
   if (!src) return <span className="opx-ck-crop" />
+  return <span className="opx-ck-crop" style={{ width, backgroundImage: `url("${src}")`, backgroundSize: `${view.w * z}px ${view.h * z}px`, backgroundPosition: `${-(c.x - pad) * z}px ${-(c.y - pad) * z}px` }} />
+}
+
+/**
+ * A view shown by its real screenshots. Each screenshot is of the whole screen; only its own part is shown, placed
+ * where that part sits in the view, so a page taller than the screen reads as one picture.
+ */
+function Shots({ view, pieces }: { view: View; pieces: Piece[] }) {
   return (
-    <span className="opx-ck-crop" style={{
-      width: Math.min(96, (c.w + pad * 2) * z),
-      backgroundImage: `url("${src}")`, backgroundSize: `${view.w * z}px ${view.h * z}px`,
-      backgroundPosition: `${-(c.x - pad) * z}px ${-(c.y - pad) * z}px`,
-    }} />
+    <div className="opx-ck-shots" style={{ aspectRatio: `${view.w} / ${view.h}` }} role="img" aria-label={`Screenshot of ${view.name}`}>
+      {pieces.map((p) => (
+        <span key={p.id} style={{ left: 0, top: `${(p.at / view.h) * 100}%`, width: "100%", height: `${(p.h / view.h) * 100}%` }}>
+          <img src={p.url} alt="" style={{ width: `${(p.vw / p.w) * 100}%`, marginLeft: `${-(p.x / p.w) * 100}%`, marginTop: `${-(p.y / p.w) * 100}%` }} />
+        </span>
+      ))}
+    </div>
   )
 }
 
@@ -269,9 +289,11 @@ export function ChecksTab({ projectId }: { projectId: string }) {
   const controls = useMemo(() => (data ? data.checklist.views.flatMap((v) => v.controls.map((c) => ({ c, v }))) : []), [data])
   const chosen = controls.find((x) => x.c.n === pick) ?? controls[0] ?? null
   const imageOf = (viewKey: string) => data?.images.find((i) => i.kind === "view" && i.key === viewKey)?.url
-  const hasPicture = !!(chosen && imageOf(chosen.v.key)), hasExtract = !!(chosen && chosen.v.crop && data?.extracts?.includes(chosen.v.key))
+  const piecesOf = (v: View): Piece[] => (v.shots ?? []).flatMap((sh) => { const url = imageOf(`${v.key}@${sh.id}`); return url ? [{ ...sh, url }] : [] })
+  const chosenPieces = chosen ? piecesOf(chosen.v) : []
+  const hasPicture = !!(chosen && (imageOf(chosen.v.key) || chosenPieces.length)), hasExtract = !!(chosen && chosen.v.crop && data?.extracts?.includes(chosen.v.key))
   // What is drawn behind the numbers: the stored page if there is one, else the picture, else a wireframe. The owner can switch.
-  const shown = mode === "extract" && hasExtract ? "extract" : mode === "picture" && hasPicture ? "picture" : mode === "wire" ? "wire" : hasExtract ? "extract" : hasPicture ? "picture" : "wire"
+  const shown = mode === "extract" && hasExtract ? "extract" : mode === "picture" && hasPicture ? "picture" : mode === "wire" ? "wire" : chosenPieces.length ? "picture" : hasExtract ? "extract" : hasPicture ? "picture" : "wire"
 
   async function verdict(key: string, status: "passed" | "failed" | "waived") {
     if (!data) return
@@ -351,7 +373,7 @@ export function ChecksTab({ projectId }: { projectId: string }) {
                   return (
                     <button key={c.n} type="button" className={`opx-ck-row${chosen.c.n === c.n ? " on" : ""}`} aria-current={chosen.c.n === c.n ? "true" : undefined} onClick={() => { setPick(c.n); setSettle(null) }}>
                       <span className={`opx-ck-num ${p.worst}`}>{c.n}</span>
-                      <Crop view={v} c={c} src={imageOf(v.key)} />
+                      <Crop view={v} c={c} src={imageOf(v.key)} pieces={piecesOf(v)} />
                       <span className="opx-ck-name"><b>{c.label}</b><small>{data.next?.n === c.n ? "Up next. " : ""}{p.cleared} of {p.total} checks{c.shared ? ", every page" : ""}</small></span>
                       <Mark state={p.cleared === p.total ? "passed" : p.worst === "passed" ? "pending" : p.worst} />
                     </button>
@@ -380,7 +402,7 @@ export function ChecksTab({ projectId }: { projectId: string }) {
                 <span className="opx-muted">Views of this page</span>
                 {data.checklist.views.map((v) => (
                   <button key={v.key} type="button" className={v.key === chosen.v.key ? "on" : ""} disabled={!v.controls.length} onClick={() => { setPick(v.controls[0]?.n ?? null); setSettle(null) }}>
-                    {imageOf(v.key) ? <img src={imageOf(v.key)} alt="" /> : <span className="opx-ck-noimg" />}
+                    {piecesOf(v).length ? <span className="opx-ck-thumb"><Shots view={v} pieces={piecesOf(v).slice(0, 1)} /></span> : imageOf(v.key) ? <img src={imageOf(v.key)} alt="" /> : <span className="opx-ck-noimg" />}
                     <span>{v.name}, {v.controls.length}</span>
                   </button>
                 ))}
@@ -396,7 +418,7 @@ export function ChecksTab({ projectId }: { projectId: string }) {
             <div className="opx-ck-shot" style={chosen.v.w < 700 ? { width: Math.min(620, chosen.v.w * 1.15) } : undefined}>
               <div className="opx-ck-canvas">
               {shown === "extract" ? <Extract url={`/api/projects/${projectId}/gates/${data.id}/extract?view=${encodeURIComponent(chosen.v.key)}`} view={chosen.v} />
-                : shown === "picture" ? <img src={imageOf(chosen.v.key)} alt={`${chosen.v.name} of ${data.route}`} />
+                : shown === "picture" ? (chosenPieces.length ? <Shots view={chosen.v} pieces={chosenPieces} /> : <img src={imageOf(chosen.v.key)} alt={`${chosen.v.name} of ${data.route}`} />)
                 : (
                   // No picture needed: the scan recorded where every control sits, so the view can be drawn.
                   <div className="opx-ck-wire" style={{ aspectRatio: `${chosen.v.w} / ${chosen.v.h}` }} role="img" aria-label={`Wireframe of ${chosen.v.name}`}>

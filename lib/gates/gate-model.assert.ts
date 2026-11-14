@@ -235,7 +235,7 @@ ok("plan: the owner is included when their request, the rules and common sense s
 console.log(`${n} checks passed in all`)
 
 // ── Keeping what is known between scans, and the record ─────────────────────
-import { alignToPrevious, auditLog, sameCriteria, scorecard, standingKeys } from "./gate-model"
+import { alignToPrevious, auditLog, sameCriteria, scorecard, shotAt, standingKeys } from "./gate-model"
 
 ok("a new scan keeps each control's number, its written criteria and its standing verdicts", () => {
   const written = structuredClone(list)
@@ -268,6 +268,15 @@ ok("a new scan keeps each control's number, its written criteria and its standin
   const twins = structuredClone(list); twins.views[0].controls.push({ ...twins.views[0].controls[1], n: 7 })
   const again = structuredClone(twins); again.views[0].controls.forEach((c, i) => { c.n = 50 + i })
   assert.deepEqual(alignToPrevious(twins, again).views[0].controls.map((c) => c.n), [1, 2, 7])
+})
+
+ok("a tall page is shown by several screenshots; each point belongs to the latest one that covers it", () => {
+  const view = { ...list.views[0], h: 2000, shots: [{ id: "s0", x: 0, y: 0, w: 1000, h: 900, at: 0, vw: 1000, vh: 900 }, { id: "s1", x: 0, y: 60, w: 1000, h: 840, at: 780, vw: 1000, vh: 900 }] }
+  assert.equal(shotAt(view, 10)?.id, "s0")
+  assert.equal(shotAt(view, 800)?.id, "s1")     // where two overlap, the later one is on top
+  assert.equal(shotAt(view, 1619)?.id, "s1")
+  assert.equal(shotAt(view, 1700), null)
+  assert.equal(shotAt(list.views[0], 10), null)
 })
 
 ok("the audit log says, in order and in words, who decided what", () => {

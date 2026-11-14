@@ -32,6 +32,7 @@ const controlSchema = z.object({
   label: z.string(), kind: z.string().describe("Button, Link, Field, Tab ..."),
   x: z.number(), y: z.number(), w: z.number(), h: z.number(),
   shared: z.boolean().optional().describe("True when the control is on every page, so one pass covers them all"),
+  draft: z.boolean().optional().describe("True while its workflows are the scanner's guesses; written criteria are never overwritten by drafts"),
   issues: z.array(z.string()).optional().describe("What is wrong with the control itself (no name, covered, too small, dead link). Each becomes a failed check"),
   states: z.array(z.string()).describe("Each workflow is checked once per state, e.g. Dark theme, Phone width"),
   workflows: z.array(z.object({ name: z.string(), before: z.string().optional(), steps: z.array(stepSchema) })),
@@ -39,6 +40,8 @@ const controlSchema = z.object({
 const viewSchema = z.object({
   key: z.string().describe("page, or a short key for what opened: menu, search, delete-dialog"),
   name: z.string(), w: z.number(), h: z.number(), controls: z.array(controlSchema),
+  crop: z.object({ x: z.number(), y: z.number(), vw: z.number(), vh: z.number() }).optional(),
+  shots: z.array(z.object({ id: z.string(), x: z.number(), y: z.number(), w: z.number(), h: z.number(), at: z.number(), vw: z.number(), vh: z.number() })).optional().describe("Real screenshots that together show this view; each picture is stored under <view key>@<id>"),
 })
 
 async function loadForWrite(checklistId: string): Promise<ChecklistRow | string> {

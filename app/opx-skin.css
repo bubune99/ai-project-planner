@@ -691,3 +691,8 @@ a.opx-mt:hover b { text-decoration: underline; }
 .opx-ck-ev-icon.passed { background: var(--opx-good); } .opx-ck-ev-icon.failed { background: var(--opx-hot); } .opx-ck-ev-icon.flagged { background: var(--opx-warn); }
 .opx-ck-passed { margin: 0; display: flex; align-items: center; gap: 10px; background: color-mix(in srgb, var(--opx-good) 22%, transparent); border-radius: 14px; padding: 11px 14px; font-size: 14px; font-weight: 600; }
 @media (max-width: 1100px) { .opx-ck-record { grid-template-columns: 1fr; } }
+.opx-ck-shots { position: relative; width: 100%; background: var(--opx-bg); overflow: hidden; }
+.opx-ck-shots > span { position: absolute; overflow: hidden; display: block; } .opx-ck-shots > span > img { display: block; max-width: none; height: auto; }
+.opx-ck-thumb { display: block; height: 54px; overflow: hidden; border-radius: 6px; background: var(--opx-bg); }
+.opx-ck-log li:has(.opx-ck-proof) { grid-template-columns: 22px minmax(0, 1fr) 96px; }
+.opx-ck-proof img { width: 96px; height: 54px; object-fit: cover; object-position: top left; border-radius: 6px; display: block; }

@@ -58,7 +58,20 @@ export interface View {
   h: number
   /** Where this view sits inside its stored page extract: its corner, and the size the extract was taken at. */
   crop?: { x: number; y: number; vw: number; vh: number }
+  /**
+   * Real screenshots that together show this view. Each is a capture of the whole screen (vw by vh); the part from
+   * (x, y) of size w by h belongs in the view's picture, starting `at` that far down it. A page taller than the screen
+   * has one per screenful. The picture itself is stored under "<view key>@<id>".
+   */
+  shots?: Shot[]
   controls: Control[]
+}
+
+export interface Shot { id: string; x: number; y: number; w: number; h: number; at: number; vw: number; vh: number }
+
+/** The screenshot that shows a point this far down a view, if any. */
+export function shotAt(view: View, y: number): Shot | null {
+  return (view.shots ?? []).filter((s) => y >= s.at && y < s.at + s.h).at(-1) ?? null
 }
 
 export interface Checklist {

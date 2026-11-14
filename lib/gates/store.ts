@@ -145,7 +145,10 @@ function imageType(raw: Buffer): "webp" | "jpeg" | "png" | null {
 /** Stores a view's picture, or a picture proving a check, then deletes whatever the retention rule no longer keeps. */
 export async function attachImage(a: { checklist: ChecklistRow; userId: string; kind: "view" | "evidence"; refKey: string; imageBase64: string }) {
   const doc = a.checklist.doc
-  if (a.kind === "view" && !doc.views.some((v) => v.key === a.refKey)) throw new GateError(`No view "${a.refKey}" on this checklist`)
+  // A view's picture may be one of several screenshots: "<view key>@<shot id>".
+  const [viewKey, shotId] = a.refKey.split("@")
+  const view = doc.views.find((v) => v.key === viewKey)
+  if (a.kind === "view" && (!view || (shotId !== undefined && !(view.shots ?? []).some((s) => s.id === shotId)))) throw new GateError(`No view "${a.refKey}" on this checklist`)
   if (a.kind === "evidence" && !allChecks(doc).some((c) => c.key === a.refKey)) throw new GateError(`No check "${a.refKey}" on this checklist`)
   const raw = Buffer.from(a.imageBase64.replace(/^data:image\/\w+;base64,/, ""), "base64")
   if (raw.length > 4 * 1024 * 1024) throw new GateError("Image is over 4 MB")
