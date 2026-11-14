@@ -61,6 +61,7 @@ export function ChecksTab({ projectId }: { projectId: string }) {
   const [settle, setSettle] = useState<string | null>(null)
   const [note, setNote] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [wire, setWire] = useState(false)
 
   // Checks clear while an agent works: refresh while the tab is in view.
   const reloadPage = page.reload, reloadPages = pages.reload
@@ -176,8 +177,21 @@ export function ChecksTab({ projectId }: { projectId: string }) {
               </div>
             )}
 
+            <div className="opx-ck-shotbar">
+              <span className="opx-muted">{imageOf(chosen.v.key) ? (wire ? "Wireframe, drawn from the scan." : "Picture taken during the scan.") : "No picture is stored for this view, so it is drawn from the scan."}</span>
+              {imageOf(chosen.v.key) && <button type="button" onClick={() => setWire((w) => !w)}>{wire ? "Show the picture" : "Show the wireframe"}</button>}
+            </div>
             <div className="opx-ck-shot" style={chosen.v.w < 700 ? { width: Math.min(620, chosen.v.w * 1.15) } : undefined}>
-              {imageOf(chosen.v.key) ? <img src={imageOf(chosen.v.key)} alt={`${chosen.v.name} of ${data.route}`} /> : <div className="opx-ck-blank" style={{ aspectRatio: `${chosen.v.w} / ${chosen.v.h}` }}>No picture stored for this view</div>}
+              {imageOf(chosen.v.key) && !wire
+                ? <img src={imageOf(chosen.v.key)} alt={`${chosen.v.name} of ${data.route}`} />
+                : (
+                  // No picture needed: the scan recorded where every control sits, so the view can be drawn.
+                  <div className="opx-ck-wire" style={{ aspectRatio: `${chosen.v.w} / ${chosen.v.h}` }} role="img" aria-label={`Wireframe of ${chosen.v.name}`}>
+                    {chosen.v.controls.map((c) => (
+                      <span key={c.n} style={{ left: `${(c.x / chosen.v.w) * 100}%`, top: `${(c.y / chosen.v.h) * 100}%`, width: `${(c.w / chosen.v.w) * 100}%`, height: `${(c.h / chosen.v.h) * 100}%` }}>{c.label}</span>
+                    ))}
+                  </div>
+                )}
               {chosen.v.controls.map((c) => (
                 <button key={c.n} type="button" className={`opx-ck-pin ${controlProgress(c, data.results).worst}${c.n === chosen.c.n ? " on" : ""}`} style={{ left: `${(c.x / chosen.v.w) * 100}%`, top: `${(c.y / chosen.v.h) * 100}%` }} aria-label={`Control ${c.n}: ${c.label}`} onClick={() => { setPick(c.n); setSettle(null) }}>{c.n}</button>
               ))}
