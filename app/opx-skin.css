@@ -860,3 +860,7 @@ button.opx-ck::before { content: ''; position: absolute; inset: -12px; }
   input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]), select, textarea { font-size: 16px !important; }
   select { min-height: 44px; }
 }
+
+/* How old a stored picture is against what has shipped. Said in words; the tint only backs the words up. */
+.opx-pf-age { margin: 8px 0 0; font-size: 13px; line-height: 1.45; color: var(--opx-muted); }
+.opx-pf-age.behind { color: var(--opx-ink); background: color-mix(in srgb, var(--opx-warn) 16%, transparent); border-radius: 10px; padding: 8px 12px; }

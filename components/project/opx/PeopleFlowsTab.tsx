@@ -23,6 +23,20 @@ interface PageData {
   id: string; route: string; checklist: Checklist; results: Result[]; images: { kind: "view" | "evidence"; key: string; url: string }[]
 }
 
+interface FreshPage { route: string; state: "current" | "behind" | "unknown"; line: string }
+interface FreshData { line: string; behind: number; pages: FreshPage[] }
+
+/** Where each page's stored picture stands against what has shipped since (lib/gates/fresh-model.ts). */
+function useFresh(projectId: string) {
+  const [fresh, setFresh] = useState<FreshData | null>(null)
+  useEffect(() => {
+    let off = false
+    fetch(`/api/projects/${projectId}/gates/ships`).then((r) => (r.ok ? r.json() : null)).then((j) => { if (!off && j) setFresh(j) }).catch(() => undefined)
+    return () => { off = true }
+  }, [projectId])
+  return fresh
+}
+
 /** Every scanned page of the project, by route: its checklist, its verdicts and its screenshots. */
 function usePages(projectId: string, pages: FlowsData["pages"] | undefined) {
   const [byRoute, setByRoute] = useState<Record<string, PageData>>({})
@@ -62,6 +76,7 @@ const PERSON_FIELDS: [keyof Person, string][] = [
 export function PeopleFlowsTab({ projectId }: { projectId: string }) {
   const flows = useJson<FlowsData>(`/api/projects/${projectId}/people`)
   const pagesByRoute = usePages(projectId, flows.data?.pages)
+  const fresh = useFresh(projectId)
   const walked = useJson<{ walks: (StoredWalk & { line: string })[]; coverage: Coverage[] }>(`/api/projects/${projectId}/gates/walks`)
   const [walkOpen, setWalkOpen] = useState<string | null>(null)
   const [doc, setDoc] = useState<FlowDoc | null>(null)
@@ -114,6 +129,7 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
   const routes = flows.data?.pages.map((p) => p.route) ?? []
   const curRoute = route && routes.includes(route) ? route : routes[0] ?? null
   const curPage = curRoute ? pagesByRoute[curRoute] : undefined
+  const freshOf = (r: string | null | undefined) => (r ? fresh?.pages.find((p) => p.route === r) : undefined)
 
   if (flows.loading && !doc) return <Loading what="people and flows" />
   if (flows.error && !doc) return <Failed what="people and flows" error={flows.error} retry={flows.reload} />
@@ -298,6 +314,7 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
           {pageV && pieces.length > 0 ? (
             <div className="opx-pf-pagepic"><Shots view={pageV} pieces={pieces} />{marks.map((c, i) => (c && pageV ? <b key={areas[i].id} className="opx-pf-mark" style={{ left: `${((c.x + Math.min(c.w, 300) / 2) / pageV.w) * 100}%`, top: `${((c.y + Math.min(c.h, 120) / 2) / pageV.h) * 100}%` }}>{i + 1}</b> : null))}</div>
           ) : <div className="opx-empty">No screenshot of {curRoute} is stored.</div>}
+          {freshOf(curRoute) && <p className={`opx-pf-age ${freshOf(curRoute)!.state}`} data-testid="picture-age">{freshOf(curRoute)!.line}</p>}
           <small className="opx-muted" style={{ display: "block", marginTop: 6 }}>The real page, from its screenshots. The numbers match the rows beside it.</small>
         </div>
         <div className="opx-pf-flow">
@@ -327,6 +344,7 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
 
   return (
     <div className="opx-pf">
+      {fresh?.line && <p className={`opx-pf-age ${fresh.behind ? "behind" : "current"}`} data-testid="pictures-line" style={{ margin: "0 4px" }}>{fresh.line}</p>}
       <section className="opx-sec opx-pf-top">
         <span className="opx-muted"><b>{doc.people.length}</b> people · <b>{doc.flows.length}</b> use cases · <b>{total("n")}</b> steps · <b>{total("ok")}</b> verified · <b>{total("gap")}</b> with nothing behind them{curPage ? <> · <b>{loose.length}</b> controls in no use case</> : null}</span>
         {routes.length > 1 && <select className="opx-pf-pick" aria-label="Page" value={curRoute ?? ""} onChange={(e) => setRoute(e.target.value)}>{routes.map((r) => <option key={r}>{r}</option>)}</select>}
