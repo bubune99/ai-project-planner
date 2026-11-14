@@ -3371,14 +3371,13 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           const actualLimit = Math.min(limit || DEFAULT_LIMIT, MAX_LIMIT)
 
           const jobs = await sql`
-            SELECT j.*, p.name as project_name, a.name as agent_name
+            SELECT j.*, p.name as project_name, j.assigned_to as agent_name, j.input->>'projectId' as project_id
             FROM agent_jobs j
-            LEFT JOIN projects p ON j.project_id = p.id
-            LEFT JOIN agents a ON j.agent_id = a.id
+            LEFT JOIN projects p ON p.id::text = j.input->>'projectId'
             WHERE j.created_by = ${userId}
               ${status ? sql`AND j.status = ${status}` : sql``}
-              ${agentId ? sql`AND j.agent_id = ${agentId}` : sql``}
-              ${projectId ? sql`AND j.project_id = ${projectId}` : sql``}
+              ${agentId ? sql`AND j.assigned_to = ${agentId}` : sql``}
+              ${projectId ? sql`AND j.input->>'projectId' = ${projectId}` : sql``}
             ORDER BY j.created_at DESC
             LIMIT ${actualLimit}
           `
@@ -3399,6 +3398,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
                 priority: j.priority,
                 agent: j.agent_name,
                 project: j.project_name,
+                project_id: j.project_id,
+                kind: (j.input as { kind?: string } | null)?.kind ?? "job",
                 checkpoint: j.checkpoint,
                 created_at: j.created_at,
                 started_at: j.started_at,
@@ -3442,11 +3443,12 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
 
           const [job] = await sql`
             INSERT INTO agent_jobs (
-              created_by, project_id, title, description, priority, status, metadata
+              created_by, title, description, priority, status, input, tags
             )
             VALUES (
-              ${userId}, ${projectId || null}, ${title}, ${description || null},
-              ${priority}, 'pending', ${JSON.stringify(metadata || {})}
+              ${userId}, ${title}, ${description || null},
+              ${priority === "medium" ? "normal" : priority === "urgent" ? "critical" : priority}, 'pending',
+              ${JSON.stringify({ ...(metadata || {}), kind: "job", projectId: projectId || null })}::jsonb, ARRAY['job']
             )
             RETURNING id, title, status, priority
           `
