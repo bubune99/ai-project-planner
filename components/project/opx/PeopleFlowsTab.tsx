@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import {
-  STEP_WORD, areaMeaning, cellKind, findControl, freshId, orphans, refOf, sameRef, scoreFlow, stepState,
+  STEP_WORD, areaMeaning, cellKind, findControl, freshId, orphans, refOf, sameRef, scoreFlow, shiftSpans, stepState,
   type ControlRef, type FlowDoc, type PageRecord, type Person, type Step, type StepState,
 } from "@/lib/people/people-model"
 import { buildProcessMap } from "@/lib/people/process-map"
@@ -232,8 +232,8 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
                     <div className="opx-pf-tools">
                       <button type="button" disabled={i === 0} onClick={() => inFlow((steps) => { const [x] = steps.splice(i, 1); steps.splice(i - 1, 0, x) })}>Earlier</button>
                       <button type="button" disabled={i === flow.steps.length - 1} onClick={() => inFlow((steps) => { const [x] = steps.splice(i, 1); steps.splice(i + 1, 0, x) })}>Later</button>
-                      <button type="button" onClick={() => inFlow((steps) => { steps.splice(i + 1, 0, { id: freshId("s", allIds(), seed), does: "New step: say what the person does", expects: "", data: "", ref: null }) })}>Add a step after</button>
-                      <button type="button" disabled={flow.steps.length === 1} onClick={() => inFlow((steps, d) => { steps.splice(i, 1); for (const q of d.personas) delete q.at[flow.id] })}>Remove</button>
+                      <button type="button" onClick={() => inFlow((steps, d) => { steps.splice(i + 1, 0, { id: freshId("s", allIds(), seed), does: "New step: say what the person does", expects: "", data: "", ref: null }); shiftSpans(d.personas, flow.id, i + 1, "inserted") })}>Add a step after</button>
+                      <button type="button" disabled={flow.steps.length === 1} onClick={() => inFlow((steps, d) => { steps.splice(i, 1); shiftSpans(d.personas, flow.id, i, "removed") })}>Remove</button>
                       {persona && <><button type="button" onClick={() => setSpan(i, 0)}>Starts here</button><button type="button" onClick={() => setSpan(i, 1)}>Stops here</button></>}
                     </div>
                   )}

@@ -234,6 +234,27 @@ const FIELD_WORD: Record<string, string> = {
   basis: "where it comes from", habit: "the habit", cares: "what they care about", at: "where they start and stop", who: "who it belongs to", lens: "why they do it", does: "who uses it and how", ref: "what it points at", route: "the page",
 }
 
+/**
+ * Where a persona starts and stops, after a step is taken out of (or put into) a use case at `index`. The span keeps
+ * pointing at the same steps; it is dropped only when every step in it is gone.
+ */
+export function shiftSpan(span: [number, number], index: number, change: "removed" | "inserted"): [number, number] | null {
+  const [a, b] = span
+  if (change === "inserted") return [index <= a ? a + 1 : a, index <= b ? b + 1 : b]
+  const next: [number, number] = [index < a ? a - 1 : a, index <= b ? b - 1 : b]
+  return next[1] < next[0] ? null : next
+}
+/** Applies shiftSpan to every persona's span in one use case. Changes the personas it is given. */
+export function shiftSpans(personas: Persona[], flowId: string, index: number, change: "removed" | "inserted"): void {
+  for (const q of personas) {
+    const cur = q.at[flowId]
+    if (!cur) continue
+    const next = shiftSpan(cur, index, change)
+    if (next) q.at[flowId] = next
+    else delete q.at[flowId]
+  }
+}
+
 /** A short id that is not already taken. `seed` makes it repeatable in tests. */
 export function freshId(prefix: string, taken: Iterable<string>, seed: number): string {
   const used = new Set(taken)

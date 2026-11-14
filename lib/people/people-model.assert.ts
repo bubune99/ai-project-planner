@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import type { Checklist, Result } from "../gates/gate-model"
-import { areaMeaning, cellKind, controlState, describeChanges, emptyDoc, findControl, freshId, orphans, parseDoc, scoreFlow, stepState, type FlowDoc, type PageRecord } from "./people-model"
+import { areaMeaning, cellKind, controlState, describeChanges, emptyDoc, findControl, freshId, orphans, parseDoc, scoreFlow, shiftSpan, shiftSpans, stepState, type FlowDoc, type PageRecord } from "./people-model"
 
 let n = 0
 const ok = (name: string, fn: () => void) => { fn(); n++; console.log("ok ", name) }
@@ -120,6 +120,21 @@ ok("every change is described for the record, and no change means no entry", () 
   assert.ok(lines.includes('Use case "See where I stand this month": the step "Reads what is left" no longer points at anything on the page'))
   assert.ok(lines.includes('Use case "See where I stand this month": the steps were put in a different order'))
   assert.ok(lines.includes('Removed persona "The monthly planner"'))
+})
+
+ok("taking out or adding a step keeps each persona on the same steps", () => {
+  assert.deepEqual(shiftSpan([2, 3], 0, "removed"), [1, 2])     // a step before it went: both ends move up
+  assert.deepEqual(shiftSpan([2, 3], 3, "removed"), [2, 2])     // its last step went: it ends one sooner
+  assert.deepEqual(shiftSpan([2, 3], 4, "removed"), [2, 3])     // a step after it went: nothing changes
+  assert.equal(shiftSpan([1, 1], 1, "removed"), null)           // its only step went: nothing left to point at
+  assert.deepEqual(shiftSpan([1, 1], 0, "removed"), [0, 0])
+  assert.deepEqual(shiftSpan([1, 2], 1, "inserted"), [2, 3])    // a step put in before it: both ends move down
+  assert.deepEqual(shiftSpan([1, 2], 2, "inserted"), [1, 3])    // put in the middle: it now covers the new step too
+  assert.deepEqual(shiftSpan([1, 2], 3, "inserted"), [1, 2])    // put in after it: nothing changes
+  const personas = JSON.parse(JSON.stringify(doc.personas))
+  shiftSpans(personas, "stand", 1, "removed")
+  assert.deepEqual(personas[0].at, {})                          // the daily checker's only step was removed
+  shiftSpans(personas, "other", 0, "removed")                   // another use case: untouched
 })
 
 ok("a new id never collides with one in use", () => {
