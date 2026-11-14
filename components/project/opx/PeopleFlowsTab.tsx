@@ -103,7 +103,7 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
         const res = await fetch(`/api/projects/${projectId}/people`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ doc: docRef.current, baseVersion: versionRef.current }) })
         const j = await res.json().catch(() => null)
         if (!res.ok) throw Object.assign(new Error(j?.error || `Could not save (${res.status})`), { status: res.status })
-        if (j.version !== versionRef.current) setLog((l) => [{ version: j.version, actor: "owner" as const, lines: j.lines, at: new Date().toISOString() }, ...l].slice(0, 40))
+        if (j.version !== versionRef.current) setLog((l) => [{ version: j.version, actor: j.actor === "agent" ? "agent" as const : "owner" as const, lines: j.lines, at: new Date().toISOString() }, ...l].slice(0, 40))
         versionRef.current = j.version
         setSaving("saved")
       } catch (e) {

@@ -38,7 +38,7 @@ export async function PUT(request: NextRequest, { params }: Ctx) {
     // the owner's signed-in browser tab and says so (agent: true). The record keeps which it was.
     const actor = auth.authType === "session" && b.agent !== true ? "owner" : "agent"
     const saved = await saveFlows({ projectId, userId: auth.userId, raw: b.doc, baseVersion: b.baseVersion, actor })
-    return NextResponse.json({ ok: true, ...saved })
+    return NextResponse.json({ ok: true, actor, ...saved })
   } catch (error) {
     if (error instanceof FlowError) return NextResponse.json({ error: error.message }, { status: error.status })
     console.error("people and flows save failed", error)
