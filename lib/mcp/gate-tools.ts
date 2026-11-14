@@ -40,6 +40,7 @@ const controlSchema = z.object({
 const viewSchema = z.object({
   key: z.string().describe("page, or a short key for what opened: menu, search, delete-dialog"),
   name: z.string(), w: z.number(), h: z.number(), controls: z.array(controlSchema),
+  openedBy: z.string().optional(),
   crop: z.object({ x: z.number(), y: z.number(), vw: z.number(), vh: z.number() }).optional(),
   shots: z.array(z.object({ id: z.string(), x: z.number(), y: z.number(), w: z.number(), h: z.number(), at: z.number(), vw: z.number(), vh: z.number(), ax: z.number().optional() })).optional().describe("Real screenshots that together show this view; each picture is stored under <view key>@<id>"),
 })
@@ -62,12 +63,13 @@ export function registerGateTools(server: any): void {
       projectId: z.string(), route: z.string().describe("The page's path, e.g. /catalog"), title: z.string().optional(),
       env: z.enum(["staging", "prod", "local"]).optional(), build: z.string().optional().describe("Commit or deployment the scan was taken from"),
       views: z.array(viewSchema),
+      region: z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() }).optional().describe("For a targeted scan: the part of the page view it covered. Only that part is replaced; checks cleared there are put back in question"),
     },
-    async (a: { projectId: string; route: string; title?: string; env?: string; build?: string; views: z.infer<typeof viewSchema>[] }) => {
+    async (a: { projectId: string; route: string; title?: string; env?: string; build?: string; views: z.infer<typeof viewSchema>[]; region?: { x: number; y: number; w: number; h: number } }) => {
       try {
         requireMcpScope("write")
         await requireMcpProjectWriteAccess(a.projectId)
-        const saved = await saveChecklist({ projectId: a.projectId, userId: getMcpUserId(), env: a.env, build: a.build, list: { route: a.route, ...(a.title ? { title: a.title } : {}), views: a.views } })
+        const saved = await saveChecklist({ projectId: a.projectId, userId: getMcpUserId(), env: a.env, build: a.build, region: a.region, list: { route: a.route, ...(a.title ? { title: a.title } : {}), views: a.views } })
         return ok({ ...saved, next_actions: ["Upload a picture of each view with gate_attach_image (kind: view).", "Work the checks in order; after each, call gate_record_check and follow the line it returns."] })
       } catch (e) { return fail(reason(e)) }
     },

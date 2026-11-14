@@ -6,9 +6,9 @@
  */
 import { sql } from "@/lib/db/client"
 import {
-  alignToPrevious, allChecks, auditLog, checkState, diffChecklists, sameCriteria, scanFindings, scorecard, standingKeys,
+  alignToPrevious, allChecks, auditLog, mergePartial, checkState, diffChecklists, sameCriteria, scanFindings, scorecard, standingKeys,
   hookLine, imagesToExpire, nextCheck, summarize, validateChecklist,
-  type Actor, type Checklist, type Result, type StoredImage, type Verdict,
+  type Actor, type Checklist, type Region, type Result, type StoredImage, type Verdict,
 } from "./gate-model"
 
 export interface ChecklistRow {
@@ -66,9 +66,11 @@ async function progress(row: ChecklistRow, results: Result[]) {
  * same version and only where things sit and what the scan found are refreshed. Otherwise a new version starts, and
  * verdicts carry over for every control whose criteria are unchanged, so only what is new or changed is worked again.
  */
-export async function saveChecklist(a: { projectId: string; userId: string; list: Checklist; env?: string; build?: string }) {
+export async function saveChecklist(a: { projectId: string; userId: string; list: Checklist; env?: string; build?: string; region?: Region }) {
   const prev = await latestFor(a.projectId, a.list.route)
-  const list = alignToPrevious(prev?.doc ?? null, a.list)
+  // A targeted scan covers one part of the page: it is put back into the whole list before anything else.
+  const partial = a.region && prev ? mergePartial(prev.doc, a.list, a.region) : null
+  const list = alignToPrevious(prev?.doc ?? null, partial ? partial.list : a.list)
   const issues = validateChecklist(list)
   if (issues.length) throw new GateError(issues.slice(0, 8).map((i) => `${i.where}: ${i.message}`).join("; "))
   let row: ChecklistRow, created = false, carried = 0
@@ -94,6 +96,19 @@ export async function saveChecklist(a: { projectId: string; userId: string; list
       }
     }
   }
+  // After a targeted scan, checks in that area that had been cleared are put back in question: the area was changed,
+  // so what was true of it before has to be looked at again.
+  let reopened = 0
+  if (partial && partial.touched.length) {
+    const now = await resultsOf(row.id), again = allChecks(list).filter((c) => partial.touched.includes(c.n) && ["passed", "waived"].includes(checkState(now, c.key)))
+    if (again.length) {
+      await sql`
+        INSERT INTO gate_results (checklist_id, check_key, actor, status, note, created_by)
+        SELECT ${row.id}, k, 'scan', 'failed', 'This area was changed and scanned again: verify it again.', ${a.userId} FROM unnest(${again.map((c) => c.key)}::text[]) AS k
+      `
+      reopened = again.length
+    }
+  }
   // What the scan found is recorded as claims: flagged, waiting for a reviewer to look at the real thing. A claim the
   // record already holds for that check (the same finding, whatever the exact measurements) is not raised again, so a
   // claim that was confirmed or dismissed stays decided.
@@ -107,7 +122,7 @@ export async function saveChecklist(a: { projectId: string; userId: string; list
     `
   }
   return {
-    checklistId: row.id, version: row.version, created, carried, findings: fresh.length,
+    checklistId: row.id, version: row.version, created, carried, findings: fresh.length, reopened, checklist: list,
     changes: created ? diffChecklists(prev?.doc ?? null, list) : { added: [], removed: [], kept: allControls(list) },
     ...(await progress(row, await resultsOf(row.id))),
   }

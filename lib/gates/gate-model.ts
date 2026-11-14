@@ -64,6 +64,8 @@ export interface View {
    * has one per screenful; a later one may be narrower (`ax` across), when only part of the screen scrolls. The picture itself is stored under "<view key>@<id>".
    */
   shots?: Shot[]
+  /** For a view something opens: the name of the control that opens it. */
+  openedBy?: string
   controls: Control[]
 }
 
@@ -332,6 +334,32 @@ export function alignToPrevious(prev: Checklist | null, next: Checklist): Checkl
   }) }))
   for (const v of views) for (const c of v.controls) { if (c.n === 0) c.n = ++top; if (c.draft === undefined) delete c.draft }
   return { ...next, views }
+}
+
+/** A part of a view, in the view's own units. */
+export interface Region { x: number; y: number; w: number; h: number }
+
+const inside = (r: Region, x: number, y: number) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h
+
+/**
+ * A targeted scan looked at one part of the page only. This puts what it found back into the whole checklist:
+ * inside the region, the scan is the truth (a control it did not find there is gone); outside it, nothing changes.
+ * Views the scan did not open are kept as they were. Returns the merged list and the numbers of the controls the
+ * region covers in the old list, whose verdicts need another look.
+ */
+export function mergePartial(prev: Checklist, part: Checklist, region: Region): { list: Checklist; touched: number[] } {
+  const touched: number[] = []
+  const views = prev.views.map((v) => {
+    const scanned = part.views.find((p) => p.key === v.key)
+    if (v.key !== "page") return scanned ? { ...scanned, shots: scanned.shots ?? v.shots } : v
+    if (!scanned) return v
+    const kept = v.controls.filter((c) => { const hit = inside(region, c.x + c.w / 2, c.y + c.h / 2); if (hit) touched.push(c.n); return !hit })
+    // Earlier close-up screenshots that the new one covers completely are dropped; the page's own screenfuls stay.
+    const shots = [...(v.shots ?? []).filter((s) => !(s.id.startsWith("t") && (s.ax ?? 0) >= region.x && s.at >= region.y && (s.ax ?? 0) + s.w <= region.x + region.w && s.at + s.h <= region.y + region.h)), ...(scanned.shots ?? [])]
+    return { ...v, controls: [...kept, ...scanned.controls], ...(shots.length ? { shots } : {}) }
+  })
+  for (const p of part.views) if (!views.some((v) => v.key === p.key)) views.push(p)
+  return { list: { ...prev, views }, touched }
 }
 
 /** The checks whose control and criteria are the same in both lists: their verdicts still stand. Expects `next` already aligned. */

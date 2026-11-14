@@ -33,6 +33,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!body || typeof body.route !== "string" || !Array.isArray(body.views)) return NextResponse.json({ error: "Send { route, views }" }, { status: 400 })
     const saved = await saveChecklist({
       projectId, userId: auth.userId, env: body.env, build: body.build,
+      // A targeted scan says which part of the page it covered; the rest of the checklist is left as it is.
+      region: body.region && ["x", "y", "w", "h"].every((k) => typeof body.region[k] === "number") ? { x: body.region.x, y: body.region.y, w: body.region.w, h: body.region.h } : undefined,
       list: { route: body.route, ...(body.title ? { title: String(body.title) } : {}), views: body.views },
     })
     return NextResponse.json(saved)

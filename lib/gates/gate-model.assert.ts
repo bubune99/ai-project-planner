@@ -304,3 +304,29 @@ ok("the scorecard measures the scan, the builder and the second look from the re
 })
 
 console.log(`${n} checks passed in all`)
+
+import { mergePartial } from "./gate-model"
+
+ok("a targeted scan replaces what is inside its region and leaves everything else exactly as it was", () => {
+  const whole = structuredClone(list)
+  whole.views[0].shots = [{ id: "s0", x: 0, y: 0, w: 1000, h: 400, at: 0, vw: 1000, vh: 400 }, { id: "told", x: 880, y: 40, w: 120, h: 80, at: 40, ax: 880, vw: 1000, vh: 400 }]
+  // The area around "Impact graph" (at 900,60) was changed and scanned again: the link is gone, a button took its place.
+  const part: Checklist = { route: "/catalog", views: [{ key: "page", name: "Page", w: 1000, h: 400, shots: [{ id: "tnew", x: 850, y: 30, w: 150, h: 100, at: 30, ax: 850, vw: 1000, vh: 400 }], controls: [
+    { n: 1, label: "Export", kind: "Button", x: 905, y: 62, w: 80, h: 28, states: ["Signed in"], draft: true, workflows: [{ name: "Click it", steps: [step] }] },
+  ] }] }
+  const { list: merged, touched } = mergePartial(whole, part, { x: 850, y: 30, w: 150, h: 100 })
+  assert.deepEqual(touched, [2])
+  assert.deepEqual(merged.views[0].controls.map((c) => c.label), ["Menu", "Export"])
+  assert.equal(merged.views[1], whole.views[1])                                   // the menu view was not opened: untouched
+  assert.deepEqual(merged.views[0].shots!.map((s) => s.id), ["s0", "tnew"])        // the old close-up is covered by the new one
+  // Lined up with the old list, Menu keeps its number and verdicts; Export is new.
+  const aligned = alignToPrevious(whole, merged)
+  assert.deepEqual(aligned.views[0].controls.map((c) => [c.label, c.n]), [["Menu", 1], ["Export", 4]])
+  assert.deepEqual(standingKeys(whole, aligned).filter((k) => k.startsWith("1|")).length, 4)
+  // A region that covers nothing changes nothing but the pictures.
+  const none = mergePartial(whole, { ...part, views: [{ ...part.views[0], controls: [] }] }, { x: 0, y: 300, w: 10, h: 10 })
+  assert.deepEqual(none.touched, [])
+  assert.deepEqual(none.list.views[0].controls, whole.views[0].controls)
+})
+
+console.log(`${n} checks passed in all`)
