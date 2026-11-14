@@ -29,12 +29,13 @@ export type Rgb = [number, number, number]
  * rate. Nothing is ever clamped: every row is its own shade at every moment.
  */
 export const PALETTE: readonly { hex: string; at: number }[] = [
-  { hex: "#1a1a1a", at: -0.4 },
-  { hex: "#343434", at: 0.05 },
-  { hex: "#636363", at: 0.5 },
-  { hex: "#969696", at: 0.95 },
-  // The light end stops at a soft gray: near-white was too bright (owner 2026-11-13).
-  { hex: "#b8b8b8", at: 1.4 },
+  // Each stop is 30% darker than the first gray version, and the light end
+  // stops at a mid gray: near-white was too bright (owner 2026-11-13).
+  { hex: "#121212", at: -0.4 },
+  { hex: "#242424", at: 0.05 },
+  { hex: "#454545", at: 0.5 },
+  { hex: "#696969", at: 0.95 },
+  { hex: "#818181", at: 1.4 },
 ]
 
 export const ANGLE = 78
