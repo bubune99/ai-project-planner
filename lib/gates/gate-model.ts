@@ -329,6 +329,9 @@ export interface PlanCompare {
   unplanned: { n: number; view: string; label: string; kind: string }[]
 }
 
+/** Kinds of item a scan lists that are content rather than controls. */
+export const CONTENT_KINDS = new Set(["Text", "Card", "Chart"])
+
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim()
 
 /** Sets what a scan found against what was expected. Each control answers at most one expectation. */
@@ -342,7 +345,8 @@ export function comparePlan(expected: Expected[], list: Checklist, waitingRemova
     else if (waitingRemoval.includes(e.id)) out.waiting.push(e)
     else out.missing.push(e)
   }
-  out.unplanned = controls.filter((c) => !used.has(c.n))
+  // Words, cards and charts are the page's content, checked in their own right, not controls someone forgot to plan.
+  out.unplanned = controls.filter((c) => !used.has(c.n) && !CONTENT_KINDS.has(c.kind))
   return out
 }
 

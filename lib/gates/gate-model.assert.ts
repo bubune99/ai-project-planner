@@ -166,6 +166,10 @@ ok("plan: a scan is split into matched, missing, waiting on the owner, and unpla
   // Everything on the page that the plan does not name is unplanned.
   assert.deepEqual(comparePlan([E("a", "Menu")], list).unplanned.map((u) => u.label), ["Impact graph", "Dashboard"])
   assert.equal(planClear(comparePlan(plan.slice(0, 3), list)), true)
+  // A flagged piece of text or a card is a finding about content, not an unplanned control.
+  const withContent = structuredClone(list)
+  withContent.views[0].controls.push({ n: 9, label: "Net worth", kind: "Text", x: 1, y: 1, w: 50, h: 12, states: ["Dark"], workflows: [{ name: "Read it", steps: [step] }] }, { n: 10, label: "Budget targets", kind: "Card", x: 1, y: 100, w: 300, h: 200, states: ["Dark"], workflows: [{ name: "Look at its layout", steps: [step] }] })
+  assert.equal(planClear(comparePlan(plan.slice(0, 3), withContent)), true)
 })
 
 ok("plan: the hook says what is missing and what nobody planned, and is silent when clear", () => {
