@@ -1,5 +1,8 @@
 "use client"
 
+import dynamic from "next/dynamic"
+import { parseMapBlock, seedMap, stripMapBlock, writeMapBlock, type Layer } from "@/lib/sops/process-map"
+
 /*
  * Library: SOPs plus skills, templates and protocols (owner 2026-11-13: "sops
  * and library can probably be merged"). SOPs are laid out like a project's
@@ -8,11 +11,14 @@
  * Same data and routes as before: GET/POST /api/sops, PATCH/DELETE /api/sops/:id.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { DashboardLayout } from "@/components/navigation"
 import { Md, Seg, ago } from "@/components/project/opx/shared"
+
+// The drawing library is only fetched when a document that carries a map is opened.
+const ProcessMap = dynamic(() => import("@/components/project/opx/ProcessMap").then((m) => m.ProcessMap), { ssr: false, loading: () => <p className="opx-muted">Loading the drawing…</p> })
 
 interface Sop {
   id: string
@@ -90,6 +96,35 @@ export default function LibraryPage() {
       .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))
   }, [byStatus, cat, q])
   const cur = open ? sops.find((s) => s.id === open) || null : null
+  // A document that carries a process map shows it drawn, above its words.
+  const curMap = useMemo(() => (cur ? parseMapBlock(cur.content) : null), [cur])
+  const [mapState, setMapState] = useState<"" | "saving" | "saved" | "failed">("")
+  const mapSaves = useRef<Promise<void>>(Promise.resolve())
+  /** Keeps a change to the map: shown at once, then saved in the order the changes were made. */
+  const saveMap = (sop: Sop, next: Layer) => {
+    const content = writeMapBlock(sop.content, next)
+    setSops((all) => all.map((x) => (x.id === sop.id ? { ...x, content } : x)))
+    setMapState("saving")
+    mapSaves.current = mapSaves.current.then(async () => {
+      try {
+        const res = await fetch(`/api/sops/${sop.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) })
+        const json = await res.json().catch(() => null)
+        if (!res.ok || !json?.success) throw new Error(json?.error?.message || "Save failed")
+        setMapState("saved")
+      } catch (e) {
+        setMapState("failed")
+        toast.error(e instanceof Error ? `The map was not saved: ${e.message}` : "The map was not saved")
+        fetchSops()
+      }
+    })
+  }
+  const newMap = async () => {
+    const res = await fetch("/api/sops", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: "How we build: from plan to proven", category: "How we work", status: "active", content: writeMapBlock("Who does what, in order, from a plan to a page proved to work: the lanes, the gates and the loops. Double-click a stage to open the loop inside it; right-click anything to change it.", seedMap()) }) })
+    const json = await res.json().catch(() => null)
+    if (!res.ok || !json?.success) { toast.error(json?.error?.message || "Could not create the map"); return }
+    await fetchSops()
+    setForm(null); setStatus("active"); setCat("all"); setOpen(json.data?.id ?? null)
+  }
   const count = (k: Status) => sops.filter((s) => s.status === k).length
 
   const save = async () => {
@@ -100,7 +135,8 @@ export default function LibraryPage() {
       const res = await fetch(cur ? `/api/sops/${cur.id}` : "/api/sops", {
         method: cur ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, category: form.category.trim() || null }),
+        // The form edits the words only; a map the document carries is put back as it was.
+        body: JSON.stringify({ ...form, content: curMap ? writeMapBlock(form.content, curMap) : form.content, category: form.category.trim() || null }),
       })
       const json = await res.json()
       if (!res.ok || !json.success) throw new Error(json?.error?.message || "Save failed")
@@ -168,6 +204,7 @@ export default function LibraryPage() {
               <button key={c} className={`opx-dc${cat === c ? " on" : ""}`} onClick={() => { setCat(c); setOpen(null) }}>{c} <em>{n}</em></button>
             ))}
             <button className="opx-btn primary" style={{ marginTop: 12, width: "100%", justifyContent: "center" }} onClick={() => { setOpen(null); setForm({ title: "", content: "", category: cat === "all" || cat === UNCAT ? "" : cat, status: "active" }) }}>＋ New SOP</button>
+            <button className="opx-btn" style={{ marginTop: 6, width: "100%", justifyContent: "center" }} onClick={newMap}>New process map</button>
             <div className="opx-muted" style={{ fontSize: 12, fontWeight: 600, margin: "18px 0 6px 4px", paddingTop: 12, borderTop: "1px solid var(--opx-line)" }}>For agents</div>
             {SHELVES.map((x) => (
               <Link key={x.href} href={x.href} className="opx-dc" style={{ textDecoration: "none" }} title={x.hint}>
@@ -182,7 +219,7 @@ export default function LibraryPage() {
                 <button className="opx-link" style={{ padding: 0 }} onClick={() => setOpen(null)}>‹ {cat === "all" ? "All SOPs" : cat}</button>
                 <span className="opx-row" style={{ marginLeft: "auto", gap: 6 }}>
                   <button className="opx-btn" onClick={() => remove(cur)}>Delete</button>
-                  <button className="opx-btn" onClick={() => setForm({ title: cur.title, content: cur.content, category: cur.category ?? "", status: cur.status })}>Edit</button>
+                  <button className="opx-btn" onClick={() => setForm({ title: cur.title, content: stripMapBlock(cur.content), category: cur.category ?? "", status: cur.status })}>{curMap ? "Edit the words" : "Edit"}</button>
                 </span>
               </div>
               <div className="opx-row opx-muted" style={{ fontSize: 12.5, gap: 6 }}>
@@ -190,7 +227,13 @@ export default function LibraryPage() {
                 {cur.category && <> · {cur.category}</>}{cur.project && <> · {cur.project.name}</>} · updated {ago(cur.updatedAt)}
               </div>
               <h2 style={{ fontSize: 26, margin: "6px 0 14px", fontWeight: 600 }}>{cur.title}</h2>
-              <Md text={cur.content || "_Empty SOP._"} />
+              {curMap ? (
+                <>
+                  {stripMapBlock(cur.content) && <Md text={stripMapBlock(cur.content)} />}
+                  <div className="opx-row opx-muted" style={{ fontSize: 12.5, minHeight: 18 }} role="status">{mapState === "saving" ? "Saving the map" : mapState === "saved" ? "Map saved" : mapState === "failed" ? "The last change was not saved" : ""}</div>
+                  <ProcessMap key={cur.id} map={curMap} rootName={cur.title} onChange={(next) => saveMap(cur, next)} />
+                </>
+              ) : <Md text={cur.content || "_Empty SOP._"} />}
             </section>
           ) : (
             <section className="opx-sec">

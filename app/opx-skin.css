@@ -742,7 +742,18 @@ a.opx-mt:hover b { text-decoration: underline; }
 @media (max-width: 1000px) { .opx-pf-two, .opx-pf-two.page { grid-template-columns: minmax(0, 1fr); } .opx-pf-log li { grid-template-columns: minmax(0, 1fr); gap: 0; } }
 
 /* The process map (components/project/opx/ProcessMap.tsx), drawn with React Flow. */
-.opx-pm-crumb { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.opx-pm-crumb { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.opx-pm-step { border: 0; background: none; font: inherit; font-size: 15px; color: var(--opx-accent); cursor: pointer; padding: 3px 6px; border-radius: 8px; } .opx-pm-step:hover { background: var(--opx-soft); } .opx-pm-step.here { color: var(--opx-ink); font-weight: 600; cursor: default; }
+.opx-pm-trail { display: inline-flex; align-items: center; gap: 6px; } .opx-pm-trail i { color: var(--opx-muted); font-style: normal; }
+.opx-pm-note { margin: 6px 0 0; padding: 7px 12px; border-radius: 10px; background: color-mix(in srgb, var(--opx-accent) 22%, transparent); font-size: 13.5px; }
+.opx-pm { position: relative; }
+.opx-pm-box.from { box-shadow: inset 0 0 0 2px var(--opx-warn); } .opx-pm-box b svg, .opx-pm-stage b svg { margin-left: 6px; vertical-align: -1px; color: var(--opx-muted); }
+.opx-pm-float { position: absolute; z-index: 20; width: 260px; background: var(--opx-card); border: 1px solid var(--opx-line); border-radius: 14px; padding: 6px; box-shadow: 0 10px 30px rgb(0 0 0 / .35); display: flex; flex-direction: column; gap: 1px; font-size: 13.5px; }
+.opx-pm-float > button { border: 0; background: none; text-align: left; font: inherit; color: var(--opx-ink); padding: 7px 10px; border-radius: 9px; cursor: pointer; } .opx-pm-float > button:hover, .opx-pm-float > button:focus-visible { background: var(--opx-soft); } .opx-pm-float > button.danger { color: var(--opx-hot); }
+.opx-pm-float > span { padding: 7px 10px; }
+.opx-pm-float form { display: flex; flex-direction: column; gap: 8px; padding: 6px; } .opx-pm-float label { display: grid; gap: 3px; font-size: 12px; color: var(--opx-muted); }
+.opx-pm-float input { border: 1px solid var(--opx-line); background: var(--opx-bg); color: var(--opx-ink); border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 13.5px; } .opx-pm-float .row { display: flex; justify-content: flex-end; gap: 6px; }
+.opx-pm-issues { margin: 8px 0 0; padding: 0; list-style: none; font-size: 13px; color: var(--opx-warn); display: grid; gap: 2px; }
 .opx-pm { height: min(800px, calc(100vh - 250px)); min-height: 520px; border-radius: 14px; overflow: hidden; background: var(--opx-bg); margin-top: 10px; } .opx-pm.sub { height: 430px; min-height: 0; }
 .opx-pm .react-flow { --xy-background-color: transparent; --xy-edge-label-background-color: transparent; --xy-controls-button-background-color: var(--opx-card); --xy-controls-button-background-color-hover: var(--opx-soft); --xy-controls-button-color: var(--opx-ink); --xy-controls-button-border-color: var(--opx-line); --xy-attribution-background-color: transparent; font-family: inherit; }
 .opx-pm .react-flow__attribution a { color: var(--opx-muted); }

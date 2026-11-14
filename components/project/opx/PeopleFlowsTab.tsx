@@ -3,29 +3,23 @@
 /*
  * People and flows tab: who the project is for, what they come to do, and
  * whether each step of that has been proved to work. Any text can be changed
- * in place; every change is saved and recorded. The second view draws how the
- * system works. Display only: states, scores, the meaning of a comparison row
- * and the record's wording come from lib/people.
+ * in place; every change is saved and recorded. Display only: states, scores,
+ * the meaning of a comparison row and the record's wording come from lib/people.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import dynamic from "next/dynamic"
 import {
   STEP_WORD, areaMeaning, cellKind, findControl, freshId, orphans, refOf, sameRef, scoreFlow, shiftSpans, stepState,
   type ControlRef, type FlowDoc, type PageRecord, type Person, type Step, type StepState,
 } from "@/lib/people/people-model"
-import { buildProcessMap } from "@/lib/people/process-map"
-import { shotAt, type Checklist, type Result, type Scorecard, type Summary, type View } from "@/lib/gates/gate-model"
+import { shotAt, type Checklist, type Result, type View } from "@/lib/gates/gate-model"
 import { Shots, type Piece } from "./ChecksTab"
 import { Failed, Loading, Seg, ago, useJson } from "./shared"
-
-const ProcessMap = dynamic(() => import("./ProcessMap").then((m) => m.ProcessMap), { ssr: false, loading: () => <Loading what="the drawing" /> })
 
 interface LogEntry { version: number; actor: "owner" | "agent"; lines: string[]; at: string }
 interface FlowsData { doc: FlowDoc; version: number; log: LogEntry[]; pages: { id: string; route: string; title: string | null }[]; canEdit: boolean }
 interface PageData {
   id: string; route: string; checklist: Checklist; results: Result[]; images: { kind: "view" | "evidence"; key: string; url: string }[]
-  summary: Summary; score?: Scorecard; yours?: unknown[]
 }
 
 /** Every scanned page of the project, by route: its checklist, its verdicts and its screenshots. */
@@ -71,7 +65,6 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
   const [log, setLog] = useState<LogEntry[]>([])
   const [saving, setSaving] = useState<"" | "saving" | "saved">("")
   const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState<"people" | "map">("people")
   const [view, setView] = useState<"flow" | "page">("flow")
   const [personId, setPersonId] = useState<string | null>(null)
   const [flowId, setFlowId] = useState<string | null>(null)
@@ -79,8 +72,6 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
   const [route, setRoute] = useState<string | null>(null)
   const [removing, setRemoving] = useState<string | null>(null)
   const docRef = useRef<FlowDoc | null>(null), versionRef = useRef(-1), chain = useRef<Promise<void>>(Promise.resolve())
-  const guides = useJson<{ guides: { name: string; kind: string; status: string; basis: string; checks: unknown[] }[] }>(tab === "map" ? `/api/gates/guides?projectId=${projectId}` : null)
-
   // Take the server's copy when it is first loaded, and again whenever it is a different version from ours.
   useEffect(() => {
     const d = flows.data
@@ -292,26 +283,15 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
     )
   }
 
-  const mapView = () => {
-    const sc = curPage?.score, sm = curPage?.summary, rules = (guides.data?.guides ?? []).filter((g) => g.status === "active")
-    const map = buildProcessMap({
-      answered: 0, questions: 0, rules: rules.length, items: curPage ? curPage.checklist.views.reduce((t, v) => t + v.controls.length, 0) : 0,
-      confirmed: sc?.confirmed ?? 0, dismissed: sc?.dismissed ?? 0, waiting: sc?.unvalidated ?? 0, taste: curPage?.yours?.length ?? 0, secondLook: sc?.caughtBySecondLook ?? 0, cleared: sm?.cleared ?? 0, total: sm?.total ?? 0,
-    })
-    return <MapWithIntake projectId={projectId} route={curRoute} base={map} rules={rules} />
-  }
-
   return (
     <div className="opx-pf">
       <section className="opx-sec opx-pf-top">
-        <Seg value={tab} label="View" options={[["people", "People and flows"], ["map", "How the system works"]]} onChange={setTab} />
         <span className="opx-muted"><b>{doc.people.length}</b> people · <b>{doc.flows.length}</b> use cases · <b>{total("n")}</b> steps · <b>{total("ok")}</b> verified · <b>{total("gap")}</b> with nothing behind them{curPage ? <> · <b>{loose.length}</b> controls in no use case</> : null}</span>
         {routes.length > 1 && <select className="opx-pf-pick" aria-label="Page" value={curRoute ?? ""} onChange={(e) => setRoute(e.target.value)}>{routes.map((r) => <option key={r}>{r}</option>)}</select>}
         <span className="opx-muted opx-pf-save" role="status">{error ? error : saving === "saving" ? "Saving" : saving === "saved" ? "Saved" : ""}</span>
       </section>
 
-      {tab === "map" ? mapView() : (
-        <>
+      <>
           <section className="opx-sec">
             <div className="opx-pf-who"><small>Who it is for</small>
               {doc.people.length > 0 && <div className="opx-seg" role="tablist" aria-label="Who it is for">{doc.people.map((p) => <button type="button" role="tab" key={p.id} aria-selected={p.id === person?.id} className={p.id === person?.id ? "on" : ""} onClick={() => { setPersonId(p.id); setFlowId(null); setPersonaId(null); setRemoving(null) }}>{p.name} <small>{doc.flows.filter((f) => f.who === p.id).length}</small></button>)}</div>}
@@ -352,41 +332,7 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
               <ul className="opx-pf-log">{log.slice(0, 12).map((l) => <li key={l.version}><small>{ago(l.at)} · {l.actor === "owner" ? "you" : "an agent"}</small><span>{l.lines.slice(0, 4).join(". ")}{l.lines.length > 4 ? `, and ${l.lines.length - 4} more` : ""}.</span></li>)}</ul>
             )}
           </section>
-        </>
-      )}
+      </>
     </div>
-  )
-}
-
-/** The process map with the intent count filled in from the page's plan, and the rules and who-is-asked-what beside it. */
-function MapWithIntake({ projectId, route, base, rules }: { projectId: string; route: string | null; base: ReturnType<typeof buildProcessMap>; rules: { name: string; kind: string; basis: string; checks: unknown[] }[] }) {
-  const plan = useJson<{ intake?: { questions: number; settled: number; reasoned: number } }>(route ? `/api/projects/${projectId}/gates/plan?route=${encodeURIComponent(route)}` : null)
-  const map = useMemo(() => {
-    const it = plan.data?.intake
-    if (!it) return base
-    return { ...base, stages: base.stages.map((g) => (g.id === "intent" ? { ...g, sub: `Why each thing is there. ${it.settled + it.reasoned} of ${it.questions} answered` } : g)) }
-  }, [base, plan.data])
-  return (
-    <>
-      <ProcessMap map={map} />
-      <div className="opx-pf-three">
-        <section className="opx-sec"><h3 className="opx-pf-h">Rules in force ({rules.length})</h3>
-          <ul className="opx-pf-list">{rules.slice(0, 16).map((g) => <li key={g.name}><b>{g.name}</b><span className="opx-muted">{g.kind === "stack" ? "Stack" : "Statement"} · {g.checks.length} check{g.checks.length === 1 ? "" : "s"} · {g.basis.slice(0, 70)}</span></li>)}{rules.length === 0 && <li className="opx-muted">None installed on this planner yet.</li>}</ul></section>
-        <section className="opx-sec"><h3 className="opx-pf-h">Who is asked what</h3>
-          <ul className="opx-pf-list">
-            <li><b>An error</b><span className="opx-muted">Agents. Found, confirmed, fixed, proved. Never you.</span></li>
-            <li><b>A matter of taste</b><span className="opx-muted">You.</span></li>
-            <li><b>What you want</b><span className="opx-muted">You: purpose, who it is for, the use case.</span></li>
-            <li><b>What the product does</b><span className="opx-muted">An agent, from the code, saying what it rests on.</span></li>
-            <li><b>Two agents disagree</b><span className="opx-muted">Settled with proof, not by you.</span></li>
-            <li><b>A change to what you planned</b><span className="opx-muted">You, unless you already said so in your own words.</span></li>
-          </ul></section>
-        <section className="opx-sec"><h3 className="opx-pf-h">Where the drawing comes from</h3>
-          <ul className="opx-pf-list">
-            <li><b>One description of the process</b><span className="opx-muted">The lanes, steps, lines and loops are data in the planner's code, checked so no line leads nowhere. The drawing is made from it.</span></li>
-            <li><b>The numbers are read, not typed</b><span className="opx-muted">From this project's checks, its plan and the rules in force{route ? `, for ${route}` : ""}.</span></li>
-          </ul></section>
-      </div>
-    </>
   )
 }
