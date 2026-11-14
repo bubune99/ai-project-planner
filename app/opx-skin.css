@@ -805,7 +805,7 @@ a.opx-mt:hover b { text-decoration: underline; }
   .opx-ch-judge .opx-input { flex-basis: 100%; font-size: 16px; min-height: 44px; }
 }
 .j-tabbar .j-tab { position: relative; }
-.j-tab-count { position: absolute; top: 2px; left: 50%; margin-left: 6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--opx-hot, #c8553d); color: #fff; font-size: 10.5px; font-weight: 700; line-height: 16px; text-align: center; }
+.j-tab-count { position: absolute; top: 2px; left: 50%; margin-left: 6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: color-mix(in srgb, var(--opx-hot, #c8553d) 78%, #000); color: #fff; font-size: 12px; font-weight: 700; line-height: 16px; text-align: center; }
 
 /* ============================================================
    Phone rules (measured at 390 x 844 on staging, 2026-11-14).
@@ -877,7 +877,7 @@ button.opx-ck::before { content: ''; position: absolute; inset: -12px; }
 
 /* The bell, with how many are waiting. */
 .j-bell { position: relative; text-decoration: none; }
-.j-bell-count { position: absolute; top: -3px; right: -3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--opx-hot, #c8553d); color: #fff; font-size: 10.5px; font-weight: 700; line-height: 16px; text-align: center; }
+.j-bell-count { position: absolute; top: -3px; right: -3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: color-mix(in srgb, var(--opx-hot, #c8553d) 78%, #000); color: #fff; font-size: 12px; font-weight: 700; line-height: 16px; text-align: center; }
 
 /* "More" / "Less" under a question's context: words, not an outlined box. Tall enough to press, as wide as it reads. */
 .opx-more { display: inline-flex; align-items: center; min-height: 32px; padding: 0; font-size: 12.5px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
@@ -918,3 +918,6 @@ button.opx-ck::before { content: ''; position: absolute; inset: -12px; }
      markup itself, which only a rule this blunt can reach. */
   .opx-page [style*="font-size: 10"], .opx-page [style*="font-size: 11px"] { font-size: 12px !important; }
 }
+
+/* Count badges (tab bar, bell): white on the plain red measured 3.9:1 at 10.5px in both themes. The red is deepened
+   to 6.5:1 and the figure is 12px, the smallest size anything read may be. */
