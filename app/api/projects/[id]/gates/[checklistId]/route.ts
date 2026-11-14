@@ -4,7 +4,8 @@
  * GET  /api/projects/[id]/gates/[checklistId]  the list, its verdicts, pictures and progress
  * POST /api/projects/[id]/gates/[checklistId]
  *        { action: "check", keys, status: "passed" | "failed", note?, actor?: "builder" | "reviewer" }
- *        { action: "verdict", keys, status: "passed" | "failed" | "waived", note? }   the project owner settles or waives
+ *        { action: "verdict", keys, status: "passed" | "failed" | "waived", note?, said? }   the owner settles or waives:
+ *                                                 signed in, or relayed by an agent with their words (said)
  *        { action: "image", kind: "view" | "evidence", refKey, imageBase64 }
  *        { action: "extract", refKey: <view key>, gzBase64 }   the view's styled HTML, gzipped
  */
@@ -50,10 +51,14 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     const keys: string[] = Array.isArray(body?.keys) ? body.keys.filter((k: unknown) => typeof k === "string").slice(0, 500) : []
     const note = typeof body?.note === "string" ? body.note.slice(0, 2000) : undefined
     if (body?.action === "verdict") {
-      // An agent holds the owner's API key, so a key is not proof of the owner: settling and waiving need them signed in.
-      if (auth.authType !== "session" || !(await verifyProjectOwnerOnly(projectId, auth.userId))) return NextResponse.json({ error: "Only the project owner, signed in to the planner, can settle or waive a check" }, { status: 403 })
+      if (!(await verifyProjectOwnerOnly(projectId, auth.userId))) return NextResponse.json({ error: "Only the project owner can settle or waive a check" }, { status: 403 })
       if (!["passed", "failed", "waived"].includes(body.status)) return NextResponse.json({ error: "status must be passed, failed or waived" }, { status: 400 })
-      return NextResponse.json(await recordResults({ checklist, userId: auth.userId, keys, actor: "owner", status: body.status, note }))
+      // Signed in: the owner themselves. With an API key: an agent relaying what the owner answered in Claude Code.
+      // The owner is not always in the planner, so that is allowed; it is recorded as relayed, with their words.
+      const said = typeof body.said === "string" ? body.said.trim().slice(0, 500) : ""
+      if (auth.authType !== "session" && said.length < 2) return NextResponse.json({ error: "Relay the owner's own reply in said" }, { status: 400 })
+      const relayed = auth.authType === "session" ? note : `Answered by the owner in Claude Code: "${said}"${note ? ` ${note}` : ""}`
+      return NextResponse.json(await recordResults({ checklist, userId: auth.userId, keys, actor: "owner", status: body.status, note: relayed }))
     }
     if (body?.action === "check") {
       if (!["passed", "failed"].includes(body.status)) return NextResponse.json({ error: "status must be passed or failed" }, { status: 400 })

@@ -12,6 +12,7 @@ import { z } from "zod"
 import { getMcpUserId, requireMcpProjectWriteAccess, requireMcpScope, verifyMcpProjectAccess } from "@/lib/auth/mcp-context"
 import { attachImage, getChecklist, listPages, loadPage, recordResults, saveChecklist, sweepGateImages, type ChecklistRow } from "@/lib/gates/store"
 import { loadPlan, proposePlanChange, seedPlan } from "@/lib/gates/plan-store"
+import { listGuides, saveGuide } from "@/lib/gates/guide-store"
 
 function ok(data: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(data) }] }
@@ -164,6 +165,39 @@ export function registerGateTools(server: any): void {
         requireMcpScope("write")
         await requireMcpProjectWriteAccess(a.projectId)
         return ok(await proposePlanChange({ ...a, userId: getMcpUserId() }))
+      } catch (e) { return fail(reason(e)) }
+    },
+  )
+
+  server.tool(
+    "gate_guides",
+    "The owner's stack entries and taste statements: what each asks for, the skill that holds the how-to, the files it applies to and the checks it creates. Read these before building, and load the skill named on any stack entry you are about to use.",
+    { projectId: z.string().optional() },
+    async ({ projectId }: { projectId?: string }) => {
+      try {
+        requireMcpScope("read")
+        if (projectId && !(await verifyMcpProjectAccess(projectId)).hasAccess) return fail("Project not found or access denied")
+        return ok({ guides: await listGuides(getMcpUserId(), projectId ?? null) })
+      } catch (e) { return fail(reason(e)) }
+    },
+  )
+
+  server.tool(
+    "gate_guide_save",
+    "Add or replace a stack entry or a taste statement (matched by name). A statement drawn from research or your own reading is saved as a draft with source research or agent: drafts are shown to the owner and hold nobody up until they settle them. Use source owner only with the owner's own words and date in basis.",
+    {
+      kind: z.enum(["stack", "statement"]), name: z.string(), summary: z.string(), skill: z.string().optional(),
+      files: z.array(z.string()).optional().describe("File globs it applies to"), imports: z.array(z.string()).optional().describe("Only files importing one of these packages"),
+      checks: z.array(z.object({ id: z.string(), say: z.string(), auto: z.string().optional().describe("mentions:<regex>, forbids:<regex>, max-lines:<n>, no-secrets, no-emoji or has-check-file") })),
+      source: z.enum(["owner", "research", "agent"]), basis: z.string().describe("The owner's words and date, or the research behind it"), projectId: z.string().optional(),
+    },
+    async (a: { kind: "stack" | "statement"; name: string; summary: string; skill?: string; files?: string[]; imports?: string[]; checks: { id: string; say: string; auto?: string }[]; source: "owner" | "research" | "agent"; basis: string; projectId?: string }) => {
+      try {
+        requireMcpScope("write")
+        if (a.projectId) await requireMcpProjectWriteAccess(a.projectId)
+        const status = a.source === "owner" ? "active" : "draft"
+        const saved = await saveGuide(getMcpUserId(), { kind: a.kind, name: a.name, summary: a.summary, skill: a.skill, applies: { files: a.files, imports: a.imports }, checks: a.checks, status, source: a.source, basis: a.basis }, a.projectId ?? null)
+        return ok({ ...saved, status, note: status === "draft" ? "Saved as a draft. It applies once the owner settles it." : "Saved and active." })
       } catch (e) { return fail(reason(e)) }
     },
   )

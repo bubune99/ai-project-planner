@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { AlertTriangle, Check, Minus, X } from "lucide-react"
 import { checkKey, checkState, controlProgress, type CheckState, type Checklist, type Control, type Result, type Summary, type View } from "@/lib/gates/gate-model"
+import { GuidesSection } from "./GuidesSection"
 import { ago, useJson } from "./shared"
 
 interface PageRow { id: string; route: string; title: string | null; version: number; env: string | null; createdAt: string; controls: number; views: number; summary: Summary }
@@ -223,12 +224,15 @@ export function ChecksTab({ projectId }: { projectId: string }) {
   if (pages.error) return <section className="opx-sec"><p className="opx-muted">Checks could not be loaded: {pages.error}</p></section>
   if (!current) {
     return (
+      <div className="opx-ck">
       <section className="opx-sec">
         <h2>Checks</h2>
         <p className="opx-muted" style={{ maxWidth: 640 }}>
           No page has a checklist yet. An agent creates one by scanning a page of this project: it lists every control on the page and in the menus and dialogs that open from it, and what each one must do. The list then appears here, and you can watch the checks clear.
         </p>
       </section>
+      <GuidesSection />
+      </div>
     )
   }
 
@@ -385,6 +389,7 @@ export function ChecksTab({ projectId }: { projectId: string }) {
           </section>
         </div>
       )}
+      <GuidesSection />
     </div>
   )
 }

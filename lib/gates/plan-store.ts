@@ -51,15 +51,14 @@ async function settle(projectId: string, route: string, changeId: string, approv
 /**
  * The owner answers a waiting change: in the Checks tab (via "planner"), or in
  * Claude Code, where the agent asked them and relays their words (via
- * "claude-code"). A relayed answer is recorded as such, with what they said,
- * and is not accepted for anything about access, money or data: those are
- * answered in the planner, where it is certain who is answering.
+ * "claude-code"). The owner is not always in the planner, so answering there is
+ * never required (owner 2026-11-13): the planner is the record that holds the
+ * agent to account. A relayed answer is stored as relayed, with their words, so
+ * anyone reading later can see how it was decided.
  */
 export async function decidePlanChange(projectId: string, route: string, changeId: string, approve: boolean, via: "planner" | "claude-code" = "planner", said?: string) {
   if (via === "claude-code") {
     if (!said || said.trim().length < 2) throw new GateError("Relay the owner's own reply")
-    const [c] = (await sql`SELECT item, reason FROM gate_plan_changes WHERE id = ${changeId} AND project_id = ${projectId} AND status = 'waiting'`) as { item: Expected; reason: string }[]
-    if (c && isSensitive(c)) throw new GateError("This one is about access, money or data: the owner answers it in the planner, not through an agent")
   }
   if (!(await settle(projectId, route, changeId, approve, via, said?.trim().slice(0, 500)))) throw new GateError("That change is not waiting for an answer")
   // The inbox question is answered too, so it does not sit there asking again.
@@ -92,7 +91,7 @@ export async function loadPlan(projectId: string, route: string, list: Checklist
     FROM gate_plan_changes WHERE project_id = ${projectId} AND route = ${route} ORDER BY created_at DESC LIMIT 40
   `) as ChangeRow[]
   const status = list ? await planStatus(projectId, list) : null
-  return { route, hasPlan: items !== null, items: items ?? [], changes: changes.map((c) => ({ ...c, answerHere: c.status === "waiting" && !isSensitive(c) })), options: [APPROVE, KEEP], compare: status?.compare ?? null, line: status?.line ?? "" }
+  return { route, hasPlan: items !== null, items: items ?? [], changes: changes.map((c) => ({ ...c, answerHere: c.status === "waiting", sensitive: isSensitive(c) })), options: [APPROVE, KEEP], compare: status?.compare ?? null, line: status?.line ?? "" }
 }
 
 /** Starts or extends a page's plan from a scan: of an approved mock-up, of a flow, or an agent's reading of the task. */

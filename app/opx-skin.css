@@ -672,3 +672,10 @@ a.opx-mt:hover b { text-decoration: underline; }
 .opx-ck-plan ul { list-style: none; margin: 0; padding: 0; display: grid; } .opx-ck-plan li { display: grid; gap: 1px; padding: 7px 0; border-top: 1px solid var(--opx-line); }
 .opx-ck-plan li button { border: 0; background: none; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; } .opx-ck-plan li button:hover { color: var(--opx-accent); }
 .opx-ck-plan .opx-ck-settle { margin: 6px 0 0; } .opx-ck-plan summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.opx-ck-guides { display: grid; gap: 10px; font-size: 13.5px; } .opx-ck-guides .opx-ck-h3 { margin-left: 0; } .opx-ck-guides p { margin: 0; }
+.opx-ck-guides summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.opx-ck-guides ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 10px; }
+.opx-ck-guides ul > li { display: grid; gap: 6px; align-content: start; background: var(--opx-soft); border-radius: 14px; padding: 14px 16px; } .opx-ck-guides ul > li.draft { box-shadow: inset 0 0 0 1.5px var(--opx-warn); }
+.opx-ck-ghead { display: flex; align-items: center; gap: 10px; } .opx-ck-ghead b { font-size: 15px; flex: 1; }
+.opx-ck-ghead button, .opx-ck-add { font: inherit; font-size: 12.5px; font-weight: 600; color: var(--opx-ink); background: var(--opx-card); border: 0; border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+.opx-ck-guides ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; } .opx-ck-guides ol small { display: block; color: var(--opx-muted); font-size: 11.5px; }
