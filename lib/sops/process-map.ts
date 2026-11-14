@@ -411,13 +411,13 @@ export function walkMap(): Layer {
     nodes: [
       S("cases", "goal", 4, "Use cases and what was walked", "Never walked, or only on an older build"), S("pick", "goal", 1, "Pick a goal and start cold", "In the person's words"),
       S("act", "walk", 1, "Expect, act, record", "Real clicks on what is visible"), S("log", "walk", 4, "Every step kept", "Wrong turns included"),
-      S("name", "find", 1, "Name what was found", "Broken, missing, hard or taste"), S("taste", "find", 0, "Judge what is hard or a matter of taste", "With the walker's suggestion"),
+      S("name", "find", 1, "Name what was found", "Broken, missing, hard or taste"), S("taste", "find", 0, "Judge what is hard or a matter of taste", "Only what scored 3 or more, with a suggestion"),
       S("six", "score", 1, "Score the six", "Each with what was seen"), S("end", "score", 4, "Walk saved", "Reached, blocked or gave up, and why"),
-      S("small", "deal", 1, "Fix what is small and certain", "On a review branch, while it is fresh"), S("fix", "deal", 2, "Fix the cause of the rest", "Errors and anything scored below 3"), S("prove", "deal", 3, "Second look on the real page", ""), S("plan", "deal", 4, "What is missing goes into the plan", "As steps that are not built"),
+      S("small", "deal", 1, "Errors, gaps, anything below 3", "Fix what is small and certain now, on a review branch"), S("fix", "deal", 2, "Fix the cause of the rest", "Errors and anything scored below 3"), S("prove", "deal", 3, "Second look on the real page", ""), S("plan", "deal", 4, "What is missing goes into the plan", "As steps that are not built"),
     ],
     links: [
-      E("cases", "pick"), E("pick", "act"), E("act", "log"), E("log", "name"), E("name", "taste", "hard above the line, or taste"), E("name", "six"), E("six", "end"),
-      E("end", "small", "errors, gaps, anything below 3"), E("small", "fix"), E("fix", "prove"), E("prove", "plan"),
+      E("cases", "pick"), E("pick", "act"), E("act", "log"), E("log", "name"), E("name", "taste"), E("name", "six"), E("six", "end"),
+      E("end", "small"), E("small", "fix"), E("fix", "prove"), E("prove", "plan"),
       E("act", "act", "next action"), E("prove", "fix", "still wrong", "left"), E("plan", "act", "walk it again on the new build", "bottom"), E("six", "name", "below 3: name what is wrong", "top"),
     ],
   }

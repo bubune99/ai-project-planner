@@ -229,9 +229,10 @@ export default function LibraryPage() {
               <h2 style={{ fontSize: 26, margin: "6px 0 14px", fontWeight: 600 }}>{cur.title}</h2>
               {curMap ? (
                 <>
-                  {stripMapBlock(cur.content) && <Md text={stripMapBlock(cur.content)} />}
+                  {/* The drawing first: it is what the document is for. The words follow it. */}
                   <div className="opx-row opx-muted" style={{ fontSize: 12.5, minHeight: 18 }} role="status">{mapState === "saving" ? "Saving the map" : mapState === "saved" ? "Map saved" : mapState === "failed" ? "The last change was not saved" : ""}</div>
                   <ProcessMap key={cur.id} map={curMap} rootName={cur.title} onChange={(next) => saveMap(cur, next)} />
+                  {stripMapBlock(cur.content) && <div style={{ marginTop: 18 }}><Md text={stripMapBlock(cur.content)} /></div>}
                 </>
               ) : <Md text={cur.content || "_Empty SOP._"} />}
             </section>
