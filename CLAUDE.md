@@ -141,6 +141,31 @@ the one serving this project (`team_03avQDMAwaw3MDbkDtyo6faG`,
 the Vercel CLI, and for the database use `scripts/migrate.ts`, which loads its own
 env — never source `.env`.
 
+## Checks, people and flows, process maps
+
+The planner is the source of truth for what a screen must have and whether it
+has been proved. How to work under it is in `~/.claude/rules/common/gates.md`;
+this is where each part lives here. All of it is on main and in production
+(migrations 063 to 066).
+
+| Part | Rules (pure, with a check file) | Storage and routes | Screen |
+|---|---|---|---|
+| Page checklists, verdicts, screenshots | `lib/gates/gate-model.ts` | `lib/gates/store.ts`, `/api/projects/[id]/gates` | project tab "Checks" (`components/project/opx/ChecksTab.tsx`) |
+| The plan and intent questions | `lib/gates/gate-model.ts` | `lib/gates/plan-store.ts`, `/api/projects/[id]/gates/plan` | in the Checks tab |
+| Stack entries and statements | `lib/gates/guides.ts`, `default-guides.ts` | `lib/gates/guide-store.ts`, `/api/gates/guides` | in the Checks tab |
+| People, personas, use cases, page comparison | `lib/people/people-model.ts` | `lib/people/store.ts`, `/api/projects/[id]/people` | project tab "People and flows" |
+| Process maps (a Library document type) | `lib/sops/process-map.ts` | the document's own text, `/api/sops` | `/sops`, drawn by `components/project/opx/ProcessMap.tsx` |
+| Agent tools | `lib/mcp/gate-tools.ts` (classify every new tool in `lib/agents/risk.ts`) | | |
+
+Rules that have each cost something:
+
+- **`lib/flows/` is a different feature**: flow-first planning (screen-to-screen flows kept in documents as a fenced `flow` block, with frames, verification runs and the `flow_*` tools). People and flows lives in `lib/people/`. Do not write one over the other; use cases are not yet joined to those flows.
+- **A process map is a fenced `process-map` JSON block in a document's text**, read and written only through `parseMapBlock` / `writeMapBlock`. Every edit is a pure function returning a new map; add a new kind of edit there, with a check, before wiring a button to it.
+- **A step's state is read, never typed.** A use-case step points at a control by view, kind and label; `stepState` reads the Checks record.
+- **Saves say who made them.** A browser session is the owner. An agent saving through the owner's signed-in tab sends `agent: true`, or its change is recorded as the owner's.
+- **One right-click menu at a time.** The feedback menu (`components/feedback/FeedbackWidget.tsx`) stays out of the way when a page has handled the right-click itself.
+- **Whole-document saves carry the version they started from** and are refused if it changed underneath (People and flows).
+
 ## Two work-item stores — write to the right one
 
 `project_steps` is the project plan: every task/kanban/gantt/roadmap/progress view
