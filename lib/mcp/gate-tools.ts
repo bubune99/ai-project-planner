@@ -1,0 +1,135 @@
+/**
+ * Checks tools: the page checklist an agent must clear before it may call a
+ * screen done. Rules are in lib/gates/gate-model.ts (pure, asserted); SQL and
+ * file storage are in lib/gates/store.ts. This file only does access checks.
+ *
+ * Agents use the owner's own API key, so they cannot act as the owner here:
+ * waiving a check and settling a dispute happen in the planner's Checks tab.
+ *
+ * Wire-up: registerGateTools(server) in registerPlannerTools.
+ */
+import { z } from "zod"
+import { getMcpUserId, requireMcpProjectWriteAccess, requireMcpScope, verifyMcpProjectAccess } from "@/lib/auth/mcp-context"
+import { attachImage, getChecklist, listPages, loadPage, recordResults, saveChecklist, sweepGateImages, type ChecklistRow } from "@/lib/gates/store"
+
+function ok(data: unknown) {
+  return { content: [{ type: "text" as const, text: JSON.stringify(data) }] }
+}
+function fail(message: string) {
+  return { content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }], isError: true }
+}
+const reason = (e: unknown) => (e instanceof Error ? e.message : "Unknown error")
+
+const stepSchema = z.object({
+  do: z.string(), expect: z.string(),
+  there: z.array(z.string()).optional().describe("What must be in the picture after this step"),
+  gone: z.array(z.string()).optional().describe("What must be gone from the picture after this step"),
+})
+const controlSchema = z.object({
+  n: z.number().int().describe("Number shown on the picture; unique in the checklist"),
+  label: z.string(), kind: z.string().describe("Button, Link, Field, Tab ..."),
+  x: z.number(), y: z.number(), w: z.number(), h: z.number(),
+  shared: z.boolean().optional().describe("True when the control is on every page, so one pass covers them all"),
+  states: z.array(z.string()).describe("Each workflow is checked once per state, e.g. Dark theme, Phone width"),
+  workflows: z.array(z.object({ name: z.string(), before: z.string().optional(), steps: z.array(stepSchema) })),
+})
+const viewSchema = z.object({
+  key: z.string().describe("page, or a short key for what opened: menu, search, delete-dialog"),
+  name: z.string(), w: z.number(), h: z.number(), controls: z.array(controlSchema),
+})
+
+async function loadForWrite(checklistId: string): Promise<ChecklistRow | string> {
+  const row = await getChecklist(checklistId).catch(() => null)
+  if (!row) return "Checklist not found or access denied"
+  try { await requireMcpProjectWriteAccess(row.project_id) } catch (e) {
+    return reason(e).includes("view-only") ? reason(e) : "Checklist not found or access denied"
+  }
+  return row
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function registerGateTools(server: any): void {
+  server.tool(
+    "gate_save_checklist",
+    "Save the checklist for one page of a project: its views (the page, and each menu, dialog or panel that opens from it), every control in each view, and for each control its workflows and the states to check them in. Saving an unchanged list keeps its verdicts; a changed list starts a new version and reports which controls appeared and which are gone. Returns the line to follow next.",
+    {
+      projectId: z.string(), route: z.string().describe("The page's path, e.g. /catalog"), title: z.string().optional(),
+      env: z.enum(["staging", "prod", "local"]).optional(), build: z.string().optional().describe("Commit or deployment the scan was taken from"),
+      views: z.array(viewSchema),
+    },
+    async (a: { projectId: string; route: string; title?: string; env?: string; build?: string; views: z.infer<typeof viewSchema>[] }) => {
+      try {
+        requireMcpScope("write")
+        await requireMcpProjectWriteAccess(a.projectId)
+        const saved = await saveChecklist({ projectId: a.projectId, userId: getMcpUserId(), env: a.env, build: a.build, list: { route: a.route, ...(a.title ? { title: a.title } : {}), views: a.views } })
+        return ok({ ...saved, next_actions: ["Upload a picture of each view with gate_attach_image (kind: view).", "Work the checks in order; after each, call gate_record_check and follow the line it returns."] })
+      } catch (e) { return fail(reason(e)) }
+    },
+  )
+
+  server.tool(
+    "gate_status",
+    "Where a project's page checklists stand. With no checklistId: every page with its counts. With a checklistId: the full list, verdicts, what changed since the last version, and the next check to work.",
+    { projectId: z.string().optional(), checklistId: z.string().optional() },
+    async (a: { projectId?: string; checklistId?: string }) => {
+      try {
+        requireMcpScope("read")
+        if (a.checklistId) {
+          const row = await getChecklist(a.checklistId).catch(() => null)
+          if (!row || !(await verifyMcpProjectAccess(row.project_id)).hasAccess) return fail("Checklist not found or access denied")
+          return ok(await loadPage(row))
+        }
+        if (!a.projectId || !(await verifyMcpProjectAccess(a.projectId)).hasAccess) return fail("Project not found or access denied")
+        return ok({ pages: await listPages(a.projectId) })
+      } catch (e) { return fail(reason(e)) }
+    },
+  )
+
+  server.tool(
+    "gate_record_check",
+    "Record that one or more checks passed or failed, as the builder (the agent doing the work) or the reviewer (a second agent that only saw the evidence). A failure needs a note. Optionally attach a picture as evidence for the first key. Returns the progress and the exact next check: follow it until it says you may finish.",
+    {
+      checklistId: z.string(), keys: z.array(z.string()).describe('Check keys: "control number|workflow name|state"'),
+      status: z.enum(["passed", "failed"]), note: z.string().optional(), actor: z.enum(["builder", "reviewer"]).optional(),
+      imageBase64: z.string().optional().describe("Evidence picture, base64. WebP or JPEG preferred. Max 4 MB."),
+    },
+    async (a: { checklistId: string; keys: string[]; status: "passed" | "failed"; note?: string; actor?: "builder" | "reviewer"; imageBase64?: string }) => {
+      try {
+        requireMcpScope("write")
+        const row = await loadForWrite(a.checklistId)
+        if (typeof row === "string") return fail(row)
+        const userId = getMcpUserId()
+        const progress = await recordResults({ checklist: row, userId, keys: a.keys, actor: a.actor ?? "builder", status: a.status, note: a.note })
+        const image = a.imageBase64 ? await attachImage({ checklist: row, userId, kind: "evidence", refKey: a.keys[0], imageBase64: a.imageBase64 }) : null
+        return ok({ ...progress, image })
+      } catch (e) { return fail(reason(e)) }
+    },
+  )
+
+  server.tool(
+    "gate_attach_image",
+    "Store a picture for a checklist: the picture of a view (refKey = the view's key), or evidence for one check (refKey = the check key). Pictures are short-lived: view pictures stay for this version and the one before; evidence stays 3 days, or while its check is failed or disputed.",
+    { checklistId: z.string(), kind: z.enum(["view", "evidence"]), refKey: z.string(), imageBase64: z.string().describe("Base64, no data: prefix needed. WebP or JPEG preferred. Max 4 MB.") },
+    async (a: { checklistId: string; kind: "view" | "evidence"; refKey: string; imageBase64: string }) => {
+      try {
+        requireMcpScope("write")
+        const row = await loadForWrite(a.checklistId)
+        if (typeof row === "string") return fail(row)
+        return ok(await attachImage({ checklist: row, userId: getMcpUserId(), kind: a.kind, refKey: a.refKey, imageBase64: a.imageBase64 }))
+      } catch (e) { return fail(reason(e)) }
+    },
+  )
+
+  server.tool(
+    "gate_prune_images",
+    "Delete the checklist pictures the retention rule no longer keeps, for one project.",
+    { projectId: z.string() },
+    async ({ projectId }: { projectId: string }) => {
+      try {
+        requireMcpScope("write")
+        await requireMcpProjectWriteAccess(projectId)
+        return ok(await sweepGateImages(new Date(), projectId))
+      } catch (e) { return fail(reason(e)) }
+    },
+  )
+}
