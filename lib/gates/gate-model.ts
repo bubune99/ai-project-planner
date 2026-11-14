@@ -376,6 +376,9 @@ export interface PlanContext {
 /** Things that are the owner's call wherever they appear: who can get in, money, and destroying or exposing data. */
 const SENSITIVE = /\b(delete|destroy|erase|sign.?out|log.?out|pay|payment|price|pricing|billing|refund|charge|permission|role|access|admin|password|invite|share|publish|export)\b/i
 
+/** True when a change is about access, money, or destroying or exposing data. */
+export const isSensitive = (p: Pick<PlanChange, "item" | "reason">) => SENSITIVE.test([p.item.label, p.item.must, p.reason].join(" "))
+
 export function validateChange(p: PlanChange): Issue[] {
   const issues: Issue[] = []
   if (!p.item?.label?.trim()) issues.push({ where: "item", message: "Say which control" })
@@ -402,8 +405,7 @@ export function validateChange(p: PlanChange): Issue[] {
  */
 export function decideChange(p: PlanChange, ctx: PlanContext): { needsOwner: boolean; why: string } {
   if (p.basis === "owner_asked" && p.quote && p.quote.trim().length >= 8) return { needsOwner: false, why: `The owner asked for it: "${p.quote.trim()}"` }
-  const text = [p.item.label, p.item.must, p.reason].join(" ")
-  if (SENSITIVE.test(text)) return { needsOwner: true, why: "It concerns access, money, or destroying or exposing data, which is the owner's call." }
+  if (isSensitive(p)) return { needsOwner: true, why: "It concerns access, money, or destroying or exposing data, which is the owner's call." }
   if (p.action === "add") return { needsOwner: false, why: "Adding an expectation only makes the checks stricter." }
   if (p.replacedBy && ctx.labels.some((l) => norm(l) === norm(p.replacedBy!))) return { needsOwner: false, why: `It is replaced by "${p.replacedBy}", which is in the plan, so nothing is lost.` }
   if (ctx.shipped) return { needsOwner: true, why: "People already use this page; dropping something from it is the owner's call." }

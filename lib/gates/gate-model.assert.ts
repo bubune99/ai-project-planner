@@ -134,7 +134,7 @@ ok("pictures: view pictures stay for this version and the one before; evidence i
 console.log(`\n${n} checks passed`)
 
 // ── The plan ────────────────────────────────────────────────────────────────
-import { comparePlan, decideChange, planClear, planLine, validateChange, type Expected, type PlanChange } from "./gate-model"
+import { comparePlan, decideChange, isSensitive, planClear, planLine, validateChange, type Expected, type PlanChange } from "./gate-model"
 
 const E = (id: string, label: string, source: Expected["source"] = "mockup", extra: Partial<Expected> = {}): Expected => ({ id, label, must: "Does its job", source, ...extra })
 const plan = [E("a", "Menu"), E("b", "impact  GRAPH", "mockup", { kind: "Link" }), E("c", "Dashboard", "mockup", { view: "menu" }), E("d", "Export"), E("e", "Filters", "agent")]
@@ -189,6 +189,8 @@ ok("plan: the owner is included when their request, the rules and common sense s
   assert.equal(decideChange(p({ item: E("x", "Filters", "agent") }), { ...ctx, shipped: true }).needsOwner, true)
   // What the owner's plan asked for stays until the owner says otherwise.
   for (const source of ["owner", "mockup", "flow"] as const) assert.equal(decideChange(p({ item: E("x", "SOPs", source) }), ctx).needsOwner, true, source)
+  assert.equal(isSensitive(p({ item: E("x", "Refund order") })), true)
+  assert.equal(isSensitive(p({})), false)
   // Every answer says why.
   assert.ok(decideChange(p({}), ctx).why.length > 20)
 })

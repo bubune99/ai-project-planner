@@ -5,7 +5,7 @@
  */
 import { sql } from "@/lib/db/client"
 import { buildQuestionInput } from "@/lib/inbox"
-import { comparePlan, decideChange, planClear, planLine, validateChange, type Basis, type Checklist, type Expected, type ExpectSource, type PlanCompare } from "./gate-model"
+import { comparePlan, decideChange, isSensitive, planClear, planLine, validateChange, type Basis, type Checklist, type Expected, type ExpectSource, type PlanCompare } from "./gate-model"
 import { GateError } from "./store"
 
 const APPROVE = "Approve the change", KEEP = "Keep it as planned"
@@ -35,12 +35,12 @@ async function settleAnswers(projectId: string, route: string) {
     FROM gate_plan_changes c JOIN agent_jobs j ON j.id = c.question_id
     WHERE c.project_id = ${projectId} AND c.route = ${route} AND c.status = 'waiting' AND j.status <> 'awaiting-unlock'
   `) as { id: string; action: string; item: Expected; result: { answer?: { option?: string | null } } | null }[]
-  for (const w of waiting) await settle(projectId, route, w.id, w.result?.answer?.option === APPROVE)
+  for (const w of waiting) await settle(projectId, route, w.id, w.result?.answer?.option === APPROVE, "inbox")
 }
 
-async function settle(projectId: string, route: string, changeId: string, approve: boolean) {
+async function settle(projectId: string, route: string, changeId: string, approve: boolean, via: "planner" | "inbox" | "claude-code", said?: string) {
   const [c] = (await sql`
-    UPDATE gate_plan_changes SET status = ${approve ? "approved" : "rejected"}, decided_at = now()
+    UPDATE gate_plan_changes SET status = ${approve ? "approved" : "rejected"}, decided_at = now(), decided_via = ${via}, said = ${said ?? null}
     WHERE id = ${changeId} AND project_id = ${projectId} AND route = ${route} AND status = 'waiting'
     RETURNING action, item
   `) as { action: string; item: Expected }[]
@@ -48,9 +48,20 @@ async function settle(projectId: string, route: string, changeId: string, approv
   return Boolean(c)
 }
 
-/** The owner answers a waiting change from the Checks tab. */
-export async function decidePlanChange(projectId: string, route: string, changeId: string, approve: boolean) {
-  if (!(await settle(projectId, route, changeId, approve))) throw new GateError("That change is not waiting for an answer")
+/**
+ * The owner answers a waiting change: in the Checks tab (via "planner"), or in
+ * Claude Code, where the agent asked them and relays their words (via
+ * "claude-code"). A relayed answer is recorded as such, with what they said,
+ * and is not accepted for anything about access, money or data: those are
+ * answered in the planner, where it is certain who is answering.
+ */
+export async function decidePlanChange(projectId: string, route: string, changeId: string, approve: boolean, via: "planner" | "claude-code" = "planner", said?: string) {
+  if (via === "claude-code") {
+    if (!said || said.trim().length < 2) throw new GateError("Relay the owner's own reply")
+    const [c] = (await sql`SELECT item, reason FROM gate_plan_changes WHERE id = ${changeId} AND project_id = ${projectId} AND status = 'waiting'`) as { item: Expected; reason: string }[]
+    if (c && isSensitive(c)) throw new GateError("This one is about access, money or data: the owner answers it in the planner, not through an agent")
+  }
+  if (!(await settle(projectId, route, changeId, approve, via, said?.trim().slice(0, 500)))) throw new GateError("That change is not waiting for an answer")
   // The inbox question is answered too, so it does not sit there asking again.
   await sql`
     UPDATE agent_jobs SET status = 'completed', result = ${JSON.stringify({ answer: { option: approve ? APPROVE : KEEP } })}::jsonb
@@ -77,11 +88,11 @@ export async function loadPlan(projectId: string, route: string, list: Checklist
   await settleAnswers(projectId, route)
   const items = await itemsOf(projectId, route)
   const changes = (await sql`
-    SELECT id, action, item, reason, basis, quote, needs_owner, why, status, question_id, created_at, decided_at
+    SELECT id, action, item, reason, basis, quote, needs_owner, why, status, question_id, created_at, decided_at, decided_via, said
     FROM gate_plan_changes WHERE project_id = ${projectId} AND route = ${route} ORDER BY created_at DESC LIMIT 40
   `) as ChangeRow[]
   const status = list ? await planStatus(projectId, list) : null
-  return { route, hasPlan: items !== null, items: items ?? [], changes, compare: status?.compare ?? null, line: status?.line ?? "" }
+  return { route, hasPlan: items !== null, items: items ?? [], changes: changes.map((c) => ({ ...c, answerHere: c.status === "waiting" && !isSensitive(c) })), options: [APPROVE, KEEP], compare: status?.compare ?? null, line: status?.line ?? "" }
 }
 
 /** Starts or extends a page's plan from a scan: of an approved mock-up, of a flow, or an agent's reading of the task. */

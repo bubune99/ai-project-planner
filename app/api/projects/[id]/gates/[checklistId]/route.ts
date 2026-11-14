@@ -50,7 +50,8 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     const keys: string[] = Array.isArray(body?.keys) ? body.keys.filter((k: unknown) => typeof k === "string").slice(0, 500) : []
     const note = typeof body?.note === "string" ? body.note.slice(0, 2000) : undefined
     if (body?.action === "verdict") {
-      if (!(await verifyProjectOwnerOnly(projectId, auth.userId))) return NextResponse.json({ error: "Only the project owner can settle or waive a check" }, { status: 403 })
+      // An agent holds the owner's API key, so a key is not proof of the owner: settling and waiving need them signed in.
+      if (auth.authType !== "session" || !(await verifyProjectOwnerOnly(projectId, auth.userId))) return NextResponse.json({ error: "Only the project owner, signed in to the planner, can settle or waive a check" }, { status: 403 })
       if (!["passed", "failed", "waived"].includes(body.status)) return NextResponse.json({ error: "status must be passed, failed or waived" }, { status: 400 })
       return NextResponse.json(await recordResults({ checklist, userId: auth.userId, keys, actor: "owner", status: body.status, note }))
     }

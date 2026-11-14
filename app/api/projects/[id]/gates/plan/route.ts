@@ -5,7 +5,8 @@
  * POST /api/projects/[id]/gates/plan
  *        { action: "propose", route, change: "add" | "remove", label, must?, kind?, view?, reason, basis, quote?, replacedBy? }
  *        { action: "seed", route, checklistId, source: "mockup" | "flow" | "agent", reason }
- *        { action: "decide", route, changeId, approve }      the project owner answers a waiting change
+ *        { action: "decide", route, changeId, approve, said? }   the owner answers a waiting change: signed in, or relayed
+ *                                                            by an agent with their words (not for access, money or data)
  */
 import { type NextRequest, NextResponse } from "next/server"
 import { getAuthContext, verifyProjectOwnerOnly, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
@@ -49,7 +50,9 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     if (b.action === "decide") {
       if (!(await verifyProjectOwnerOnly(projectId, auth.userId))) return NextResponse.json({ error: "Only the project owner can answer this" }, { status: 403 })
       if (typeof b.changeId !== "string" || typeof b.approve !== "boolean") return NextResponse.json({ error: "Send { changeId, approve }" }, { status: 400 })
-      await decidePlanChange(projectId, route, b.changeId, b.approve)
+      // Signed in to the planner: the owner themselves. With an API key: an agent relaying what the owner said in Claude Code.
+      if (auth.authType === "session") await decidePlanChange(projectId, route, b.changeId, b.approve)
+      else await decidePlanChange(projectId, route, b.changeId, b.approve, "claude-code", text(b.said))
       return NextResponse.json({ ok: true })
     }
     if (b.action === "seed") {

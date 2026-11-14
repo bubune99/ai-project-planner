@@ -22,7 +22,7 @@ interface PageData {
 }
 
 interface PlanItem { id: string; label: string; kind?: string; view?: string; must: string; source: string }
-interface PlanChangeRow { id: string; action: "add" | "remove" | "seed"; item: PlanItem; reason: string; quote: string | null; needs_owner: boolean; why: string; status: "applied" | "waiting" | "approved" | "rejected"; created_at: string }
+interface PlanChangeRow { id: string; action: "add" | "remove" | "seed"; item: PlanItem; reason: string; quote: string | null; needs_owner: boolean; why: string; status: "applied" | "waiting" | "approved" | "rejected"; created_at: string; decided_via?: string | null; said?: string | null }
 interface PlanData {
   hasPlan: boolean; items: PlanItem[]; changes: PlanChangeRow[]; canSettle: boolean
   compare: { matched: { expected: PlanItem; n: number }[]; missing: PlanItem[]; waiting: PlanItem[]; unplanned: { n: number; view: string; label: string; kind: string }[] } | null
@@ -99,7 +99,7 @@ function PlanSection({ projectId, route, tick, onPick }: { projectId: string; ro
           <ul>
             {d.changes.filter((x) => x.status !== "waiting").map((x) => (
               <li key={x.id}>
-                <b>{x.action === "seed" ? `Recorded ${x.item.label}` : `${x.action === "add" ? "Added" : "Dropped"} "${x.item.label}"`}{x.status === "rejected" ? " (you said no)" : x.status === "approved" ? " (you approved)" : ""}</b>
+                <b>{x.action === "seed" ? `Recorded ${x.item.label}` : `${x.action === "add" ? "Added" : "Dropped"} "${x.item.label}"`}{x.status === "rejected" ? " (you said no" : x.status === "approved" ? " (you approved" : ""}{x.status === "rejected" || x.status === "approved" ? `${x.decided_via === "claude-code" ? `, in Claude Code: "${x.said ?? ""}"` : ""})` : ""}</b>
                 <span className="opx-muted">{x.reason} {x.needs_owner ? "You were asked: " : "You were not asked: "}{x.why} {ago(x.created_at)}.</span>
               </li>
             ))}

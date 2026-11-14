@@ -37,7 +37,10 @@ CREATE TABLE IF NOT EXISTS gate_plan_changes (
   question_id  uuid,
   created_by   text,
   created_at   timestamptz NOT NULL DEFAULT now(),
-  decided_at   timestamptz
+  decided_at   timestamptz,
+  -- Where the owner answered: 'planner' (signed in) or 'claude-code' (asked in the terminal and relayed, with their words).
+  decided_via  text CHECK (decided_via IN ('planner', 'inbox', 'claude-code')),
+  said         text
 );
 CREATE INDEX IF NOT EXISTS idx_gate_plan_changes_page ON gate_plan_changes(project_id, route, created_at DESC);
 
