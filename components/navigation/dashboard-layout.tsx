@@ -9,19 +9,32 @@ import { AppSidebar, OPEN_POPOUT_EVENT } from "./app-sidebar"
 import { Icon } from "@/components/jarvis/icons"
 import { DOCK_STATE_EVENT, DOCK_TOGGLE_EVENT } from "@/components/ade/AssistantDock"
 
-const PAGE_META: Record<string, { title: string; sub: string }> = {
+/**
+ * Every page, by address: its name in the top bar, and its line in the jump box. Kept in step with the menu
+ * (app-sidebar.tsx): a page in the menu that is missing here has no title and cannot be jumped to.
+ * `jump: false` is an address that shows a page already listed under another one.
+ */
+const PAGE_META: Record<string, { title: string; sub: string; jump?: false }> = {
   "/dashboard": { title: "Dashboard", sub: "Across every project" },
   "/projects": { title: "Projects", sub: "All ventures and initiatives" },
-  "/clients": { title: "Clients", sub: "Ongoing client work and retainers" },
   "/todos": { title: "Today", sub: "Daily focus and tasks" },
-  "/ideas": { title: "Ideas Incubator", sub: "Capture and refine new ideas" },
-  "/finance": { title: "Finance", sub: "Money across your projects" },
-  "/memory": { title: "Memory", sub: "Knowledge base and notes" },
-  "/agents": { title: "Agent Dashboard", sub: "AI worker jobs and status" },
+  "/inbox": { title: "Inbox", sub: "Questions waiting on you" },
   "/calendar": { title: "Calendar", sub: "Schedule and events" },
-  "/chat": { title: "AI Chat", sub: "Talk to the planner" },
+  "/ideas": { title: "Ideas", sub: "Capture and refine new ideas" },
+  "/memory": { title: "Memory", sub: "Knowledge base and notes" },
+  "/library": { title: "Library", sub: "SOPs, process maps, skills and templates" },
+  "/sops": { title: "Library", sub: "SOPs, process maps, skills and templates", jump: false },
+  "/catalog": { title: "Catalog", sub: "What the product is made of" },
+  "/agents": { title: "Agents", sub: "AI worker jobs and status" },
+  "/clients": { title: "Clients", sub: "Ongoing client work and retainers" },
+  "/finance": { title: "Finance", sub: "Money across your projects" },
+  "/chat": { title: "Assistant", sub: "Talk to the planner" },
   "/settings": { title: "Settings", sub: "Preferences and configuration" },
-  "/sops": { title: "SOPs", sub: "Standard operating procedures" },
+}
+/** The pages the jump box offers for what has been typed: every word typed must appear in the name or its line. */
+const jumpTo = (typed: string) => {
+  const words = typed.toLowerCase().split(/\s+/).filter(Boolean)
+  return Object.entries(PAGE_META).filter(([, m]) => m.jump !== false && words.every((w) => `${m.title} ${m.sub}`.toLowerCase().includes(w)))
 }
 
 interface DashboardLayoutProps {
@@ -55,6 +68,9 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
   useEffect(() => { setThemeReady(true); setIsMac(/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) }, [])
   const [collapsed, setCollapsed] = useState(false)
   const [cmdOpen, setCmdOpen] = useState(false)
+  const [jump, setJump] = useState("")
+  // The jump box opens empty each time.
+  useEffect(() => { if (!cmdOpen) setJump("") }, [cmdOpen])
   const [mobileOpen, setMobileOpen] = useState(false)
   // The assistant dock takes the left of the screen: the planner nav folds to its icon rail beside it.
   const [dockOpen, setDockOpen] = useState(false)
@@ -287,7 +303,12 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
               <Icon name="search" size={16} />
               <input
                 autoFocus
-                placeholder="Search pages, projects, todos…"
+                // It jumps to pages. It does not search projects or todos, so it does not say it does.
+                placeholder="Jump to a page…"
+                aria-label="Jump to a page"
+                value={jump}
+                onChange={(e) => setJump(e.target.value)}
+                onKeyDown={(e) => { const first = jumpTo(jump)[0]; if (e.key === "Enter" && first) { setCmdOpen(false); window.location.assign(first[0]) } }}
                 style={{
                   flex: 1, background: "transparent", border: "none", outline: "none",
                   color: "oklch(0.985 0 0)", fontSize: 14, fontFamily: "inherit",
@@ -296,7 +317,8 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
               <span className="j-kbd">ESC</span>
             </div>
             <div style={{ padding: 8 }}>
-              {Object.entries(PAGE_META).map(([href, m]) => (
+              {jumpTo(jump).length === 0 && <div style={{ padding: "12px 10px", color: "oklch(0.7 0 0)", fontSize: 13 }}>No page is called that. This box jumps to pages; to find a project, a task or a note, ask the assistant.</div>}
+              {jumpTo(jump).map(([href, m]) => (
                 <a
                   key={href}
                   href={href}
