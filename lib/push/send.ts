@@ -46,3 +46,21 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
   const failed = results.filter(r => r.status === 'rejected').length
   return { sent, failed, configured: true }
 }
+
+/** Sends to every subscribed device of every user. For announcements; the per-user sender is the normal path. */
+export async function sendPushToAll(payload: PushPayload) {
+  if (!setup()) return { sent: 0, failed: 0, configured: false }
+  const subscriptions = await sql`SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE deleted_at IS NULL`
+  const results = await Promise.allSettled(
+    subscriptions.map(sub =>
+      webPush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify(payload)).catch(async err => {
+        if (err.statusCode === 410 || err.statusCode === 404) await sql`DELETE FROM push_subscriptions WHERE endpoint = ${sub.endpoint}`
+        throw err
+      })
+    )
+  )
+  return { sent: results.filter(r => r.status === 'fulfilled').length, failed: results.filter(r => r.status === 'rejected').length, configured: true }
+}
+
+/** The one call for both: sendPush(userId, { title, body, url }) or sendPush("all", { ... }). */
+export const sendPush = (target: string | "all", payload: PushPayload) => (target === "all" ? sendPushToAll(payload) : sendPushToUser(target, payload))

@@ -31,13 +31,13 @@ self.addEventListener('fetch', event => {
 self.addEventListener('push', event => {
   if (!event.data) return
   let data
-  try { data = event.data.json() } catch { data = { title: 'JARVIS', body: event.data.text() } }
+  try { data = event.data.json() } catch { data = { title: 'Planner', body: event.data.text() } }
 
   event.waitUntil(
-    self.registration.showNotification(data.title || 'JARVIS', {
+    self.registration.showNotification(data.title || 'Planner', {
       body: data.body || '',
-      icon: '/apple-icon.png',
-      badge: '/icon.svg',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
       tag: data.tag || 'jarvis-notification',
       data: { url: data.url || '/' },
       vibrate: [100, 50, 100],

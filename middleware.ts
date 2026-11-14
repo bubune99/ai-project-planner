@@ -31,6 +31,13 @@ const PUBLIC_ROUTES = [
 const STATIC_PATTERNS = [
   "/_next",
   "/favicon.ico",
+  // Installing to a home screen: the browser fetches these without the session cookie, so a redirect to sign-in
+  // makes the app uninstallable. Static files with nothing private in them.
+  "/manifest.json",
+  "/sw.js",
+  "/icons/",
+  "/apple-icon.png",
+  "/icon.svg",
   "/public",
   "/images",
   "/fonts",
