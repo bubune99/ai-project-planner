@@ -14,7 +14,7 @@ import { Controls, Handle, MarkerType, Panel, Position, ReactFlow, ReactFlowProv
 import "@xyflow/react/dist/style.css"
 import { ArrowLeft, Layers } from "lucide-react"
 import {
-  DIM, addInside, addLink, addNode, cellAt, cellFree, checkLayer, crumbs, doorOf, isLanes, layerAt, place, removeLink, removeNode, renameLane, routeLink,
+  DIM, addInside, addLink, addNode, cellAt, cellFree, checkLayer, crumbs, doorOf, isLanes, layerAt, place, removeInside, removeLink, removeNode, renameLane, routeLink,
   setLink, setNode, setStage, updateAt, type Layer, type Link, type Path, type Point, type Side,
 } from "@/lib/sops/process-map"
 
@@ -189,12 +189,14 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
                 {!lanes && item("Add a step after this", () => addStep(t))}
                 {item(node.you ? "Not the owner's step" : "Mark as the owner's step", () => { change((l) => setNode(l, node.id, { you: !node.you })); setFloat(null) })}
                 {item(node.todo ? "Mark as built" : "Mark as not built yet", () => { change((l) => setNode(l, node.id, { todo: !node.todo })); setFloat(null) })}
+                {node.inside && item("Remove the layer inside", () => { change((l) => removeInside(l, "node", node.id)); setFloat(null) }, true)}
                 {item("Remove this step", () => { change((l) => removeNode(l, node.id)); setFloat(null) }, true)}
               </>
             ) : t.kind === "stage" ? (
               <>
                 {editItem("Change the text")}
                 {doorOf(layer, "stage", t.id) ? item("Open what is inside", () => open("stage", t.id)) : item("Add a layer inside", () => { change((l) => addInside(l, "stage", t.id)); setFloat(null) })}
+                {doorOf(layer, "stage", t.id) && item("Remove the layer inside", () => { change((l) => removeInside(l, "stage", t.id)); setFloat(null) }, true)}
               </>
             ) : t.kind === "lane" ? editItem("Rename this lane")
               : t.kind === "edge" ? <>{editItem("Change what the line says")}{item("Remove this line", () => { change((l) => removeLink(l, t.index)); setFloat(null) }, true)}</>

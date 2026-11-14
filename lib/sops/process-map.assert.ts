@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import {
-  DIM, addInside, addLink, addNode, cellAt, cellFree, checkLayer, crumbs, doorOf, isLanes, layerAt, parseLayer, parseMapBlock, place, removeLink, removeNode,
+  DIM, addInside, addLink, addNode, cellAt, cellFree, checkLayer, crumbs, doorOf, isLanes, layerAt, parseLayer, parseMapBlock, place, removeInside, removeLink, removeNode,
   renameLane, routeLink, seedMap, setLink, setNode, setStage, stripMapBlock, updateAt, writeMapBlock, type Layer, type Path,
 } from "./process-map"
 
@@ -119,6 +119,8 @@ ok("giving a step a layer of its own makes it openable, once", () => {
   const chain = m.stages![1].inside!, one = addInside(chain, "node", "b")
   assert.equal(one.nodes[1].inside!.nodes.length, 2)
   assert.equal(addInside(one, "node", "b").nodes[1].inside, one.nodes[1].inside)   // never overwrites what is inside
+  assert.deepEqual(removeInside(one, "node", "b"), chain)                           // and it can be taken away again
+  assert.equal(doorOf(removeInside(m, "stage", "plan"), "node", "say"), null)       // a stage without a layer: its steps open nothing
 })
 
 console.log(`\n${n} checks passed`)

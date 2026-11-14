@@ -243,6 +243,11 @@ export function addInside(layer: Layer, kind: "stage" | "node", id: string): Lay
   if (kind === "stage") return { ...layer, stages: layer.stages?.map((s) => (s.id === id && !s.inside ? { ...s, inside: fresh } : s)) }
   return { ...layer, nodes: layer.nodes.map((n) => (n.id === id && !n.inside ? { ...n, inside: fresh } : n)) }
 }
+/** Takes away the layer inside a stage or step, with everything in it. */
+export function removeInside(layer: Layer, kind: "stage" | "node", id: string): Layer {
+  const drop = <T extends { id: string; inside?: Layer }>(x: T): T => { if (x.id !== id) return x; const { inside: _gone, ...rest } = x; return rest as T }
+  return kind === "stage" ? { ...layer, stages: layer.stages?.map(drop) } : { ...layer, nodes: layer.nodes.map(drop) }
+}
 
 // ---- the map this planner starts with ----
 
