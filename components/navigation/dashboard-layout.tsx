@@ -249,9 +249,17 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
               <Icon name="sparkle" size={14} />
               <span>Assistant</span>
             </button>
-            <button className="j-btn j-btn-icon j-btn-ghost" title="Notifications">
+            {/* The bell opens the inbox: the questions and notices waiting on you. It used to do nothing. */}
+            <Link
+              href="/inbox"
+              className="j-btn j-btn-icon j-btn-ghost j-bell"
+              data-ui="inbox.open"
+              title={waitingCount > 0 ? `${waitingCount} waiting on you. Open the inbox` : "Open the inbox"}
+              aria-label={waitingCount > 0 ? `Inbox, ${waitingCount} waiting on you` : "Inbox"}
+            >
               <Icon name="bell" size={16} />
-            </button>
+              {waitingCount > 0 && <span className="j-bell-count" aria-hidden="true">{waitingCount > 99 ? "99+" : waitingCount}</span>}
+            </Link>
           </div>
         </header>
 

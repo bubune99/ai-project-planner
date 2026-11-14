@@ -80,7 +80,7 @@ export function QuestionCard({ item, deferred, onDefer, onAnswered, hideProject 
             {longContext && !showContext ? `${item.context.slice(0, 220)}…` : item.context}
           </p>
           {longContext && (
-            <button className="j-btn j-btn-ghost" style={{ padding: "4px 0", fontSize: 12 }} onClick={() => setShowContext((v) => !v)}>
+            <button type="button" className="opx-link opx-more" aria-expanded={showContext} onClick={() => setShowContext((v) => !v)}>
               {showContext ? "Less" : "More"}
             </button>
           )}

@@ -12,6 +12,7 @@ import { DocsTab } from "@/components/project/opx/DocsTab"
 import { ChecksTab } from "@/components/project/opx/ChecksTab"
 import { ChangesTab } from "@/components/project/opx/ChangesTab"
 import { PeopleFlowsTab } from "@/components/project/opx/PeopleFlowsTab"
+import { ScrollRow } from "@/components/project/opx/ScrollRow"
 import { NeedsYou, useNeedsYou } from "@/components/project/opx/NeedsYou"
 import { IdeasDecisions } from "@/components/project/opx/IdeasDecisions"
 import { MetricsTab, MoneyTab, SettingsTab, uiOf } from "@/components/project/opx/ProjectTabs"
@@ -64,22 +65,28 @@ interface ProjectData {
 
 // ─── Overview ────────────────────────────────────────────────────────────────
 
-function OverviewFacet({ project, projectId, phases, onProjectChange }: { project: any; projectId: string; phases: any[]; onProjectChange: () => void }) {
+interface OverviewProgress { pct: number; done: number; total: number }
+interface OverviewKpi { l: string; v: string; tone?: string }
+
+function OverviewFacet({ project, projectId, phases, progress, onProjectChange }: { project: any; projectId: string; phases: any[]; progress: OverviewProgress; onProjectChange: () => void }) {
   const health = project.health || "good"
-  const kpis = [
-    { l: "Progress",      v: `${project.progress || 0}%`,                                   t: project.progress >= 80 ? "j-pos" : project.progress >= 40 ? "j-info" : "j-muted" },
-    { l: "Tasks done",    v: `${project.completed_tasks || 0} / ${project.total_tasks || 0}`, t: "j-info" },
-    { l: "Active agents", v: `${project.active_agents || 0}`,                                t: "j-proj" },
-    { l: "Health",        v: health,                                                          t: HEALTH_CLASS[health] || "j-info" },
+  // Progress and Tasks done are the header's own figures, worked out from the live tasks. The stored
+  // project.progress was a second figure that drifted (33% here beside a header saying 31%).
+  const kpis: OverviewKpi[] = [
+    { l: "Progress",      v: `${progress.pct}%` },
+    { l: "Tasks done",    v: `${progress.done} / ${progress.total}` },
+    { l: "Active agents", v: `${project.active_agents || 0}` },
+    { l: "Health",        v: health, tone: HEALTH_CLASS[health] || "j-info" },
   ]
   return (
     <div className="j-col j-gap-4">
-      <div className="j-grid j-cols-4">
+      <div className="j-grid j-cols-4 opx-kpis">
         {kpis.map(k => (
-          <div key={k.l} className="j-card j-tight" style={{ padding: 16 }}>
+          <div key={k.l} className="j-card j-tight opx-kpi">
             <div className="j-eyebrow">{k.l}</div>
-            <div className="j-amount-lg" style={{ marginTop: 8 }}>{k.v}</div>
-            <span className={`j-pill ${k.t}`} style={{ marginTop: 8 }}>{k.l}</span>
+            <div className="j-amount-lg" style={{ marginTop: 8 }}>
+              {k.tone ? <span className={`j-pill ${k.tone}`}>{k.v}</span> : k.v}
+            </div>
           </div>
         ))}
       </div>
@@ -507,7 +514,7 @@ export default function ProjectDashboardPage() {
 
       <NeedsYou state={waiting} onOpenTab={setActiveTab} />
 
-      <nav className="opx-ptabs" aria-label="Project sections">
+      <ScrollRow as="nav" className="opx-ptabs" label="Project sections">
         {TABS.map(tab => (
           <button key={tab.id} className={activeTab === tab.id ? "on" : ""} aria-current={activeTab === tab.id ? "page" : undefined} onClick={() => setActiveTab(tab.id)}>
             {tab.label}{tab.id === "tasks" && <em>{openTasks}</em>}
@@ -515,9 +522,9 @@ export default function ProjectDashboardPage() {
             {tab.id === "people" && waiting.value.yours.length > 0 && <em>{waiting.value.yours.length}</em>}
           </button>
         ))}
-      </nav>
+      </ScrollRow>
 
-      {activeTab === "overview"  && <section className="opx-sec"><OverviewFacet project={project} projectId={projectId} phases={phases} onProjectChange={() => fetchProjectData(true)} /></section>}
+      {activeTab === "overview"  && <section className="opx-sec"><OverviewFacet project={project} projectId={projectId} phases={phases} progress={{ pct, done: doneN, total: counted.length }} onProjectChange={() => fetchProjectData(true)} /></section>}
       {activeTab === "tasks" && (
         <div className="opx-col" style={{ gap: 12 }}>
           <TaskViewSwitcher view={taskView} onChange={setTaskView} />

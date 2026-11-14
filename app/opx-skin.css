@@ -797,9 +797,9 @@ a.opx-mt:hover b { text-decoration: underline; }
   .opx-ptabs { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; align-self: stretch; border-radius: 16px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .opx-ptabs::-webkit-scrollbar { display: none; }
   .opx-ptabs button { flex: none; min-height: 44px; padding: 7px 14px; }
-  .opx-needs { padding: 12px !important; border-radius: 14px !important; }
-  .opx-needs .opx-link { min-height: 44px; display: inline-flex; align-items: center; }
-  .opx-needs-row { flex-wrap: wrap; }
+  .opx-waiting { padding: 12px !important; border-radius: 14px !important; }
+  .opx-waiting .opx-link { min-height: 44px; display: inline-flex; align-items: center; }
+  .opx-waiting-row { flex-wrap: wrap; }
   .opx-ch-head p { max-width: none; }
   .opx-ch-judge .opx-btn, .opx-ch-judge button { min-height: 44px; }
   .opx-ch-judge .opx-input { flex-basis: 100%; font-size: 16px; min-height: 44px; }
@@ -849,8 +849,8 @@ button.opx-ck::before { content: ''; position: absolute; inset: -12px; }
   .opx-li b { overflow-wrap: anywhere; }
 
   /* 3: things that are pressed */
-  .opx-btn, .j-btn:not(.j-btn-icon), .j-pill, .opx-pt, .opx-dc, .j-nav-item { min-height: 44px; }
-  .opx-btn, .j-pill, .opx-pt { padding-left: 16px; padding-right: 16px; }
+  .opx-btn, .j-btn:not(.j-btn-icon), a.j-pill, button.j-pill, .opx-pt, .opx-dc, .j-nav-item { min-height: 44px; }
+  .opx-btn, a.j-pill, button.j-pill, .opx-pt { padding-left: 16px; padding-right: 16px; }
   .opx-seg button { min-height: 40px; padding: 8px 16px; }
   .opx-ib, .j-btn.j-btn-icon, .opx-chat-ib, .opx-hist-del { min-width: 44px; min-height: 44px; }
   .opx-sech .opx-link, .opx-lv > .opx-link { min-height: 44px; display: inline-flex; align-items: center; }
@@ -859,4 +859,53 @@ button.opx-ck::before { content: ''; position: absolute; inset: -12px; }
   /* 4: fields */
   input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]), select, textarea { font-size: 16px !important; }
   select { min-height: 44px; }
+}
+
+/* ============================================================
+   Phone review, round 2 (2026-11-14): from the owner's five comments made on his phone (440 x 894)
+   and three said in conversation. Measured in a 440 x 894 frame on staging.
+   ============================================================ */
+
+/* "Waiting on you" on a project. Its own name: it used to share .opx-needs with the two-column bullet list
+   on Ideas & decisions, so the whole section was split into two columns at every screen size. */
+.opx-qgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); gap: 12px; margin-top: 8px; align-items: start; }
+@media (max-width: 700px) { .opx-qgrid { grid-template-columns: minmax(0, 1fr); } }
+
+/* An icon button's icon sits in the middle of it, whatever size the button is made. */
+.j-btn-icon { justify-content: center; }
+
+/* The bell, with how many are waiting. */
+.j-bell { position: relative; text-decoration: none; }
+.j-bell-count { position: absolute; top: -3px; right: -3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--opx-hot, #c8553d); color: #fff; font-size: 10.5px; font-weight: 700; line-height: 16px; text-align: center; }
+
+/* "More" / "Less" under a question's context: words, not an outlined box. Tall enough to press, as wide as it reads. */
+.opx-more { display: inline-flex; align-items: center; min-height: 32px; padding: 0; font-size: 12.5px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+
+/* The four overview figures on a project. */
+.opx-kpi { padding: 16px; min-width: 0; }
+.opx-kpi .j-pill { font-size: 13px; text-transform: capitalize; }
+
+/* A row that scrolls sideways, with an arrow where there is more (components/project/opx/ScrollRow.tsx). */
+.opx-srow { position: relative; min-width: 0; max-width: 100%; align-self: flex-start; }
+.opx-srow-track { scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.opx-srow-track::-webkit-scrollbar { display: none; }
+.opx-quick { gap: 8px; flex-wrap: wrap; }
+.opx-srow.more-after > .opx-srow-track { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 64px), transparent calc(100% - 20px)); mask-image: linear-gradient(to right, #000 calc(100% - 64px), transparent calc(100% - 20px)); }
+.opx-srow.more-before > .opx-srow-track { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 64px), transparent calc(100% - 20px)); mask-image: linear-gradient(to left, #000 calc(100% - 64px), transparent calc(100% - 20px)); }
+.opx-srow.more-before.more-after > .opx-srow-track { -webkit-mask-image: linear-gradient(to right, transparent 20px, #000 64px, #000 calc(100% - 64px), transparent calc(100% - 20px)); mask-image: linear-gradient(to right, transparent 20px, #000 64px, #000 calc(100% - 64px), transparent calc(100% - 20px)); }
+.opx-srow-arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; border-radius: 999px; border: 1px solid var(--opx-line); background: var(--opx-card); color: var(--opx-ink); display: grid; place-items: center; padding: 0; cursor: pointer; box-shadow: 0 2px 8px rgb(0 0 0 / .18); }
+.opx-srow-arrow::before { content: ''; position: absolute; inset: -6px; }
+.opx-srow-arrow.after { right: 2px; }
+.opx-srow-arrow.before { left: 2px; }
+.opx-srow-arrow:focus-visible { outline: 2px solid var(--opx-accent); outline-offset: 2px; }
+
+@media (max-width: 700px) {
+  .opx-srow { align-self: stretch; }
+  .opx-srow > .opx-srow-track { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; }
+  .opx-quick > * { flex: none; }
+  /* Owner: the four cards "can be side by side to conserve space". Two by two, label over figure. */
+  .j-grid.j-cols-4.opx-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .opx-kpi { padding: 12px 14px; }
+  .opx-kpi .j-amount-lg { margin-top: 4px !important; }
+  .opx-more { min-height: 44px; }
 }

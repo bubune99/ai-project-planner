@@ -13,6 +13,7 @@ import { useUser } from "@stackframe/stack"
 import { toast } from "sonner"
 import { DitherBanner } from "./DitherBanner"
 import { Section, ago, askAssistant, unwrap, useJson } from "@/components/project/opx/shared"
+import { ScrollRow } from "@/components/project/opx/ScrollRow"
 
 interface Project { id: string; name: string; description?: string | null; status?: string | null; progress?: number | null; updated_at?: string | null; updatedAt?: string | null }
 interface Question { id: string; question: string; options: string[]; context?: string | null; projectName?: string | null }
@@ -20,6 +21,11 @@ interface FocusItem { id: string; title: string; dueDate?: string | null; projec
 interface Idea { id: string; title: string; createdAt?: string | null }
 
 const active = (s?: string | null) => /progress|active/.test(s || "")
+
+/** Where a row in "Overdue and blocked" leads: a blocked step to its project's tasks, an overdue todo to Today. */
+function attentionHref(t: FocusItem & { blocked: boolean }): string {
+  return t.blocked && t.project?.id ? `/project/${t.project.id}?tab=tasks&step=${t.id}` : "/todos"
+}
 
 export function OpxDashboard() {
   const user = useUser()
@@ -78,12 +84,12 @@ export function OpxDashboard() {
         </div>
       </header>
 
-      <div className="opx-row" style={{ gap: 8, flexWrap: "wrap" }}>
+      <ScrollRow className="opx-row opx-quick" label="Quick actions">
         <Link className="opx-btn" href="/todos">New task</Link>
         <Link className="opx-btn" href="/ideas">Capture an idea</Link>
         <button className="opx-btn" onClick={() => askAssistant("Help me log a decision: ask me what I decided, why, and which options I weighed, then record it on the right project.")}>Log a decision</button>
         <button className="opx-btn" onClick={() => askAssistant("Plan my week: pick from open steps and todos across projects, most urgent first, and show me the plan before changing anything.")}>Plan my week</button>
-      </div>
+      </ScrollRow>
 
       <div className="opx-2col even">
         <Section title="Needs you" count={questions.length} action={<Link className="opx-link" href="/inbox">Open inbox ›</Link>}>
@@ -105,12 +111,13 @@ export function OpxDashboard() {
         <Section title="Overdue and blocked" count={typeof counts.overdue === "number" ? counts.overdue + blocked.length : attention.length} action={<Link className="opx-link" href="/todos">Open Today ›</Link>}>
           {focusQ.error && <p className="opx-muted">Couldn't load this: {focusQ.error}</p>}
           {!focusQ.loading && !focusQ.error && attention.length === 0 && <p className="opx-muted" style={{ margin: 0 }}>Nothing overdue or blocked.</p>}
+          {/* Every row goes somewhere: a blocked step opens in its project, an overdue todo opens Today. */}
           {attention.map((t) => (
-            <div key={t.id} className="opx-li">
+            <Link key={t.id} href={attentionHref(t)} className="opx-li" style={{ color: "inherit", textDecoration: "none" }}>
               <i className="opx-dot" style={{ background: t.blocked ? "var(--opx-warn)" : "var(--opx-hot)" }} />
               <div><b>{t.title.replace(/^\[blocked\]\s*/i, "")}</b><small>{t.project?.name || ""}{t.blocked ? " · blocked" : ""}</small></div>
               <span style={{ fontSize: 13, color: t.blocked ? "var(--opx-warn)" : "var(--opx-hot)", whiteSpace: "nowrap" }}>{t.blocked ? "Blocked" : late(t.dueDate)}</span>
-            </div>
+            </Link>
           ))}
         </Section>
       </div>
