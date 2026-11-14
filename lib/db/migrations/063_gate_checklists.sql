@@ -11,8 +11,9 @@
 --   gate_checklists  one row per version of a page's checklist (doc jsonb).
 --   gate_results     one row per verdict on one check, by builder, reviewer or
 --                    owner. Never updated: the latest per actor is what counts.
---   gate_images      one row per stored picture: a view's picture, or evidence
---                    for a check. Soft-deleted by the retention sweep after its
+--   gate_images      one row per stored file: a view's picture, a view's
+--                    extract (its styled HTML, gzipped, which the planner
+--                    draws instead of a picture), or evidence for a check. Soft-deleted by the retention sweep after its
 --                    R2 object is removed.
 --
 -- RETENTION (owner 2026-11-13; gate-model.ts imagesToExpire)
@@ -53,7 +54,7 @@ CREATE TABLE IF NOT EXISTS gate_images (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id    uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   checklist_id  uuid NOT NULL REFERENCES gate_checklists(id) ON DELETE CASCADE,
-  kind          text NOT NULL CHECK (kind IN ('view', 'evidence')),
+  kind          text NOT NULL CHECK (kind IN ('view', 'extract', 'evidence')),
   ref_key       text NOT NULL,
   blob_key      text NOT NULL,
   byte_size     integer,

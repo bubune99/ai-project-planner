@@ -639,6 +639,9 @@ a.opx-mt:hover b { text-decoration: underline; }
 .opx-ck-views img, .opx-ck-noimg { width: 100%; height: 54px; object-fit: cover; object-position: top left; border-radius: 6px; display: block; background: var(--opx-bg); } .opx-ck-views button > span:last-child { padding: 0 3px 2px; }
 .opx-ck-shot { position: relative; border-radius: 12px; overflow: auto; max-height: 46vh; background: var(--opx-soft); line-height: 0; max-width: 100%; } .opx-ck-shot img { width: 100%; display: block; }
 .opx-ck-canvas { position: relative; overflow: hidden; }
+.opx-ck-extract { position: relative; width: 100%; overflow: hidden; background: var(--opx-bg); line-height: 1.4; }
+.opx-ck-extract iframe { position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0; pointer-events: none; }
+.opx-ck-extract p { margin: 12px; font-size: 13px; }
 .opx-ck-wire { position: relative; width: 100%; background: var(--opx-bg); line-height: 1.2; }
 .opx-ck-wire span { position: absolute; display: grid; place-items: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 0 4px; border-radius: 6px; background: var(--opx-soft); box-shadow: inset 0 0 0 1px var(--opx-line); color: var(--opx-muted); font-size: clamp(8px, .7vw, 12px); }
 .opx-ck-shotbar { display: flex; align-items: center; gap: 12px; font-size: 12.5px; margin-bottom: -6px; }

@@ -6,10 +6,11 @@
  *        { action: "check", keys, status: "passed" | "failed", note?, actor?: "builder" | "reviewer" }
  *        { action: "verdict", keys, status: "passed" | "failed" | "waived", note? }   the project owner settles or waives
  *        { action: "image", kind: "view" | "evidence", refKey, imageBase64 }
+ *        { action: "extract", refKey: <view key>, gzBase64 }   the view's styled HTML, gzipped
  */
 import { type NextRequest, NextResponse } from "next/server"
 import { getAuthContext, verifyProjectOwnerOnly, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
-import { GateError, attachImage, getChecklist, loadPage, recordResults } from "@/lib/gates/store"
+import { GateError, attachExtract, attachImage, getChecklist, loadPage, recordResults } from "@/lib/gates/store"
 
 export const dynamic = "force-dynamic"
 
@@ -63,6 +64,10 @@ export async function POST(request: NextRequest, { params }: Ctx) {
         return NextResponse.json({ error: "Send { kind, refKey, imageBase64 }" }, { status: 400 })
       }
       return NextResponse.json(await attachImage({ checklist, userId: auth.userId, kind: body.kind, refKey: body.refKey, imageBase64: body.imageBase64 }))
+    }
+    if (body?.action === "extract") {
+      if (typeof body.refKey !== "string" || typeof body.gzBase64 !== "string") return NextResponse.json({ error: "Send { refKey, gzBase64 }" }, { status: 400 })
+      return NextResponse.json(await attachExtract({ checklist, userId: auth.userId, viewKey: body.refKey, gzBase64: body.gzBase64 }))
     }
     return NextResponse.json({ error: "Unknown action" }, { status: 400 })
   } catch (error) {

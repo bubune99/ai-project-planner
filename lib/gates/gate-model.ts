@@ -52,6 +52,8 @@ export interface View {
   /** Size of the view's picture, in the same units as its controls. */
   w: number
   h: number
+  /** Where this view sits inside its stored page extract: its corner, and the size the extract was taken at. */
+  crop?: { x: number; y: number; vw: number; vh: number }
   controls: Control[]
 }
 
@@ -245,7 +247,8 @@ export function sameChecklist(a: Checklist, b: Checklist): boolean {
 
 export interface StoredImage {
   id: string
-  kind: "view" | "evidence"
+  /** view: a picture of a view. extract: the view's styled HTML, drawn by the planner. evidence: a picture proving a check. */
+  kind: "view" | "extract" | "evidence"
   /** The checklist version it belongs to. */
   version: number
   /** For evidence: the check it proves. */
@@ -259,7 +262,7 @@ export const EVIDENCE_DAYS = 3
 /**
  * Which pictures to delete (owner 2026-11-13: only a couple need to remain,
  * and only for a short time).
- *   View pictures: kept for the current version and the one before it, so a
+ *   View pictures and extracts: kept for the current version and the one before it, so a
  *   redesign can be compared with what it replaced. Only the newest per view.
  *   Evidence: only the newest picture per check. It is kept while the check is
  *   failed or disputed, and for EVIDENCE_DAYS after it was taken otherwise.
@@ -277,7 +280,7 @@ export function imagesToExpire(images: StoredImage[], currentVersion: number, st
   for (const img of images) {
     const slot = [img.kind, img.version, viewKeyOf(img)].join(SEP)
     if (newest.get(slot) !== img) { gone.push(img.id); continue }
-    if (img.kind === "view") { if (img.version < currentVersion - 1) gone.push(img.id); continue }
+    if (img.kind !== "evidence") { if (img.version < currentVersion - 1) gone.push(img.id); continue }
     if (img.version !== currentVersion) { gone.push(img.id); continue }
     const st = stateOf(img.key ?? "")
     if (st === "failed" || st === "disputed") continue

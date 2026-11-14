@@ -121,12 +121,12 @@ ok("pictures: view pictures stay for this version and the one before; evidence i
   const img = (id: string, kind: StoredImage["kind"], version: number, key: string, age: number): StoredImage => ({ id, kind, version, key, capturedAt: days(age) })
   const state = (key: string): CheckState => (key === "failed-key" ? "failed" : key === "disputed-key" ? "disputed" : "passed")
   const images = [
-    img("v3", "view", 3, "page", 0), img("v3-old", "view", 3, "page", 1), img("v2", "view", 2, "page", 20), img("v1", "view", 1, "page", 40),
+    img("x3", "extract", 3, "page", 0), img("x1", "extract", 1, "page", 50), img("v3", "view", 3, "page", 0), img("v3-old", "view", 3, "page", 1), img("v2", "view", 2, "page", 20), img("v1", "view", 1, "page", 40),
     img("e-new", "evidence", 3, "a", 1), img("e-old", "evidence", 3, "b", EVIDENCE_DAYS + 1), img("e-dup-old", "evidence", 3, "a", 2),
     img("e-failed", "evidence", 3, "failed-key", 30), img("e-disputed", "evidence", 3, "disputed-key", 30), img("e-prev", "evidence", 2, "a", 0),
   ]
   const gone = imagesToExpire(images, 3, state, now).sort()
-  assert.deepEqual(gone, ["e-dup-old", "e-old", "e-prev", "v1", "v3-old"])
+  assert.deepEqual(gone, ["e-dup-old", "e-old", "e-prev", "v1", "v3-old", "x1"])
   assert.equal(EVIDENCE_DAYS, 3)
   assert.deepEqual(imagesToExpire([], 1, state, now), [])
 })

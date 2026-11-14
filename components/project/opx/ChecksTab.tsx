@@ -8,7 +8,7 @@
  * Display only: counts, order and verdict rules come from lib/gates/gate-model.
  */
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { AlertTriangle, Check, Minus, X } from "lucide-react"
 import { checkKey, checkState, controlProgress, type CheckState, type Checklist, type Control, type Result, type Summary, type View } from "@/lib/gates/gate-model"
 import { ago, useJson } from "./shared"
@@ -17,7 +17,7 @@ interface PageRow { id: string; route: string; title: string | null; version: nu
 interface Change { view: string; label: string; kind: string }
 interface PageData {
   id: string; route: string; version: number; env: string | null; build: string | null; createdAt: string
-  checklist: Checklist; results: Result[]; images: { kind: "view" | "evidence"; key: string; url: string }[]
+  checklist: Checklist; results: Result[]; images: { kind: "view" | "evidence"; key: string; url: string }[]; extracts?: string[]
   changes: { added: Change[]; removed: Change[]; kept: number }; summary: Summary; hook: string; canSettle: boolean
 }
 
@@ -35,6 +35,46 @@ function Mark({ state, small }: { state: CheckState; small?: boolean }) {
       {state === "waived" && <Minus size={size} strokeWidth={3} />}
       {state === "disputed" && <AlertTriangle size={size - 1} strokeWidth={2.5} />}
     </span>
+  )
+}
+
+const SHOWN = {
+  extract: "The page itself, redrawn from the HTML and styles the scan stored. No picture is kept.",
+  picture: "Picture taken during the scan.",
+  wire: "Wireframe, drawn from where the scan found each control.",
+}
+
+/**
+ * A view redrawn from its stored extract (the page's HTML with its styles
+ * written inline). It is drawn in a sealed frame: nothing in it can run, and it
+ * cannot reach the planner. The frame is the size the page was scanned at,
+ * scaled to fit and shifted so only this view's part shows.
+ */
+function Extract({ url, view }: { url: string; view: View }) {
+  const box = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+  const { data, error } = useJson<{ html: string }>(url)
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setWidth(el.clientWidth))
+    ro.observe(el)
+    setWidth(el.clientWidth)
+    return () => ro.disconnect()
+  }, [])
+  const crop = view.crop ?? { x: 0, y: 0, vw: view.w, vh: view.h }
+  const scale = width ? width / view.w : 0
+  return (
+    <div ref={box} className="opx-ck-extract" style={{ aspectRatio: `${view.w} / ${view.h}` }}>
+      {data?.html && scale > 0 && (
+        <iframe
+          title={`${view.name}, redrawn`} sandbox="" tabIndex={-1} aria-hidden="true"
+          srcDoc={`<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;overflow:hidden}</style></head><body>${data.html}</body></html>`}
+          style={{ width: crop.vw, height: crop.vh, transform: `translate(${-crop.x * scale}px, ${-crop.y * scale}px) scale(${scale})` }}
+        />
+      )}
+      {error && <p className="opx-muted">The stored page could not be loaded: {error}</p>}
+    </div>
   )
 }
 
@@ -61,7 +101,7 @@ export function ChecksTab({ projectId }: { projectId: string }) {
   const [settle, setSettle] = useState<string | null>(null)
   const [note, setNote] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [wire, setWire] = useState(false)
+  const [mode, setMode] = useState<"extract" | "picture" | "wire" | null>(null)
 
   // Checks clear while an agent works: refresh while the tab is in view.
   const reloadPage = page.reload, reloadPages = pages.reload
@@ -74,6 +114,9 @@ export function ChecksTab({ projectId }: { projectId: string }) {
   const controls = useMemo(() => (data ? data.checklist.views.flatMap((v) => v.controls.map((c) => ({ c, v }))) : []), [data])
   const chosen = controls.find((x) => x.c.n === pick) ?? controls[0] ?? null
   const imageOf = (viewKey: string) => data?.images.find((i) => i.kind === "view" && i.key === viewKey)?.url
+  const hasPicture = !!(chosen && imageOf(chosen.v.key)), hasExtract = !!(chosen && chosen.v.crop && data?.extracts?.includes(chosen.v.key))
+  // What is drawn behind the numbers: the stored page if there is one, else the picture, else a wireframe. The owner can switch.
+  const shown = mode === "extract" && hasExtract ? "extract" : mode === "picture" && hasPicture ? "picture" : mode === "wire" ? "wire" : hasExtract ? "extract" : hasPicture ? "picture" : "wire"
 
   async function verdict(key: string, status: "passed" | "failed" | "waived") {
     if (!data) return
@@ -178,13 +221,15 @@ export function ChecksTab({ projectId }: { projectId: string }) {
             )}
 
             <div className="opx-ck-shotbar">
-              <span className="opx-muted">{imageOf(chosen.v.key) ? (wire ? "Wireframe, drawn from the scan." : "Picture taken during the scan.") : "No picture is stored for this view, so it is drawn from the scan."}</span>
-              {imageOf(chosen.v.key) && <button type="button" onClick={() => setWire((w) => !w)}>{wire ? "Show the picture" : "Show the wireframe"}</button>}
+              <span className="opx-muted">{SHOWN[shown]}</span>
+              {(["extract", "picture", "wire"] as const).filter((m) => m !== shown && (m === "wire" || (m === "picture" ? hasPicture : hasExtract))).map((m) => (
+                <button key={m} type="button" onClick={() => setMode(m)}>{m === "extract" ? "Show the page" : m === "picture" ? "Show the picture" : "Show the wireframe"}</button>
+              ))}
             </div>
             <div className="opx-ck-shot" style={chosen.v.w < 700 ? { width: Math.min(620, chosen.v.w * 1.15) } : undefined}>
               <div className="opx-ck-canvas">
-              {imageOf(chosen.v.key) && !wire
-                ? <img src={imageOf(chosen.v.key)} alt={`${chosen.v.name} of ${data.route}`} />
+              {shown === "extract" ? <Extract url={`/api/projects/${projectId}/gates/${data.id}/extract?view=${encodeURIComponent(chosen.v.key)}`} view={chosen.v} />
+                : shown === "picture" ? <img src={imageOf(chosen.v.key)} alt={`${chosen.v.name} of ${data.route}`} />
                 : (
                   // No picture needed: the scan recorded where every control sits, so the view can be drawn.
                   <div className="opx-ck-wire" style={{ aspectRatio: `${chosen.v.w} / ${chosen.v.h}` }} role="img" aria-label={`Wireframe of ${chosen.v.name}`}>

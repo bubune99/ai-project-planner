@@ -116,13 +116,48 @@ export async function attachImage(a: { checklist: ChecklistRow; userId: string; 
   return { imageId: row.id, byteSize: raw.length, swept }
 }
 
+/** Stores a view's extract: the page's own HTML with its styles written inline, gzipped. The planner draws it instead of a picture. */
+export async function attachExtract(a: { checklist: ChecklistRow; userId: string; viewKey: string; gzBase64: string }) {
+  if (!a.checklist.doc.views.some((v) => v.key === a.viewKey)) throw new GateError(`No view "${a.viewKey}" on this checklist`)
+  const raw = Buffer.from(a.gzBase64, "base64")
+  if (raw[0] !== 0x1f || raw[1] !== 0x8b) throw new GateError("The extract must be gzipped")
+  if (raw.length > 1.5 * 1024 * 1024) throw new GateError("The extract is over 1.5 MB gzipped")
+  const { uploadToR2, isR2Configured } = await import("@/lib/storage/r2-client")
+  if (!isR2Configured()) throw new GateError("File storage is not configured on this server")
+  const blobKey = `gates/${a.checklist.project_id}/${a.checklist.id}/${crypto.randomUUID()}.html.gz`
+  await uploadToR2(blobKey, raw, "application/gzip")
+  const [row] = (await sql`
+    INSERT INTO gate_images (project_id, checklist_id, kind, ref_key, blob_key, byte_size, created_by)
+    VALUES (${a.checklist.project_id}, ${a.checklist.id}, 'extract', ${a.viewKey}, ${blobKey}, ${raw.length}, ${a.userId})
+    RETURNING id
+  `) as { id: string }[]
+  try { await sweepGateImages(new Date(), a.checklist.project_id, a.checklist.route) } catch { /* cleanup is best-effort */ }
+  return { extractId: row.id, byteSize: raw.length }
+}
+
+/** A view's extract as HTML text, with anything that could run removed. Null when none is stored. */
+export async function readExtract(checklistId: string, viewKey: string): Promise<string | null> {
+  const [row] = (await sql`
+    SELECT blob_key FROM gate_images WHERE checklist_id = ${checklistId} AND kind = 'extract' AND ref_key = ${viewKey} AND deleted_at IS NULL
+    ORDER BY captured_at DESC LIMIT 1
+  `) as { blob_key: string }[]
+  if (!row) return null
+  const { getSignedDownloadUrl } = await import("@/lib/storage/r2-client")
+  const res = await fetch(await getSignedDownloadUrl(row.blob_key, 60))
+  if (!res.ok) return null
+  const { gunzipSync } = await import("node:zlib")
+  const html = gunzipSync(Buffer.from(await res.arrayBuffer()), { maxOutputLength: 12 * 1024 * 1024 }).toString("utf8")
+  // The page shows this in a sealed frame where nothing can run; scripts and handlers are removed as well.
+  return html.replace(/<script[\s\S]*?<\/script\s*>/gi, "").replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*')/gi, "").replace(/(href|src)\s*=\s*(["'])\s*javascript:[^"']*\2/gi, "$1=$2#$2")
+}
+
 /** Applies the retention rule to one page's pictures (all versions), or to a whole project. */
 export async function sweepGateImages(now: Date, projectId: string, route?: string) {
   const rows = (await sql`
     SELECT i.id, i.kind, i.ref_key, i.blob_key, i.byte_size, i.captured_at, c.id AS checklist_id, c.route, c.version
     FROM gate_images i JOIN gate_checklists c ON c.id = i.checklist_id
     WHERE i.deleted_at IS NULL AND i.project_id = ${projectId} AND (${route ?? null}::text IS NULL OR c.route = ${route ?? null})
-  `) as { id: string; kind: "view" | "evidence"; ref_key: string; blob_key: string; captured_at: string; checklist_id: string; route: string; version: number }[]
+  `) as { id: string; kind: StoredImage["kind"]; ref_key: string; blob_key: string; captured_at: string; checklist_id: string; route: string; version: number }[]
   const byRoute = new Map<string, typeof rows>()
   for (const r of rows) byRoute.set(r.route, [...(byRoute.get(r.route) ?? []), r])
   const expire: typeof rows = []
@@ -163,14 +198,15 @@ export async function loadPage(row: ChecklistRow) {
   const images = (await sql`
     SELECT DISTINCT ON (kind, ref_key) id, kind, ref_key, blob_key, captured_at FROM gate_images
     WHERE checklist_id = ${row.id} AND deleted_at IS NULL ORDER BY kind, ref_key, captured_at DESC
-  `) as { id: string; kind: "view" | "evidence"; ref_key: string; blob_key: string; captured_at: string }[]
+  `) as { id: string; kind: StoredImage["kind"]; ref_key: string; blob_key: string; captured_at: string }[]
   const { getSignedDownloadUrl, isR2Configured } = await import("@/lib/storage/r2-client")
+  const extracts = images.filter((i) => i.kind === "extract").map((i) => i.ref_key)
   const signed = isR2Configured()
-    ? await Promise.all(images.map(async (i) => ({ kind: i.kind, key: i.ref_key, url: await getSignedDownloadUrl(i.blob_key, 3600), capturedAt: iso(i.captured_at) })))
+    ? await Promise.all(images.filter((i) => i.kind !== "extract").map(async (i) => ({ kind: i.kind, key: i.ref_key, url: await getSignedDownloadUrl(i.blob_key, 3600), capturedAt: iso(i.captured_at) })))
     : []
   const prev = await latestFor(row.project_id, row.route, row.version)
   return {
     id: row.id, route: row.route, title: row.title, version: row.version, env: row.env, build: row.build, createdAt: iso(row.created_at),
-    checklist: row.doc, results, images: signed, changes: diffChecklists(prev?.doc ?? null, row.doc), ...progress(row, results),
+    checklist: row.doc, results, images: signed, extracts, changes: diffChecklists(prev?.doc ?? null, row.doc), ...progress(row, results),
   }
 }
