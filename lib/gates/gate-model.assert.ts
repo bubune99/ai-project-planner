@@ -372,3 +372,37 @@ ok("intake counts every question once, asks why before how, and holds an attende
 })
 
 console.log(`${n} checks passed in all`)
+
+import { findingClass, ownerAsks, splitFindings } from "./gate-model"
+
+ok("an error is never the owner's question; a matter of taste is", () => {
+  for (const e of ["it has no name at all", "the link goes nowhere", "its link answers with error 404", "it is covered by another element (Menu)", "29 pixels of it are cut off by the box it sits in", "its words sit on top of a drawing: at 6 of 9 points", "its text is hard to read: contrast 2.1 to 1", "the field has no label a screen reader can read", "it overlaps \"Save\"", "its words are squeezed into 40 pixels and break over 4 lines", "it is 12 by 12 pixels, smaller than the 24 a finger or pointer needs", "\"Total\" spills 12 pixels out of the card", "the picture is squashed sideways"]) assert.equal(findingClass(e), "error", e)
+  for (const t of ["about 60% of its height is empty", "its content fills about 20% of it; the rest is empty", "its content comes within 0 pixels of the right and bottom edge", "its content starts 40 pixels from the left but 12 from the top", "the gaps between the cards in its row are uneven (12, 24 pixels)", "it is set in Georgia, while almost everything else on the page is in Inter"]) assert.equal(findingClass(t), "taste", t)
+  assert.deepEqual(splitFindings(["the link goes nowhere", "about 60% of its height is empty"]), { errors: ["the link goes nowhere"], taste: ["about 60% of its height is empty"] })
+  assert.deepEqual(splitFindings(undefined), { errors: [], taste: [] })
+})
+
+ok("questions about what is wanted are the owner's; questions about what the product does are an agent's", () => {
+  const owner = (kind: string) => intakeQuestions(kind).filter((q) => q.owner).map((q) => q.id)
+  assert.deepEqual(owner("Button"), ["purpose", "who", "flow"])
+  assert.deepEqual(owner("Card"), ["purpose", "who", "flow", "order"])
+  const s = intakeStatus([E("t", "Sessions this month", "agent", { kind: "Text", answers: { purpose: { text: "Shows the month's count", by: "agent", basis: "judgment", at: "t" } } })])
+  assert.equal(s.forOwner, 3)      // purpose is only proposed; who and flow are unanswered: all three are theirs
+  assert.equal(s.forAgents, 3)     // typed or worked out, from what, and the empty state: an agent reads these from the code
+})
+
+ok("what reaches the owner depends on how involved they choose to be, and is never an error", () => {
+  const busy = { mapConfirmed: false, ownerQuestions: 2, tasteFindings: 1, planWaiting: 1, cleared: false, signedOff: false }
+  assert.deepEqual(ownerAsks("report", busy), [])
+  assert.deepEqual(ownerAsks("preferences", busy).map((a) => a.kind), ["question", "taste", "plan"])
+  assert.deepEqual(ownerAsks("hands_on", busy).map((a) => a.kind), ["map", "question", "taste", "plan"])
+  // When everything works, the one thing left for them is whether it is right for them.
+  const done = { mapConfirmed: true, ownerQuestions: 0, tasteFindings: 0, planWaiting: 0, cleared: true, signedOff: false }
+  assert.deepEqual(ownerAsks("preferences", done).map((a) => a.kind), ["feel"])
+  assert.match(ownerAsks("preferences", done)[0].text, /flow do what you need.*how it feels/)
+  assert.deepEqual(ownerAsks("preferences", { ...done, signedOff: true }), [])
+  // Nothing in any ask is about whether something is broken.
+  for (const level of ["hands_on", "preferences"] as const) for (const a of ownerAsks(level, { ...busy, cleared: true })) assert.doesNotMatch(a.text, /broken|error|bug|fail/i)
+})
+
+console.log(`${n} checks passed in all`)

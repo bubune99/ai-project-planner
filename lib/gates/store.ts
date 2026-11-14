@@ -6,7 +6,7 @@
  */
 import { sql } from "@/lib/db/client"
 import {
-  alignToPrevious, allChecks, auditLog, mergePartial, checkState, diffChecklists, sameCriteria, scanFindings, scorecard, standingKeys,
+  alignToPrevious, allChecks, auditLog, checkKey, mergePartial, splitFindings, checkState, diffChecklists, sameCriteria, scanFindings, scorecard, standingKeys,
   hookLine, imagesToExpire, nextCheck, summarize, validateChecklist,
   type Actor, type Checklist, type Region, type Result, type StoredImage, type Verdict,
 } from "./gate-model"
@@ -276,6 +276,13 @@ export async function loadPage(row: ChecklistRow) {
     id: row.id, route: row.route, title: row.title, version: row.version, env: row.env, build: row.build, createdAt: iso(row.created_at),
     // What the scan flagged and nobody has validated yet, with what it claimed: the validator's work list.
     flagged: allChecks(row.doc).filter((c) => checkState(results, c.key) === "flagged").map((c) => ({ key: c.key, n: c.n, label: c.label, view: c.view, claim: results.filter((r) => r.key === c.key && r.actor === "scan").at(-1)?.note ?? "" })),
+    // Who deals with what. Errors are found, confirmed and fixed by agents and are never the owner's question.
+    // Matters of taste (it works, but may not look the way they like) are the owner's to judge.
+    ...(() => {
+      const open = (n: number, c: { workflows: { name: string }[]; states: string[] }) => { const st = checkState(results, checkKey(n, c.workflows[0].name, c.states[0])); return st === "flagged" || st === "failed" }
+      const all = row.doc.views.flatMap((v) => v.controls.filter((c) => c.issues?.length && open(c.n, c)).map((c) => ({ n: c.n, label: c.label, view: v.key, key: checkKey(c.n, c.workflows[0].name, c.states[0]), ...splitFindings(c.issues) })))
+      return { yours: all.filter((c) => !c.errors.length && c.taste.length).map((c) => ({ n: c.n, label: c.label, key: c.key, taste: c.taste })), handled: all.filter((c) => c.errors.length).length }
+    })(),
     // Every verdict in order (the newest 200), and what the record says about how well the arrangement is working.
     log: auditLog(row.doc, results).slice(-200).reverse(), score: scorecard(row.doc, results),
     checklist: row.doc, results, images: signed, extracts, changes: diffChecklists(prev?.doc ?? null, row.doc), ...(await progress(row, results)),

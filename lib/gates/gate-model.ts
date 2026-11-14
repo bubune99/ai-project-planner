@@ -632,9 +632,11 @@ export interface Answer {
   at: string
 }
 
-export interface IntakeQuestion { id: string; ask: string; why: string }
+export interface IntakeQuestion { id: string; ask: string; why: string; /** Only the owner can know this: it is about what they want, not about what the code does. */ owner: boolean }
 
-const Q = (id: string, ask: string, why: string): IntakeQuestion => ({ id, ask, why })
+/** Questions about what is wanted are the owner's. Questions about what the product does can be answered from the code. */
+const OWNERS = new Set(["purpose", "who", "flow", "order"])
+const Q = (id: string, ask: string, why: string): IntakeQuestion => ({ id, ask, why, owner: OWNERS.has(id) })
 const ALWAYS = [
   Q("purpose", "What is it for? What could someone not do without it?", "A thing with no purpose anyone can state should not be built."),
   Q("who", "Who uses it, and who must not be able to?", "This decides what each kind of person sees and what is refused."),
@@ -680,13 +682,19 @@ export interface IntakeStatus {
   missing: number
   /** Questions still to ask, why-it-exists before how-it-behaves. */
   open: { itemId: string; label: string; kind?: string; question: IntakeQuestion; state: "missing" | "proposed"; proposal?: string }[]
+  /** Of the open ones: those only the owner can settle. The rest are an agent's to answer from the code. */
+  forOwner: number
+  forAgents: number
 }
 
 /** How far the questions about a page's planned items have been answered. */
 export function intakeStatus(items: Expected[]): IntakeStatus {
-  const s: IntakeStatus = { items: items.length, questions: 0, settled: 0, reasoned: 0, proposed: 0, missing: 0, open: [] }
+  const s: IntakeStatus = { items: items.length, questions: 0, settled: 0, reasoned: 0, proposed: 0, missing: 0, open: [], forOwner: 0, forAgents: 0 }
   for (const it of items) for (const q of intakeQuestions(it.kind)) {
     const a = it.answers?.[q.id], st = answerState(a)
+    // The owner is asked what only they can know. What an agent can find in the code is the agent's to answer, and
+    // an unanswered one is the agent's unfinished work, not a question for the owner.
+    if (st === "missing" || st === "proposed") { if (q.owner) s.forOwner++; else if (st === "missing") s.forAgents++ }
     s.questions++
     s[st]++
     if (st === "missing" || st === "proposed") s.open.push({ itemId: it.id, label: it.label, kind: it.kind, question: q, state: st, ...(st === "proposed" ? { proposal: a!.text } : {}) })
@@ -705,4 +713,57 @@ export function intakeLine(s: IntakeStatus, attended: boolean): string {
   if (!todo.length) return ""
   const first = todo[0]
   return `${todo.length} question${todo.length === 1 ? "" : "s"} about what is planned ${todo.length === 1 ? "is" : "are"} not settled. Next, about "${first.label}": ${first.question.ask}${first.proposal ? ` (proposed: ${first.proposal})` : ""}`
+}
+
+
+/* ── Errors and preferences ──────────────────────────────────────────────────
+ * The owner decides preferences. The owner does not decide errors (owner,
+ * 2026-11-14: "I should be deciding on preferences, not deciding on errors").
+ * An error is something that is wrong whoever looks at it: it cannot be read,
+ * reached or used, it is cut off, it gives the wrong number. Agents find it,
+ * confirm it, fix it and prove the fix, and it never reaches the owner as a
+ * question. A preference is something reasonable people could want either
+ * way: how much room a card has, what sits first, whether it feels right.
+ * Only those, and what the owner alone can know about what they want, are
+ * put to them. How often they are asked is theirs to set; errors are not
+ * part of that setting at all.
+ */
+
+/** Findings about how something feels rather than whether it works. Everything else a scan reports is an error. */
+const TASTE = /is empty|the rest is empty|comes within \d+ pixels of the|pixels from the left but|gaps between the cards|spaces between the cards|while almost everything else on the page is in/
+
+/** Whether one finding is an error (wrong for anyone) or a matter of taste (the owner's to judge). */
+export function findingClass(issue: string): "error" | "taste" {
+  return TASTE.test(issue) ? "taste" : "error"
+}
+
+/** A control's findings split by who deals with them. */
+export function splitFindings(issues: string[] | undefined): { errors: string[]; taste: string[] } {
+  const out = { errors: [] as string[], taste: [] as string[] }
+  for (const i of issues ?? []) out[findingClass(i) === "taste" ? "taste" : "errors"].push(i)
+  return out
+}
+
+/** How much the owner wants to be part of the work. Errors are handled without them at every level. */
+export type Involvement = "hands_on" | "preferences" | "report"
+
+export interface OwnerAsk { kind: "map" | "question" | "taste" | "plan" | "feel"; text: string }
+
+/**
+ * What may be put to the owner at their chosen level.
+ *   report       nothing. They read the record afterward.
+ *   preferences  what only they can decide: what they want (their questions), matters of taste, changes to what they
+ *                planned, and at the end whether the flow and the feel are right.
+ *   hands_on     all of that, and they are shown the map of each page before work starts.
+ * Nothing here is ever an error: "is this broken?" is not a question for the owner.
+ */
+export function ownerAsks(level: Involvement, s: { mapConfirmed: boolean; ownerQuestions: number; tasteFindings: number; planWaiting: number; cleared: boolean; signedOff: boolean }): OwnerAsk[] {
+  if (level === "report") return []
+  const asks: OwnerAsk[] = []
+  if (level === "hands_on" && !s.mapConfirmed) asks.push({ kind: "map", text: "Is this everything this page should have, and is anything here that you do not want?" })
+  if (s.ownerQuestions) asks.push({ kind: "question", text: `${s.ownerQuestions} question${s.ownerQuestions === 1 ? "" : "s"} about what you want that only you can answer` })
+  if (s.tasteFindings) asks.push({ kind: "taste", text: `${s.tasteFindings} thing${s.tasteFindings === 1 ? "" : "s"} that work but may not look the way you like` })
+  if (s.planWaiting) asks.push({ kind: "plan", text: `${s.planWaiting} change${s.planWaiting === 1 ? "" : "s"} to what you planned` })
+  if (s.cleared && !s.signedOff) asks.push({ kind: "feel", text: "Everything works and has been checked. Does the flow do what you need, and do you like how it feels?" })
+  return asks
 }

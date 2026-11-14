@@ -21,14 +21,15 @@ interface PageData {
   checklist: Checklist; results: Result[]; images: { kind: "view" | "evidence"; key: string; url: string }[]; extracts?: string[]
   changes: { added: Change[]; removed: Change[]; kept: number }; summary: Summary; hook: string; canSettle: boolean
   mayFinish?: boolean; next?: { key: string; n: number } | null; log?: LogEntry[]; score?: Scorecard
+  yours?: { n: number; label: string; key: string; taste: string[] }[]; handled?: number
 }
 
 /**
  * The record: what has to be done now, how well the arrangement is working, and every verdict in order.
  * It is what proves a page was checked, and by whom, rather than said to be.
  */
-function RecordSection({ data, onPick }: { data: PageData; onPick: (n: number) => void }) {
-  const log = data.log ?? [], sc = data.score
+function RecordSection({ data, onPick, onDecide }: { data: PageData; onPick: (n: number) => void; onDecide: (key: string, status: "passed" | "failed", note: string) => void }) {
+  const log = data.log ?? [], sc = data.score, yours = data.yours ?? []
   const failing = allChecks(data.checklist).filter((c) => checkState(data.results, c.key) === "failed")
   const flagged = allChecks(data.checklist).filter((c) => checkState(data.results, c.key) === "flagged")
   const noteOf = (key: string) => [...data.results].reverse().find((r) => r.key === key && r.note)?.note
@@ -38,22 +39,25 @@ function RecordSection({ data, onPick }: { data: PageData; onPick: (n: number) =
   return (
     <section className="opx-sec opx-ck-record">
       <div>
-        <h3 className="opx-ck-h3">What needs doing</h3>
-        {failing.length === 0 && flagged.length === 0 && <p className="opx-muted">Nothing is failing and nothing flagged is waiting to be validated.</p>}
-        {failing.length > 0 && (
-          <>
-            <h4 className="opx-ck-h4">Fix ({failing.length} confirmed failing)</h4>
-            <ul>{failing.slice(0, 12).map((c) => <li key={c.key}><button type="button" onClick={() => onPick(c.n)}><b>{c.n}. {c.label}</b></button><span className="opx-muted">{noteOf(c.key)}</span></li>)}</ul>
-          </>
+        <h3 className="opx-ck-h3">Yours to decide</h3>
+        <p className="opx-muted">Only preferences reach you: things that work but may not be how you like them. Errors are not yours to decide.</p>
+        {yours.length === 0 && <p className="opx-muted">Nothing about taste is waiting on this page.</p>}
+        <ul>
+          {yours.map((y) => (
+            <li key={y.key}>
+              <button type="button" onClick={() => onPick(y.n)}><b>{y.n}. {y.label}</b></button>
+              <span className="opx-muted">{y.taste.join("; ")}.</span>
+              {data.canSettle && <span className="opx-ck-settle"><button type="button" onClick={() => onDecide(y.key, "passed", "I like it as it is.")}>It is fine as it is</button><button type="button" onClick={() => onDecide(y.key, "failed", `Change it: ${y.taste.join("; ")}.`)}>Change it</button></span>}
+            </li>
+          ))}
+        </ul>
+        <h3 className="opx-ck-h3" style={{ marginTop: 14 }}>Being handled without you</h3>
+        <p className="opx-muted">
+          {failing.length + flagged.length - yours.length <= 0 ? "No errors are open on this page." : `${Math.max(0, failing.length - yours.filter((y) => failing.some((f) => f.key === y.key)).length)} confirmed errors are being fixed and ${Math.max(0, flagged.length - yours.filter((y) => flagged.some((f) => f.key === y.key)).length)} possible ones are being checked. You are not asked about these; the log shows each one found, confirmed, fixed and proved.`}
+        </p>
+        {failing.filter((c) => !yours.some((y) => y.key === c.key)).length > 0 && (
+          <ul>{failing.filter((c) => !yours.some((y) => y.key === c.key)).slice(0, 8).map((c) => <li key={c.key}><button type="button" onClick={() => onPick(c.n)}><b>{c.n}. {c.label}</b></button><span className="opx-muted">{noteOf(c.key)}</span></li>)}</ul>
         )}
-        {flagged.length > 0 && (
-          <>
-            <h4 className="opx-ck-h4">Validate ({flagged.length} flagged by the scan)</h4>
-            <ul>{flagged.slice(0, 8).map((c) => <li key={c.key}><button type="button" onClick={() => onPick(c.n)}><b>{c.n}. {c.label}</b></button><span className="opx-muted">{noteOf(c.key)}</span></li>)}</ul>
-            {flagged.length > 8 && <p className="opx-muted">and {flagged.length - 8} more.</p>}
-          </>
-        )}
-        <p className="opx-muted">What to build or take away is under "Against the plan".</p>
       </div>
       <div>
         <h3 className="opx-ck-h3">How the system is doing</h3>
@@ -334,12 +338,13 @@ export function ChecksTab({ projectId }: { projectId: string }) {
   // What is drawn behind the numbers: the stored page if there is one, else the picture, else a wireframe. The owner can switch.
   const shown = mode === "extract" && hasExtract ? "extract" : mode === "picture" && hasPicture ? "picture" : mode === "wire" ? "wire" : chosenPieces.length ? "picture" : hasExtract ? "extract" : hasPicture ? "picture" : "wire"
 
-  async function verdict(key: string, status: "passed" | "failed" | "waived") {
+  const verdict = (key: string, status: "passed" | "failed" | "waived") => verdictWith(key, status, note.trim() || undefined)
+  async function verdictWith(key: string, status: "passed" | "failed" | "waived", text?: string) {
     if (!data) return
     setError(null)
     const res = await fetch(`/api/projects/${projectId}/gates/${data.id}`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "verdict", keys: [key], status, note: note.trim() || undefined }),
+      body: JSON.stringify({ action: "verdict", keys: [key], status, note: text }),
     })
     if (!res.ok) { setError((await res.json().catch(() => null))?.error ?? "Could not save that"); return }
     setSettle(null); setNote(""); page.reload(); pages.reload()
@@ -394,7 +399,7 @@ export function ChecksTab({ projectId }: { projectId: string }) {
         )}
       </section>
 
-      {data && <RecordSection data={data} onPick={(n) => { setPick(n); setSettle(null) }} />}
+      {data && <RecordSection data={data} onPick={(n) => { setPick(n); setSettle(null) }} onDecide={(key, status, text) => { void verdictWith(key, status, text) }} />}
 
       <PlanSection projectId={projectId} route={current.route} tick={planTick} onPick={(n) => { setPick(n); setSettle(null) }} />
 
