@@ -39,7 +39,7 @@ function Mark({ state, small }: { state: CheckState; small?: boolean }) {
 }
 
 const SHOWN = {
-  extract: "The page itself, redrawn from the HTML and styles the scan stored. No picture is kept.",
+  extract: "The page itself, redrawn from the HTML and styles the scan stored.",
   picture: "Picture taken during the scan.",
   wire: "Wireframe, drawn from where the scan found each control.",
 }
