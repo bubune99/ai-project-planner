@@ -3492,23 +3492,17 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           if (!job) return mcpError("Job not found")
           if (job.created_by !== userId) return mcpError("Access denied")
 
-          // Update based on status
-          let updateFields: Record<string, unknown> = { status }
-          if (status === "claimed") updateFields.claimed_at = sql`NOW()`
-          if (status === "in_progress") updateFields.started_at = sql`NOW()`
-          if (status === "completed") updateFields.completed_at = sql`NOW()`
-          if (checkpoint) updateFields.checkpoint = checkpoint
-          if (result) updateFields.result = JSON.stringify(result)
-          if (error) updateFields.error_message = error
-
+          // agent_jobs has no checkpoint, claimed_at or error_message column: a checkpoint and the claim time
+          // are kept in metadata, and the failure text in "error".
           const [updated] = await sql`
             UPDATE agent_jobs
             SET
               status = ${status},
-              checkpoint = COALESCE(${checkpoint ?? null}, checkpoint),
-              result = CASE WHEN ${result !== undefined} THEN ${JSON.stringify(result || {})} ELSE result END,
-              error_message = COALESCE(${error ?? null}, error_message),
-              claimed_at = CASE WHEN ${status === "claimed"} THEN NOW() ELSE claimed_at END,
+              metadata = COALESCE(metadata, '{}'::jsonb)
+                || CASE WHEN ${checkpoint ?? null}::text IS NOT NULL THEN jsonb_build_object('checkpoint', ${checkpoint ?? null}::text) ELSE '{}'::jsonb END
+                || CASE WHEN ${status === "claimed"} THEN jsonb_build_object('claimedAt', NOW()) ELSE '{}'::jsonb END,
+              result = CASE WHEN ${result !== undefined} THEN ${JSON.stringify(result || {})}::jsonb ELSE result END,
+              error = COALESCE(${error ?? null}, error),
               started_at = CASE WHEN ${status === "in_progress"} THEN NOW() ELSE started_at END,
               completed_at = CASE WHEN ${status === "completed" || status === "failed"} THEN NOW() ELSE completed_at END,
               updated_at = NOW()
