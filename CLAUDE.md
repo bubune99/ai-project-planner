@@ -146,7 +146,7 @@ env — never source `.env`.
 The planner is the source of truth for what a screen must have and whether it
 has been proved. How to work under it is in `~/.claude/rules/common/gates.md`;
 this is where each part lives here. All of it is on main and in production
-(migrations 063 to 066).
+(migrations 063 to 066; walks, migration 067, are on staging only until shipped).
 
 | Part | Rules (pure, with a check file) | Storage and routes | Screen |
 |---|---|---|---|
@@ -154,6 +154,7 @@ this is where each part lives here. All of it is on main and in production
 | The plan and intent questions | `lib/gates/gate-model.ts` | `lib/gates/plan-store.ts`, `/api/projects/[id]/gates/plan` | in the Checks tab |
 | Stack entries and statements | `lib/gates/guides.ts`, `default-guides.ts` | `lib/gates/guide-store.ts`, `/api/gates/guides` | in the Checks tab |
 | People, personas, use cases, page comparison | `lib/people/people-model.ts` | `lib/people/store.ts`, `/api/projects/[id]/people` | project tab "People and flows" |
+| Walks (an agent uses the product toward a goal; findings and the six scores) | `lib/walks/walk-model.ts` | `lib/walks/store.ts`, `/api/projects/[id]/gates/walks` | under each use case in "People and flows" |
 | Process maps (a Library document type) | `lib/sops/process-map.ts` | the document's own text, `/api/sops` | `/sops`, drawn by `components/project/opx/ProcessMap.tsx` |
 | Agent tools | `lib/mcp/gate-tools.ts` (classify every new tool in `lib/agents/risk.ts`) | | |
 

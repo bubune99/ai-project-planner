@@ -209,7 +209,7 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
               aria-label="Open command palette"
             >
               <Icon name="search" size={14} />
-              <span>Search or jump to…</span>
+              <span>Jump to a page…</span>
               <span className="j-kbd">{isMac ? "⌘K" : "Ctrl K"}</span>
             </button>
             <button
