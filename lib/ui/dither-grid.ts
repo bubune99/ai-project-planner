@@ -30,10 +30,11 @@ export type Rgb = [number, number, number]
  */
 export const PALETTE: readonly { hex: string; at: number }[] = [
   { hex: "#1a1a1a", at: -0.4 },
-  { hex: "#3d3d3d", at: 0.05 },
-  { hex: "#868686", at: 0.5 },
-  { hex: "#cfcfcf", at: 0.95 },
-  { hex: "#f2f2f2", at: 1.4 },
+  { hex: "#343434", at: 0.05 },
+  { hex: "#636363", at: 0.5 },
+  { hex: "#969696", at: 0.95 },
+  // The light end stops at a soft gray: near-white was too bright (owner 2026-11-13).
+  { hex: "#b8b8b8", at: 1.4 },
 ]
 
 export const ANGLE = 78
