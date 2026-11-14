@@ -29,11 +29,12 @@ export type Rgb = [number, number, number]
  * rate. Nothing is ever clamped: every row is its own shade at every moment.
  */
 export const PALETTE: readonly { hex: string; at: number }[] = [
-  // Each stop is 30% darker than the first gray version, and the light end
-  // stops at a mid gray: near-white was too bright (owner 2026-11-13).
-  { hex: "#121212", at: -0.4 },
-  { hex: "#242424", at: 0.05 },
-  { hex: "#454545", at: 0.5 },
+  // A tight range (owner 2026-11-13): the dark end is lifted so the top is
+  // not too dark, and the light end stops at a mid gray so it is not too
+  // bright. Evenly spaced, so the texture reads the same from top to bottom.
+  { hex: "#2c2c2c", at: -0.4 },
+  { hex: "#404040", at: 0.05 },
+  { hex: "#545454", at: 0.5 },
   { hex: "#696969", at: 0.95 },
   { hex: "#818181", at: 1.4 },
 ]
