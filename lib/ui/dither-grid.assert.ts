@@ -1,99 +1,88 @@
 import assert from "node:assert/strict"
-import { DITHER, PALETTE, SWEEP, buildRamp, cellBase, cellValue, centers, colorAt, gridFor, hexToOklab, hexToRgb, oklabToRgb, paint, shiftAt } from "./dither-grid"
+import { DITHER, PALETTE, ROWS, SWEEP, buildRamp, cellBase, cellValue, colorAt, gridFor, hexToOklab, hexToRgb, oklabToRgb, paint, shiftAt } from "./dither-grid"
 
 let n = 0
 const ok = (name: string, fn: () => void) => { fn(); n++; console.log("ok ", name) }
 const near = (a: number, b: number, eps = 1e-9) => assert.ok(Math.abs(a - b) <= eps, `${a} vs ${b}`)
 const ramp = buildRamp()
 
-ok("colors sit at the middle of their bands (the original's positions 0, 33, 67, 100)", () => {
-  const c = centers(PALETTE.map((p) => p.pos))
-  ;[0.0825, 0.3325, 0.6675, 0.9175].forEach((v, i) => near(c[i], v, 1e-9))
-})
-
 ok("hex to OKLab and back returns the same color", () => {
   for (const { hex } of PALETTE) assert.deepEqual(oklabToRgb(...hexToOklab(hex)), hexToRgb(hex))
 })
 
-ok("the ramp starts at the first color, ends at the last, and blends between", () => {
-  const sorted = [...PALETTE].sort((x, y) => x.pos - y.pos)
-  assert.deepEqual(colorAt(ramp, 0), hexToRgb(sorted[0].hex))
-  assert.deepEqual(colorAt(ramp, 0.0825), hexToRgb(sorted[0].hex))
-  assert.deepEqual(colorAt(ramp, 0.3325), hexToRgb(sorted[1].hex))
-  assert.deepEqual(colorAt(ramp, 1), hexToRgb(sorted[sorted.length - 1].hex))
-  const mid = colorAt(ramp, (0.0825 + 0.3325) / 2)
-  assert.ok(mid[2] > hexToRgb(sorted[0].hex)[2] && mid[2] < hexToRgb(sorted[1].hex)[2])
-})
-
-ok("the palette is gray: no color has a hue", () => {
+ok("the palette is gray and only gets lighter", () => {
   for (const { hex } of PALETTE) { const [r, g, b] = hexToRgb(hex); assert.ok(r === g && g === b, hex) }
-  // Blends between grays stay gray too.
-  for (let v = 0; v <= 1; v += 0.05) { const [r, g, b] = colorAt(ramp, v); assert.ok(Math.max(r, g, b) - Math.min(r, g, b) <= 2) }
+  let last = -1
+  for (let v = -0.4; v <= 1.4; v += 0.01) {
+    const [r, g, b] = colorAt(ramp, v)
+    assert.ok(Math.max(r, g, b) - Math.min(r, g, b) <= 2)
+    assert.ok(r >= last); last = r
+  }
 })
 
-ok("motion starts at exactly 0, is a sweep within +/- 0.35, and is not rounded", () => {
+ok("the motion is the original's: 0.5 * sin(0.9 t * -1) * 0.7, from 0, unrounded", () => {
   assert.equal(shiftAt(0), 0)
-  for (let t = 0; t < 60; t += 0.37) assert.ok(Math.abs(shiftAt(t)) <= 0.35 + 1e-12)
-  assert.ok(Math.abs(shiftAt(0.001)) < 0.001)
+  for (const t of [0.1, 1, 2.5, 7.3, 40]) near(shiftAt(t), 0.5 * Math.sin(0.9 * t * -1) * 0.7, 1e-12)
+  near(SWEEP, 0.35)
   assert.notEqual(shiftAt(1.234), Math.round(shiftAt(1.234) * 1000) / 1000)
 })
 
-ok("the ramp runs mostly down the grid, a little across", () => {
-  const rows = 6, cols = 60
-  const down = cellBase(5, 0, rows, cols, 0) - cellBase(0, 0, rows, cols, 0)
-  const across = cellBase(0, 59, rows, cols, 0) - cellBase(0, 0, rows, cols, 0)
-  near(down + across, 1, 1e-9)
-  assert.ok(down > across * 4 && across > 0)
+ok("a cell's position is the original's (place along 78 degrees + slide + dither nudge), not scaled", () => {
+  // Sliding the ramp by x moves every cell by exactly x: full speed, nothing squeezed.
+  for (const [r, c] of [[0, 0], [7, 30], [19, 113]]) near(cellValue(r, c, 20, 114, 0.2) - cellValue(r, c, 20, 114, 0), 0.2, 1e-12)
+  // Corner to corner the ramp covers exactly 0 to 1.
+  near(cellBase(0, 0, 20, 114, 0), 0); near(cellBase(19, 113, 20, 114, 0), 1)
+  // The dither is the original's strength: dither 50 -> 0.09, so a nudge of at most 0.045 either way.
+  assert.equal(DITHER, 0.09)
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) assert.ok(Math.abs(cellValue(r, c, 20, 114, 0) - cellBase(r, c, 20, 114, 0)) <= 0.045)
 })
 
-ok("the ramp only gets lighter", () => {
-  let last = -1
-  for (let v = 0.0825; v <= 0.9175; v += 0.01) { const g = colorAt(ramp, v)[0]; assert.ok(g >= last); last = g }
+ok("the ripple: with 20 rows the step between rows is about the dither nudge, so rows weave", () => {
+  assert.equal(ROWS, 20)
+  const step = cellBase(1, 0, 20, 114, 0) - cellBase(0, 0, 20, 114, 0)
+  assert.ok(step > DITHER * 0.3 && step < DITHER, `row step ${step} vs dither ${DITHER}`)
+  // So in about half the neighboring row pairs, some cell in the upper row is lighter than some cell in the lower one.
+  const row = (r: number) => Array.from({ length: 8 }, (_, c) => cellValue(r, c, 20, 114, 0))
+  let weaving = 0
+  for (let r = 0; r < 19; r++) if (Math.max(...row(r)) > Math.min(...row(r + 1))) weaving++
+  // The 4x4 pattern makes two of every four row pairs weave: about half.
+  assert.ok(weaving >= 8 && weaving <= 12, `${weaving} of 19 row pairs weave`)
 })
 
-ok("nothing is ever clamped: every cell stays between the first and last color, slide and nudge included", () => {
-  const lo = ramp.centers[0], hi = ramp.centers[ramp.centers.length - 1]
-  for (const shift of [-SWEEP, -0.2, 0, 0.2, SWEEP]) for (let r = 0; r < 7; r++) for (let c = 0; c < 81; c += 5) {
-    const v = cellValue(r, c, 7, 81, shift, ramp)
-    assert.ok(v >= lo - 1e-12 && v <= hi + 1e-12)
+ok("nothing is ever clamped: the ramp is longer than the banner can reach", () => {
+  const lo = PALETTE[0].at, hi = PALETTE[PALETTE.length - 1].at
+  for (const shift of [-SWEEP, 0, SWEEP]) for (let r = 0; r < 20; r++) for (let c = 0; c < 114; c += 3) {
+    const v = cellValue(r, c, 20, 114, shift)
+    assert.ok(v > lo && v < hi, `v=${v}`)
   }
-  // The dither spreads neighbors apart by its strength, scaled with the rest.
-  const vals = [0, 1, 2, 3].flatMap((r) => [0, 1, 2, 3].map((c) => cellValue(r, c, 400, 400, 0, ramp)))
-  const spread = Math.max(...vals) - Math.min(...vals)
-  assert.ok(spread > 0.05 && spread < DITHER)
 })
 
-ok("no flat areas: at any moment every row is its own shade and every row has texture", () => {
-  const rows = 7, cols = 81
+ok("no flat areas: at any moment every row has texture and is lighter than the row above", () => {
+  const rows = 20, cols = 114
   for (const t of [0, 0.6, 1.2, 1.75, 2.4, 3.1, 3.9, 5.2, 6.4, 8.8]) {
     const data = new Array<number>(rows * cols * 4)
     paint(data, rows, cols, ramp, t)
     const row = (r: number) => Array.from({ length: cols }, (_, c) => data[(r * cols + c) * 4])
     const mean = (r: number) => row(r).reduce((a, b) => a + b, 0) / cols
     for (let r = 0; r < rows; r++) {
-      // Texture: a row is never one flat color.
       assert.ok(new Set(row(r)).size >= 3, `row ${r} at t=${t} is flat`)
-      // Gradient: neighboring rows are different shades.
-      if (r > 0) assert.ok(Math.abs(mean(r) - mean(r - 1)) >= 1, `rows ${r - 1} and ${r} at t=${t} are the same shade`)
+      if (r > 0) assert.ok(mean(r) - mean(r - 1) >= 1, `rows ${r - 1} and ${r} at t=${t} are the same shade`)
     }
   }
 })
 
-ok("a wide banner gets square, coarse cells", () => {
-  const g = gridFor(2280, 172)
-  assert.equal(g.rows, 6)
-  near(2280 / g.cols, 172 / g.rows, 1.5)
-  assert.equal(gridFor(320, 2000).rows, 20)
-  assert.equal(gridFor(900, 60).rows, 4)
+ok("the grid is always 20 rows, cells twice as wide as tall, at least 16 columns", () => {
+  const g = gridFor(2280, 198)
+  assert.equal(g.rows, 20)
+  near(2280 / g.cols, (198 / 20) * 2, 0.5)
+  assert.equal(gridFor(200, 400).cols, 16)
 })
 
-ok("painting fills every cell with an opaque color, dark at the top and lighter below", () => {
-  const rows = 6, cols = 20, data = new Array<number>(rows * cols * 4).fill(-1)
+ok("painting fills every cell with an opaque gray", () => {
+  const rows = 20, cols = 30, data = new Array<number>(rows * cols * 4).fill(-1)
   paint(data, rows, cols, ramp, 0)
   assert.ok(data.every((v) => v >= 0 && v <= 255))
   assert.equal(data[3], 255)
-  const sum = (i: number) => data[i] + data[i + 1] + data[i + 2]
-  assert.ok(sum(0) < sum((rows - 2) * cols * 4))
 })
 
 console.log(`\n${n} checks passed`)
