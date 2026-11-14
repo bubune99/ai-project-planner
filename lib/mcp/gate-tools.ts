@@ -11,7 +11,7 @@
 import { z } from "zod"
 import { getMcpUserId, requireMcpProjectWriteAccess, requireMcpScope, verifyMcpProjectAccess } from "@/lib/auth/mcp-context"
 import { attachImage, getChecklist, listPages, loadPage, recordResults, saveChecklist, sweepGateImages, type ChecklistRow } from "@/lib/gates/store"
-import { loadPlan, proposePlanChange, seedPlan } from "@/lib/gates/plan-store"
+import { answerIntake, loadPlan, proposePlanChange, seedPlan } from "@/lib/gates/plan-store"
 import { listGuides, saveGuide } from "@/lib/gates/guide-store"
 
 function ok(data: unknown) {
@@ -171,6 +171,19 @@ export function registerGateTools(server: any): void {
         requireMcpScope("write")
         await requireMcpProjectWriteAccess(a.projectId)
         return ok(await proposePlanChange({ ...a, userId: getMcpUserId() }))
+      } catch (e) { return fail(reason(e)) }
+    },
+  )
+
+  server.tool(
+    "gate_intake_answer",
+    "Answer one question about a planned item on a page: what it is for, who uses it, which use case it belongs to, whether its content is typed in or worked out and from what, what pressing it changes. gate_plan lists the open questions. Give what the answer rests on: owner_asked needs the owner's own words in quote; evidence and rule are reasoned and stand; judgment is a proposal the owner is asked to confirm. Returns the next question.",
+    { projectId: z.string(), route: z.string(), item: z.string().describe("The planned item's name or id"), question: z.string().describe("The question's id, e.g. purpose, who, flow, source, from, changes"), answer: z.string(), basis: z.enum(["owner_asked", "rule", "evidence", "judgment"]), quote: z.string().optional() },
+    async (a: { projectId: string; route: string; item: string; question: string; answer: string; basis: "owner_asked" | "rule" | "evidence" | "judgment"; quote?: string }) => {
+      try {
+        requireMcpScope("write")
+        await requireMcpProjectWriteAccess(a.projectId)
+        return ok(await answerIntake({ projectId: a.projectId, route: a.route, item: a.item, question: a.question, text: a.answer, by: "agent", basis: a.basis, quote: a.quote }))
       } catch (e) { return fail(reason(e)) }
     },
   )

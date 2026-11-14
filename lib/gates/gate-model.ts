@@ -504,6 +504,8 @@ export interface Expected {
   /** What it must do, in words. */
   must: string
   source: ExpectSource
+  /** The answers given about it, by question id: why it is there, who uses it, where its content comes from. */
+  answers?: Record<string, Answer>
 }
 
 export interface PlanCompare {
@@ -610,4 +612,97 @@ export function decideChange(p: PlanChange, ctx: PlanContext): { needsOwner: boo
   if (ctx.shipped) return { needsOwner: true, why: "People already use this page; dropping something from it is the owner's call." }
   if (p.item.source === "agent") return { needsOwner: false, why: "An agent added it during this build and the page has not shipped, so the agent may withdraw it." }
   return { needsOwner: true, why: `It came from the ${p.item.source === "owner" ? "owner's own request" : p.item.source === "mockup" ? "approved mock-up" : "flow"}, and the owner has not said to drop it.` }
+}
+
+/* ── Intent: the questions asked about each thing before it is built ─────────
+ * A feature list says what will be on a page. It does not say why, for whom,
+ * or where each figure comes from, and those are what a build gets wrong. So
+ * every planned item is asked a short set of questions that depend on what
+ * kind of thing it is. Each answer records who gave it and what it rests on,
+ * so the reasoning behind a design can be followed later.
+ */
+
+export interface Answer {
+  text: string
+  /** owner: they said it. agent: a planning agent worked it out. */
+  by: "owner" | "agent"
+  basis: Basis
+  /** The owner's own words, when the answer rests on them. */
+  quote?: string
+  at: string
+}
+
+export interface IntakeQuestion { id: string; ask: string; why: string }
+
+const Q = (id: string, ask: string, why: string): IntakeQuestion => ({ id, ask, why })
+const ALWAYS = [
+  Q("purpose", "What is it for? What could someone not do without it?", "A thing with no purpose anyone can state should not be built."),
+  Q("who", "Who uses it, and who must not be able to?", "This decides what each kind of person sees and what is refused."),
+  Q("flow", "Which use case is it part of, and what comes just before and just after it?", "A control checked alone can pass while the journey it belongs to is broken."),
+]
+const CONTENT = [
+  Q("source", "Is this typed in by someone, or worked out from something else?", "What is typed needs a way to change it. What is worked out must never be typed over."),
+  Q("from", "If it is worked out: from what, and when does it change?", "This is what the figure is checked against."),
+  Q("empty", "What shows when there is nothing yet?", "An empty state nobody designed is a blank or a wrong zero."),
+]
+const BY_KIND: Record<string, IntakeQuestion[]> = {
+  Field: [Q("kept", "What happens to what is typed: where is it kept, and what else changes because of it?", "This is the action check for the field."), Q("refused", "What must be refused, and what does the person see then?", "Limits nobody stated are limits nobody checks.")],
+  Button: [Q("changes", "What does pressing it change?", "This is the action check for the button."), Q("undo", "Can it be undone? If not, is the person asked first?", "Anything that cannot be undone is the owner's to approve.")],
+  Switch: [Q("changes", "What is different when it is on?", "This is the action check for the switch.")],
+  Tab: [Q("changes", "What does it show that the other tabs do not?", "Tabs that show the same thing are one tab.")],
+  Link: [],
+  Text: CONTENT,
+  Card: [...CONTENT, Q("order", "What is the most important thing in it, and is that the first thing seen?", "This is what its layout is judged against.")],
+  Chart: [...CONTENT, Q("agrees", "Which figures elsewhere must it agree with?", "A chart is right only if it matches the numbers it is drawn from.")],
+}
+
+/** The questions to settle about a planned item, by what kind of thing it is. */
+export function intakeQuestions(kind: string | undefined): IntakeQuestion[] {
+  return [...ALWAYS, ...(BY_KIND[kind ?? ""] ?? BY_KIND.Button)]
+}
+
+/**
+ * Where an answer stands. What the owner said, or what quotes them, is settled. What an agent worked out from
+ * evidence or a rule is reasoned and stands unless the owner objects. An agent's own judgement is a proposal.
+ */
+export function answerState(a: Answer | undefined): "missing" | "settled" | "reasoned" | "proposed" {
+  if (!a || !a.text.trim()) return "missing"
+  if (a.by === "owner" || (a.basis === "owner_asked" && (a.quote?.trim().length ?? 0) >= 8)) return "settled"
+  return a.basis === "judgment" ? "proposed" : "reasoned"
+}
+
+export interface IntakeStatus {
+  items: number
+  questions: number
+  settled: number
+  reasoned: number
+  proposed: number
+  missing: number
+  /** Questions still to ask, why-it-exists before how-it-behaves. */
+  open: { itemId: string; label: string; kind?: string; question: IntakeQuestion; state: "missing" | "proposed"; proposal?: string }[]
+}
+
+/** How far the questions about a page's planned items have been answered. */
+export function intakeStatus(items: Expected[]): IntakeStatus {
+  const s: IntakeStatus = { items: items.length, questions: 0, settled: 0, reasoned: 0, proposed: 0, missing: 0, open: [] }
+  for (const it of items) for (const q of intakeQuestions(it.kind)) {
+    const a = it.answers?.[q.id], st = answerState(a)
+    s.questions++
+    s[st]++
+    if (st === "missing" || st === "proposed") s.open.push({ itemId: it.id, label: it.label, kind: it.kind, question: q, state: st, ...(st === "proposed" ? { proposal: a!.text } : {}) })
+  }
+  const rank = (id: string) => { const i = ALWAYS.findIndex((q) => q.id === id); return i < 0 ? 9 : i }
+  s.open.sort((a, b) => rank(a.question.id) - rank(b.question.id))
+  return s
+}
+
+/**
+ * The line about intent for the agent. In an attended session every proposal is put to the owner as well; otherwise
+ * only what nobody has answered at all is still to do.
+ */
+export function intakeLine(s: IntakeStatus, attended: boolean): string {
+  const todo = s.open.filter((o) => attended || o.state === "missing")
+  if (!todo.length) return ""
+  const first = todo[0]
+  return `${todo.length} question${todo.length === 1 ? "" : "s"} about what is planned ${todo.length === 1 ? "is" : "are"} not settled. Next, about "${first.label}": ${first.question.ask}${first.proposal ? ` (proposed: ${first.proposal})` : ""}`
 }

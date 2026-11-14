@@ -5,6 +5,7 @@
  */
 import { sql } from "@/lib/db/client"
 import { buildQuestionInput } from "@/lib/inbox"
+import { intakeLine, intakeQuestions, intakeStatus, type Answer } from "./gate-model"
 import { comparePlan, decideChange, isSensitive, planClear, planLine, validateChange, type Basis, type Checklist, type Expected, type ExpectSource, type PlanCompare } from "./gate-model"
 import { GateError } from "./store"
 
@@ -91,7 +92,30 @@ export async function loadPlan(projectId: string, route: string, list: Checklist
     FROM gate_plan_changes WHERE project_id = ${projectId} AND route = ${route} ORDER BY created_at DESC LIMIT 40
   `) as ChangeRow[]
   const status = list ? await planStatus(projectId, list) : null
-  return { route, hasPlan: items !== null, items: items ?? [], changes: changes.map((c) => ({ ...c, answerHere: c.status === "waiting", sensitive: isSensitive(c) })), options: [APPROVE, KEEP], compare: status?.compare ?? null, line: status?.line ?? "" }
+  const intake = intakeStatus(items ?? [])
+  return { route, hasPlan: items !== null, intake: { ...intake, open: intake.open.slice(0, 60) }, intakeLine: { attended: intakeLine(intake, true), unattended: intakeLine(intake, false) }, items: items ?? [], changes: changes.map((c) => ({ ...c, answerHere: c.status === "waiting", sensitive: isSensitive(c) })), options: [APPROVE, KEEP], compare: status?.compare ?? null, line: status?.line ?? "" }
+}
+
+/**
+ * Records the answer to one question about a planned item: why it is there, who uses it, where its content comes
+ * from. The answer keeps who gave it and what it rests on. The owner's answer replaces an agent's; an agent cannot
+ * replace the owner's.
+ */
+export async function answerIntake(a: { projectId: string; route: string; item: string; question: string; text: string; by: "owner" | "agent"; basis: Basis; quote?: string }) {
+  const items = await itemsOf(a.projectId, a.route)
+  if (!items) throw new GateError(`No plan is recorded for ${a.route}`)
+  const it = items.find((i) => i.id === a.item) ?? items.find((i) => i.label.toLowerCase() === a.item.toLowerCase().trim())
+  if (!it) throw new GateError(`"${a.item}" is not in the plan for ${a.route}`)
+  const q = intakeQuestions(it.kind).find((x) => x.id === a.question)
+  if (!q) throw new GateError(`"${a.question}" is not a question for this kind of item. Its questions: ${intakeQuestions(it.kind).map((x) => x.id).join(", ")}`)
+  if (a.text.trim().length < 3) throw new GateError("Give an answer")
+  if (a.by === "agent" && a.basis === "owner_asked" && (a.quote?.trim().length ?? 0) < 8) throw new GateError("Quote the owner's words this answer rests on")
+  const old = it.answers?.[q.id]
+  if (old?.by === "owner" && a.by === "agent") throw new GateError("The owner has answered this. Only the owner can change it")
+  const answer: Answer = { text: a.text.trim().slice(0, 1000), by: a.by, basis: a.basis, ...(a.quote ? { quote: a.quote.trim().slice(0, 600) } : {}), at: new Date().toISOString() }
+  await writeItems(a.projectId, a.route, items.map((i) => (i.id === it.id ? { ...i, answers: { ...(i.answers ?? {}), [q.id]: answer } } : i)))
+  const left = intakeStatus(items.map((i) => (i.id === it.id ? { ...i, answers: { ...(i.answers ?? {}), [q.id]: answer } } : i)))
+  return { item: it.label, question: q.ask, recordedAs: answer.by === "owner" ? "the owner's answer" : answer.basis === "judgment" ? "a proposal for the owner to confirm" : "reasoned from " + answer.basis, missing: left.missing, proposed: left.proposed, next: { attended: intakeLine(left, true), unattended: intakeLine(left, false) } }
 }
 
 /** Starts or extends a page's plan from a scan: of an approved mock-up, of a flow, or an agent's reading of the task. */

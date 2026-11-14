@@ -330,3 +330,45 @@ ok("a targeted scan replaces what is inside its region and leaves everything els
 })
 
 console.log(`${n} checks passed in all`)
+
+import { answerState, intakeLine, intakeQuestions, intakeStatus, type Answer } from "./gate-model"
+
+ok("every planned item is asked why it exists; what else it is asked depends on what it is", () => {
+  const ids = (kind?: string) => intakeQuestions(kind).map((q) => q.id)
+  for (const kind of ["Button", "Field", "Link", "Text", "Card", "Chart", "Tab", "Switch", undefined, "Unknown"]) assert.deepEqual(ids(kind).slice(0, 3), ["purpose", "who", "flow"], String(kind))
+  assert.deepEqual(ids("Link"), ["purpose", "who", "flow"])
+  assert.ok(ids("Field").includes("refused") && ids("Button").includes("undo"))
+  // Anything that shows content is asked whether it is typed in or worked out, and from what.
+  for (const kind of ["Text", "Card", "Chart"]) assert.ok(ids(kind).includes("source") && ids(kind).includes("from") && ids(kind).includes("empty"), kind)
+  assert.ok(ids("Chart").includes("agrees"))
+  for (const q of intakeQuestions("Chart")) assert.ok(q.ask.endsWith("?") && q.why.length > 20)
+})
+
+ok("an answer is settled by the owner, reasoned from evidence, or only proposed, and it always says which", () => {
+  const A = (o: Partial<Answer>): Answer => ({ text: "Clients book a session here", by: "agent", basis: "evidence", at: "t1", ...o })
+  assert.equal(answerState(undefined), "missing")
+  assert.equal(answerState(A({ text: "  " })), "missing")
+  assert.equal(answerState(A({ by: "owner", basis: "judgment" })), "settled")
+  assert.equal(answerState(A({ basis: "owner_asked", quote: "clients need to book from their phone" })), "settled")
+  assert.equal(answerState(A({ basis: "owner_asked" })), "reasoned")      // a claim that they said it, without their words, is not their word
+  assert.equal(answerState(A({ basis: "evidence" })), "reasoned")
+  assert.equal(answerState(A({ basis: "rule" })), "reasoned")
+  assert.equal(answerState(A({ basis: "judgment" })), "proposed")
+})
+
+ok("intake counts every question once, asks why before how, and holds an attended session to the owner's word", () => {
+  const book = E("b", "Book a session", "owner", { kind: "Button", answers: { purpose: { text: "A client reserves a slot", by: "owner", basis: "judgment", at: "t1" }, changes: { text: "Creates a booking and takes the slot off the calendar", by: "agent", basis: "judgment", at: "t2" } } })
+  const total = E("t", "Sessions this month", "agent", { kind: "Text", answers: { source: { text: "Worked out", by: "agent", basis: "evidence", at: "t1" } } })
+  const s = intakeStatus([book, total])
+  assert.equal(s.questions, 5 + 6)
+  assert.equal(s.settled + s.reasoned + s.proposed + s.missing, s.questions)
+  assert.deepEqual([s.settled, s.reasoned, s.proposed], [1, 1, 1])
+  assert.equal(s.open[0].question.id, "purpose")          // the Text item's purpose is unanswered: asked first
+  assert.equal(s.open.find((o) => o.state === "proposed")?.proposal, "Creates a booking and takes the slot off the calendar")
+  // Unattended: only what nobody answered. Attended: the agent's proposals are put to the owner too.
+  assert.match(intakeLine(s, false), /^8 questions about what is planned are not settled\. Next, about "Sessions this month": What is it for/)
+  assert.match(intakeLine(s, true), /^9 questions/)
+  assert.equal(intakeLine(intakeStatus([]), true), "")
+})
+
+console.log(`${n} checks passed in all`)

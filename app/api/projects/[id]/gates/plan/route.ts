@@ -4,6 +4,7 @@
  * GET  /api/projects/[id]/gates/plan?route=/x   the plan, how the latest scan compares, and the change record
  * POST /api/projects/[id]/gates/plan
  *        { action: "propose", route, change: "add" | "remove", label, must?, kind?, view?, reason, basis, quote?, replacedBy? }
+ *        { action: "answer", route, item, question, text, basis?, quote?, said? }   answer one question about a planned item
  *        { action: "seed", route, checklistId, source: "mockup" | "flow" | "agent", reason }
  *        { action: "decide", route, changeId, approve, said? }   the owner answers a waiting change: signed in, or relayed
  *                                                            by an agent with their words (not for access, money or data)
@@ -11,7 +12,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getAuthContext, verifyProjectOwnerOnly, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
 import { GateError, getChecklist, listPages } from "@/lib/gates/store"
-import { decidePlanChange, loadPlan, proposePlanChange, seedPlan } from "@/lib/gates/plan-store"
+import { answerIntake, decidePlanChange, loadPlan, proposePlanChange, seedPlan } from "@/lib/gates/plan-store"
 
 export const dynamic = "force-dynamic"
 type Ctx = { params: Promise<{ id: string }> }
@@ -54,6 +55,15 @@ export async function POST(request: NextRequest, { params }: Ctx) {
       if (auth.authType === "session") await decidePlanChange(projectId, route, b.changeId, b.approve)
       else await decidePlanChange(projectId, route, b.changeId, b.approve, "claude-code", text(b.said))
       return NextResponse.json({ ok: true })
+    }
+    if (b.action === "answer") {
+      if (!text(b.item) || !text(b.question, 40) || !text(b.text, 1000)) return NextResponse.json({ error: "Send { item, question, text }" }, { status: 400 })
+      // Signed in: the owner's own answer. With an API key: an agent's answer with what it rests on, or the owner's
+      // reply relayed from Claude Code (said), which is recorded as theirs with their words.
+      const relayed = auth.authType !== "session" && text(b.said, 600)
+      const by = auth.authType === "session" || relayed ? "owner" : "agent"
+      const basis = by === "owner" ? "owner_asked" : BASES.includes(b.basis) ? b.basis : "judgment"
+      return NextResponse.json(await answerIntake({ projectId, route, item: text(b.item)!, question: text(b.question, 40)!, text: text(b.text, 1000)!, by, basis, quote: relayed || text(b.quote, 600) }))
     }
     if (b.action === "seed") {
       const from = typeof b.checklistId === "string" ? await getChecklist(b.checklistId).catch(() => null) : null

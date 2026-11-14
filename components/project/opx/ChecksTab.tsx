@@ -89,13 +89,36 @@ function RecordSection({ data, onPick }: { data: PageData; onPick: (n: number) =
   )
 }
 
-interface PlanItem { id: string; label: string; kind?: string; view?: string; must: string; source: string }
+interface PlanAnswer { text: string; by: "owner" | "agent"; basis: string; quote?: string; at: string }
+interface PlanItem { id: string; label: string; kind?: string; view?: string; must: string; source: string; answers?: Record<string, PlanAnswer> }
+interface OpenQuestion { itemId: string; label: string; question: { id: string; ask: string; why: string }; state: "missing" | "proposed"; proposal?: string }
 interface PlanChangeRow { id: string; action: "add" | "remove" | "seed"; item: PlanItem; reason: string; quote: string | null; needs_owner: boolean; why: string; status: "applied" | "waiting" | "approved" | "rejected"; created_at: string; decided_via?: string | null; said?: string | null }
 interface PlanData {
   hasPlan: boolean; items: PlanItem[]; changes: PlanChangeRow[]; canSettle: boolean
+  intake?: { items: number; questions: number; settled: number; reasoned: number; proposed: number; missing: number; open: OpenQuestion[] }
   compare: { matched: { expected: PlanItem; n: number }[]; missing: PlanItem[]; waiting: PlanItem[]; unplanned: { n: number; view: string; label: string; kind: string }[] } | null
 }
 const SOURCE_WORD: Record<string, string> = { owner: "you asked for it", mockup: "from the approved mock-up", flow: "from the flow", agent: "added by an agent" }
+
+/** The owner answers one question about a planned item, or accepts the agent's proposal as it stands. */
+function IntakeAnswer({ projectId, route, open, onDone }: { projectId: string; route: string; open: OpenQuestion; onDone: () => void }) {
+  const [text, setText] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  async function save(answer: string) {
+    setError(null)
+    const res = await fetch(`/api/projects/${projectId}/gates/plan`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "answer", route, item: open.itemId, question: open.question.id, text: answer }) })
+    if (!res.ok) { setError((await res.json().catch(() => null))?.error ?? "Could not save that"); return }
+    setText(""); onDone()
+  }
+  return (
+    <span className="opx-ck-settle">
+      <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Your answer" aria-label={`Answer: ${open.question.ask}`} />
+      <button type="button" disabled={text.trim().length < 3} onClick={() => save(text)}>Save my answer</button>
+      {open.proposal && <button type="button" onClick={() => save(open.proposal!)}>That is right</button>}
+      {error && <span className="opx-ck-note">{error}</span>}
+    </span>
+  )
+}
 
 /** What the page is supposed to have, set against what the scan found, and the record of every change to that plan. */
 function PlanSection({ projectId, route, tick, onPick }: { projectId: string; route: string; tick: number; onPick: (n: number) => void }) {
@@ -144,6 +167,22 @@ function PlanSection({ projectId, route, tick, onPick }: { projectId: string; ro
             </div>
           )}
         </div>
+      )}
+      {d.intake && d.intake.questions > 0 && (
+        <details open={d.intake.proposed > 0}>
+          <summary>Why each thing is there: {d.intake.settled + d.intake.reasoned} of {d.intake.questions} questions answered{d.intake.proposed > 0 ? `, ${d.intake.proposed} proposed and waiting for you` : ""}</summary>
+          <p className="opx-muted">Every planned item is asked what it is for, who uses it, which use case it belongs to and, for anything that shows content, whether it is typed in or worked out and from what. {d.intake.settled} came from you, {d.intake.reasoned} were reasoned from the code or a rule, {d.intake.missing} are not answered.</p>
+          <ul>
+            {d.intake.open.slice(0, 12).map((o) => (
+              <li key={`${o.itemId}-${o.question.id}`}>
+                <b>{o.label}: {o.question.ask}</b>
+                <span className="opx-muted">{o.state === "proposed" ? `Proposed by the agent: ${o.proposal}` : "Not answered yet."} {o.question.why}</span>
+                {d.canSettle && <IntakeAnswer projectId={projectId} route={route} open={o} onDone={reload} />}
+              </li>
+            ))}
+          </ul>
+          {d.intake.open.length > 12 && <p className="opx-muted">and {d.intake.open.length - 12} more.</p>}
+        </details>
       )}
       {waiting.length > 0 && (
         <div>
