@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import {
   DIM, addInside, addLane, addLink, addNode, addStage, cellAt, cellFree, checkLayer, crumbs, doorOf, indexAt, isLanes, layerAt, moveLane, moveNode, moveStage, parseLayer, parseMapBlock, place, removeInside, removeLane, removeLink, removeNode, removeStage, reorderNode, reroute,
-  renameLane, routeLink, seedMap, setLink, setNode, setStage, splitLink, stripMapBlock, updateAt, writeMapBlock, type Layer, type Path,
+  renameLane, routeLink, seedMap, setLink, setNode, setStage, splitLink, stripMapBlock, walkMap, updateAt, writeMapBlock, type Layer, type Path,
 } from "./process-map"
 
 let n = 0
@@ -185,6 +185,14 @@ ok("a step can be put in the middle of a line", () => {
   assert.ok(link(roomy.layer, "taste", roomy.id) && link(roomy.layer, roomy.id, "like"))
   const labeled = splitLink(m, m.links.findIndex((e) => e.from === "look" && e.to === "fix"))
   assert.equal(link(labeled.layer, "look", labeled.id).label, "an error")       // the words stay on the first half
+})
+
+ok("the walk's own map reads cleanly at every layer and survives being stored", () => {
+  const w = walkMap()
+  assert.deepEqual(checkLayer(w), [])
+  for (const s of w.stages!) { assert.ok(s.inside, s.title); assert.deepEqual(checkLayer(s.inside!), [], s.title) }
+  assert.deepEqual(parseMapBlock(writeMapBlock("", w)), w)
+  assert.deepEqual(w.nodes.filter((x) => x.you).map((x) => x.id), ["taste"])      // the owner appears once: for preferences
 })
 
 console.log(`\n${n} checks passed`)

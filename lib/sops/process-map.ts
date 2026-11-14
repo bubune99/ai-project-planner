@@ -386,3 +386,39 @@ export function seedMap(): Layer {
     ],
   }
 }
+
+/**
+ * The walk: an agent uses the product toward a goal the way a person would, to find what a script cannot.
+ * Drawn so the test can be seen: who does what, the loop of expecting, acting and recording, and where each
+ * kind of finding goes.
+ */
+export function walkMap(): Layer {
+  const S = (id: string, stage: string, lane: number, title: string, sub: string): MapNode => clean({ id, stage, lane, title, sub, you: lane === 0 })
+  const E = (from: string, to: string, label?: string, via?: Via): Link => clean({ from, to, label, via })
+  const N = (id: string, title: string, sub: string, who: string): MapNode => clean({ id, title, sub, who, you: who === "You" })
+  const inside: Record<string, Layer> = {
+    goal: { say: "A goal is what a person came to do, in their words. It can be one nobody wrote down.", nodes: [N("a", "List the use cases", "Which were never walked, or only on an older build", "The planner"), N("b", "Pick one, or a goal nobody wrote down", "Something a real person would plausibly come to do", "Walker agent"), N("c", "Say it in the person's words", "Not the product's names for things", "Walker agent"), N("d", "Start cold", "Without reading that screen's code. If you know the way, say so", "Walker agent")], links: [E("a", "b"), E("b", "c"), E("c", "d"), E("d", "b", "next goal, after this walk", "bottom")] },
+    walk: { say: "Loops once per action until the goal is reached or a person would stop.", nodes: [N("a", "Look at the screen", "A real screenshot, as the persona: their device, their hurry", "Walker agent"), N("b", "Decide what you expect", "Before acting", "Walker agent"), N("c", "Act as a person can", "A real click or typing on something visible. Never by code", "Walker agent"), N("d", "Record what happened", "What you did, expected and saw. Wrong turns too", "The planner's record"), N("e", "Not as expected?", "That moment is the finding", "Walker agent")], links: [E("a", "b"), E("b", "c"), E("c", "d"), E("d", "e"), E("e", "a", "next action", "bottom")] },
+    find: { say: "Every finding is one of four kinds, and the kind decides who deals with it.", nodes: [N("a", "Something did not go as expected", "", "Walker agent"), N("b", "Broken", "An error", "To agents"), N("c", "Something needed is not there", "A gap: how feature requests are found", "To the plan"), N("d", "It works, but it is hard", "Too many steps, hidden, no way back", "Scored below 3: agents. Otherwise you"), N("e", "A matter of taste", "", "You")], links: [E("a", "b", "it is broken"), E("a", "c", "it is missing", "top"), E("a", "d", "it is hard", "top"), E("a", "e", "it is a preference", "top"), E("e", "a", "next finding", "bottom")] },
+    score: { say: "The six things every screen is judged on, 1 to 5, each with what was seen. Below 3 is a fix.", nodes: [N("a", "Getting back", "How do I get back to where I was?", "Walker agent"), N("b", "Finding the action", "How do I do the thing I came for?", "Walker agent"), N("c", "Getting elsewhere", "How do I get to the screen I need next?", "Walker agent"), N("d", "Help from the assistant", "How can it help me here?", "Walker agent"), N("e", "How full it is", "Crowded, just right or empty? From a real screenshot", "Walker agent"), N("f", "Same product", "Built from the same parts as the rest?", "Walker agent"), N("g", "Any below 3?", "Then name what is wrong as a finding", "Walker agent")], links: [E("a", "b"), E("b", "c"), E("c", "d"), E("d", "e"), E("e", "f"), E("f", "g"), E("g", "a", "name it, then score the rest", "bottom")] },
+    deal: { say: "Loops until a new walk on the new build reaches the goal with nothing below the line.", nodes: [N("a", "Small, one file, certain?", "Then the walker fixes it now, on a review branch", "Walker agent"), N("b", "Fix the cause", "Larger fixes: read the code, find the cause", "Builder agent"), N("c", "Prove it on the real page", "On staging, with a second look", "Reviewer agent"), N("d", "Add what is missing to the plan", "As a step that is not built", "The planner's record"), N("e", "Walk it again on the new build", "", "Walker agent")], links: [E("a", "b", "no"), E("a", "c", "yes: fixed", "top"), E("b", "c"), E("c", "d"), E("d", "e"), E("e", "a", "still found", "bottom")] },
+  }
+  const G = (id: string, title: string, sub: string): Stage => ({ id, title, sub, inside: inside[id] })
+  return {
+    say: "A script finds what it was told to look for. A walk finds the step that is missing and the action nobody can find. Outlined boxes are yours.",
+    lanes: ["You", "Walker agent", "Builder agent", "Reviewer agent", "The planner's record"],
+    stages: [G("goal", "1. Goal", "What a person came to do"), G("walk", "2. Walk", "Expect, act, record, one action at a time"), G("find", "3. Findings", "Broken, missing, hard, or taste"), G("score", "4. Score the six", "1 to 5 each; below 3 is a fix"), G("deal", "5. Deal with it", "Fix and prove, plan what is missing, walk again")],
+    nodes: [
+      S("cases", "goal", 4, "Use cases and what was walked", "Never walked, or only on an older build"), S("pick", "goal", 1, "Pick a goal and start cold", "In the person's words"),
+      S("act", "walk", 1, "Expect, act, record", "Real clicks on what is visible"), S("log", "walk", 4, "Every step kept", "Wrong turns included"),
+      S("name", "find", 1, "Name what was found", "Broken, missing, hard or taste"), S("taste", "find", 0, "Judge what is hard or a matter of taste", "With the walker's suggestion"),
+      S("six", "score", 1, "Score the six", "Each with what was seen"), S("end", "score", 4, "Walk saved", "Reached, blocked or gave up, and why"),
+      S("small", "deal", 1, "Fix what is small and certain", "On a review branch, while it is fresh"), S("fix", "deal", 2, "Fix the cause of the rest", "Errors and anything scored below 3"), S("prove", "deal", 3, "Second look on the real page", ""), S("plan", "deal", 4, "What is missing goes into the plan", "As steps that are not built"),
+    ],
+    links: [
+      E("cases", "pick"), E("pick", "act"), E("act", "log"), E("log", "name"), E("name", "taste", "hard above the line, or taste"), E("name", "six"), E("six", "end"),
+      E("end", "small", "errors, gaps, anything below 3"), E("small", "fix"), E("fix", "prove"), E("prove", "plan"),
+      E("act", "act", "next action"), E("prove", "fix", "still wrong", "left"), E("plan", "act", "walk it again on the new build", "bottom"), E("six", "name", "below 3: name what is wrong", "top"),
+    ],
+  }
+}
