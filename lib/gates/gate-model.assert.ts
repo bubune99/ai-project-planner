@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { scanFindings } from "./gate-model"
 import { EVIDENCE_DAYS, allChecks, checkKey, checkState, controlProgress, diffChecklists, hookLine, imagesToExpire, nextCheck, summarize, validateChecklist, type CheckState, type Checklist, type Result, type StoredImage } from "./gate-model"
 
 let n = 0
@@ -132,6 +133,17 @@ ok("pictures: view pictures stay for this version and the one before; evidence i
 })
 
 console.log(`\n${n} checks passed`)
+
+ok("a control the scan found unsound starts as a failed check, so the agent is sent to it first", () => {
+  const flawed = structuredClone(list)
+  flawed.views[0].controls[1].issues = ["the link goes nowhere", "it is 12 by 12 pixels"]
+  const found = scanFindings(flawed)
+  assert.deepEqual(found, [{ key: "2|Go|Signed in", note: "Found by the scan: the link goes nowhere; it is 12 by 12 pixels." }])
+  assert.deepEqual(scanFindings(list), [])
+  const results = found.map((f) => R(f.key, "builder", "failed", "t1"))
+  assert.equal(nextCheck(flawed, results)?.key, "2|Go|Signed in")
+  assert.equal(summarize(flawed, results).failed, 1)
+})
 
 // ── The plan ────────────────────────────────────────────────────────────────
 import { comparePlan, decideChange, isSensitive, planClear, planLine, validateChange, type Expected, type PlanChange } from "./gate-model"

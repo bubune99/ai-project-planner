@@ -304,6 +304,10 @@ export function ChecksTab({ projectId }: { projectId: string }) {
               </span>
             </header>
 
+            {!!chosen.c.issues?.length && (
+              <p className="opx-ck-found"><strong>The scan found a problem with this control:</strong> {chosen.c.issues.join("; ")}.</p>
+            )}
+
             {data.checklist.views.length > 1 && (
               <div className="opx-ck-views">
                 <span className="opx-muted">Views of this page</span>

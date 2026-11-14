@@ -6,7 +6,7 @@
  */
 import { sql } from "@/lib/db/client"
 import {
-  allChecks, checkState, diffChecklists, hookLine, imagesToExpire, nextCheck, sameChecklist, summarize, validateChecklist,
+  allChecks, checkState, diffChecklists, scanFindings, hookLine, imagesToExpire, nextCheck, sameChecklist, summarize, validateChecklist,
   type Actor, type Checklist, type Result, type StoredImage, type Verdict,
 } from "./gate-model"
 
@@ -72,7 +72,15 @@ export async function saveChecklist(a: { projectId: string; userId: string; list
     VALUES (${a.projectId}, ${a.list.route}, ${(prev?.version ?? 0) + 1}, ${a.list.title ?? null}, ${a.env ?? null}, ${a.build ?? null}, ${JSON.stringify(a.list)}::jsonb, ${a.userId})
     RETURNING id, project_id, route, version, title, env, build, doc, created_at
   `) as ChecklistRow[]
-  return { checklistId: row.id, version: row.version, created: true, changes: diffChecklists(prev?.doc ?? null, a.list), ...(await progress(row, [])) }
+  // What the scan itself found wrong is recorded straight away, as failed checks with the finding as the note.
+  const found = scanFindings(a.list)
+  if (found.length) {
+    await sql`
+      INSERT INTO gate_results (checklist_id, check_key, actor, status, note, created_by)
+      SELECT ${row.id}, t.k, 'builder', 'failed', t.n, ${a.userId} FROM unnest(${found.map((f) => f.key)}::text[], ${found.map((f) => f.note)}::text[]) AS t(k, n)
+    `
+  }
+  return { checklistId: row.id, version: row.version, created: true, findings: found.length, changes: diffChecklists(prev?.doc ?? null, a.list), ...(await progress(row, await resultsOf(row.id))) }
 }
 
 const allControls = (l: Checklist) => l.views.reduce((t, v) => t + v.controls.length, 0)

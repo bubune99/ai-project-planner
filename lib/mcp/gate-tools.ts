@@ -32,6 +32,7 @@ const controlSchema = z.object({
   label: z.string(), kind: z.string().describe("Button, Link, Field, Tab ..."),
   x: z.number(), y: z.number(), w: z.number(), h: z.number(),
   shared: z.boolean().optional().describe("True when the control is on every page, so one pass covers them all"),
+  issues: z.array(z.string()).optional().describe("What is wrong with the control itself (no name, covered, too small, dead link). Each becomes a failed check"),
   states: z.array(z.string()).describe("Each workflow is checked once per state, e.g. Dark theme, Phone width"),
   workflows: z.array(z.object({ name: z.string(), before: z.string().optional(), steps: z.array(stepSchema) })),
 })

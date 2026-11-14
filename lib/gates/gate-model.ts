@@ -42,6 +42,8 @@ export interface Control {
   h: number
   /** Present on every page (a top bar or menu), so one pass covers them all. */
   shared?: boolean
+  /** What the scan found wrong with the control itself: no name, covered, too small, a dead link. */
+  issues?: string[]
   states: string[]
   workflows: Workflow[]
 }
@@ -90,6 +92,12 @@ export interface CheckRef {
 }
 
 const SEP = "|"
+
+/** The failed verdicts a scan's own findings amount to: one per unsound control, on its first check. */
+export function scanFindings(list: Checklist): { key: string; note: string }[] {
+  return list.views.flatMap((v) => v.controls.filter((c) => c.issues?.length && c.workflows.length && c.states.length)
+    .map((c) => ({ key: checkKey(c.n, c.workflows[0].name, c.states[0]), note: `Found by the scan: ${c.issues!.join("; ")}.` })))
+}
 
 /** A check's key: control number, workflow name, state. */
 export function checkKey(n: number, workflow: string, state: string): string {
