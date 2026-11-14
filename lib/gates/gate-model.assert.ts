@@ -272,11 +272,16 @@ ok("a new scan keeps each control's number, its written criteria and its standin
 
 ok("a tall page is shown by several screenshots; each point belongs to the latest one that covers it", () => {
   const view = { ...list.views[0], h: 2000, shots: [{ id: "s0", x: 0, y: 0, w: 1000, h: 900, at: 0, vw: 1000, vh: 900 }, { id: "s1", x: 0, y: 60, w: 1000, h: 840, at: 780, vw: 1000, vh: 900 }] }
-  assert.equal(shotAt(view, 10)?.id, "s0")
-  assert.equal(shotAt(view, 800)?.id, "s1")     // where two overlap, the later one is on top
-  assert.equal(shotAt(view, 1619)?.id, "s1")
-  assert.equal(shotAt(view, 1700), null)
-  assert.equal(shotAt(list.views[0], 10), null)
+  assert.equal(shotAt(view, 5, 10)?.id, "s0")
+  assert.equal(shotAt(view, 5, 800)?.id, "s1")     // where two overlap, the later one is on top
+  assert.equal(shotAt(view, 5, 1619)?.id, "s1")
+  assert.equal(shotAt(view, 5, 1700), null)
+  assert.equal(shotAt(list.views[0], 5, 10), null)
+  // A later screenful can be narrower: a panel fixed beside the part that scrolls stays in the first one.
+  const side = { ...view, shots: [view.shots[0], { ...view.shots[1], x: 300, w: 700, ax: 300 }] }
+  assert.equal(shotAt(side, 100, 800)?.id, "s0")
+  assert.equal(shotAt(side, 400, 800)?.id, "s1")
+  assert.equal(shotAt(side, 100, 1200), null)
 })
 
 ok("the audit log says, in order and in words, who decided what", () => {

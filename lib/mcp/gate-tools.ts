@@ -41,7 +41,7 @@ const viewSchema = z.object({
   key: z.string().describe("page, or a short key for what opened: menu, search, delete-dialog"),
   name: z.string(), w: z.number(), h: z.number(), controls: z.array(controlSchema),
   crop: z.object({ x: z.number(), y: z.number(), vw: z.number(), vh: z.number() }).optional(),
-  shots: z.array(z.object({ id: z.string(), x: z.number(), y: z.number(), w: z.number(), h: z.number(), at: z.number(), vw: z.number(), vh: z.number() })).optional().describe("Real screenshots that together show this view; each picture is stored under <view key>@<id>"),
+  shots: z.array(z.object({ id: z.string(), x: z.number(), y: z.number(), w: z.number(), h: z.number(), at: z.number(), vw: z.number(), vh: z.number(), ax: z.number().optional() })).optional().describe("Real screenshots that together show this view; each picture is stored under <view key>@<id>"),
 })
 
 async function loadForWrite(checklistId: string): Promise<ChecklistRow | string> {

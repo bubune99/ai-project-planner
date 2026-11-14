@@ -241,9 +241,9 @@ type Piece = Shot & { url: string }
 function Crop({ view, c, src, pieces }: { view: View; c: Control; src?: string; pieces: Piece[] }) {
   const pad = 6, z = Math.min(2, 28 / (c.h + pad * 2)), width = Math.min(96, (c.w + pad * 2) * z)
   // From a real screenshot: the one that shows this control, shifted to where the control sits in it.
-  const shot = shotAt(view, c.y + c.h / 2), piece = shot && pieces.find((p) => p.id === shot.id)
+  const shot = shotAt(view, c.x + c.w / 2, c.y + c.h / 2), piece = shot && pieces.find((p) => p.id === shot.id)
   if (piece) {
-    return <span className="opx-ck-crop" style={{ width, backgroundImage: `url("${piece.url}")`, backgroundSize: `${piece.vw * z}px ${piece.vh * z}px`, backgroundPosition: `${-(piece.x + c.x - pad) * z}px ${-(piece.y + c.y - piece.at - pad) * z}px` }} />
+    return <span className="opx-ck-crop" style={{ width, backgroundImage: `url("${piece.url}")`, backgroundSize: `${piece.vw * z}px ${piece.vh * z}px`, backgroundPosition: `${-(piece.x + c.x - (piece.ax ?? 0) - pad) * z}px ${-(piece.y + c.y - piece.at - pad) * z}px` }} />
   }
   if (!src) return <span className="opx-ck-crop" />
   return <span className="opx-ck-crop" style={{ width, backgroundImage: `url("${src}")`, backgroundSize: `${view.w * z}px ${view.h * z}px`, backgroundPosition: `${-(c.x - pad) * z}px ${-(c.y - pad) * z}px` }} />
@@ -257,7 +257,7 @@ function Shots({ view, pieces }: { view: View; pieces: Piece[] }) {
   return (
     <div className="opx-ck-shots" style={{ aspectRatio: `${view.w} / ${view.h}` }} role="img" aria-label={`Screenshot of ${view.name}`}>
       {pieces.map((p) => (
-        <span key={p.id} style={{ left: 0, top: `${(p.at / view.h) * 100}%`, width: "100%", height: `${(p.h / view.h) * 100}%` }}>
+        <span key={p.id} style={{ left: `${((p.ax ?? 0) / view.w) * 100}%`, top: `${(p.at / view.h) * 100}%`, width: `${(p.w / view.w) * 100}%`, height: `${(p.h / view.h) * 100}%` }}>
           <img src={p.url} alt="" style={{ width: `${(p.vw / p.w) * 100}%`, marginLeft: `${-(p.x / p.w) * 100}%`, marginTop: `${-(p.y / p.w) * 100}%` }} />
         </span>
       ))}

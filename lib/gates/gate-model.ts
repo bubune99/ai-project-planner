@@ -61,17 +61,17 @@ export interface View {
   /**
    * Real screenshots that together show this view. Each is a capture of the whole screen (vw by vh); the part from
    * (x, y) of size w by h belongs in the view's picture, starting `at` that far down it. A page taller than the screen
-   * has one per screenful. The picture itself is stored under "<view key>@<id>".
+   * has one per screenful; a later one may be narrower (`ax` across), when only part of the screen scrolls. The picture itself is stored under "<view key>@<id>".
    */
   shots?: Shot[]
   controls: Control[]
 }
 
-export interface Shot { id: string; x: number; y: number; w: number; h: number; at: number; vw: number; vh: number }
+export interface Shot { id: string; x: number; y: number; w: number; h: number; at: number; vw: number; vh: number; /** How far across the view its part starts (0 when absent). */ ax?: number }
 
-/** The screenshot that shows a point this far down a view, if any. */
-export function shotAt(view: View, y: number): Shot | null {
-  return (view.shots ?? []).filter((s) => y >= s.at && y < s.at + s.h).at(-1) ?? null
+/** The screenshot that shows a point of a view (this far across and this far down), if any. */
+export function shotAt(view: View, x: number, y: number): Shot | null {
+  return (view.shots ?? []).filter((s) => y >= s.at && y < s.at + s.h && x >= (s.ax ?? 0) && x < (s.ax ?? 0) + s.w).at(-1) ?? null
 }
 
 export interface Checklist {
