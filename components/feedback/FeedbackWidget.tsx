@@ -72,7 +72,8 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
         e.preventDefault(); // the long-press already opened our menu
         return;
       }
-      if (!el || e.shiftKey || isOwnUi(el) || isEditable(el)) return;
+      // A part of the page that answers its own right-click (the process map's edit menu) has already claimed it.
+      if (!el || e.shiftKey || e.defaultPrevented || isOwnUi(el) || isEditable(el)) return;
       const sel = window.getSelection();
       if (sel && !sel.isCollapsed && sel.toString().trim()) return; // keep native copy menu
       e.preventDefault();
