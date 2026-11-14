@@ -772,3 +772,13 @@ a.opx-mt:hover b { text-decoration: underline; }
 .opx-pm-box.click { cursor: pointer; } .opx-pm-box.click:hover { background: color-mix(in srgb, var(--opx-ink) 14%, var(--opx-soft)); }
 .opx-pm-lane { width: 100%; height: 100%; border-radius: 14px; background: color-mix(in srgb, var(--opx-card) 85%, transparent); padding: 12px 14px; color: var(--opx-muted); font-size: 13.5px; line-height: 1.3; } .opx-pm-lane.alt { background: color-mix(in srgb, var(--opx-card) 40%, transparent); } .opx-pm-lane b { display: block; max-width: 140px; font-weight: 600; }
 .opx-pm-stage { width: 100%; height: 74px; border-radius: 14px; background: var(--opx-card); padding: 9px 12px; display: flex; flex-direction: column; gap: 2px; cursor: pointer; font-size: 13.5px; line-height: 1.3; color: var(--opx-ink); overflow: hidden; } .opx-pm-stage:hover { background: var(--opx-soft); } .opx-pm-stage b { font-weight: 600; font-size: 14.5px; } .opx-pm-stage span { color: var(--opx-muted); font-size: 12px; }
+
+/* ── Changes, before and after (components/project/opx/ChangesTab.tsx) ───────── */
+.opx-ch { width: 100%; flex: 1 1 100%; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.opx-ch-top { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-block: 12px; }
+.opx-ch-card { display: flex; flex-direction: column; gap: 12px; }
+.opx-ch-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; } .opx-ch-head h3 { margin: 0 0 2px; font-size: 17px; font-weight: 600; } .opx-ch-head p { margin: 0; max-width: 110ch; }
+.opx-ch-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 12px; } .opx-ch-pair figure { margin: 0; min-width: 0; } .opx-ch-pair figcaption { font-size: 12.5px; font-weight: 600; color: var(--opx-muted); margin-bottom: 4px; }
+.opx-ch-pair a { display: block; border-radius: 12px; overflow: hidden; background: var(--opx-bg); box-shadow: inset 0 0 0 1px var(--opx-line); } .opx-ch-pair img { display: block; width: 100%; height: auto; }
+.opx-ch-said { margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.opx-ch-judge { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } .opx-ch-judge .opx-input { flex: 1 1 320px; min-width: 0; }

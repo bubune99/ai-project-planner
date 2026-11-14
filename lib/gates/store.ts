@@ -150,7 +150,7 @@ export async function recordResults(a: { checklist: ChecklistRow; userId: string
   return progress(a.checklist, await resultsOf(a.checklist.id))
 }
 
-function imageType(raw: Buffer): "webp" | "jpeg" | "png" | null {
+export function imageType(raw: Buffer): "webp" | "jpeg" | "png" | null {
   if (raw.subarray(0, 4).toString("ascii") === "RIFF" && raw.subarray(8, 12).toString("ascii") === "WEBP") return "webp"
   if (raw[0] === 0xff && raw[1] === 0xd8) return "jpeg"
   if (raw.subarray(1, 4).toString("ascii") === "PNG") return "png"

@@ -10,6 +10,7 @@ import { Seg, unwrap, useJson } from "@/components/project/opx/shared"
 import { TaskList, TaskTimeline, TaskCalendar } from "@/components/project/opx/TaskViews"
 import { DocsTab } from "@/components/project/opx/DocsTab"
 import { ChecksTab } from "@/components/project/opx/ChecksTab"
+import { ChangesTab } from "@/components/project/opx/ChangesTab"
 import { PeopleFlowsTab } from "@/components/project/opx/PeopleFlowsTab"
 import { IdeasDecisions } from "@/components/project/opx/IdeasDecisions"
 import { MetricsTab, MoneyTab, SettingsTab, uiOf } from "@/components/project/opx/ProjectTabs"
@@ -45,6 +46,7 @@ const TABS = [
   { id: "metrics",    label: "Metrics" },
   { id: "people",     label: "People and flows" },
   { id: "checks",     label: "Checks" },
+  { id: "changes",    label: "Changes" },
   { id: "finance",    label: "Money" },
   { id: "settings",   label: "Settings" },
 ]
@@ -528,6 +530,7 @@ export default function ProjectDashboardPage() {
       {activeTab === "metrics"   && <MetricsTab projectId={projectId} />}
       {activeTab === "people"    && <PeopleFlowsTab projectId={projectId} />}
       {activeTab === "checks"    && <ChecksTab projectId={projectId} />}
+      {activeTab === "changes"   && <ChangesTab projectId={projectId} />}
       {activeTab === "finance"   && <MoneyTab projectId={projectId} project={project} onChange={() => fetchProjectData(true)} />}
       {activeTab === "settings"  && <SettingsTab projectId={projectId} project={project} onChange={() => fetchProjectData(true)} />}
     </div>
