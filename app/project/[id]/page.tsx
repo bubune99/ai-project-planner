@@ -12,6 +12,7 @@ import { DocsTab } from "@/components/project/opx/DocsTab"
 import { ChecksTab } from "@/components/project/opx/ChecksTab"
 import { ChangesTab } from "@/components/project/opx/ChangesTab"
 import { PeopleFlowsTab } from "@/components/project/opx/PeopleFlowsTab"
+import { NeedsYou, useNeedsYou } from "@/components/project/opx/NeedsYou"
 import { IdeasDecisions } from "@/components/project/opx/IdeasDecisions"
 import { MetricsTab, MoneyTab, SettingsTab, uiOf } from "@/components/project/opx/ProjectTabs"
 
@@ -412,6 +413,7 @@ export default function ProjectDashboardPage() {
    * saw no urgent work on production). Read the full step list instead.
    */
   const stepsQ = useJson(projectId ? `/api/projects/${projectId}/steps` : null)
+  const waiting = useNeedsYou(projectId)
 
   const fetchProjectData = useCallback(async (silent = false) => {
     try {
@@ -503,10 +505,14 @@ export default function ProjectDashboardPage() {
         </div>
       </header>
 
+      <NeedsYou state={waiting} onOpenTab={setActiveTab} />
+
       <nav className="opx-ptabs" aria-label="Project sections">
         {TABS.map(tab => (
           <button key={tab.id} className={activeTab === tab.id ? "on" : ""} aria-current={activeTab === tab.id ? "page" : undefined} onClick={() => setActiveTab(tab.id)}>
             {tab.label}{tab.id === "tasks" && <em>{openTasks}</em>}
+            {tab.id === "changes" && waiting.value.changes.length > 0 && <em>{waiting.value.changes.length}</em>}
+            {tab.id === "people" && waiting.value.yours.length > 0 && <em>{waiting.value.yours.length}</em>}
           </button>
         ))}
       </nav>
