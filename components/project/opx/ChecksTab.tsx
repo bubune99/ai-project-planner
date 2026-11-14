@@ -278,7 +278,7 @@ function Extract({ url, view }: { url: string; view: View }) {
   )
 }
 
-type Piece = Shot & { url: string }
+export type Piece = Shot & { url: string }
 
 /** A control's own picture, cut from its view's picture rather than stored. */
 function Crop({ view, c, src, pieces }: { view: View; c: Control; src?: string; pieces: Piece[] }) {
@@ -296,7 +296,7 @@ function Crop({ view, c, src, pieces }: { view: View; c: Control; src?: string; 
  * A view shown by its real screenshots. Each screenshot is of the whole screen; only its own part is shown, placed
  * where that part sits in the view, so a page taller than the screen reads as one picture.
  */
-function Shots({ view, pieces }: { view: View; pieces: Piece[] }) {
+export function Shots({ view, pieces }: { view: View; pieces: Piece[] }) {
   return (
     <div className="opx-ck-shots" style={{ aspectRatio: `${view.w} / ${view.h}` }} role="img" aria-label={`Screenshot of ${view.name}`}>
       {pieces.map((p) => (
