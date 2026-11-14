@@ -56,8 +56,10 @@ export async function POST(request: NextRequest, { params }: Ctx) {
       // Signed in: the owner themselves. With an API key: an agent relaying what the owner answered in Claude Code.
       // The owner is not always in the planner, so that is allowed; it is recorded as relayed, with their words.
       const said = typeof body.said === "string" ? body.said.trim().slice(0, 500) : ""
-      if (auth.authType !== "session" && said.length < 2) return NextResponse.json({ error: "Relay the owner's own reply in said" }, { status: 400 })
-      const relayed = auth.authType === "session" ? note : `Answered by the owner in Claude Code: "${said}"${note ? ` ${note}` : ""}`
+      // An agent saving through the owner's signed-in tab says so (agent: true) and is treated as an agent.
+      const asOwner = auth.authType === "session" && body.agent !== true
+      if (!asOwner && said.length < 2) return NextResponse.json({ error: "Relay the owner's own reply in said" }, { status: 400 })
+      const relayed = asOwner ? note : `Answered by the owner in Claude Code: "${said}"${note ? ` ${note}` : ""}`
       return NextResponse.json(await recordResults({ checklist, userId: auth.userId, keys, actor: "owner", status: body.status, note: relayed }))
     }
     if (body?.action === "check") {

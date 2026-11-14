@@ -46,13 +46,16 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     if (!(await verifyProjectWriteAccess(projectId, auth.userId))) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     const b = await request.json().catch(() => null)
     const text = (v: unknown, max = 500) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : undefined)
+    // Who is speaking. A signed-in session is the owner at the planner. An API key is an agent. An agent that saves
+    // through the owner's signed-in browser tab says so (agent: true), and is treated as an agent, never as the owner.
+    const asOwner = auth.authType === "session" && b?.agent !== true
     const route = text(b?.route)
     if (!route || !route.startsWith("/")) return NextResponse.json({ error: "Send the page's route" }, { status: 400 })
     if (b.action === "decide") {
       if (!(await verifyProjectOwnerOnly(projectId, auth.userId))) return NextResponse.json({ error: "Only the project owner can answer this" }, { status: 403 })
       if (typeof b.changeId !== "string" || typeof b.approve !== "boolean") return NextResponse.json({ error: "Send { changeId, approve }" }, { status: 400 })
       // Signed in to the planner: the owner themselves. With an API key: an agent relaying what the owner said in Claude Code.
-      if (auth.authType === "session") await decidePlanChange(projectId, route, b.changeId, b.approve)
+      if (asOwner) await decidePlanChange(projectId, route, b.changeId, b.approve)
       else await decidePlanChange(projectId, route, b.changeId, b.approve, "claude-code", text(b.said))
       return NextResponse.json({ ok: true })
     }
@@ -60,8 +63,8 @@ export async function POST(request: NextRequest, { params }: Ctx) {
       if (!text(b.item) || !text(b.question, 40) || !text(b.text, 1000)) return NextResponse.json({ error: "Send { item, question, text }" }, { status: 400 })
       // Signed in: the owner's own answer. With an API key: an agent's answer with what it rests on, or the owner's
       // reply relayed from Claude Code (said), which is recorded as theirs with their words.
-      const relayed = auth.authType !== "session" && text(b.said, 600)
-      const by = auth.authType === "session" || relayed ? "owner" : "agent"
+      const relayed = !asOwner && text(b.said, 600)
+      const by = asOwner || relayed ? "owner" : "agent"
       const basis = by === "owner" ? "owner_asked" : BASES.includes(b.basis) ? b.basis : "judgment"
       return NextResponse.json(await answerIntake({ projectId, route, item: text(b.item)!, question: text(b.question, 40)!, text: text(b.text, 1000)!, by, basis, quote: relayed || text(b.quote, 600) }))
     }
