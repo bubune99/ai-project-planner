@@ -18,6 +18,8 @@ export interface PushPayload {
   body: string
   url?: string
   tag?: string
+  /** Up to two buttons, on devices that show them. Each opens its own path; the notice itself opens `url`. */
+  actions?: { action: string; title: string; url: string }[]
 }
 
 /** Sends to every device the user turned notifications on for. A device that has gone away is forgotten. */

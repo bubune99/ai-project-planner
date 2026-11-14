@@ -25,6 +25,14 @@ export function NotificationsTab() {
   const [device, setDevice] = useState<DeviceState | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // How many buttons this device says a notice can carry, and which part of the buttons test was pressed.
+  const [maxButtons, setMaxButtons] = useState<number | null>(null)
+  const [pressed, setPressed] = useState<string | null>(null)
+  useEffect(() => {
+    const N = typeof window !== "undefined" ? (window as unknown as { Notification?: { maxActions?: number } }).Notification : undefined
+    setMaxButtons(N ? (typeof N.maxActions === "number" ? N.maxActions : 0) : null)
+    setPressed(new URLSearchParams(window.location.search).get("pressed"))
+  }, [])
 
   const load = useCallback(async () => {
     try {
@@ -57,10 +65,12 @@ export function NotificationsTab() {
     setBusy(null)
   }
 
-  const test = async () => {
-    setBusy("test")
+  const test = async (buttons = false) => {
+    setBusy(buttons ? "test-buttons" : "test")
     try {
-      const res = await fetch("/api/push/test", { method: "POST", credentials: "include" })
+      // Make sure this device runs the newest notification handler before a buttons test.
+      if (buttons) await navigator.serviceWorker?.getRegistration().then((r) => r?.update()).catch(() => undefined)
+      const res = await fetch("/api/push/test", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ buttons }) })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error()
       if (j.configured === false) toast.error("Notifications are not set up on the server yet.")
@@ -89,8 +99,19 @@ export function NotificationsTab() {
         <div className="j-row" style={{ gap: 8, flexWrap: "wrap" }}>
           {device === "off" && <button className="j-btn j-btn-primary" style={big} disabled={busy === "device"} onClick={turnOn}>{busy === "device" ? "Turning on…" : "Turn on notifications"}</button>}
           {device === "on" && <button className="j-btn j-btn-ghost" style={big} disabled={busy === "device"} onClick={turnOff}>Turn off for this device</button>}
-          <button className="j-btn j-btn-ghost" style={big} disabled={busy === "test" || !status?.devices} onClick={test}>{busy === "test" ? "Sending…" : "Send a test"}</button>
+          <button className="j-btn j-btn-ghost" style={big} disabled={busy === "test" || !status?.devices} onClick={() => test()}>{busy === "test" ? "Sending…" : "Send a test"}</button>
+          <button className="j-btn j-btn-ghost" style={big} disabled={busy === "test-buttons" || !status?.devices} onClick={() => test(true)} data-testid="notify-test-buttons">{busy === "test-buttons" ? "Sending…" : "Send a test with buttons"}</button>
         </div>
+        {pressed && (
+          <p role="status" data-testid="notify-pressed" style={{ margin: "12px 0 0", fontSize: 14.5, lineHeight: 1.5 }}>
+            {pressed === "first" ? "You pressed the “Looks good” button on the notice." : pressed === "second" ? "You pressed the “Not now” button on the notice." : "You pressed the notice itself, not one of its buttons."}
+          </p>
+        )}
+        {maxButtons !== null && (
+          <p className="j-muted" data-testid="notify-max-buttons" style={{ margin: "12px 0 0", fontSize: 12.5 }}>
+            {maxButtons > 0 ? `This device says a notice can carry up to ${maxButtons} ${maxButtons === 1 ? "button" : "buttons"}.` : "This device does not say it can show buttons on a notice. The buttons test shows what it really does."}
+          </p>
+        )}
         {status && <p className="j-muted" style={{ margin: "12px 0 0", fontSize: 12.5 }}>{status.devices === 0 ? "No device has notifications on." : `${status.devices} ${status.devices === 1 ? "device has" : "devices have"} notifications on. Each device is turned on from that device.`}</p>}
       </div>
 
