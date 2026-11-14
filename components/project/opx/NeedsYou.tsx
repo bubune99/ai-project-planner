@@ -40,7 +40,7 @@ export function NeedsYou({ state, onOpenTab }: { state: ReturnType<typeof useNee
 
   const questions = [...y.questions.filter((q) => !later.includes(q.id)), ...y.questions.filter((q) => later.includes(q.id))]
   return (
-    <section aria-label="Waiting on you" data-testid="needs-you" style={{ border: "1px solid var(--opx-line)", borderRadius: 18, padding: "14px 18px", margin: "0 0 14px" }}>
+    <section aria-label="Waiting on you" data-testid="needs-you" className="opx-needs" style={{ border: "1px solid var(--opx-line)", borderRadius: 18, padding: "14px 18px", margin: "0 0 14px" }}>
       <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
         style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: "none", border: 0, padding: 0, cursor: "pointer", color: "inherit", textAlign: "left" }}>
         {open ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
@@ -66,7 +66,7 @@ export function NeedsYou({ state, onOpenTab }: { state: ReturnType<typeof useNee
             <div>
               <p style={label}>Changes to judge</p>
               {y.changes.slice(0, 5).map((c) => (
-                <div key={c.id} style={row}>
+                <div key={c.id} className="opx-needs-row" style={row}>
                   <span style={{ flex: 1, minWidth: 0, fontSize: 14 }}>{c.title}</span>
                   <button type="button" className="opx-link" onClick={() => onOpenTab("changes")}>See before and after</button>
                 </div>
@@ -93,8 +93,8 @@ export function NeedsYou({ state, onOpenTab }: { state: ReturnType<typeof useNee
           {(y.agents.length > 0 || y.walks.total > 0) && (
             <div>
               <p style={label}>Not yours: found by walking the product, for agents to fix</p>
-              <div style={row}>
-                <span style={{ flex: 1, fontSize: 14 }} data-testid="needs-you-agents">
+              <div className="opx-needs-row" style={row}>
+                <span style={{ flex: "1 1 220px", fontSize: 14 }} data-testid="needs-you-agents">
                   {y.walks.total} {y.walks.total === 1 ? "walk" : "walks"}, {y.walks.reached} reached the goal, {y.walks.stopped} stopped short. {y.agents.length} {y.agents.length === 1 ? "thing" : "things"} to fix.
                 </span>
                 {y.agents.length > 0 && <button type="button" className="opx-link" aria-expanded={showAgents} onClick={() => setShowAgents((v) => !v)}>{showAgents ? "Hide" : "Show them"}</button>}

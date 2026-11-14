@@ -2,6 +2,7 @@
 import { sql } from "@/lib/db/client"
 import { lessons, lessonsLine, parseChange, parseVerdict, type StoredChange } from "./change-model"
 import { GateError, imageType } from "./store"
+import { notifyOwner } from "@/lib/notify/owner"
 
 interface Row {
   id: string; title: string; why: string; route: string | null; check_key: string | null; stage: StoredChange["stage"]; build: string | null
@@ -31,6 +32,8 @@ export async function createChange(a: { projectId: string; userId: string; actor
     VALUES (${a.projectId}, ${change.title}, ${change.why}, ${change.route ?? null}, ${change.checkKey ?? null}, ${change.stage}, ${change.build ?? null}, ${beforeKey}, ${afterKey}, ${a.actor}, ${a.userId})
     RETURNING id
   `) as { id: string }[]
+  // An agent's change is for the owner to judge: tell their phone (when they turned that on).
+  if (a.actor === "agent") await notifyOwner(a.userId, "change", { id: row.id, text: change.title, projectId: a.projectId })
   return { id: row.id }
 }
 

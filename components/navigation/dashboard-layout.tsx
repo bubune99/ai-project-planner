@@ -84,6 +84,13 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
   // Deterministic on first render (SSR + hydration); corrected on mount.
   const [vp, setVp] = useState<Viewport>("desktop")
   const pathname = usePathname()
+  // How many things wait on the owner: shown on the phone's Inbox tab.
+  const [waitingCount, setWaitingCount] = useState(0)
+  useEffect(() => {
+    let alive = true
+    fetch("/api/inbox", { credentials: "include" }).then((r) => (r.ok ? r.json() : null)).then((j) => { if (alive && j) setWaitingCount(Array.isArray(j.data) ? j.data.length : 0) }).catch(() => undefined)
+    return () => { alive = false }
+  }, [pathname])
 
   const meta = PAGE_META[pathname] || (pathname.startsWith("/project/") ? { title: "Project", sub: "" } : { title: "Planner", sub: "" })
 
@@ -270,6 +277,7 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
               >
                 <Icon name={t.icon} size={t.center ? 20 : 18} />
                 <span>{t.label}</span>
+                {t.href === "/inbox" && waitingCount > 0 && <span className="j-tab-count" aria-label={`${waitingCount} waiting`}>{waitingCount > 99 ? "99+" : waitingCount}</span>}
               </Link>
             )
           })}

@@ -1,5 +1,6 @@
 "use client"
 import { Calendar, CalendarClock, GitBranch, Plug } from "lucide-react"
+import { NotificationsTab } from "@/components/settings/NotificationsTab"
 
 import { useState, useEffect, useCallback } from "react"
 import { useUser } from "@stackframe/stack"
@@ -19,10 +20,11 @@ type ApiKey = {
   isActive: boolean
 }
 
-type Tab = "profile" | "mcp" | "ai" | "appearance" | "integrations" | "data"
+type Tab = "profile" | "notifications" | "mcp" | "ai" | "appearance" | "integrations" | "data"
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "profile", label: "Profile" },
+  { id: "notifications", label: "Notifications" },
   { id: "mcp", label: "MCP Server" },
   { id: "ai", label: "AI" },
   { id: "appearance", label: "Appearance" },
@@ -595,13 +597,13 @@ function DataTab() {
 
 export default function SettingsPage() {
   const user = useUser()
-  const [activeTab, setActiveTab] = useState<Tab>("profile")
+  const [activeTab, setActiveTab] = useState<Tab>(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "notifications" ? "notifications" : "profile"))
 
   return (
     <DashboardLayout>
       <div className="j-content j-col j-gap-4">
         {/* Tab bar */}
-        <div className="j-row" style={{ gap: 4, borderBottom: "1px solid var(--j-hairline)", paddingBottom: 0, marginBottom: -4 }}>
+        <div className="j-row" style={{ gap: 4, borderBottom: "1px solid var(--j-hairline)", paddingBottom: 0, marginBottom: -4, overflowX: "auto", scrollbarWidth: "none" }}>
           {TABS.map(t => (
             <button
               key={t.id}
@@ -610,7 +612,7 @@ export default function SettingsPage() {
                 background: "none", border: "none", fontFamily: "inherit", cursor: "pointer",
                 fontSize: 13, fontWeight: activeTab === t.id ? 500 : 400,
                 color: activeTab === t.id ? "oklch(0.985 0 0)" : "oklch(0.556 0 0)",
-                padding: "8px 14px",
+                padding: "8px 14px", minHeight: 44, flex: "none", whiteSpace: "nowrap",
                 borderBottom: `2px solid ${activeTab === t.id ? "var(--j-accent)" : "transparent"}`,
                 marginBottom: -1,
                 transition: "color 0.12s",
@@ -623,6 +625,7 @@ export default function SettingsPage() {
 
         {/* Tab panels */}
         {activeTab === "profile" && <ProfileTab user={user} />}
+        {activeTab === "notifications" && <NotificationsTab />}
         {activeTab === "mcp" && <McpTab />}
         {activeTab === "ai" && <AiTab />}
         {activeTab === "appearance" && <AppearanceTab />}

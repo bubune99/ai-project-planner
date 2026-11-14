@@ -2,45 +2,16 @@
 
 import { useEffect } from 'react'
 
+/**
+ * Registers the service worker (offline shell, and the receiver for phone notifications). It no longer asks for
+ * notification permission on load: a browser may only be asked in answer to a press, and an unasked prompt is the
+ * surest way to be blocked for good. Turning them on is in Settings, Notifications (components/pwa/push-client.ts).
+ */
 export function ServiceWorkerRegister() {
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return
-
-    navigator.serviceWorker.register('/sw.js').then(async registration => {
-      if (!('PushManager' in window)) return
-
-      const permission = await Notification.requestPermission()
-      if (permission !== 'granted') return
-
-      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-      if (!vapidPublicKey) return
-
-      try {
-        const existing = await registration.pushManager.getSubscription()
-        if (existing) return
-
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-        })
-
-        await fetch('/api/push/subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(subscription),
-        })
-      } catch {
-        // Push subscription failed silently — user can retry
-      }
-    })
+    navigator.serviceWorker.register('/sw.js').catch(() => { /* offline shell is optional */ })
   }, [])
 
   return null
-}
-
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
-  const rawData = atob(base64)
-  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)))
 }

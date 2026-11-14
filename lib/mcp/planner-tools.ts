@@ -41,6 +41,7 @@ import {
   listSourcesForJob,
 } from "@/lib/db/backbone"
 import { buildQuestionInput } from "@/lib/inbox"
+import { notifyOwner } from "@/lib/notify/owner"
 import { visibleStepPredicate } from "@/lib/db/agent-task-access"
 import {
   validateMcpApiKey,
@@ -4036,6 +4037,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             )
             RETURNING id, status
           `
+          // Tell the owner's phone (when they turned that on). Never holds the question up.
+          await notifyOwner(userId, "question", { id: job.id, text: built.value.question, projectId: built.value.input.projectId })
           return mcpResponse({
             questionId: job.id,
             status: job.status,
