@@ -85,7 +85,7 @@ export function OpxDashboard() {
         <button className="opx-btn" onClick={() => askAssistant("Plan my week: pick from open steps and todos across projects, most urgent first, and show me the plan before changing anything.")}>Plan my week</button>
       </div>
 
-      <div className="opx-2col" style={{ gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)" }}>
+      <div className="opx-2col even">
         <Section title="Needs you" count={questions.length} action={<Link className="opx-link" href="/inbox">Open inbox ›</Link>}>
           {inboxQ.loading && !inboxQ.data && <p className="opx-muted">Loading…</p>}
           {!inboxQ.loading && questions.length === 0 && <p className="opx-muted" style={{ margin: 0 }}>Nothing is waiting on you.</p>}

@@ -806,3 +806,57 @@ a.opx-mt:hover b { text-decoration: underline; }
 }
 .j-tabbar .j-tab { position: relative; }
 .j-tab-count { position: absolute; top: 2px; left: 50%; margin-left: 6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--opx-hot, #c8553d); color: #fff; font-size: 10.5px; font-weight: 700; line-height: 16px; text-align: center; }
+
+/* ============================================================
+   Phone rules (measured at 390 x 844 on staging, 2026-11-14).
+
+   The rules a phone screen is held to, in order:
+   1. One column. Nothing sits side by side unless both halves still read (two short stat tiles do; two cards do not).
+   2. The name of a thing is never the column that gives way. Secondary columns go first.
+   3. Anything pressed is at least 44px tall, or has a 44px area around it.
+   4. A field's text is 16px, so the phone does not zoom the page when it is focused.
+   5. A card inside a card loses one layer of padding: the width goes to the content.
+   ============================================================ */
+
+/* Two equal cards (dashboard). Was an inline style, which no screen size could override. */
+.opx-2col.even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+@media (max-width: 900px) { .opx-2col.even { grid-template-columns: minmax(0, 1fr); } }
+
+/* The round tick. ".opx-ck" is also the Checks tab container further up, whose width:100% turned every tick
+   into an oval at every screen size. A button with that class is always the tick. */
+button.opx-ck { display: block; width: 20px; height: 20px; flex: none; justify-self: start; }
+button.opx-ck::before { content: ''; position: absolute; inset: -12px; }
+
+@media (max-width: 700px) {
+  /* 1 and 5: sections */
+  .opx-sec { padding: 14px; border-radius: 18px; }
+  .opx-sech { flex-wrap: wrap; row-gap: 4px; }
+  .opx-sech h2 { min-width: 0; }
+  .opx-pbar-shader { padding: 12px; }
+  .opx-pbar-shader .opx-hero-text { width: 100%; }
+  .opx-stat { min-width: 0; padding: 12px 14px; }
+  /* An odd tile out takes the row instead of leaving a hole. */
+  .opx-stats > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .opx-pc { min-height: 0; }
+
+  /* 2: list rows (Today, a project's Tasks). Tick, name, status; the name wraps to two lines. */
+  .opx-lv, .opx-lv.opx-lvp { grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; padding: 10px 12px; min-height: 52px; }
+  .opx-lv > :nth-child(n+4) { display: none; }
+  .opx-lv.opx-lvh { display: none; }
+  .opx-lv b, .opx-lv > .opx-link { white-space: normal !important; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .opx-li { align-items: flex-start; }
+  .opx-li > .opx-dot { margin-top: 7px; }
+  .opx-li b { overflow-wrap: anywhere; }
+
+  /* 3: things that are pressed */
+  .opx-btn, .j-btn:not(.j-btn-icon), .j-pill, .opx-pt, .opx-dc, .j-nav-item { min-height: 44px; }
+  .opx-btn, .j-pill, .opx-pt { padding-left: 16px; padding-right: 16px; }
+  .opx-seg button { min-height: 40px; padding: 8px 16px; }
+  .opx-ib, .j-btn.j-btn-icon, .opx-chat-ib, .opx-hist-del { min-width: 44px; min-height: 44px; }
+  .opx-sech .opx-link, .opx-lv > .opx-link { min-height: 44px; display: inline-flex; align-items: center; }
+  .opx-lv > .opx-link { display: -webkit-box; min-height: 0; }
+
+  /* 4: fields */
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]), select, textarea { font-size: 16px !important; }
+  select { min-height: 44px; }
+}
