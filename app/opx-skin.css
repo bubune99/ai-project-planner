@@ -816,6 +816,7 @@ a.opx-mt:hover b { text-decoration: underline; }
    3. Anything pressed is at least 44px tall, or has a 44px area around it.
    4. A field's text is 16px, so the phone does not zoom the page when it is focused.
    5. A card inside a card loses one layer of padding: the width goes to the content.
+   6. Nothing that is read is under 12px.
    ============================================================ */
 
 /* Two equal cards (dashboard). Was an inline style, which no screen size could override. */
@@ -908,4 +909,12 @@ button.opx-ck::before { content: ''; position: absolute; inset: -12px; }
   .opx-kpi { padding: 12px 14px; }
   .opx-kpi .j-amount-lg { margin-top: 4px !important; }
   .opx-more { min-height: 44px; }
+  /* "Projects ›" and "Refresh" in a project's header, and the Waiting on you toggle: a 44px area to press,
+     without making the header taller. */
+  .opx-pbar .opx-link { position: relative; }
+  .opx-pbar .opx-link::before { content: ''; position: absolute; inset: -13px -6px; }
+  .opx-waiting > button { min-height: 44px; }
+  /* 6: nothing that is read is under 12px. A project's Overview had 66 labels typed at 10 to 11px in the
+     markup itself, which only a rule this blunt can reach. */
+  .opx-page [style*="font-size: 10"], .opx-page [style*="font-size: 11px"] { font-size: 12px !important; }
 }
