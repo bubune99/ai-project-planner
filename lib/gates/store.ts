@@ -6,7 +6,8 @@
  */
 import { sql } from "@/lib/db/client"
 import {
-  allChecks, checkState, diffChecklists, findingSignature, scanFindings, hookLine, imagesToExpire, nextCheck, sameChecklist, summarize, validateChecklist,
+  alignToPrevious, allChecks, auditLog, checkState, diffChecklists, sameCriteria, scanFindings, scorecard, standingKeys,
+  hookLine, imagesToExpire, nextCheck, summarize, validateChecklist,
   type Actor, type Checklist, type Result, type StoredImage, type Verdict,
 } from "./gate-model"
 
@@ -59,47 +60,57 @@ async function progress(row: ChecklistRow, results: Result[]) {
   return { summary, next: nextCheck(row.doc, results), hook, plan, mayFinish: summary.done && plan.clear }
 }
 
-/** Saves a page's checklist. An unchanged list keeps its version and its verdicts; a changed one starts a new version. */
+/**
+ * Saves a scan of a page. What is already known is kept: a control found again keeps its number, the criteria someone
+ * wrote for it and the verdicts given on it. When nothing about what is asked has changed, the checklist stays the
+ * same version and only where things sit and what the scan found are refreshed. Otherwise a new version starts, and
+ * verdicts carry over for every control whose criteria are unchanged, so only what is new or changed is worked again.
+ */
 export async function saveChecklist(a: { projectId: string; userId: string; list: Checklist; env?: string; build?: string }) {
-  const issues = validateChecklist(a.list)
-  if (issues.length) throw new GateError(issues.slice(0, 8).map((i) => `${i.where}: ${i.message}`).join("; "))
   const prev = await latestFor(a.projectId, a.list.route)
-  if (prev && sameChecklist(prev.doc, a.list)) {
-    return { checklistId: prev.id, version: prev.version, created: false, changes: { added: [], removed: [], kept: allControls(prev.doc) }, ...(await progress(prev, await resultsOf(prev.id))) }
-  }
-  const [row] = (await sql`
-    INSERT INTO gate_checklists (project_id, route, version, title, env, build, doc, created_by)
-    VALUES (${a.projectId}, ${a.list.route}, ${(prev?.version ?? 0) + 1}, ${a.list.title ?? null}, ${a.env ?? null}, ${a.build ?? null}, ${JSON.stringify(a.list)}::jsonb, ${a.userId})
-    RETURNING id, project_id, route, version, title, env, build, doc, created_at
-  `) as ChecklistRow[]
-  // What the scan found is recorded as claims: flagged, waiting for a reviewer to look at the real thing and confirm
-  // or dismiss each one. A claim a reviewer already dismissed on the last version is dismissed again with the same
-  // reason, so the same false alarm is not put in front of anyone twice.
-  const found = scanFindings(a.list)
-  if (found.length) {
-    await sql`
-      INSERT INTO gate_results (checklist_id, check_key, actor, status, note, created_by)
-      SELECT ${row.id}, t.k, 'scan', 'failed', t.n, ${a.userId} FROM unnest(${found.map((f) => f.key)}::text[], ${found.map((f) => f.note)}::text[]) AS t(k, n)
-    `
+  const list = alignToPrevious(prev?.doc ?? null, a.list)
+  const issues = validateChecklist(list)
+  if (issues.length) throw new GateError(issues.slice(0, 8).map((i) => `${i.where}: ${i.message}`).join("; "))
+  let row: ChecklistRow, created = false, carried = 0
+  if (prev && sameCriteria(prev.doc, list)) {
+    await sql`UPDATE gate_checklists SET doc = ${JSON.stringify(list)}::jsonb, env = COALESCE(${a.env ?? null}, env), build = COALESCE(${a.build ?? null}, build) WHERE id = ${prev.id}`
+    row = { ...prev, doc: list }
+  } else {
+    ;[row] = (await sql`
+      INSERT INTO gate_checklists (project_id, route, version, title, env, build, doc, created_by)
+      VALUES (${a.projectId}, ${list.route}, ${(prev?.version ?? 0) + 1}, ${list.title ?? null}, ${a.env ?? null}, ${a.build ?? null}, ${JSON.stringify(list)}::jsonb, ${a.userId})
+      RETURNING id, project_id, route, version, title, env, build, doc, created_at
+    `) as ChecklistRow[]
+    created = true
     if (prev) {
-      const before = await resultsOf(prev.id), old = scanFindings(prev.doc)
-      const dismissed = new Map<string, string>()
-      for (const f of old) {
-        const claim = before.filter((r) => r.key === f.key && r.actor === "scan").at(-1)
-        const after = claim ? before.filter((r) => r.key === f.key && r.actor === "reviewer" && r.at >= claim.at).at(-1) : undefined
-        if (after?.status === "passed") dismissed.set(f.signature, after.note ?? "")
-      }
-      const again = found.filter((f) => dismissed.has(f.signature))
-      if (again.length) {
-        await sql`
+      const keys = standingKeys(prev.doc, list)
+      if (keys.length) {
+        const moved = (await sql`
           INSERT INTO gate_results (checklist_id, check_key, actor, status, note, created_by, created_at)
-          SELECT ${row.id}, t.k, 'reviewer', 'passed', t.n, ${a.userId}, now() + interval '1 millisecond'
-          FROM unnest(${again.map((f) => f.key)}::text[], ${again.map((f) => `Dismissed on the last version, for the same reason: ${dismissed.get(f.signature)}`)}::text[]) AS t(k, n)
-        `
+          SELECT ${row.id}, check_key, actor, status, note, created_by, created_at FROM gate_results
+          WHERE checklist_id = ${prev.id} AND check_key = ANY(${keys}::text[]) RETURNING 1
+        `) as unknown[]
+        carried = moved.length
       }
     }
   }
-  return { checklistId: row.id, version: row.version, created: true, findings: found.length, changes: diffChecklists(prev?.doc ?? null, a.list), ...(await progress(row, await resultsOf(row.id))) }
+  // What the scan found is recorded as claims: flagged, waiting for a reviewer to look at the real thing. A claim the
+  // record already holds for that check (the same finding, whatever the exact measurements) is not raised again, so a
+  // claim that was confirmed or dismissed stays decided.
+  const same = (note: string) => note.replace(/[\d.]+/g, "#")
+  const known = await resultsOf(row.id)
+  const fresh = scanFindings(list).filter((f) => { const last = known.filter((r) => r.key === f.key && r.actor === "scan").at(-1); return !last || same(last.note ?? "") !== same(f.note) })
+  if (fresh.length) {
+    await sql`
+      INSERT INTO gate_results (checklist_id, check_key, actor, status, note, created_by)
+      SELECT ${row.id}, t.k, 'scan', 'failed', t.n, ${a.userId} FROM unnest(${fresh.map((f) => f.key)}::text[], ${fresh.map((f) => f.note)}::text[]) AS t(k, n)
+    `
+  }
+  return {
+    checklistId: row.id, version: row.version, created, carried, findings: fresh.length,
+    changes: created ? diffChecklists(prev?.doc ?? null, list) : { added: [], removed: [], kept: allControls(list) },
+    ...(await progress(row, await resultsOf(row.id))),
+  }
 }
 
 const allControls = (l: Checklist) => l.views.reduce((t, v) => t + v.controls.length, 0)
@@ -247,6 +258,8 @@ export async function loadPage(row: ChecklistRow) {
     id: row.id, route: row.route, title: row.title, version: row.version, env: row.env, build: row.build, createdAt: iso(row.created_at),
     // What the scan flagged and nobody has validated yet, with what it claimed: the validator's work list.
     flagged: allChecks(row.doc).filter((c) => checkState(results, c.key) === "flagged").map((c) => ({ key: c.key, n: c.n, label: c.label, view: c.view, claim: results.filter((r) => r.key === c.key && r.actor === "scan").at(-1)?.note ?? "" })),
+    // Every verdict in order (the newest 200), and what the record says about how well the arrangement is working.
+    log: auditLog(row.doc, results).slice(-200).reverse(), score: scorecard(row.doc, results),
     checklist: row.doc, results, images: signed, extracts, changes: diffChecklists(prev?.doc ?? null, row.doc), ...(await progress(row, results)),
   }
 }

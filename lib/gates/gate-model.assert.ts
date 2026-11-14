@@ -233,3 +233,60 @@ ok("plan: the owner is included when their request, the rules and common sense s
 })
 
 console.log(`${n} checks passed in all`)
+
+// ── Keeping what is known between scans, and the record ─────────────────────
+import { alignToPrevious, auditLog, sameCriteria, scorecard, standingKeys } from "./gate-model"
+
+ok("a new scan keeps each control's number, its written criteria and its standing verdicts", () => {
+  const written = structuredClone(list)
+  written.views[0].controls[1].workflows = [{ name: "Opens the impact graph", steps: [{ do: "Click it", expect: "The graph page opens with nodes drawn" }] }]
+  // A fresh scan: different order, different places, draft workflows, one control new, one gone.
+  const scan: Checklist = { route: "/catalog", views: [
+    { key: "page", name: "Page", w: 1200, h: 500, controls: [
+      { n: 1, label: "Impact graph", kind: "Link", x: 5, y: 5, w: 90, h: 30, states: ["Signed in"], draft: true, workflows: [{ name: "Go and come back", steps: [step] }] },
+      { n: 2, label: "Sort", kind: "Button", x: 200, y: 5, w: 60, h: 30, states: ["Signed in"], draft: true, workflows: [{ name: "Click it", steps: [step] }] },
+      { n: 3, label: "menu", kind: "Button", x: 20, y: 20, w: 80, h: 30, shared: true, states: ["Dark", "Light"], draft: true, workflows: [{ name: "Open", steps: [step] }, { name: "Close", steps: [step] }] },
+    ] },
+  ] }
+  const next = alignToPrevious(written, scan)
+  const by = (label: string) => next.views[0].controls.find((c) => c.label.toLowerCase() === label)!
+  assert.equal(by("menu").n, 1)
+  assert.equal(by("impact graph").n, 2)
+  assert.equal(by("sort").n, 4)                       // 3 was Dashboard, now gone; numbers are never reused
+  assert.equal(by("impact graph").workflows[0].name, "Opens the impact graph")
+  assert.equal(by("impact graph").draft, undefined)
+  assert.equal(by("impact graph").x, 5)               // where it sits is the scan's to say
+  assert.equal(by("sort").draft, true)
+  // Verdicts stand for controls whose criteria did not change, and only for those.
+  assert.deepEqual(standingKeys(written, next).sort(), ["1|Close|Dark", "1|Close|Light", "1|Open|Dark", "1|Open|Light", "2|Opens the impact graph|Signed in"].sort())
+  assert.equal(sameCriteria(written, next), false)
+  // The same page scanned again, moved about, asks nothing new.
+  const moved = structuredClone(written); moved.views[0].w = 1400; moved.views[0].controls[0].x = 33; moved.views[0].controls[0].issues = ["too small"]
+  assert.equal(sameCriteria(written, alignToPrevious(written, moved)), true)
+  assert.equal(alignToPrevious(null, scan), scan)
+  // Two controls with one name stay two controls, in order.
+  const twins = structuredClone(list); twins.views[0].controls.push({ ...twins.views[0].controls[1], n: 7 })
+  const again = structuredClone(twins); again.views[0].controls.forEach((c, i) => { c.n = 50 + i })
+  assert.deepEqual(alignToPrevious(twins, again).views[0].controls.map((c) => c.n), [1, 2, 7])
+})
+
+ok("the audit log says, in order and in words, who decided what", () => {
+  const key = "2|Go|Signed in"
+  const log = auditLog(list, [R(key, "reviewer", "passed", "t2"), R(key, "scan", "failed", "t1"), R(key, "builder", "passed", "t3"), R(key, "reviewer", "failed", "t4"), R(key, "owner", "waived", "t5")])
+  assert.deepEqual(log.map((e) => e.what), ["The scan flagged it", "The reviewer dismissed the flag", "The builder passed it", "The reviewer failed it", "The owner waived it"])
+  assert.deepEqual([log[0].n, log[0].label, log[0].workflow, log[0].state], [2, "Impact graph", "Go", "Signed in"])
+})
+
+ok("the scorecard measures the scan, the builder and the second look from the record alone", () => {
+  const a = k(0), b = k(1), c = k(4), d = k(5)
+  const s = scorecard(list, [
+    R(a, "scan", "failed", "t1"), R(a, "reviewer", "failed", "t2"), R(a, "builder", "passed", "t3"), R(a, "reviewer", "passed", "t4"),   // real, then fixed
+    R(b, "scan", "failed", "t1"), R(b, "reviewer", "passed", "t2"),                                                                  // false alarm
+    R(c, "scan", "failed", "t1"),                                                                                                    // nobody has looked
+    R(d, "builder", "passed", "t1"), R(d, "reviewer", "failed", "t2"),                                                               // the second look caught it
+  ])
+  assert.deepEqual({ ...s }, { claims: 3, confirmed: 1, dismissed: 1, unvalidated: 1, scanAccuracy: 0.5, passedFirstTime: 2, worked: 2, fixed: 1, caughtBySecondLook: 1 })
+  assert.equal(scorecard(list, []).scanAccuracy, null)
+})
+
+console.log(`${n} checks passed in all`)

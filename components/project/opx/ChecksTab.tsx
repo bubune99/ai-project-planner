@@ -9,8 +9,8 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { AlertTriangle, Check, Minus, X } from "lucide-react"
-import { checkKey, checkState, controlProgress, type CheckState, type Checklist, type Control, type Result, type Summary, type View } from "@/lib/gates/gate-model"
+import { AlertTriangle, Check, Minus, ThumbsUp, X } from "lucide-react"
+import { allChecks, checkKey, checkState, controlProgress, type CheckState, type Checklist, type Control, type LogEntry, type Result, type Scorecard, type Summary, type View } from "@/lib/gates/gate-model"
 import { GuidesSection } from "./GuidesSection"
 import { ago, useJson } from "./shared"
 
@@ -20,6 +20,70 @@ interface PageData {
   id: string; route: string; version: number; env: string | null; build: string | null; createdAt: string
   checklist: Checklist; results: Result[]; images: { kind: "view" | "evidence"; key: string; url: string }[]; extracts?: string[]
   changes: { added: Change[]; removed: Change[]; kept: number }; summary: Summary; hook: string; canSettle: boolean
+  mayFinish?: boolean; next?: { key: string; n: number } | null; log?: LogEntry[]; score?: Scorecard
+}
+
+/**
+ * The record: what has to be done now, how well the arrangement is working, and every verdict in order.
+ * It is what proves a page was checked, and by whom, rather than said to be.
+ */
+function RecordSection({ data, onPick }: { data: PageData; onPick: (n: number) => void }) {
+  const log = data.log ?? [], sc = data.score
+  const failing = allChecks(data.checklist).filter((c) => checkState(data.results, c.key) === "failed")
+  const flagged = allChecks(data.checklist).filter((c) => checkState(data.results, c.key) === "flagged")
+  const noteOf = (key: string) => [...data.results].reverse().find((r) => r.key === key && r.note)?.note
+  const pct = (n: number, of: number) => (of ? `${Math.round((n / of) * 100)}%` : "none yet")
+  return (
+    <section className="opx-sec opx-ck-record">
+      <div>
+        <h3 className="opx-ck-h3">What needs doing</h3>
+        {failing.length === 0 && flagged.length === 0 && <p className="opx-muted">Nothing is failing and nothing flagged is waiting to be validated.</p>}
+        {failing.length > 0 && (
+          <>
+            <h4 className="opx-ck-h4">Fix ({failing.length} confirmed failing)</h4>
+            <ul>{failing.slice(0, 12).map((c) => <li key={c.key}><button type="button" onClick={() => onPick(c.n)}><b>{c.n}. {c.label}</b></button><span className="opx-muted">{noteOf(c.key)}</span></li>)}</ul>
+          </>
+        )}
+        {flagged.length > 0 && (
+          <>
+            <h4 className="opx-ck-h4">Validate ({flagged.length} flagged by the scan)</h4>
+            <ul>{flagged.slice(0, 8).map((c) => <li key={c.key}><button type="button" onClick={() => onPick(c.n)}><b>{c.n}. {c.label}</b></button><span className="opx-muted">{noteOf(c.key)}</span></li>)}</ul>
+            {flagged.length > 8 && <p className="opx-muted">and {flagged.length - 8} more.</p>}
+          </>
+        )}
+        <p className="opx-muted">What to build or take away is under "Against the plan".</p>
+      </div>
+      <div>
+        <h3 className="opx-ck-h3">How the system is doing</h3>
+        {sc && (
+          <ul>
+            <li><b>The scan</b><span className="opx-muted">{sc.claims} claims. {sc.confirmed} confirmed real, {sc.dismissed} dismissed as false alarms, {sc.unvalidated} not yet looked at. Of those judged, {sc.scanAccuracy === null ? "none yet" : `${Math.round(sc.scanAccuracy * 100)}% were real`}.</span></li>
+            <li><b>The builder</b><span className="opx-muted">{sc.worked} checks worked; {pct(sc.passedFirstTime, sc.worked)} passed the first time.</span></li>
+            <li><b>The second look</b><span className="opx-muted">{sc.caughtBySecondLook} check{sc.caughtBySecondLook === 1 ? "" : "s"} the builder passed that a reviewer or you then failed.</span></li>
+            <li><b>Fixed</b><span className="opx-muted">{sc.fixed} problem{sc.fixed === 1 ? "" : "s"} found and now passing.</span></li>
+          </ul>
+        )}
+      </div>
+      <div className="opx-ck-log">
+        <h3 className="opx-ck-h3">Audit log</h3>
+        {log.length === 0 && <p className="opx-muted">No verdicts yet.</p>}
+        <ol>
+          {log.map((e, i) => (
+            <li key={`${e.at}-${e.key}-${i}`}>
+              <span className={`opx-ck-ev-icon ${e.actor === "scan" ? "flagged" : e.status}`}>
+                {e.actor === "scan" ? <AlertTriangle size={12} strokeWidth={2.5} /> : e.status === "passed" ? <ThumbsUp size={12} strokeWidth={2.5} /> : e.status === "waived" ? <Minus size={12} strokeWidth={3} /> : <X size={12} strokeWidth={3} />}
+              </span>
+              <div>
+                <button type="button" onClick={() => onPick(e.n)}><b>{e.what}</b>: {e.n}. {e.label}</button>
+                <span className="opx-muted">{e.workflow} in {e.state}, {ago(e.at)}</span>
+                {e.note && <span className="opx-muted">{e.note}</span>}
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  )
 }
 
 interface PlanItem { id: string; label: string; kind?: string; view?: string; must: string; source: string }
@@ -256,6 +320,7 @@ export function ChecksTab({ projectId }: { projectId: string }) {
             <div className="opx-ck-bar"><i style={{ width: `${s.total ? (s.cleared / s.total) * 100 : 0}%` }} /></div>
           </div>
         </div>
+        {data?.mayFinish && <p className="opx-ck-passed"><ThumbsUp size={16} strokeWidth={2.5} /> This page has passed: every check is cleared, nothing flagged is waiting, and it has everything that was planned.</p>}
         {data && <p className="opx-ck-hook"><strong>What the agent is told:</strong> {data.hook}</p>}
         {data && (
           <p className="opx-muted opx-ck-meta">
@@ -267,6 +332,8 @@ export function ChecksTab({ projectId }: { projectId: string }) {
           </p>
         )}
       </section>
+
+      {data && <RecordSection data={data} onPick={(n) => { setPick(n); setSettle(null) }} />}
 
       <PlanSection projectId={projectId} route={current.route} tick={planTick} onPick={(n) => { setPick(n); setSettle(null) }} />
 
@@ -285,7 +352,7 @@ export function ChecksTab({ projectId }: { projectId: string }) {
                     <button key={c.n} type="button" className={`opx-ck-row${chosen.c.n === c.n ? " on" : ""}`} aria-current={chosen.c.n === c.n ? "true" : undefined} onClick={() => { setPick(c.n); setSettle(null) }}>
                       <span className={`opx-ck-num ${p.worst}`}>{c.n}</span>
                       <Crop view={v} c={c} src={imageOf(v.key)} />
-                      <span className="opx-ck-name"><b>{c.label}</b><small>{p.cleared} of {p.total} checks{c.shared ? ", every page" : ""}</small></span>
+                      <span className="opx-ck-name"><b>{c.label}</b><small>{data.next?.n === c.n ? "Up next. " : ""}{p.cleared} of {p.total} checks{c.shared ? ", every page" : ""}</small></span>
                       <Mark state={p.cleared === p.total ? "passed" : p.worst === "passed" ? "pending" : p.worst} />
                     </button>
                   )

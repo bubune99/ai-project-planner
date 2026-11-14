@@ -44,6 +44,8 @@ export interface Control {
   shared?: boolean
   /** What the scan found wrong with the control itself: no name, covered, too small, a dead link. */
   issues?: string[]
+  /** Its workflows were written by the scanner from the kind of control, and nobody has replaced them yet. */
+  draft?: boolean
   states: string[]
   workflows: Workflow[]
 }
@@ -271,6 +273,130 @@ export function diffChecklists(before: Checklist | null, after: Checklist): { ad
 /** Two checklists ask for the same checks on the same controls in the same places. */
 export function sameChecklist(a: Checklist, b: Checklist): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
+}
+
+/* ── Keeping what is known between scans ─────────────────────────────────────
+ * A scan maps the page again every time it runs. What was learned must not be
+ * mapped again with it: the criteria someone wrote for a control, and the
+ * verdicts already given, belong to the control, not to one scan of it. So a
+ * new scan is lined up with the last checklist: the same control keeps its
+ * number, its written criteria and its verdicts. Only what is new or changed
+ * starts fresh.
+ */
+
+/** What makes a control the same control from one scan to the next: its view, kind and name (and which one, if several share them). */
+function identities(list: Checklist): Map<Control, string> {
+  const seen = new Map<string, number>(), out = new Map<Control, string>()
+  for (const v of list.views) for (const c of v.controls) {
+    const base = [v.key, c.kind, norm(c.label)].join(SEP), k = (seen.get(base) ?? 0) + 1
+    seen.set(base, k)
+    out.set(c, `${base}${SEP}${k}`)
+  }
+  return out
+}
+
+/** What is asked of a control, apart from where it sits and what the last scan thought of it. */
+const criteria = (c: Control) => JSON.stringify([c.states, c.workflows])
+
+/**
+ * Lines a fresh scan up with the checklist before it. A control found again
+ * keeps its number. If the scan only brought draft workflows for it and
+ * written ones exist, the written ones are kept. New controls take new numbers.
+ */
+export function alignToPrevious(prev: Checklist | null, next: Checklist): Checklist {
+  if (!prev) return next
+  const before = new Map<string, Control>()
+  for (const [c, id] of identities(prev)) before.set(id, c)
+  const ids = identities(next)
+  let top = Math.max(0, ...prev.views.flatMap((v) => v.controls.map((c) => c.n)))
+  const used = new Set<number>()
+  const views = next.views.map((v) => ({ ...v, controls: v.controls.map((c) => {
+    const old = before.get(ids.get(c)!)
+    if (!old || used.has(old.n)) return { ...c, n: 0 }
+    used.add(old.n)
+    const keep = c.draft && !old.draft ? { states: old.states, workflows: old.workflows, draft: undefined } : {}
+    return { ...c, ...keep, n: old.n }
+  }) }))
+  for (const v of views) for (const c of v.controls) { if (c.n === 0) c.n = ++top; if (c.draft === undefined) delete c.draft }
+  return { ...next, views }
+}
+
+/** The checks whose control and criteria are the same in both lists: their verdicts still stand. Expects `next` already aligned. */
+export function standingKeys(prev: Checklist, next: Checklist): string[] {
+  const before = new Map<number, [string, string]>()
+  for (const [c, id] of identities(prev)) before.set(c.n, [id, criteria(c)])
+  const out: string[] = []
+  for (const [c, id] of identities(next)) {
+    const old = before.get(c.n)
+    if (old && old[0] === id && old[1] === criteria(c)) for (const w of c.workflows) for (const s of c.states) out.push(checkKey(c.n, w.name, s))
+  }
+  return out
+}
+
+/** Nothing about what is asked has changed: the same controls with the same criteria. Only places and scan findings may differ. */
+export function sameCriteria(prev: Checklist, next: Checklist): boolean {
+  const flat = (l: Checklist) => [...identities(l)].map(([c, id]) => [c.n, id, criteria(c)]).sort((a, b) => Number(a[0]) - Number(b[0]))
+  return prev.route === next.route && JSON.stringify(flat(prev)) === JSON.stringify(flat(next))
+}
+
+/* ── The record: what happened, and how well the system is doing ───────────── */
+
+export interface LogEntry { at: string; actor: Actor; status: Verdict; key: string; n: number; label: string; workflow: string; state: string; note?: string; what: string }
+
+/** Every verdict in the order it was given, in words. */
+export function auditLog(list: Checklist, results: Result[]): LogEntry[] {
+  const ref = new Map(allChecks(list).map((c) => [c.key, c]))
+  const lastScan = new Map<string, string>()
+  return [...results].sort((a, b) => a.at.localeCompare(b.at)).map((r) => {
+    const c = ref.get(r.key)
+    const afterClaim = lastScan.has(r.key)
+    if (r.actor === "scan") lastScan.set(r.key, r.at)
+    const what = r.actor === "scan" ? "The scan flagged it"
+      : r.actor === "reviewer" ? (afterClaim ? (r.status === "failed" ? "The reviewer confirmed the flag" : "The reviewer dismissed the flag") : r.status === "failed" ? "The reviewer failed it" : "The reviewer passed it")
+      : r.actor === "owner" ? (r.status === "waived" ? "The owner waived it" : r.status === "failed" ? "The owner failed it" : "The owner passed it")
+      : r.status === "failed" ? "The builder reported it failing" : "The builder passed it"
+    if (r.actor === "reviewer") lastScan.delete(r.key)
+    return { at: r.at, actor: r.actor, status: r.status, key: r.key, n: c?.n ?? 0, label: c?.label ?? r.key, workflow: c?.workflow ?? "", state: c?.state ?? "", note: r.note, what }
+  })
+}
+
+export interface Scorecard {
+  /** Claims the scan has made, and what became of them. */
+  claims: number
+  confirmed: number
+  dismissed: number
+  unvalidated: number
+  /** Of the claims judged, the share that were real. Null until one has been judged. */
+  scanAccuracy: number | null
+  /** Checks that passed the first time they were worked, out of those worked. */
+  passedFirstTime: number
+  worked: number
+  /** Checks that failed at some point and pass now: problems found and fixed. */
+  fixed: number
+  /** Checks the builder passed that a reviewer or the owner then failed: what the second look caught. */
+  caughtBySecondLook: number
+}
+
+/** How well the whole arrangement is working, from the record alone. */
+export function scorecard(list: Checklist, results: Result[]): Scorecard {
+  const s: Scorecard = { claims: 0, confirmed: 0, dismissed: 0, unvalidated: 0, scanAccuracy: null, passedFirstTime: 0, worked: 0, fixed: 0, caughtBySecondLook: 0 }
+  for (const c of allChecks(list)) {
+    const mine = results.filter((r) => r.key === c.key).sort((a, b) => a.at.localeCompare(b.at))
+    let open: Result | null = null
+    for (const r of mine) {
+      if (r.actor === "scan" && r.status === "failed") { if (open) s.unvalidated++; s.claims++; open = r }
+      else if (r.actor === "reviewer" && open) { if (r.status === "failed") s.confirmed++; else s.dismissed++; open = null }
+    }
+    if (open) s.unvalidated++
+    const work = mine.filter((r) => r.actor === "builder")
+    if (work.length) { s.worked++; if (work[0].status === "passed") s.passedFirstTime++ }
+    const everFailed = mine.some((r) => r.status === "failed" && r.actor !== "scan"), now = checkState(results, c.key)
+    if (everFailed && now === "passed") s.fixed++
+    if (mine.some((r, i) => r.actor !== "builder" && r.actor !== "scan" && r.status === "failed" && mine.slice(0, i).some((b) => b.actor === "builder" && b.status === "passed"))) s.caughtBySecondLook++
+  }
+  const judged = s.confirmed + s.dismissed
+  s.scanAccuracy = judged ? s.confirmed / judged : null
+  return s
 }
 
 export interface StoredImage {

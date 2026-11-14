@@ -682,3 +682,12 @@ a.opx-mt:hover b { text-decoration: underline; }
 .opx-ck-found { margin: 0; background: color-mix(in srgb, var(--opx-hot) 18%, transparent); border-radius: 12px; padding: 10px 14px; font-size: 13.5px; }
 .opx-ck-detail.narrow > .opx-ck-found { grid-column: 1 / -1; }
 .opx-ck-mark.flagged { background: none; border-color: var(--opx-warn); color: var(--opx-warn); } .opx-ck-num.flagged, .opx-ck-pin.flagged { background: var(--opx-warn); }
+.opx-ck-record { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr); gap: 10px 28px; font-size: 13.5px; align-items: start; }
+.opx-ck-record .opx-ck-h3, .opx-ck-record .opx-ck-h4 { margin-left: 0; } .opx-ck-record p { margin: 0 0 6px; }
+.opx-ck-record ul, .opx-ck-record ol { list-style: none; margin: 0; padding: 0; display: grid; } .opx-ck-record li { display: grid; gap: 1px; padding: 6px 0; border-top: 1px solid var(--opx-line); }
+.opx-ck-record li button { border: 0; background: none; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; } .opx-ck-record li button:hover { color: var(--opx-accent); }
+.opx-ck-log ol { max-height: 300px; overflow: auto; } .opx-ck-log li { grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: start; } .opx-ck-log li > div { display: grid; gap: 1px; }
+.opx-ck-ev-icon { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: var(--opx-muted); margin-top: 1px; }
+.opx-ck-ev-icon.passed { background: var(--opx-good); } .opx-ck-ev-icon.failed { background: var(--opx-hot); } .opx-ck-ev-icon.flagged { background: var(--opx-warn); }
+.opx-ck-passed { margin: 0; display: flex; align-items: center; gap: 10px; background: color-mix(in srgb, var(--opx-good) 22%, transparent); border-radius: 14px; padding: 11px 14px; font-size: 14px; font-weight: 600; }
+@media (max-width: 1100px) { .opx-ck-record { grid-template-columns: 1fr; } }
