@@ -21,10 +21,6 @@
           "value": "nosniff"
         },
         {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
           "key": "X-XSS-Protection",
           "value": "1; mode=block"
         },
@@ -41,6 +37,16 @@
           "value": "camera=(), microphone=(), geolocation=()"
         }
       ]
+    },
+    {
+      "source": "/(.*)",
+      "missing": [{ "type": "host", "value": "v0-ai-project-planner-git-staging-far-grace.vercel.app" }],
+      "headers": [{ "key": "X-Frame-Options", "value": "DENY" }]
+    },
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "v0-ai-project-planner-git-staging-far-grace.vercel.app" }],
+      "headers": [{ "key": "X-Frame-Options", "value": "SAMEORIGIN" }]
     }
   ]
 }
