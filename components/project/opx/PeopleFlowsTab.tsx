@@ -13,6 +13,7 @@ import {
   type ControlRef, type FlowDoc, type PageRecord, type Person, type Step, type StepState,
 } from "@/lib/people/people-model"
 import { shotAt, type Checklist, type Result, type View } from "@/lib/gates/gate-model"
+import { HANDLED_BY, KIND_WORD, type Coverage, type StoredWalk } from "@/lib/walks/walk-model"
 import { Shots, type Piece } from "./ChecksTab"
 import { Failed, Loading, Seg, ago, useJson } from "./shared"
 
@@ -61,6 +62,8 @@ const PERSON_FIELDS: [keyof Person, string][] = [
 export function PeopleFlowsTab({ projectId }: { projectId: string }) {
   const flows = useJson<FlowsData>(`/api/projects/${projectId}/people`)
   const pagesByRoute = usePages(projectId, flows.data?.pages)
+  const walked = useJson<{ walks: (StoredWalk & { line: string })[]; coverage: Coverage[] }>(`/api/projects/${projectId}/gates/walks`)
+  const [walkOpen, setWalkOpen] = useState<string | null>(null)
   const [doc, setDoc] = useState<FlowDoc | null>(null)
   const [log, setLog] = useState<LogEntry[]>([])
   const [saving, setSaving] = useState<"" | "saving" | "saved">("")
@@ -169,6 +172,43 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
     q.at[flow.id] = end === 0 ? [i, Math.max(i, cur[1])] : [Math.min(i, cur[0]), i]
   })
 
+  /**
+   * What happened when an agent tried to do this as a person would. A script checks what it was told to; a walk finds
+   * the step that is missing and the action that could not be found.
+   */
+  const walkBox = (useCase: string | null, name: string) => {
+    const all = walked.data?.walks ?? [], mine = all.filter((w) => (useCase ? w.useCase === useCase : !w.useCase || !doc.flows.some((f) => f.id === w.useCase)))
+    if (!useCase && !mine.length) return null
+    const cov = useCase ? walked.data?.coverage.find((c) => c.useCase === useCase) : null
+    return (
+      <div className="opx-pf-box">
+        <h4>{useCase ? "Walked as a user" : "Goals walked outside any use case"}</h4>
+        {mine.length === 0 && <span className="opx-muted">Nobody has tried to do "{name}" from start to finish yet. Until an agent walks it as a person would, the steps above are checked one by one but the journey is not.</span>}
+        {cov?.state === "stale" && <span className="opx-muted">The last walk was on an older build; what it showed may no longer hold.</span>}
+        <ul>
+          {mine.slice(0, 6).map((w) => (
+            <li key={w.id}>
+              <button type="button" className="opx-pf-walk" aria-expanded={walkOpen === w.id} onClick={() => setWalkOpen(walkOpen === w.id ? null : w.id)}>
+                <span className={`opx-pf-dot ${w.outcome === "reached" ? (w.findings.length ? "warn" : "ok") : "bad"}`} /><b>{useCase ? w.line : `${w.goal}: ${w.line}`}</b>
+                <small>{ago(w.at)} · {w.actor === "owner" ? "you" : "an agent"}{w.persona ? ` · as ${doc.personas.find((q) => q.id === w.persona)?.name ?? w.persona}` : ""}{w.cold ? "" : " · knew the way beforehand"}</small>
+              </button>
+              {walkOpen === w.id && (
+                <div className="opx-pf-walkin">
+                  {w.why && <span><small>Why it stopped</small>{w.why}</span>}
+                  <ol>{w.steps.map((st, i) => <li key={i} className={st.ok ? "" : "off"}><b>{st.did}</b><span className="opx-muted">{st.expected ? `Expected: ${st.expected}. ` : ""}Saw: {st.saw}</span></li>)}</ol>
+                  {w.findings.length > 0 && <ul>{w.findings.map((f, i) => (
+                    <li key={i}><b>{KIND_WORD[f.kind]}: {f.what}</b><span className="opx-muted">{f.suggest ? `Would help: ${f.suggest}. ` : ""}{HANDLED_BY[f.kind].how}</span>
+                      {can && f.kind === "gap" && useCase && !doc.flows.find((x) => x.id === useCase)?.steps.some((x) => x.does === f.what) && <button type="button" className="opx-pf-add" onClick={() => edit((d) => { d.flows.find((x) => x.id === useCase)?.steps.push({ id: freshId("s", allIds(), seed), does: f.what, expects: f.suggest ?? "", data: "", ref: null, note: "Found on a walk." }) })}>Add it as a step that is not built</button>}</li>
+                  ))}</ul>}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+
   const flowView = () => {
     if (!person) return null
     if (!flow) return <p className="opx-muted">No use case is written for {person.name.toLowerCase()} yet. That is the first thing to settle.{can && <> <button type="button" className="opx-pf-add" onClick={addFlow}>Add a use case</button></>}</p>
@@ -233,6 +273,7 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
               )
             })}
           </div>
+          {walkBox(flow.id, flow.name)}
           <div className="opx-pf-box">
             <h4>What this use case asks of the build</h4>
             <ul>
@@ -325,6 +366,8 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
               <div className="opx-pf-loose">{loose.map(({ view: v, control: c }) => <span key={c.n}><b>{c.n}</b> {c.label.slice(0, 34)}<small> {c.kind.toLowerCase()}{v.key !== "page" ? `, in ${v.name.replace("Opened by ", "").toLowerCase()}` : ""}</small></span>)}</div>
             </section>
           )}
+
+          {walkBox(null, "") && <section className="opx-sec">{walkBox(null, "")}</section>}
 
           <section className="opx-sec">
             <h3 className="opx-pf-h">What changed</h3>

@@ -738,6 +738,8 @@ a.opx-mt:hover b { text-decoration: underline; }
 .opx-pf-cmp .c.start { box-shadow: inset 0 0 0 1.5px var(--opx-accent); font-weight: 600; } .opx-pf-cmp .c.off { opacity: .55; } .opx-pf-cmp .r .opx-pf-x { margin-left: auto; font-weight: 400; opacity: 0; } .opx-pf-cmp .r:hover .opx-pf-x, .opx-pf-cmp .r .opx-pf-x:focus { opacity: 1; }
 .opx-pf-loose { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 2px 18px; margin-top: 8px; font-size: 13px; } .opx-pf-loose span { padding: 3px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .opx-pf-log li { grid-template-columns: 150px minmax(0, 1fr); gap: 12px; font-size: 13.5px; }
+.opx-pf-walk { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 8px; align-items: center; text-align: left; border: 0; background: none; font: inherit; color: inherit; padding: 2px 0; cursor: pointer; width: 100%; } .opx-pf-walk small { grid-column: 2; } .opx-pf-walk:hover b { text-decoration: underline; }
+.opx-pf-walkin { display: grid; gap: 8px; margin: 6px 0 4px 18px; font-size: 13.5px; } .opx-pf-walkin small { display: block; } .opx-pf-walkin ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; } .opx-pf-walkin ol li { display: list-item; border: 0; padding: 0; } .opx-pf-walkin ol li b, .opx-pf-walkin ol li span { display: block; } .opx-pf-walkin ol li.off b { color: var(--opx-warn); }
 .opx-pf-three { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; align-items: start; }
 @media (max-width: 1000px) { .opx-pf-two, .opx-pf-two.page { grid-template-columns: minmax(0, 1fr); } .opx-pf-log li { grid-template-columns: minmax(0, 1fr); gap: 0; } }
 
