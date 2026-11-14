@@ -653,6 +653,16 @@ const BY_KIND: Record<string, IntakeQuestion[]> = {
   Switch: [Q("changes", "What is different when it is on?", "This is the action check for the switch.")],
   Tab: [Q("changes", "What does it show that the other tabs do not?", "Tabs that show the same thing are one tab.")],
   Link: [],
+  // Anything that opens over the page: a menu, a dialog, a panel, a right-click menu.
+  Menu: [Q("closes", "Every way it closes: choosing something, pressing outside it, Esc. Which of these is missing?", "A menu that only closes one way traps the person who opened it by accident."), Q("reach", "Can everything in it also be reached from something visible on the page?", "What is only behind a right-click or a shortcut is not found by someone who was never told.")],
+  // Anything a person builds or arranges things in: a map, a board, a form builder, a list they order.
+  Editor: [
+    Q("complete", "For every kind of thing it shows: can it be added, changed, moved and removed here? Name each kind, and each action that is missing.", "An editor that shows lanes but cannot add one is half an editor. The missing actions are the feature list."),
+    Q("between", "Can something be put in between two existing things, not only at the end?", "Real work is mostly inserting and rearranging, not appending."),
+    Q("tidy", "When things are moved, what keeps them lined up and their connections true?", "Without it every change leaves a mess the person has to clean up by hand."),
+    Q("undo", "Can any change be undone, and redone?", "People only try things in an editor they can back out of."),
+    Q("found", "How does someone who was never told find each action?", "This decides what is a visible button and what may hide in a menu."),
+  ],
   Text: CONTENT,
   Card: [...CONTENT, Q("order", "What is the most important thing in it, and is that the first thing seen?", "This is what its layout is judged against.")],
   Chart: [...CONTENT, Q("agrees", "Which figures elsewhere must it agree with?", "A chart is right only if it matches the numbers it is drawn from.")],

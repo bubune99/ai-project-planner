@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { scanFindings } from "./gate-model"
+import { intakeQuestions, scanFindings } from "./gate-model"
 import { EVIDENCE_DAYS, allChecks, checkKey, checkState, controlProgress, diffChecklists, hookLine, imagesToExpire, nextCheck, summarize, validateChecklist, type CheckState, type Checklist, type Result, type StoredImage } from "./gate-model"
 
 let n = 0
@@ -130,6 +130,14 @@ ok("pictures: view pictures stay for this version and the one before; evidence i
   assert.deepEqual(gone, ["e-dup-old", "e-old", "e-prev", "v1", "v3-old", "x1"])
   assert.equal(EVIDENCE_DAYS, 3)
   assert.deepEqual(imagesToExpire([], 1, state, now), [])
+})
+
+ok("a menu is asked how it closes, and an editor is asked whether it is complete", () => {
+  const ids = (kind: string) => intakeQuestions(kind).map((q) => q.id)
+  assert.deepEqual(ids("Menu"), ["purpose", "who", "flow", "closes", "reach"])
+  assert.deepEqual(ids("Editor"), ["purpose", "who", "flow", "complete", "between", "tidy", "undo", "found"])
+  // What a finished editor has is found in the code or the page, so these are the agents' to answer, not the owner's.
+  assert.ok(intakeQuestions("Editor").filter((q) => !["purpose", "who", "flow"].includes(q.id)).every((q) => !q.owner))
 })
 
 console.log(`\n${n} checks passed`)

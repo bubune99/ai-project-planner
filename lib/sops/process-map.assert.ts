@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import {
-  DIM, addInside, addLink, addNode, cellAt, cellFree, checkLayer, crumbs, doorOf, isLanes, layerAt, parseLayer, parseMapBlock, place, removeInside, removeLink, removeNode,
-  renameLane, routeLink, seedMap, setLink, setNode, setStage, stripMapBlock, updateAt, writeMapBlock, type Layer, type Path,
+  DIM, addInside, addLane, addLink, addNode, addStage, cellAt, cellFree, checkLayer, crumbs, doorOf, indexAt, isLanes, layerAt, moveLane, moveNode, moveStage, parseLayer, parseMapBlock, place, removeInside, removeLane, removeLink, removeNode, removeStage, reorderNode, reroute,
+  renameLane, routeLink, seedMap, setLink, setNode, setStage, splitLink, stripMapBlock, updateAt, writeMapBlock, type Layer, type Path,
 } from "./process-map"
 
 let n = 0
@@ -106,8 +106,9 @@ ok("a step can be added only where there is room, and removing one takes its lin
 ok("a new line that goes back is drawn as a loop without being told to", () => {
   const chain = m.stages![5].inside!
   assert.equal(link(addLink(chain, "c", "a", "again"), "c", "a").via, "bottom")
-  assert.equal(link(addLink(chain, "a", "c"), "a", "c").via, undefined)
-  assert.equal(link(addLink(chain, "d", "d", "retry"), "d", "d").via, "bottom")
+  assert.equal(link(addLink(chain, "a", "c"), "a", "c").via, "top")                               // jumps over a box: goes over it
+  assert.equal(link(addLink(removeLink(chain, 0), "a", "b"), "a", "b").via, undefined)            // to the next box: straight
+  assert.equal(routeLink(place(chain).d, place(chain).d, link(addLink(chain, "d", "d", "retry"), "d", "d"), false).loop, true)
   assert.equal(link(addLink(m, "taste", "yours", "rethink"), "taste", "yours").via, "top")        // both yours: over the top
   assert.equal(link(addLink(m, "fix", "write", "redo"), "fix", "write").via, "bottom")
   assert.equal(link(addLink(m, "draft", "say", "ask again"), "draft", "say").via, "left")          // same column, against the flow
@@ -121,6 +122,69 @@ ok("giving a step a layer of its own makes it openable, once", () => {
   assert.equal(addInside(one, "node", "b").nodes[1].inside, one.nodes[1].inside)   // never overwrites what is inside
   assert.deepEqual(removeInside(one, "node", "b"), chain)                           // and it can be taken away again
   assert.equal(doorOf(removeInside(m, "stage", "plan"), "node", "say"), null)       // a stage without a layer: its steps open nothing
+})
+
+ok("lanes can be added, moved and removed, and their steps go with them", () => {
+  const added = addLane(m, 1, "Designer")
+  assert.deepEqual(added.lanes!.slice(0, 3), ["You", "Designer", "Planning agent"])
+  assert.equal(added.nodes.find((x) => x.id === "draft")!.lane, 2)            // the planning agent's step moved down with its lane
+  assert.equal(added.nodes.find((x) => x.id === "say")!.lane, 0)
+  assert.deepEqual(checkLayer(added), [])
+  const moved = moveLane(m, 1, 1)
+  assert.deepEqual(moved.lanes!.slice(1, 3), ["Builder agent", "Planning agent"])
+  assert.equal(moved.nodes.find((x) => x.id === "draft")!.lane, 2); assert.equal(moved.nodes.find((x) => x.id === "write")!.lane, 1)
+  assert.equal(moveLane(m, 0, -1), m)                                          // already at the top
+  const gone = removeLane(m, 1)
+  assert.equal(gone.lanes!.length, 5); assert.ok(!gone.nodes.some((x) => x.id === "draft")); assert.ok(!gone.links.some((e) => e.from === "draft" || e.to === "draft"))
+  assert.equal(gone.nodes.find((x) => x.id === "write")!.lane, 1)
+  assert.deepEqual(parseLayer(JSON.parse(JSON.stringify(gone))).errors, [])
+})
+
+ok("stages can be added, moved and removed", () => {
+  const { layer, id } = addStage(m, 1, "Research")
+  assert.deepEqual(layer.stages!.slice(0, 3).map((s) => s.title), ["1. Plan", "Research", "2. Intent"])
+  assert.ok(place(layer).code.x - place(m).code.x === DIM.col)                 // everything to the right moved over
+  assert.ok(checkLayer(layer).includes('Stage "Research" has no steps'))       // and the empty stage is pointed out
+  assert.equal(moveStage(layer, id, -1).stages![0].title, "Research")
+  const gone = removeStage(m, "scan")
+  assert.ok(!gone.nodes.some((x) => x.stage === "scan")); assert.equal(gone.stages!.length, 6)
+  assert.deepEqual(parseLayer(JSON.parse(JSON.stringify(gone))).errors, [])
+})
+
+ok("a step dropped somewhere else lands in that place, or stays put when the place is taken", () => {
+  assert.equal(moveNode(m, "say", { stage: "plan", lane: 1 }), m)              // taken by "Draft people and use cases"
+  const moved = moveNode(m, "taste", { stage: "fix", lane: 0 })
+  assert.equal(moved.nodes.find((x) => x.id === "taste")!.stage, "fix")
+  assert.deepEqual(parseLayer(JSON.parse(JSON.stringify(moved))).errors, [])
+  const chain = m.stages![5].inside!, re = reorderNode(chain, "e", 0)
+  assert.deepEqual(re.nodes.map((x) => x.id), ["e", "a", "b", "c", "d"])
+  assert.equal(indexAt(chain, DIM.gap * 2 + 40), 2); assert.equal(indexAt(chain, -500), 0); assert.equal(indexAt(chain, 99999), 4)
+})
+
+ok("after a move, lines are true to where things are: forward ones plain, backward ones loops", () => {
+  const chain = m.stages![5].inside!                                            // a > b > c > d > e, and e back to a ("still wrong")
+  const re = reorderNode(chain, "e", 0)                                         // e is now first
+  assert.equal(link(re, "e", "a").via, undefined)                               // what was a loop now goes forward
+  assert.equal(link(re, "d", "e").via, "bottom")                                // and d to e now goes back: a loop
+  assert.equal(link(re, "e", "a").label, "still wrong")                         // the words on a line survive
+  assert.deepEqual(reroute(m), m)                                               // nothing moved: nothing changes
+  for (const s of m.stages!) assert.deepEqual(reroute(s.inside!), s.inside, s.title)
+})
+
+ok("a step can be put in the middle of a line", () => {
+  const chain = m.stages![0].inside!, i = chain.links.findIndex((e) => e.from === "b" && e.to === "c"), cut = splitLink(chain, i)
+  assert.deepEqual(cut.layer.nodes.map((x) => x.id).slice(1, 4), ["b", cut.id, "c"])
+  assert.ok(link(cut.layer, "b", cut.id) && link(cut.layer, cut.id, "c")); assert.equal(cut.layer.links.some((e) => e.from === "b" && e.to === "c"), false)
+  assert.equal(link(cut.layer, "c", "b").via, "bottom")                         // the loop that was there still loops
+  // On a swim lane: room in the next stage of the same lane is used ...
+  const j = m.links.findIndex((e) => e.from === "say" && e.to === "draft"), tight = splitLink(m, j)
+  assert.equal(tight.layer.stages!.length, 8)                                   // ... and when there is none, a stage is opened for it
+  assert.deepEqual(parseLayer(JSON.parse(JSON.stringify(tight.layer))).errors, [])
+  const k = m.links.findIndex((e) => e.from === "taste" && e.to === "like"), roomy = splitLink(m, k), put = roomy.layer.nodes.find((x) => x.id === roomy.id)!
+  assert.equal(roomy.layer.stages!.length, 7); assert.deepEqual([put.stage, put.lane], ["fix", 0])   // the free place between them, in their lane
+  assert.ok(link(roomy.layer, "taste", roomy.id) && link(roomy.layer, roomy.id, "like"))
+  const labeled = splitLink(m, m.links.findIndex((e) => e.from === "look" && e.to === "fix"))
+  assert.equal(link(labeled.layer, "look", labeled.id).label, "an error")       // the words stay on the first half
 })
 
 console.log(`\n${n} checks passed`)

@@ -111,6 +111,26 @@ export const DEFAULT_GUIDES: Seed[] = [
     checks: [{ id: "both", say: "Checked in both themes: every piece of text is readable and nothing uses a color that only works in one" }],
   },
   {
+    kind: "statement", name: "What opens, closes the usual ways", summary: "A menu, dialog or panel closes when something in it is chosen, when anything outside it is pressed, and with Esc.",
+    applies: { files: ["{components,app}/**/*.tsx"] }, status: "active", source: "owner", basis: "Owner, 2026-11-14, on the process map: when I right click I can't do a regular click to get out of the right click menu.",
+    checks: [{ id: "three-ways", say: "Opened it and closed it three ways in the running page: by choosing an item, by pressing outside it (on empty space and on another control), and with Esc" }],
+  },
+  {
+    kind: "statement", name: "An editor is complete", summary: "Wherever things are built or arranged, every kind of thing shown can be added, changed, moved and removed, something can be put in between two others, moving keeps things lined up, and any change can be undone.",
+    applies: { files: ["{components,app}/**/*.tsx"] }, status: "active", source: "owner", basis: "Owner, 2026-11-14, on the process map: I don't know how to add a new swim lane or a module, ability to interject, auto alignment features. The whole nine.",
+    checks: [
+      { id: "every-kind", say: "Listed every kind of thing the editor shows, and for each one added, changed, moved and removed it in the running page" },
+      { id: "between", say: "Put something in between two existing things, and what joined them stayed joined through it" },
+      { id: "lined-up", say: "Moved something and it landed lined up, with its connections still true" },
+      { id: "undo", say: "Undid and redid a change of each sort" },
+    ],
+  },
+  {
+    kind: "statement", name: "Every action can be found", summary: "Anything a person can do is reachable from something visible. A right-click menu or a shortcut is a second way in, never the only one.",
+    applies: { files: ["{components,app}/**/*.tsx"] }, status: "active", source: "owner", basis: "Owner, 2026-11-14, on the process map: I don't know how to add a new swim lane or a module.",
+    checks: [{ id: "visible", say: "For each action, named the visible control that leads to it; anything reachable only by right-click, hover or a key is listed and justified" }],
+  },
+  {
     kind: "statement", name: "Show the real thing", summary: "Never invent a number, a date or a piece of content. Show a dash when nothing was entered.",
     applies: { files: ["{components,app,lib}/**/*.{ts,tsx}"] }, status: "active", source: "owner", basis: "Owner, 2026-10-24: represent the real, don't invent.",
     checks: [{ id: "real", say: "Every number and date on the screen traces to stored data; an empty value shows a dash, not a made-up one" }],

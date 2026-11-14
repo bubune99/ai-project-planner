@@ -753,6 +753,9 @@ a.opx-mt:hover b { text-decoration: underline; }
 .opx-pm-float > span { padding: 7px 10px; }
 .opx-pm-float form { display: flex; flex-direction: column; gap: 8px; padding: 6px; } .opx-pm-float label { display: grid; gap: 3px; font-size: 12px; color: var(--opx-muted); }
 .opx-pm-float input { border: 1px solid var(--opx-line); background: var(--opx-bg); color: var(--opx-ink); border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 13.5px; } .opx-pm-float .row { display: flex; justify-content: flex-end; gap: 6px; }
+.opx-pm-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; } .opx-pm-bar .gap { flex: 1; }
+.opx-pm.placing .react-flow__pane, .opx-pm.placing .opx-pm-lane { cursor: copy; }
+.opx-pm-float > button:disabled { opacity: .4; cursor: default; }
 .opx-pm-issues { margin: 8px 0 0; padding: 0; list-style: none; font-size: 13px; color: var(--opx-warn); display: grid; gap: 2px; }
 .opx-pm { height: min(800px, calc(100vh - 250px)); min-height: 520px; border-radius: 14px; overflow: hidden; background: var(--opx-bg); margin-top: 10px; } .opx-pm.sub { height: 430px; min-height: 0; }
 .opx-pm .react-flow { --xy-background-color: transparent; --xy-edge-label-background-color: transparent; --xy-controls-button-background-color: var(--opx-card); --xy-controls-button-background-color-hover: var(--opx-soft); --xy-controls-button-color: var(--opx-ink); --xy-controls-button-border-color: var(--opx-line); --xy-attribution-background-color: transparent; font-family: inherit; }

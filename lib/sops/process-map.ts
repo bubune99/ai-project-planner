@@ -223,16 +223,18 @@ export function addNode(layer: Layer, node: Omit<MapNode, "id">, afterId?: strin
 export const removeNode = (layer: Layer, id: string): Layer => ({ ...layer, nodes: layer.nodes.filter((n) => n.id !== id), links: layer.links.filter((e) => e.from !== id && e.to !== id) })
 /**
  * Joins two steps. A line that goes back (or to itself) is drawn as a loop automatically, on the side that keeps it
- * clear of the boxes; one that already exists is left alone.
+ * clear of the boxes, and one that jumps over a box arcs over it; one that already exists is left alone.
  */
 export function addLink(layer: Layer, from: string, to: string, label?: string): Layer {
   if (layer.links.some((e) => e.from === from && e.to === to)) return layer
   const pos = place(layer), a = pos[from], b = pos[to]
   if (!a || !b) return layer
   let via: Via | undefined
-  if (from === to) via = "bottom"
+  if (from === to) via = undefined   // a step looping on itself is always drawn the same way
   else if (b.x < a.x) via = isLanes(layer) && layer.nodes.find((n) => n.id === from)?.lane === 0 && layer.nodes.find((n) => n.id === to)?.lane === 0 ? "top" : "bottom"
   else if (b.x === a.x && layer.links.some((e) => e.from === to && e.to === from)) via = "left"
+  // Left to right, a line that jumps over a box goes over the top rather than through it.
+  else if (!isLanes(layer) && b.x - a.x > DIM.gap) via = "top"
   return { ...layer, links: [...layer.links, clean<Link>({ from, to, label, via })] }
 }
 export const setLink = (layer: Layer, index: number, patch: Partial<Pick<Link, "label">>): Layer => ({ ...layer, links: layer.links.map((e, i) => (i === index ? clean({ ...e, ...patch }) : e)) })
@@ -247,6 +249,103 @@ export function addInside(layer: Layer, kind: "stage" | "node", id: string): Lay
 export function removeInside(layer: Layer, kind: "stage" | "node", id: string): Layer {
   const drop = <T extends { id: string; inside?: Layer }>(x: T): T => { if (x.id !== id) return x; const { inside: _gone, ...rest } = x; return rest as T }
   return kind === "stage" ? { ...layer, stages: layer.stages?.map(drop) } : { ...layer, nodes: layer.nodes.map(drop) }
+}
+
+// ---- lanes and stages ----
+
+const swap = <T,>(a: T[], i: number, j: number): T[] => { const out = [...a]; [out[i], out[j]] = [out[j], out[i]]; return out }
+/** Adds a lane at `index` (0 is the top). The steps in lanes below move down with their lanes. */
+export function addLane(layer: Layer, index: number, name = "New lane"): Layer {
+  if (!isLanes(layer) || layer.lanes.length >= LIMITS.lanes) return layer
+  const at = Math.max(0, Math.min(index, layer.lanes.length))
+  return { ...layer, lanes: [...layer.lanes.slice(0, at), name, ...layer.lanes.slice(at)], nodes: layer.nodes.map((n) => ((n.lane ?? 0) >= at ? { ...n, lane: (n.lane ?? 0) + 1 } : n)) }
+}
+/** Removes a lane with the steps in it and their lines. The last lane cannot be removed. */
+export function removeLane(layer: Layer, index: number): Layer {
+  if (!isLanes(layer) || layer.lanes.length <= 1 || index < 0 || index >= layer.lanes.length) return layer
+  const gone = new Set(layer.nodes.filter((n) => n.lane === index).map((n) => n.id))
+  return { ...layer, lanes: layer.lanes.filter((_, i) => i !== index), nodes: layer.nodes.filter((n) => !gone.has(n.id)).map((n) => ((n.lane ?? 0) > index ? { ...n, lane: (n.lane ?? 0) - 1 } : n)), links: layer.links.filter((e) => !gone.has(e.from) && !gone.has(e.to)) }
+}
+/** Moves a lane up (-1) or down (+1), with its steps. */
+export function moveLane(layer: Layer, index: number, by: -1 | 1): Layer {
+  const to = index + by
+  if (!isLanes(layer) || index < 0 || to < 0 || index >= layer.lanes.length || to >= layer.lanes.length) return layer
+  return { ...layer, lanes: swap(layer.lanes, index, to), nodes: layer.nodes.map((n) => (n.lane === index ? { ...n, lane: to } : n.lane === to ? { ...n, lane: index } : n)) }
+}
+/** Adds a stage (a column) at `index`. Steps keep their stage, so everything to the right moves over. */
+export function addStage(layer: Layer, index: number, title = "New stage"): { layer: Layer; id: string } {
+  if (!isLanes(layer) || layer.stages.length >= LIMITS.stages) return { layer, id: "" }
+  const id = newId(layer, "g"), at = Math.max(0, Math.min(index, layer.stages.length))
+  return { id, layer: { ...layer, stages: [...layer.stages.slice(0, at), { id, title }, ...layer.stages.slice(at)] } }
+}
+/** Removes a stage with the steps in it, their lines and whatever was inside it. The last stage cannot be removed. */
+export function removeStage(layer: Layer, id: string): Layer {
+  if (!isLanes(layer) || layer.stages.length <= 1 || !layer.stages.some((s) => s.id === id)) return layer
+  const gone = new Set(layer.nodes.filter((n) => n.stage === id).map((n) => n.id))
+  return { ...layer, stages: layer.stages.filter((s) => s.id !== id), nodes: layer.nodes.filter((n) => !gone.has(n.id)), links: layer.links.filter((e) => !gone.has(e.from) && !gone.has(e.to)) }
+}
+/** Moves a stage left (-1) or right (+1), with its steps. */
+export function moveStage(layer: Layer, id: string, by: -1 | 1): Layer {
+  if (!isLanes(layer)) return layer
+  const i = layer.stages.findIndex((s) => s.id === id), to = i + by
+  return i < 0 || to < 0 || to >= layer.stages.length ? layer : { ...layer, stages: swap(layer.stages, i, to) }
+}
+
+// ---- moving steps, and keeping lines true to where things are ----
+
+/**
+ * After steps move, every line is looked at again: one that now goes forward is drawn plainly, and one that now goes
+ * back becomes a loop. A line that was already a loop and still goes back keeps the side it was given.
+ */
+export function reroute(layer: Layer): Layer {
+  const pos = place(layer), bare = { ...layer, links: [] as Link[] }
+  let out = bare
+  for (const e of layer.links) {
+    const a = pos[e.from], b = pos[e.to], back = e.from === e.to || b.x < a.x
+    if (back && e.via) out = { ...out, links: [...out.links, e] }
+    else if (!back && e.via && !isLanes(layer) && b.x - a.x > DIM.gap) out = { ...out, links: [...out.links, e] }   // an arc over a box keeps its side
+    else out = addLink({ ...out, nodes: layer.nodes }, e.from, e.to, e.label)
+  }
+  return { ...layer, links: out.links }
+}
+/** Puts a step in another place of a swim lane. Refused (unchanged) when that place is taken. */
+export function moveNode(layer: Layer, id: string, cell: { stage: string; lane: number }): Layer {
+  const n = layer.nodes.find((x) => x.id === id)
+  if (!isLanes(layer) || !n || (n.stage === cell.stage && n.lane === cell.lane) || !cellFree(layer, cell)) return layer
+  return reroute({ ...layer, nodes: layer.nodes.map((x) => (x.id === id ? { ...x, stage: cell.stage, lane: cell.lane } : x)) })
+}
+/** Puts a step at another position of a left-to-right layer. */
+export function reorderNode(layer: Layer, id: string, toIndex: number): Layer {
+  const from = layer.nodes.findIndex((x) => x.id === id), to = Math.max(0, Math.min(toIndex, layer.nodes.length - 1))
+  if (isLanes(layer) || from < 0 || from === to) return layer
+  const rest = layer.nodes.filter((x) => x.id !== id)
+  return reroute({ ...layer, nodes: [...rest.slice(0, to), layer.nodes[from], ...rest.slice(to)] })
+}
+/** The position a step dropped at `x` belongs in, on a left-to-right layer. */
+export const indexAt = (layer: Layer, x: number): number => Math.max(0, Math.min(layer.nodes.length - 1, Math.round(x / DIM.gap)))
+/**
+ * Puts a new step in the middle of a line: A to B becomes A to the new step to B, and the line's words stay on the
+ * first half. On a swim lane the step goes where there is room between the two (a stage that lies between them, else
+ * B's stage in A's lane, else A's stage in B's lane); when there is none, a new stage is opened between them for it.
+ */
+export function splitLink(layer: Layer, index: number): { layer: Layer; id: string } {
+  const e = layer.links[index]
+  if (!e || e.from === e.to) return { layer, id: "" }
+  const without = removeLink(layer, index), join = (l: Layer, id: string) => addLink(addLink(l, e.from, id, e.label), id, e.to)
+  if (!isLanes(layer)) { const made = addNode(without, { title: "New step" }, e.from); return { id: made.id, layer: reroute(join(made.layer, made.id)) } }
+  const a = layer.nodes.find((n) => n.id === e.from)!, b = layer.nodes.find((n) => n.id === e.to)!
+  const ia = layer.stages.findIndex((s) => s.id === a.stage), ib = layer.stages.findIndex((s) => s.id === b.stage)
+  // First a stage that lies between the two, in either's lane; then the corners.
+  const between = layer.stages.slice(Math.min(ia, ib) + 1, Math.max(ia, ib)).flatMap((g) => [{ stage: g.id, lane: a.lane! }, { stage: g.id, lane: b.lane! }])
+  const tries = [...between, { stage: b.stage!, lane: a.lane! }, { stage: a.stage!, lane: b.lane! }]
+  let base: Layer = without, cell = tries.find((c) => cellFree(without, c))
+  if (!cell) {
+    const made = addStage(without, Math.max(ia, ib) === Math.min(ia, ib) ? ia + 1 : Math.min(ia, ib) + 1, "New stage")
+    if (!made.id) return { layer, id: "" }
+    base = made.layer; cell = { stage: made.id, lane: a.lane! }
+  }
+  const made = addNode(base, { title: "New step", ...cell })
+  return { id: made.id, layer: reroute(join(made.layer, made.id)) }
 }
 
 // ---- the map this planner starts with ----
