@@ -15,21 +15,25 @@
 export type Rgb = [number, number, number]
 
 /**
- * The ramp in grays (owner 2026-11-13: a grayscale gradient), dark to light,
- * then a mid gray that only shows at the very end. The darkest is the app's
- * own charcoal. Positions are the original's.
+ * The ramp in grays (owner 2026-11-13: a grayscale gradient), dark to light.
+ * The darkest is the app's own charcoal. The original has a fifth stop that
+ * turns darker again at the very end; it is left out so the ramp only ever
+ * gets lighter, which is what keeps every row a different shade.
  */
 export const PALETTE: readonly { hex: string; pos: number; was: string }[] = [
   { hex: "#262626", pos: 0, was: "Plum" }, // the app's charcoal
-  { hex: "#55575c", pos: 33, was: "Rose" },
-  { hex: "#a3a6ac", pos: 67, was: "Peach" },
-  { hex: "#e8e9ec", pos: 100, was: "Butter" },
-  { hex: "#5e6065", pos: 100, was: "Iris" },
+  { hex: "#575757", pos: 33, was: "Rose" },
+  { hex: "#a4a4a4", pos: 67, was: "Peach" },
+  { hex: "#e9e9e9", pos: 100, was: "Butter" },
 ]
 
 export const ANGLE = 78
-/** dither 50 in the original: 50 / 100 * 0.18 */
-export const DITHER = 0.09
+/**
+ * How far the ordered pattern nudges a cell along the ramp. The original at
+ * dither 50 is 0.09; the owner wanted the texture to read everywhere, so this
+ * is the original's full strength (dither 100).
+ */
+export const DITHER = 0.18
 const SPEED = 1
 const AMOUNT = 0.7
 const REVERSE = -1
@@ -94,6 +98,9 @@ export function colorAt(ramp: Ramp, v: number): Rgb {
   return rgb[rgb.length - 1]
 }
 
+/** The furthest the ramp slides either way. */
+export const SWEEP = 0.5 * AMOUNT
+
 /** How far the ramp has slid at `seconds`. A sine sweep, not a wrapping scroll; 0 at the start. */
 export function shiftAt(seconds: number): number {
   if (!(seconds > 0)) return 0
@@ -107,9 +114,22 @@ export function cellBase(row: number, col: number, rows: number, cols: number, s
   return ((cols > 1 ? col / (cols - 1) : 0) * cx) / m + ((rows > 1 ? row / (rows - 1) : 0) * cy) / m + shift
 }
 
-/** A cell's position on the ramp (0 to 1), with its ordered-dither nudge. */
-export function cellValue(row: number, col: number, rows: number, cols: number, shift: number): number {
-  return Math.min(1, Math.max(0, cellBase(row, col, rows, cols, shift) + (BAYER[row % 4][col % 4] / 16 - 0.5) * DITHER))
+/**
+ * A cell's position on the ramp, with its ordered-dither nudge.
+ *
+ * The original clamps to 0..1 here, which leaves flat, textureless bands at
+ * the top and bottom whenever the slide pushes the ramp past its ends (owner
+ * 2026-11-13: no flat areas). Instead the whole travel, slide and nudge
+ * included, is scaled to fit on the part of the ramp where the color is
+ * changing (between the first and last color's center). Nothing is ever
+ * clamped, so every row is a different shade and every cell shows the dither.
+ */
+export function cellValue(row: number, col: number, rows: number, cols: number, shift: number, ramp: Ramp): number {
+  const raw = cellBase(row, col, rows, cols, shift) + (BAYER[row % 4][col % 4] / 16 - 0.5) * DITHER
+  const reach = SWEEP + DITHER / 2
+  const m = (raw + reach) / (1 + 2 * reach)
+  const lo = ramp.centers[0], hi = ramp.centers[ramp.centers.length - 1]
+  return lo + m * (hi - lo)
 }
 
 /**
@@ -127,7 +147,7 @@ export function paint(data: Uint8ClampedArray | number[], rows: number, cols: nu
   const shift = shiftAt(seconds)
   let k = 0
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-    const [R, G, B] = colorAt(ramp, cellValue(r, c, rows, cols, shift))
+    const [R, G, B] = colorAt(ramp, cellValue(r, c, rows, cols, shift, ramp))
     data[k++] = R; data[k++] = G; data[k++] = B; data[k++] = 255
   }
 }
