@@ -182,6 +182,7 @@ export function ChecksTab({ projectId }: { projectId: string }) {
               {imageOf(chosen.v.key) && <button type="button" onClick={() => setWire((w) => !w)}>{wire ? "Show the picture" : "Show the wireframe"}</button>}
             </div>
             <div className="opx-ck-shot" style={chosen.v.w < 700 ? { width: Math.min(620, chosen.v.w * 1.15) } : undefined}>
+              <div className="opx-ck-canvas">
               {imageOf(chosen.v.key) && !wire
                 ? <img src={imageOf(chosen.v.key)} alt={`${chosen.v.name} of ${data.route}`} />
                 : (
@@ -196,6 +197,7 @@ export function ChecksTab({ projectId }: { projectId: string }) {
                 <button key={c.n} type="button" className={`opx-ck-pin ${controlProgress(c, data.results).worst}${c.n === chosen.c.n ? " on" : ""}`} style={{ left: `${(c.x / chosen.v.w) * 100}%`, top: `${(c.y / chosen.v.h) * 100}%` }} aria-label={`Control ${c.n}: ${c.label}`} onClick={() => { setPick(c.n); setSettle(null) }}>{c.n}</button>
               ))}
               <span className="opx-ck-ring" style={{ left: `${(chosen.c.x / chosen.v.w) * 100}%`, top: `${(chosen.c.y / chosen.v.h) * 100}%`, width: `${(chosen.c.w / chosen.v.w) * 100}%`, height: `${(chosen.c.h / chosen.v.h) * 100}%` }} />
+              </div>
             </div>
 
             <div className="opx-ck-flows">
