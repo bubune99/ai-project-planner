@@ -146,7 +146,7 @@ env — never source `.env`.
 The planner is the source of truth for what a screen must have and whether it
 has been proved. How to work under it is in `~/.claude/rules/common/gates.md`;
 this is where each part lives here. All of it is on main and in production
-(migrations 063 to 067; change reviews, migration 068, are on staging only until shipped).
+(migrations 063 to 068).
 
 | Part | Rules (pure, with a check file) | Storage and routes | Screen |
 |---|---|---|---|
