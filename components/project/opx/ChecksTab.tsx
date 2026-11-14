@@ -23,6 +23,9 @@ interface PageData {
 
 const STATE_WORD: Record<CheckState, string> = { pending: "Not checked", passed: "Passed", failed: "Failed", waived: "Waived", disputed: "Disputed" }
 
+/** A short list of control names: the first few, then how many more. */
+const names = (list: Change[]) => list.slice(0, 5).map((c) => c.label).join(", ") + (list.length > 5 ? `, and ${list.length - 5} more` : "")
+
 function Mark({ state, small }: { state: CheckState; small?: boolean }) {
   const size = small ? 11 : 13
   return (
@@ -121,8 +124,8 @@ export function ChecksTab({ projectId }: { projectId: string }) {
             Version {data.version}{data.env ? `, scanned on ${data.env}` : ""}, {ago(data.createdAt)}.
             {s.failed > 0 && ` ${s.failed} failed.`}{s.disputed > 0 && ` ${s.disputed} disputed and waiting for you.`}
             {s.cleared > 0 && ` ${s.reviewed} of the ${s.cleared} cleared were also looked at by a second reviewer.`}
-            {data.changes.removed.length > 0 && ` Gone since the last version: ${data.changes.removed.map((c) => c.label).join(", ")}.`}
-            {data.changes.added.length > 0 && ` New since the last version: ${data.changes.added.map((c) => c.label).join(", ")}.`}
+            {data.changes.removed.length > 0 && ` Gone since the last version: ${names(data.changes.removed)}.`}
+            {data.changes.added.length > 0 && ` New since the last version: ${names(data.changes.added)}.`}
           </p>
         )}
       </section>
