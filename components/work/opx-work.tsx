@@ -11,7 +11,7 @@
  * same as doing it on the project.
  */
 
-import { useMemo, useState } from "react"
+import { useLayoutEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { NO_FILTER, bulkPlan, compareWork, filterCounts, isFiltered, matchesQuery, passesColumns, staleDays, type BulkAction, type BulkStep, type WorkColumns, type WorkItem } from "@/lib/work-items"
 import { dayOf, dayKey, type PlannedRange } from "@/lib/project-views/schedule"
@@ -80,6 +80,24 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
   const [picking, setPicking] = useState(false)
   const [sel, setSel] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
+  /**
+   * The bar is pinned to the bottom of the screen, over the list, so it is in reach however long the list is (owner,
+   * 2026-11-15: "If I have to scroll all the way down to do that and there are hundreds of items, that is no good for
+   * me. It should be sticky towards the bottom of the page"). The page scrolls, not the list, so the bar is measured
+   * against the list's own column rather than left to "sticky".
+   */
+  const colRef = useRef<HTMLDivElement>(null)
+  const [room, setRoom] = useState<{ left: number; width: number } | null>(null)
+  useLayoutEffect(() => {
+    if (!picking) return
+    const el = colRef.current
+    if (!el) return
+    const measure = () => { const r = el.getBoundingClientRect(); setRoom({ left: r.left, width: r.width }) }
+    measure()
+    const ro = new ResizeObserver(measure); ro.observe(el); ro.observe(document.documentElement)
+    window.addEventListener("resize", measure)
+    return () => { ro.disconnect(); window.removeEventListener("resize", measure) }
+  }, [picking])
   const pick = (ids: string[], on: boolean) => setSel((s) => { const n = new Set(s); for (const id of ids) on ? n.add(id) : n.delete(id); return n })
   const stopPicking = () => { setPicking(false); setSel(new Set()) }
   /** Carry out steps, six at a time. Returns how many did not go through. */
@@ -143,7 +161,7 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
   const all = work?.items.length ?? 0, total = shown.length, narrowed = isFiltered(cols) || !!q.trim()
   const today = dayOf(new Date())!
   return (
-    <div className="opx-col" style={{ gap: 12 }}>
+    <div ref={colRef} className="opx-col" style={{ gap: 12, paddingBottom: picking ? 120 : undefined }}>
       <div className="opx-row">
         <Seg label="Show" value={view} onChange={(v) => { setView(v); setFlip({}) }} options={[["open", "Open"], ["done", "Done"]]} />
         <span className="opx-muted" style={{ fontSize: 13 }}>{loading && !data ? "Loading…" : `${narrowed ? `${total} of ${all}` : total} ${view === "open" ? "open" : "done"} across ${groups.length} group${groups.length === 1 ? "" : "s"}`}</span>
@@ -212,13 +230,13 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
       {picking && (() => {
         const chosen = (work?.items || []).filter((x) => sel.has(x.id)), todos = chosen.filter((x) => x.kind === "todo").length, none = chosen.length === 0 || busy
         return (
-          <div className="opx-bulk" role="region" aria-label="Change the selected rows">
+          <div className="opx-bulk" role="region" aria-label="Change the selected rows" style={room ? { left: room.left, width: room.width } : undefined}>
             <b aria-live="polite">{busy ? "Saving…" : `${chosen.length} selected`}</b>
             {view === "open" && <button type="button" className="opx-btn" disabled={none} onClick={() => runBulk({ do: "done" }, "Marked done")}>Mark done</button>}
             <select className="opx-input" aria-label="Set the priority of the selected rows" disabled={none} value="" onChange={(e) => { const p = e.target.value as "urgent" | "high" | "medium" | "low"; if (p) runBulk({ do: "priority", priority: p }, "Priority set") }}>
               <option value="">Set priority</option><option value="urgent">Urgent</option><option value="high">High</option><option value="medium">Normal</option><option value="low">Low</option>
             </select>
-            <label className="opx-bulkdue">Set due date <input type="date" className="opx-input" aria-label="Set the due date of the selected rows" disabled={none} value="" onChange={(e) => { if (e.target.value) runBulk({ do: "due", dueDate: new Date(`${e.target.value}T12:00:00`).toISOString() }, "Due date set") }} /></label>
+            <label className="opx-bulkdue"><span>Set due date</span> <input type="date" className="opx-input" aria-label="Set the due date of the selected rows" disabled={none} value="" onChange={(e) => { if (e.target.value) runBulk({ do: "due", dueDate: new Date(`${e.target.value}T12:00:00`).toISOString() }, "Due date set") }} /></label>
             <button type="button" className="opx-btn" disabled={none || todos === 0} title={todos === 0 && chosen.length ? "Only todos can be deleted here; tasks are removed in their project" : undefined} onClick={() => runBulk({ do: "delete" }, "Deleted")}>Delete {todos || ""} todo{todos === 1 ? "" : "s"}</button>
             <button type="button" className="opx-link opx-act" onClick={stopPicking}>Stop selecting</button>
           </div>
