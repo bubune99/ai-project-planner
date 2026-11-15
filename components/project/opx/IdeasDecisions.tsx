@@ -122,7 +122,7 @@ export function IdeasDecisions({ projectId, projectName }: { projectId: string; 
               <span className="opx-meta">
                 <span>{ago(d.createdAt)}</span>
                 {(d.tags || []).slice(0, 2).map((t) => <span key={t}>#{t}</span>)}
-                <span style={{ color: L.length ? "var(--opx-accent)" : undefined }}>{L.length ? `${L.length} task${L.length > 1 ? "s" : ""}` : "No tasks yet"}</span>
+                <span style={{ color: L.length ? "var(--opx-accent-text)" : undefined }}>{L.length ? `${L.length} task${L.length > 1 ? "s" : ""}` : "No tasks yet"}</span>
               </span>
             </button>
           )

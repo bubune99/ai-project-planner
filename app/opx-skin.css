@@ -15,6 +15,8 @@
   --opx-muted: #5a687c;
   --opx-line: #d9dfe8;
   --opx-accent: #527bb0;
+  /* The accent as words. The fill above is 4.0 to 1 on a light card and 3.1 on a dark one: fine for a bar, too faint to read. */
+  --opx-accent-text: #315486;
   --opx-good: #307e59;
   --opx-warn: #c17115;
   --opx-hot: #d65a3e;
@@ -41,6 +43,7 @@
 }
 
 .dark {
+  --opx-accent-text: #b3cbea;
   --opx-bg: #262626;
   --opx-card: #2f2f31;
   --opx-soft: #3a3b3e;
@@ -451,7 +454,7 @@ button.opx-ck.on::after { content: ''; position: absolute; left: 6px; top: 2px; 
 .opx-chat-md > :first-child { margin-top: 0; } .opx-chat-md > :last-child { margin-bottom: 0; }
 .opx-chat-md pre { max-width: 100%; overflow-x: auto; }
 .opx-chat-md code { white-space: pre-wrap; overflow-wrap: anywhere; }
-.opx-chat-md a { color: var(--opx-accent); }
+.opx-chat-md a { color: var(--opx-accent-text); }
 .opx-chat-why { border-radius: 14px; background: var(--opx-soft); padding: 8px 12px; color: var(--opx-muted); font-size: 13.5px; }
 .opx-chat-why summary { cursor: pointer; font-weight: 600; font-size: 13px; }
 .opx-chat-why[open] summary { margin-bottom: 6px; }
@@ -662,7 +665,7 @@ a.opx-mt:hover b { text-decoration: underline; }
 .opx-ck-flow footer { display: grid; gap: 6px; border-top: 1px solid var(--opx-line); padding-top: 10px; }
 .opx-ck-state > button { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; color: inherit; font: inherit; font-size: 13px; padding: 3px 0; text-align: left; cursor: pointer; } .opx-ck-state > button:disabled { cursor: default; opacity: 1; }
 .opx-ck-state > button small { margin-left: auto; color: var(--opx-muted); font-size: 12px; }
-.opx-ck-note { margin: 2px 0 4px 27px; font-size: 12.5px; color: var(--opx-muted); } .opx-ck-ev { margin-left: 27px; font-size: 12.5px; color: var(--opx-accent); }
+.opx-ck-note { margin: 2px 0 4px 27px; font-size: 12.5px; color: var(--opx-muted); } .opx-ck-ev { margin-left: 27px; font-size: 12.5px; color: var(--opx-accent-text); }
 .opx-ck-settle { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 6px 27px; }
 .opx-ck-settle input { flex: 1; min-width: 160px; font: inherit; font-size: 13px; color: var(--opx-ink); background: var(--opx-card); border: 1px solid var(--opx-line); border-radius: 8px; padding: 6px 9px; }
 .opx-ck-settle button { font: inherit; font-size: 12.5px; font-weight: 600; color: var(--opx-ink); background: var(--opx-card); border: 0; border-radius: 999px; padding: 6px 12px; cursor: pointer; } .opx-ck-settle button:disabled { opacity: .45; cursor: default; }
@@ -673,7 +676,7 @@ a.opx-mt:hover b { text-decoration: underline; }
 .opx-ck-plan { display: grid; gap: 10px; font-size: 13.5px; } .opx-ck-plan .opx-ck-h3, .opx-ck-plan .opx-ck-h4 { margin-left: 0; } .opx-ck-plan p { margin: 0; }
 .opx-ck-plancols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 6px 28px; }
 .opx-ck-plan ul { list-style: none; margin: 0; padding: 0; display: grid; } .opx-ck-plan li { display: grid; gap: 1px; padding: 7px 0; border-top: 1px solid var(--opx-line); }
-.opx-ck-plan li button { border: 0; background: none; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; } .opx-ck-plan li button:hover { color: var(--opx-accent); }
+.opx-ck-plan li button { border: 0; background: none; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; } .opx-ck-plan li button:hover { color: var(--opx-accent-text); }
 .opx-ck-plan .opx-ck-settle { margin: 6px 0 0; } .opx-ck-plan summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
 .opx-ck-guides { display: grid; gap: 10px; font-size: 13.5px; } .opx-ck-guides .opx-ck-h3 { margin-left: 0; } .opx-ck-guides p { margin: 0; }
 .opx-ck-guides summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
@@ -688,7 +691,7 @@ a.opx-mt:hover b { text-decoration: underline; }
 .opx-ck-record { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr); gap: 10px 28px; font-size: 13.5px; align-items: start; }
 .opx-ck-record .opx-ck-h3, .opx-ck-record .opx-ck-h4 { margin-left: 0; } .opx-ck-record p { margin: 0 0 6px; }
 .opx-ck-record ul, .opx-ck-record ol { list-style: none; margin: 0; padding: 0; display: grid; } .opx-ck-record li { display: grid; gap: 1px; padding: 6px 0; border-top: 1px solid var(--opx-line); }
-.opx-ck-record li button { border: 0; background: none; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; } .opx-ck-record li button:hover { color: var(--opx-accent); }
+.opx-ck-record li button { border: 0; background: none; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; } .opx-ck-record li button:hover { color: var(--opx-accent-text); }
 .opx-ck-log ol { max-height: 300px; overflow: auto; } .opx-ck-log li { grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: start; } .opx-ck-log li > div { display: grid; gap: 1px; }
 .opx-ck-ev-icon { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: var(--opx-muted); margin-top: 1px; }
 .opx-ck-ev-icon.passed { background: var(--opx-good); } .opx-ck-ev-icon.failed { background: var(--opx-hot); } .opx-ck-ev-icon.flagged { background: var(--opx-warn); }
@@ -706,7 +709,7 @@ a.opx-mt:hover b { text-decoration: underline; }
 .opx-pf-top { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding-block: 12px; } .opx-pf-save { margin-left: auto; font-size: 13px; }
 .opx-pf-h { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
 .opx-pf-who { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; } .opx-pf-who .opx-seg small { margin-left: 4px; color: inherit; opacity: .7; }
-.opx-pf-add { border: 0; background: none; text-align: left; padding: 6px 10px; border-radius: 12px; color: var(--opx-accent); font: inherit; font-weight: 600; cursor: pointer; } .opx-pf-add:hover { background: var(--opx-soft); }
+.opx-pf-add { border: 0; background: none; text-align: left; padding: 6px 10px; border-radius: 12px; color: var(--opx-accent-text); font: inherit; font-weight: 600; cursor: pointer; } .opx-pf-add:hover { background: var(--opx-soft); }
 .opx-pf-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: space-between; } .opx-pf-head h3 { margin: 0; font-size: 17px; font-weight: 600; }
 .opx-pf-pgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 26px; margin: 10px 0 12px; } .opx-pf-pgrid small { display: block; }
 .opx-pf-ed { outline: 0; border-radius: 5px; cursor: text; min-width: 24px; } span.opx-pf-ed, b.opx-pf-ed { display: inline-block; }
@@ -739,7 +742,7 @@ a.opx-mt:hover b { text-decoration: underline; }
 .opx-pf-cmp { display: grid; gap: 4px; align-items: stretch; font-size: 13.5px; overflow-x: auto; } .opx-pf-cmp .h { font-weight: 600; padding: 6px 10px; } .opx-pf-cmp .h small { display: block; font-weight: 400; }
 .opx-pf-cmp .r, .opx-pf-cmp .c, .opx-pf-cmp .m { background: var(--opx-soft); border-radius: 10px; padding: 9px 10px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; min-width: 0; } .opx-pf-cmp .r { font-weight: 600; } .opx-pf-cmp .m { background: none; }
 .opx-pf-cmp .c.start { box-shadow: inset 0 0 0 1.5px var(--opx-accent); font-weight: 600; } .opx-pf-cmp .c.off { opacity: .55; } .opx-pf-cmp .r .opx-pf-x { margin-left: auto; font-weight: 400; opacity: 0; } .opx-pf-cmp .r:hover .opx-pf-x, .opx-pf-cmp .r .opx-pf-x:focus { opacity: 1; }
-.opx-pf-loose { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 2px 18px; margin-top: 8px; font-size: 13px; } .opx-pf-loose span { padding: 3px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.opx-pf-loose { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 2px 18px; margin-top: 8px; font-size: 13px; } .opx-pf-loose span { padding: 3px 0; overflow-wrap: anywhere; }
 .opx-pf-log li { grid-template-columns: 150px minmax(0, 1fr); gap: 12px; font-size: 13.5px; }
 .opx-pf-walk { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 8px; align-items: center; text-align: left; border: 0; background: none; font: inherit; color: inherit; padding: 2px 0; cursor: pointer; width: 100%; } .opx-pf-walk small { grid-column: 2; } .opx-pf-walk:hover b { text-decoration: underline; }
 .opx-pf-walkin { display: grid; gap: 8px; margin: 6px 0 4px 18px; font-size: 13.5px; } .opx-pf-walkin small { display: block; } .opx-pf-walkin ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; } .opx-pf-walkin ol li { display: list-item; border: 0; padding: 0; } .opx-pf-walkin ol li b, .opx-pf-walkin ol li span { display: block; } .opx-pf-walkin ol li.off b { color: var(--opx-warn); }
@@ -751,7 +754,7 @@ a.opx-mt:hover b { text-decoration: underline; }
 
 /* The process map (components/project/opx/ProcessMap.tsx), drawn with React Flow. */
 .opx-pm-crumb { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
-.opx-pm-step { border: 0; background: none; font: inherit; font-size: 15px; color: var(--opx-accent); cursor: pointer; padding: 3px 6px; border-radius: 8px; } .opx-pm-step:hover { background: var(--opx-soft); } .opx-pm-step.here { color: var(--opx-ink); font-weight: 600; cursor: default; }
+.opx-pm-step { border: 0; background: none; font: inherit; font-size: 15px; color: var(--opx-accent-text); cursor: pointer; padding: 3px 6px; border-radius: 8px; } .opx-pm-step:hover { background: var(--opx-soft); } .opx-pm-step.here { color: var(--opx-ink); font-weight: 600; cursor: default; }
 .opx-pm-trail { display: inline-flex; align-items: center; gap: 6px; } .opx-pm-trail i { color: var(--opx-muted); font-style: normal; }
 .opx-pm-note { margin: 6px 0 0; padding: 7px 12px; border-radius: 10px; background: color-mix(in srgb, var(--opx-accent) 22%, transparent); font-size: 13.5px; }
 .opx-pm { position: relative; }
