@@ -241,7 +241,7 @@ function IdeaPage({ id, onBack, onChanged }: { id: string; onBack: () => void; o
       </section>
       <div className="opx-iw">
         <section className="opx-sec">
-          <div className="opx-sech"><h2>Features</h2><span className="opx-n">{plan.features.length}</span><button className="opx-link" style={{ marginLeft: "auto" }} onClick={() => ask("add a feature. Ask me what it is, then update the idea's description with it as a new numbered layer.")}>Add a feature</button></div>
+          <div className="opx-sech"><h2>Features</h2><span className="opx-n">{plan.features.length}</span><button className="opx-link opx-act" style={{ marginLeft: "auto" }} onClick={() => ask("add a feature. Ask me what it is, then update the idea's description with it as a new numbered layer.")}>Add a feature</button></div>
           {plan.features.length === 0 && <div className="opx-empty">No features yet. Ask the assistant to break the idea down into features, or add the first one.</div>}
           {plan.features.map((f, k) => (
             <div key={f.name} className="opx-feat">
