@@ -8,7 +8,7 @@
  * lib/gates/change-model.
  */
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { ThumbsDown, ThumbsUp } from "lucide-react"
 import { STAGE_WORD, type Lessons, type StoredChange } from "@/lib/gates/change-model"
 import { Failed, Loading, Seg, ago, useJson } from "./shared"
@@ -23,6 +23,26 @@ export function ChangesTab({ projectId }: { projectId: string }) {
   const [failed, setFailed] = useState<string | null>(null)
   /** The change whose "Not good" was pressed with nothing written: it is asked for there, in words anyone can see. */
   const [needWords, setNeedWords] = useState<string | null>(null)
+
+  /** Picture links last an hour. A page left open longer shows blanks, so a picture that fails asks for fresh links, once per load. */
+  const refetched = useRef(0)
+  const onPictureError = () => { if (Date.now() - refetched.current > 60_000) { refetched.current = Date.now(); reload() } }
+  /** "See before and after" in Waiting on you names one change: show the list it is in, bring it into view and mark it. */
+  const [shownId, setShownId] = useState<string | null>(null)
+  useEffect(() => {
+    const go = () => {
+      const id = (window as any).__opxShowChange as string | undefined
+      if (!id || !data) return
+      ;(window as any).__opxShowChange = undefined
+      const c = data.changes.find((x) => x.id === id)
+      if (!c) return
+      setShow(c.verdict ? "all" : "waiting"); setShownId(id)
+      window.setTimeout(() => { const el = document.getElementById(`change-${id}`); if (el) { el.scrollIntoView({ block: "start", behavior: "auto" }); el.focus({ preventScroll: true }) } }, 60)
+    }
+    go()
+    window.addEventListener("opx:show-change", go)
+    return () => window.removeEventListener("opx:show-change", go)
+  }, [data])
 
   if (loading && !data) return <Loading what="the changes" />
   if (error && !data) return <Failed what="the changes" error={error} retry={reload} />
@@ -57,7 +77,7 @@ export function ChangesTab({ projectId }: { projectId: string }) {
       ) : list.length === 0 ? (
         <div className="opx-empty">{data.changes.length === 0 ? "No change has been recorded for this project yet. When an agent changes a screen, the before and after pictures appear here for you to judge." : "Nothing is waiting for you. Every recorded change has your answer."}</div>
       ) : list.map((c) => (
-        <section className="opx-sec opx-ch-card" key={c.id}>
+        <section className={`opx-sec opx-ch-card${shownId === c.id ? " shown" : ""}`} key={c.id} id={`change-${c.id}`} tabIndex={-1} aria-label={c.title}>
           <div className="opx-ch-head">
             <div><h3>{c.title}</h3><p className="opx-muted">{c.why}</p></div>
             <small className="opx-muted">{STAGE_WORD[c.stage]}{c.build ? ` · ${c.build}` : ""}{c.route ? ` · ${c.route}` : ""} · {ago(c.at)}</small>
@@ -66,7 +86,7 @@ export function ChangesTab({ projectId }: { projectId: string }) {
             {([["Before", c.before], ["After", c.after]] as const).map(([label, src]) => (
               <figure key={label}>
                 <figcaption>{label}</figcaption>
-                {src ? <a href={src} target="_blank" rel="noreferrer" aria-label={`Open the ${label.toLowerCase()} picture at full size`}><img src={src} alt={`${label}: ${c.title}`} loading="lazy" /></a> : <div className="opx-empty">The picture is not available.</div>}
+                {src ? <a href={src} target="_blank" rel="noreferrer" aria-label={`Open the ${label.toLowerCase()} picture at full size`}><img src={src} alt={`${label}: ${c.title}`} loading="lazy" onError={onPictureError} /></a> : <div className="opx-empty">The picture is not available.</div>}
               </figure>
             ))}
           </div>

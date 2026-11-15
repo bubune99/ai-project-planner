@@ -88,7 +88,7 @@ export function NeedsYou({ state, onOpenTab }: { state: ReturnType<typeof useNee
               {y.changes.slice(0, 5).map((c) => (
                 <div key={c.id} className="opx-waiting-row" style={row}>
                   <span style={{ flex: 1, minWidth: 0, fontSize: 14 }}>{c.title}</span>
-                  <button type="button" className="opx-link" onClick={() => onOpenTab("changes")}>See before and after</button>
+                  <button type="button" className="opx-link" aria-label={`See before and after: ${c.title}`} onClick={() => { (window as any).__opxShowChange = c.id; onOpenTab("changes"); window.dispatchEvent(new Event("opx:show-change")) }}>See before and after</button>
                 </div>
               ))}
               {y.changes.length > 5 && <button type="button" className="opx-link" onClick={() => onOpenTab("changes")}>All {y.changes.length} in Changes</button>}

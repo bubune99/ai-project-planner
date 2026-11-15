@@ -1015,3 +1015,6 @@ a.opx-stat:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
   [role="dialog"] button { min-width: 44px; }
   [role="menu"] [role="menuitemradio"] { min-height: 44px; }
 }
+/* The change "See before and after" pointed at: clear of the top bar, and marked so it is plain which one. */
+.opx-ch-card { scroll-margin-top: 84px; outline: none; }
+.opx-ch-card.shown { box-shadow: inset 0 0 0 2px var(--opx-accent); }
