@@ -13,6 +13,7 @@ import { AlertTriangle, Check, Minus, ThumbsUp, X } from "lucide-react"
 import { allChecks, checkKey, checkState, controlProgress, shotAt, type Shot, type CheckState, type Checklist, type Control, type LogEntry, type Result, type Scorecard, type Summary, type View } from "@/lib/gates/gate-model"
 import { GuidesSection } from "./GuidesSection"
 import { ago, useJson } from "./shared"
+import { stableUrls, type Kept } from "@/lib/gates/stable-urls"
 
 interface PageRow { id: string; route: string; title: string | null; version: number; env: string | null; createdAt: string; controls: number; views: number; summary: Summary }
 interface Change { view: string; label: string; kind: string }
@@ -324,11 +325,20 @@ export function ChecksTab({ projectId }: { projectId: string }) {
   // Checks clear while an agent works: refresh while the tab is in view.
   const reloadPage = page.reload, reloadPages = pages.reload
   useEffect(() => {
-    const t = setInterval(() => { if (document.visibilityState === "visible") { reloadPage(); reloadPages(); setPlanTick((t) => t + 1) } }, 6000)
+    // Every 30 seconds, not 6: each look is three requests to the server and the database.
+    const t = setInterval(() => { if (document.visibilityState === "visible") { reloadPage(); reloadPages(); setPlanTick((t) => t + 1) } }, 30000)
     return () => clearInterval(t)
   }, [reloadPage, reloadPages])
 
-  const data = page.data && current && page.data.id === current.id ? page.data : null
+  // A reload hands back a new address for every picture; keep the first one while the picture is the same, so they do not blink.
+  const keptRef = useRef<Kept>({})
+  const data = useMemo(() => {
+    const d = page.data && current && page.data.id === current.id ? page.data : null
+    if (!d) return null
+    const s = stableUrls(d.images, keptRef.current, Date.now())
+    keptRef.current = s.kept
+    return { ...d, images: s.images }
+  }, [page.data, current])
   const controls = useMemo(() => (data ? data.checklist.views.flatMap((v) => v.controls.map((c) => ({ c, v }))) : []), [data])
   const chosen = controls.find((x) => x.c.n === pick) ?? controls[0] ?? null
   const imageOf = (viewKey: string) => data?.images.find((i) => i.kind === "view" && i.key === viewKey)?.url

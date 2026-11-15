@@ -15,6 +15,7 @@ import {
 import { shotAt, type Checklist, type Result, type View } from "@/lib/gates/gate-model"
 import { KIND_WORD, LENS, SHIP_FLOOR, handledBy, lowScores, type Coverage, type StoredWalk } from "@/lib/walks/walk-model"
 import { Shots, type Piece } from "./ChecksTab"
+import { stableUrls, type Kept } from "@/lib/gates/stable-urls"
 import { Failed, Loading, Seg, ago, useJson } from "./shared"
 
 interface LogEntry { version: number; actor: "owner" | "agent"; lines: string[]; at: string }
@@ -40,15 +41,24 @@ function useFresh(projectId: string) {
 /** Every scanned page of the project, by route: its checklist, its verdicts and its screenshots. */
 function usePages(projectId: string, pages: FlowsData["pages"] | undefined) {
   const [byRoute, setByRoute] = useState<Record<string, PageData>>({})
+  const kept = useRef<Record<string, Kept>>({})
   const ids = (pages ?? []).slice(0, 8).map((p) => p.id).join(",")
   useEffect(() => {
     if (!ids) return
     let off = false
     const load = () => Promise.all(ids.split(",").map((id) => fetch(`/api/projects/${projectId}/gates/${id}`).then((r) => (r.ok ? r.json() : null)).catch(() => null)))
-      .then((all) => { if (!off) setByRoute(Object.fromEntries(all.filter(Boolean).map((p: PageData) => [p.route, p]))) })
+      .then((all) => {
+        if (off) return
+        // Keep each picture's first address while it is the same picture, so a refresh does not make them blink.
+        setByRoute(Object.fromEntries(all.filter(Boolean).map((p: PageData) => {
+          const s = stableUrls(p.images, kept.current[p.id] ?? {}, Date.now())
+          kept.current[p.id] = s.kept
+          return [p.route, { ...p, images: s.images }]
+        })))
+      })
     load()
     // Steps turn verified while agents work: refresh while the tab is in view.
-    const t = setInterval(() => { if (document.visibilityState === "visible") load() }, 15000)
+    const t = setInterval(() => { if (document.visibilityState === "visible") load() }, 60000)
     return () => { off = true; clearInterval(t) }
   }, [projectId, ids])
   return byRoute
