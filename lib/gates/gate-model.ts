@@ -663,6 +663,17 @@ const BY_KIND: Record<string, IntakeQuestion[]> = {
     Q("undo", "Can any change be undone, and redone?", "People only try things in an editor they can back out of."),
     Q("found", "How does someone who was never told find each action?", "This decides what is a visible button and what may hide in a menu."),
   ],
+  // Anything that shows many rows of the same kind: a table, a task list, an inbox, a ledger.
+  // Owner, 2026-11-15: "we need to have a system for filters and questions and gates of reasoning to keep in mind for
+  // future projects as well". Each question is something My work lacked when he first used it.
+  List: [
+    Q("onrow", "For every field a row shows: can it be changed on the row itself? Name each field that cannot.", "A list that shows a status, a priority and a date but only lets one be changed sends the person to another screen for the rest."),
+    Q("narrow", "How is a long list narrowed? Each filter is a dropdown on the column it filters, and the columns combine. Chips are only for three or fewer options that fit one line on a phone. Which filter breaks this?", "A row of chips wraps onto several lines and is detached from what it filters."),
+    Q("several", "Can several rows be selected and changed together, and can that be undone?", "Anything done to one row will be wanted for twenty."),
+    Q("reach", "With hundreds of rows, are the actions for what is selected in reach wherever the list is scrolled?", "A bar at the end of a long list is a bar nobody can use."),
+    Q("remove", "Can a row be removed here, and brought back?", "A list that only grows is a list nobody trusts."),
+    Q("long", "What does it look like with 400 rows, and how does someone see what is old or no longer true?", "Lists are designed with ten rows and lived in with hundreds."),
+  ],
   Text: CONTENT,
   Card: [...CONTENT, Q("order", "What is the most important thing in it, and is that the first thing seen?", "This is what its layout is judged against.")],
   Chart: [...CONTENT, Q("agrees", "Which figures elsewhere must it agree with?", "A chart is right only if it matches the numbers it is drawn from.")],

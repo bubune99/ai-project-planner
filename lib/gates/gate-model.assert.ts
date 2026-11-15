@@ -138,6 +138,11 @@ ok("a menu is asked how it closes, and an editor is asked whether it is complete
   assert.deepEqual(ids("Editor"), ["purpose", "who", "flow", "complete", "between", "tidy", "undo", "found"])
   // What a finished editor has is found in the code or the page, so these are the agents' to answer, not the owner's.
   assert.ok(intakeQuestions("Editor").filter((q) => !["purpose", "who", "flow"].includes(q.id)).every((q) => !q.owner))
+  // Owner, 2026-11-15: "we need to have a system for filters and questions and gates of reasoning to keep in mind
+  // for future projects as well". A list of rows is asked what My work was missing when he first used it.
+  assert.deepEqual(ids("List").slice(3), ["onrow", "narrow", "several", "reach", "remove", "long"])
+  assert.match(intakeQuestions("List").find((q) => q.id === "narrow")!.ask, /dropdown on the column/)
+  assert.ok(intakeQuestions("List").filter((q) => !["purpose", "who", "flow"].includes(q.id)).every((q) => !q.owner))
 })
 
 console.log(`\n${n} checks passed`)
