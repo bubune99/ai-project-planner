@@ -100,6 +100,9 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
   const [route, setRoute] = useState<string | null>(null)
   const [removing, setRemoving] = useState<string | null>(null)
   const docRef = useRef<FlowDoc | null>(null), versionRef = useRef(-1), chain = useRef<Promise<void>>(Promise.resolve())
+  /** The document as it was before each change made on this visit, newest last: what Undo goes back to. */
+  const past = useRef<FlowDoc[]>([])
+  const [undoable, setUndoable] = useState(0)
   // Take the server's copy when it is first loaded, and again whenever it is a different version from ours.
   useEffect(() => {
     const d = flows.data
@@ -111,10 +114,7 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
   const can = !!flows.data?.canEdit
   const reload = flows.reload
   /** Change the document: the page shows it at once, and it is saved in the order the changes were made. */
-  const edit = useCallback((change: (d: FlowDoc) => void) => {
-    if (!docRef.current) return
-    const next: FlowDoc = structuredClone(docRef.current)
-    change(next)
+  const put = useCallback((next: FlowDoc) => {
     docRef.current = next
     setDoc(next); setSaving("saving"); setError(null)
     chain.current = chain.current.then(async () => {
@@ -128,12 +128,28 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
       } catch (e) {
         setSaving("")
         setError(e instanceof Error ? e.message : "Could not save")
-        // Refused: what is on the page is not what is stored. Show what is stored.
+        // Refused: what is on the page is not what is stored. Show what is stored, and forget what could be undone:
+        // those copies were made from a page that is no longer true.
         versionRef.current = -1
+        past.current = []; setUndoable(0)
         reload()
       }
     })
   }, [projectId, reload])
+  const edit = useCallback((change: (d: FlowDoc) => void) => {
+    if (!docRef.current) return
+    const next: FlowDoc = structuredClone(docRef.current)
+    change(next)
+    past.current = [...past.current, docRef.current].slice(-30); setUndoable(past.current.length)
+    put(next)
+  }, [put])
+  /** Put the document back as it was before the last change made on this visit. Saved like any other change. */
+  const undo = useCallback(() => {
+    const prev = past.current[past.current.length - 1]
+    if (!prev) return
+    past.current = past.current.slice(0, -1); setUndoable(past.current.length)
+    put(structuredClone(prev))
+  }, [put])
 
   const records = useMemo(() => Object.fromEntries(Object.entries(pagesByRoute).map(([r, p]) => [r, { list: p.checklist, results: p.results } as PageRecord])), [pagesByRoute])
   const routes = flows.data?.pages.map((p) => p.route) ?? []
@@ -359,6 +375,7 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
         <span className="opx-muted"><b>{doc.people.length}</b> people · <b>{doc.flows.length}</b> use cases · <b>{total("n")}</b> steps · <b>{total("ok")}</b> verified · <b>{total("gap")}</b> with nothing behind them{curPage ? <> · <b>{loose.length}</b> controls in no use case</> : null}</span>
         {routes.length > 1 && <select className="opx-pf-pick" aria-label="Page" value={curRoute ?? ""} onChange={(e) => setRoute(e.target.value)}>{routes.map((r) => <option key={r}>{r}</option>)}</select>}
         <span className="opx-muted opx-pf-save" role="status">{error ? error : saving === "saving" ? "Saving" : saving === "saved" ? "Saved" : ""}</span>
+        {can && undoable > 0 && <button type="button" className="opx-btn sm" data-testid="people-undo" onClick={undo}>Undo the last change</button>}
       </section>
 
       <>
