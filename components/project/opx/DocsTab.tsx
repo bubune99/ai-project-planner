@@ -140,7 +140,7 @@ export function DocsTab({ projectId, coreDocs }: { projectId: string; coreDocs?:
         {cur ? (
           <section className="opx-sec" style={{ minHeight: 400 }}>
             <div className="opx-row" style={{ marginBottom: 6 }}>
-              <button className="opx-link opx-act" style={{ padding: 0, minHeight: 28 }} onClick={() => { setOpen(null); setEditing(false) }}>‹ {cat === "all" ? "All documents" : label(cat)}</button>
+              <button className="opx-link opx-act" onClick={() => { setOpen(null); setEditing(false) }}>‹ {cat === "all" ? "All documents" : label(cat)}</button>
               <span className="opx-row" style={{ marginLeft: "auto", gap: 6 }}>
                 {editing ? (
                   <>
