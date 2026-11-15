@@ -482,7 +482,7 @@ export function ChecksTab({ projectId }: { projectId: string }) {
                   </div>
                 )}
               {chosen.v.controls.map((c) => (
-                <button key={c.n} type="button" className={`opx-ck-pin ${controlProgress(c, data.results).worst}${c.n === chosen.c.n ? " on" : ""}`} style={{ left: `${(c.x / chosen.v.w) * 100}%`, top: `${(c.y / chosen.v.h) * 100}%` }} aria-label={`Control ${c.n}: ${c.label}`} onClick={() => { setPick(c.n); setSettle(null) }}>{c.n}</button>
+                <button key={c.n} type="button" className={`opx-ck-pin ${controlProgress(c, data.results).worst}${c.n === chosen.c.n ? " on" : ""}`} style={{ left: `clamp(13px, ${(c.x / chosen.v.w) * 100}%, calc(100% - 13px))`, top: `clamp(13px, ${(c.y / chosen.v.h) * 100}%, calc(100% - 13px))` }} aria-label={`Control ${c.n}: ${c.label}`} onClick={() => { setPick(c.n); setSettle(null) }}>{c.n}</button>
               ))}
               <span className="opx-ck-ring" style={{ left: `${(chosen.c.x / chosen.v.w) * 100}%`, top: `${(chosen.c.y / chosen.v.h) * 100}%`, width: `${(chosen.c.w / chosen.v.w) * 100}%`, height: `${(chosen.c.h / chosen.v.h) * 100}%` }} />
               </div>
