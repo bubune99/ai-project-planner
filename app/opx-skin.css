@@ -1089,3 +1089,4 @@ input[type=date].opx-rowsel { min-width: 128px; }
   .opx-workc .opx-lv.opx-lvp.opx-wf > input { grid-column: 1 / -1; }
 }
 @container (max-width: 460px) { .opx-workc .opx-lv.opx-lvp.opx-wf { grid-template-columns: minmax(0,1fr) minmax(0,1fr); } }
+@media (max-width: 760px) { select.opx-input { min-height: 44px; } }
