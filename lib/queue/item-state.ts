@@ -29,6 +29,11 @@ export interface ItemRow {
   projectId: string | null
   answeredAt: string | null
   metadata: Record<string, unknown> | null
+  /**
+   * Set when the planner itself carried the answer out, so no agent has anything to pick up: an approved or refused
+   * change to a page's plan is applied by the planner. Without this such an answer read "Not picked up yet" forever.
+   */
+  applied?: { at: string | null; what: string } | null
 }
 
 export interface Routing { askedBy: string | null; askedFrom: string | null; projectId: string | null; claimedBy: string | null; claimedAt: string | null; claimedFrom: string | null; doneAt: string | null; doneNote: string | null }
@@ -52,9 +57,17 @@ export function itemState(row: ItemRow): ItemState {
   if (row.status === "awaiting-unlock") return "waiting"
   if (row.status === "cancelled" || row.status === "failed") return "set-aside"
   const r = routing(row)
-  if (r.doneAt) return "done"
+  if (r.doneAt || row.applied) return "done"
   if (r.claimedBy) return "claimed"
   return "unclaimed"
+}
+
+/** What the planner did with a decided change to a page's plan, in a sentence. Null while it is not decided. */
+export function planChangeNote(c: { action: string; label: string | null; route: string; status: string }): string | null {
+  const name = c.label ? `"${c.label}"` : "The item"
+  if (c.status === "approved") return c.action === "remove" ? `${name} is out of the plan for ${c.route}.` : `${name} is in the plan for ${c.route}.`
+  if (c.status === "rejected") return `The plan for ${c.route} was left as it was.`
+  return null
 }
 
 /** How long the asker has an answer to itself before another agent on the project may take it. */
@@ -117,6 +130,7 @@ export function whereItWent(row: ItemRow, now: number): string {
   const ago = (iso: string | null) => { if (!iso) return ""; const m = Math.max(0, Math.round((now - new Date(iso).getTime()) / 60000)); return m < 1 ? "just now" : m < 90 ? `${m} min ago` : m < 48 * 60 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago` }
   if (state === "waiting") return "Waiting on you."
   if (state === "set-aside") return "Set aside."
+  if (state === "done" && !r.doneAt && row.applied) return `Carried out by the planner ${ago(row.applied.at)}: ${row.applied.what}`.replace(/\s+/g, " ").trim()
   if (state === "done") return `Finished by ${r.claimedBy ?? "an agent"} ${ago(r.doneAt)}: ${r.doneNote ?? ""}`.trim()
   if (state === "claimed") return `Picked up by ${r.claimedBy} ${ago(r.claimedAt)}. Not finished yet.`
   return `Not picked up yet${r.askedBy ? ` (asked by ${r.askedBy})` : ""}. You answered ${ago(row.answeredAt)}.`

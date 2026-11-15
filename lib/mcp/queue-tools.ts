@@ -13,7 +13,7 @@
 import { z } from "zod"
 import { sql } from "@/lib/db/client"
 import { getMcpUserId, requireMcpScope } from "@/lib/auth/mcp-context"
-import { QueueError, claimPatch, donePatch, itemState, mayClaim, routing, whereItWent, type ItemRow } from "@/lib/queue/item-state"
+import { QueueError, claimPatch, donePatch, itemState, mayClaim, planChangeNote, routing, whereItWent, type ItemRow } from "@/lib/queue/item-state"
 
 function ok(data: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(data) }] }
@@ -26,7 +26,16 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 interface JobRow { id: string; title: string; status: string; assigned_to: string | null; input: Record<string, unknown> | null; metadata: Record<string, unknown> | null; result: { answer?: { option: string | null; reply: string | null } } | null; unlock_note: string | null; unlock_prompt: string | null; unlock_resolved_at: string | null; created_at: string }
 
-export const toItemRow = (j: Pick<JobRow, "status" | "assigned_to" | "input" | "metadata" | "unlock_resolved_at">): ItemRow => ({
+/** A decided change to a page's plan that this question was about, when there is one. */
+interface PlanChange { pc_action: string | null; pc_label: string | null; pc_route: string | null; pc_status: string | null; pc_decided_at: string | null }
+const appliedOf = (j: Partial<PlanChange>): ItemRow["applied"] => {
+  if (!j.pc_status || !j.pc_route) return null
+  const what = planChangeNote({ action: j.pc_action ?? "add", label: j.pc_label ?? null, route: j.pc_route, status: j.pc_status })
+  return what ? { at: j.pc_decided_at ? new Date(j.pc_decided_at).toISOString() : null, what } : null
+}
+
+export const toItemRow = (j: Pick<JobRow, "status" | "assigned_to" | "input" | "metadata" | "unlock_resolved_at"> & Partial<PlanChange>): ItemRow => ({
+  applied: appliedOf(j),
   status: j.status, askedBy: j.assigned_to,
   projectId: typeof j.input?.projectId === "string" ? j.input.projectId : null,
   answeredAt: j.unlock_resolved_at ? new Date(j.unlock_resolved_at).toISOString() : null,
@@ -35,7 +44,7 @@ export const toItemRow = (j: Pick<JobRow, "status" | "assigned_to" | "input" | "
 
 const answerOf = (j: JobRow) => j.result?.answer?.option || j.result?.answer?.reply || j.unlock_note || null
 
-function describe(j: JobRow, now: number) {
+function describe(j: JobRow & Partial<PlanChange>, now: number) {
   const row = toItemRow(j), r = routing(row)
   return {
     questionId: j.id, question: j.unlock_prompt || j.title, answer: answerOf(j), answeredAt: row.answeredAt,
@@ -57,13 +66,15 @@ async function load(questionId: string, userId: string): Promise<JobRow | null> 
 export async function openAnswers(userId: string, a: { projectId?: string | null; sinceDays?: number; includeDone?: boolean } = {}) {
   const days = Math.min(Math.max(a.sinceDays ?? 30, 1), 365)
   const rows = (await sql`
-    SELECT id, title, status, assigned_to, input, metadata, result, unlock_note, unlock_prompt, unlock_resolved_at, created_at
-    FROM agent_jobs
-    WHERE created_by = ${userId} AND unlock_prompt IS NOT NULL AND status NOT IN ('awaiting-unlock', 'cancelled', 'failed')
-      AND unlock_resolved_at > now() - (${days}::int * interval '1 day')
-      AND (${a.projectId ?? null}::text IS NULL OR input->>'projectId' = ${a.projectId ?? null})
-    ORDER BY unlock_resolved_at DESC LIMIT 300
-  `) as JobRow[]
+    SELECT j.id, j.title, j.status, j.assigned_to, j.input, j.metadata, j.result, j.unlock_note, j.unlock_prompt, j.unlock_resolved_at, j.created_at,
+           c.action AS pc_action, c.item->>'label' AS pc_label, c.route AS pc_route, c.status AS pc_status, c.decided_at AS pc_decided_at
+    FROM agent_jobs j
+    LEFT JOIN LATERAL (SELECT action, item, route, status, decided_at FROM gate_plan_changes WHERE question_id = j.id LIMIT 1) c ON true
+    WHERE j.created_by = ${userId} AND j.unlock_prompt IS NOT NULL AND j.status NOT IN ('awaiting-unlock', 'cancelled', 'failed')
+      AND j.unlock_resolved_at > now() - (${days}::int * interval '1 day')
+      AND (${a.projectId ?? null}::text IS NULL OR j.input->>'projectId' = ${a.projectId ?? null})
+    ORDER BY j.unlock_resolved_at DESC LIMIT 300
+  `) as (JobRow & Partial<PlanChange>)[]
   const now = Date.now()
   const all = rows.map((j) => describe(j, now))
   return a.includeDone ? all : all.filter((i) => i.state !== "done")
