@@ -286,7 +286,7 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
                 <span><small>Habit</small><Ed value={persona.habit} hint="How and how often they use it" label="Habit" can={can} onSave={(v) => edit((d) => { d.personas.find((x) => x.id === persona.id)!.habit = v })} /></span>
                 <span><small>Cares about</small><Ed value={persona.cares} hint="The one thing they are here for" label="What they care about" can={can} onSave={(v) => edit((d) => { d.personas.find((x) => x.id === persona.id)!.cares = v })} /></span>
                 <span className="opx-muted">{span ? `Starts at step ${span[0] + 1}, usually stops at step ${span[1] + 1}.` : "Where they start and stop in this use case is not set. Use the buttons on a step."}</span>
-                {can && <button type="button" className="opx-btn sm" onClick={() => edit((d) => { d.personas = d.personas.filter((x) => x.id !== persona.id); for (const a of d.areas) delete a.does[persona.id]; setPersonaId(null) })}>Remove</button>}
+                {can && <button type="button" className="opx-btn sm" aria-label={`Remove the way of using it: ${persona.name}`} onClick={() => edit((d) => { d.personas = d.personas.filter((x) => x.id !== persona.id); for (const a of d.areas) delete a.does[persona.id]; setPersonaId(null) })}>Remove</button>}
               </div>
             )}
           </div>
@@ -304,11 +304,11 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
                   <div><small>What on the page does it</small>{controlPick(s.ref, `Step ${i + 1}: the control that does it`, (r) => inFlow((steps) => { steps[i].ref = r }))}</div>
                   {can && (
                     <div className="opx-pf-tools">
-                      <button type="button" disabled={i === 0} onClick={() => inFlow((steps) => { const [x] = steps.splice(i, 1); steps.splice(i - 1, 0, x) })}>Earlier</button>
-                      <button type="button" disabled={i === flow.steps.length - 1} onClick={() => inFlow((steps) => { const [x] = steps.splice(i, 1); steps.splice(i + 1, 0, x) })}>Later</button>
-                      <button type="button" onClick={() => inFlow((steps, d) => { steps.splice(i + 1, 0, { id: freshId("s", allIds(), seed), does: "New step: say what the person does", expects: "", data: "", ref: null }); shiftSpans(d.personas, flow.id, i + 1, "inserted") })}>Add a step after</button>
-                      <button type="button" disabled={flow.steps.length === 1} onClick={() => inFlow((steps, d) => { steps.splice(i, 1); shiftSpans(d.personas, flow.id, i, "removed") })}>Remove</button>
-                      {persona && <><button type="button" onClick={() => setSpan(i, 0)}>Starts here</button><button type="button" onClick={() => setSpan(i, 1)}>Stops here</button></>}
+                      <button type="button" aria-label={`Step ${i + 1}: move it earlier`} disabled={i === 0} onClick={() => inFlow((steps) => { const [x] = steps.splice(i, 1); steps.splice(i - 1, 0, x) })}>Earlier</button>
+                      <button type="button" aria-label={`Step ${i + 1}: move it later`} disabled={i === flow.steps.length - 1} onClick={() => inFlow((steps) => { const [x] = steps.splice(i, 1); steps.splice(i + 1, 0, x) })}>Later</button>
+                      <button type="button" aria-label={`Step ${i + 1}: add a step after it`} onClick={() => inFlow((steps, d) => { steps.splice(i + 1, 0, { id: freshId("s", allIds(), seed), does: "New step: say what the person does", expects: "", data: "", ref: null }); shiftSpans(d.personas, flow.id, i + 1, "inserted") })}>Add a step after</button>
+                      <button type="button" aria-label={`Step ${i + 1}: remove it`} disabled={flow.steps.length === 1} onClick={() => inFlow((steps, d) => { steps.splice(i, 1); shiftSpans(d.personas, flow.id, i, "removed") })}>Remove</button>
+                      {persona && <><button type="button" aria-label={`Step ${i + 1}: ${persona.name} starts here`} onClick={() => setSpan(i, 0)}>Starts here</button><button type="button" aria-label={`Step ${i + 1}: ${persona.name} stops here`} onClick={() => setSpan(i, 1)}>Stops here</button></>}
                     </div>
                   )}
                   <div className="opx-pf-state"><span className={`opx-pf-dot ${DOT[st]}`} />{STEP_WORD[st]}</div>
@@ -372,7 +372,7 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
     <div className="opx-pf">
       {fresh?.line && <p className={`opx-pf-age ${fresh.behind ? "behind" : "current"}`} data-testid="pictures-line" style={{ margin: "0 4px" }}>{fresh.line}</p>}
       <section className="opx-sec opx-pf-top">
-        <span className="opx-muted"><b>{doc.people.length}</b> people · <b>{doc.flows.length}</b> use cases · <b>{total("n")}</b> steps · <b>{total("ok")}</b> verified · <b>{total("gap")}</b> with nothing behind them{curPage ? <> · <b>{loose.length}</b> controls in no use case</> : null}</span>
+        <span className="opx-muted"><b>{doc.people.length}</b> {doc.people.length === 1 ? "person" : "people"} · <b>{doc.flows.length}</b> {doc.flows.length === 1 ? "use case" : "use cases"} · <b>{total("n")}</b> {total("n") === 1 ? "step" : "steps"} · <b>{total("ok")}</b> verified · <b>{total("gap")}</b> with nothing behind {total("gap") === 1 ? "it" : "them"}{curPage ? <> · <b>{loose.length}</b> {loose.length === 1 ? "control" : "controls"} in no use case</> : null}</span>
         {routes.length > 1 && <select className="opx-pf-pick" aria-label="Page" value={curRoute ?? ""} onChange={(e) => setRoute(e.target.value)}>{routes.map((r) => <option key={r}>{r}</option>)}</select>}
         <span className="opx-muted opx-pf-save" role="status">{error ? error : saving === "saving" ? "Saving" : saving === "saved" ? "Saved" : ""}</span>
         {can && undoable > 0 && <button type="button" className="opx-btn sm" data-testid="people-undo" onClick={undo}>Undo the last change</button>}
