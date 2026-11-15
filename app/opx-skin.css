@@ -1022,3 +1022,7 @@ a.opx-stat:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 /* Settings option groups: a label is never broken inside its pill. When the row is too narrow the pills wrap onto a second row instead. */
 .opx-sf .opx-seg { flex-wrap: wrap; max-width: 100%; border-radius: 24px; }
 .opx-sf .opx-seg button { white-space: nowrap; }
+/* Settings is laid out by the room it has, not by the window (the assistant can be open beside the page). */
+.opx-setc { container-type: inline-size; container-name: opxset; }
+@container opxset (max-width: 1180px) { .opx-setw { grid-template-columns: 220px minmax(0,1fr); } .opx-setw > aside:last-child { display: none; } }
+@container opxset (max-width: 720px) { .opx-setw { grid-template-columns: minmax(0,1fr); } .opx-sf { grid-template-columns: 1fr; gap: 6px; } }

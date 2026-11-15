@@ -283,7 +283,9 @@ export function SettingsTab({ projectId, project, onChange }: { projectId: strin
   const collab = unwrap<any>(team.data) || {}
 
   return (
-    <div className="opx-setw">
+    // The layout is sized by the room it has (opx-setc is the measure), not by the window: with the assistant open
+    // beside the page a 1600-wide window leaves about 1000 for this.
+    <div className="opx-setc"><div className="opx-setw">
       <aside className="opx-sec">
         {SETTING_SECTIONS.map(([k, l]) => <button key={k} className={`opx-dc${k === sec ? " on" : ""}`} onClick={() => setSec(k)}>{l}</button>)}
       </aside>
@@ -353,6 +355,6 @@ export function SettingsTab({ projectId, project, onChange }: { projectId: strin
           ["Created", ago(project.created_at)],
         ] as [string, string][]).map(([k, v]) => <div key={k} className="opx-tg"><span className="opx-muted">{k}</span><b style={{ fontWeight: 600 }}>{v}</b></div>)}
       </aside>
-    </div>
+    </div></div>
   )
 }
