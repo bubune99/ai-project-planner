@@ -114,7 +114,7 @@ code, pre, kbd, samp, .font-mono { font-family: var(--font-inter), Inter, system
 
 .j-pill { height: auto; padding: 3px 10px; font-size: 12.5px; }
 .j-pill.j-pos  { background: color-mix(in srgb, var(--opx-good) 18%, transparent); color: var(--opx-good); }
-.j-pill.j-neg  { background: color-mix(in srgb, var(--opx-hot) 18%, transparent); color: color-mix(in srgb, var(--opx-hot) 55%, var(--opx-ink)); }
+.j-pill.j-neg  { background: color-mix(in srgb, var(--opx-hot) 18%, transparent); color: color-mix(in srgb, var(--opx-hot) 40%, var(--opx-ink)); }
 .j-pill.j-warn { background: color-mix(in srgb, var(--opx-warn) 18%, transparent); color: var(--opx-warn); }
 /* Text on the tinted pill is a darker blue than the accent: the accent on its own tint was 3.9 to 1 in light. */
 .j-pill.j-info, .j-pill.j-proj { background: color-mix(in srgb, var(--opx-accent) 18%, transparent); color: #315486; }
