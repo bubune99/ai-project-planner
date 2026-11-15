@@ -646,6 +646,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
                   <Input
                     autoFocus
                     aria-label="New column name"
+                    data-phone-tall
                     value={newGroupLabel}
                     placeholder="Column name, Enter to add"
                     className="h-9 text-sm"
@@ -664,7 +665,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
                 ) : (
                   <Button
                     variant="ghost"
-                    className="w-full justify-start h-9 text-muted-foreground text-sm border border-dashed border-border/70"
+                    className="w-full justify-start h-9 max-[700px]:h-11 text-muted-foreground text-sm border border-dashed border-border/70"
                     onClick={() => setAddingGroup(true)}
                   >
                     <Plus className="w-4 h-4 mr-1.5" /> Add group

@@ -1001,3 +1001,13 @@ a.opx-stat:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 @media (max-width: 700px) {
   [role="menu"] [role="menuitem"], [role="menu"] [role="menuitemcheckbox"], [role="listbox"] [role="option"] { min-height: 44px; }
 }
+
+/* Forms in a dialog, and menu choices, on a phone: every field and button is 44 high, a date box is wide enough to
+   read (it was 55), and typing does not zoom the page. */
+@media (max-width: 700px) {
+  [role="dialog"] button:not([data-slot="dialog-close"]), [role="dialog"] [role="combobox"], [role="dialog"] input:not([type="checkbox"]):not([type="radio"]), [data-phone-tall] { min-height: 44px; }
+  [role="dialog"] input:not([type="checkbox"]):not([type="radio"]), [role="dialog"] textarea, [data-phone-tall] { font-size: 16px; }
+  [role="dialog"] input[type="date"] { min-width: 150px; }
+  [role="dialog"] button { min-width: 44px; }
+  [role="menu"] [role="menuitemradio"] { min-height: 44px; }
+}
