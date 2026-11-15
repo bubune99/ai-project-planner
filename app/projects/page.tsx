@@ -336,7 +336,7 @@ export default function ProjectsPage() {
       <div className="j-content">
         {/* Breadcrumbs — wayfinding, esp. on mobile (feedback #2) */}
         <nav aria-label="Breadcrumb" className="j-row j-wrap" style={{ gap: 6, fontSize: 12 }}>
-          <Link href="/dashboard" className="j-muted" style={{ textDecoration: "none" }}>Dashboard</Link>
+          <Link href="/dashboard" className="opx-link opx-act" style={{ marginLeft: -10 }}>Dashboard</Link>
           <span className="j-muted" aria-hidden="true">›</span>
           <span aria-current="page">Projects</span>
         </nav>
