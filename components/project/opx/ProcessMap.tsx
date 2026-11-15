@@ -74,6 +74,8 @@ interface Floating { x: number; y: number; target: Target; form?: { title: strin
 const BLANK = { title: "", sub: "", who: "" }
 const targetOf = (n: Node): Target | null => (n.type === "box" ? { kind: "node", id: n.id } : n.type === "stage" ? { kind: "stage", id: n.id.replace(/^stage-/, "") } : n.type === "lane" ? { kind: "lane", index: Number(n.id.replace("lane", "")) } : null)
 
+const START_NARROW = { x: 8, y: DIM.header * 0.9 + 8, zoom: 0.9 }
+
 export function ProcessMap(props: { map: Layer; onChange?: (next: Layer) => void; rootName?: string }) {
   return <ReactFlowProvider><Inner {...props} /></ReactFlowProvider>
 }
@@ -87,7 +89,7 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
   const [picked, setPicked] = useState<Target | null>(null)
   const [history, setHistory] = useState<{ past: Layer[]; future: Layer[] }>({ past: [], future: [] })
   const wrap = useRef<HTMLDivElement>(null)
-  const { screenToFlowPosition, fitView } = useReactFlow()
+  const { screenToFlowPosition, fitView, setViewport } = useReactFlow()
   // A path that no longer leads anywhere (what it went through was removed) falls back to the nearest layer that exists.
   const livePath = useMemo(() => { let p = path; while (p.length && !layerAt(map, p)) p = p.slice(0, -1); return p }, [map, path])
   const layer = layerAt(map, livePath) ?? map, names = crumbs(map, livePath), lanes = isLanes(layer), can = !!onChange
@@ -96,7 +98,8 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
   const edges = useMemo(() => toEdges(layer.links, place(layer), lanes), [layer, lanes])
   const issues = useMemo(() => (can ? checkLayer(layer) : []), [layer, can])
   const pathKey = livePath.map((s) => s.id).join("/")
-  // On a phone the whole map shrunk to fit is too small to read: open at a size the words can be read, and let it be dragged.
+  // On a phone the whole map shrunk to fit is too small to read: open at a size the words can be read (0.9 makes a
+  // step's title 12px), from the top left corner where the process starts, and let it be dragged.
   const narrow = typeof window !== "undefined" && window.innerWidth < 700
   useEffect(() => { setPicked(null) }, [pathKey])
   // What was picked may have been removed or moved since: only offer what is still there.
@@ -119,7 +122,7 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
   const redo = useCallback(() => { const next = history.future[0]; if (!next || !onChange) return; setHistory({ past: [...history.past, map], future: history.future.slice(1) }); onChange(next) }, [history, map, onChange])
   const back = useCallback(() => setPath((p) => p.slice(0, -1)), [])
   const open = (kind: "stage" | "node", id: string) => { const door = doorOf(layer, kind, id); if (door) { setPath([...livePath, door]); setFloat(null) } return !!door }
-  const tidy = () => { setNodes(toNodes(layer, linking)); requestAnimationFrame(() => fitView({ padding: 0.04, duration: 250, minZoom: narrow ? 0.6 : 0.25 })) }
+  const tidy = () => { setNodes(toNodes(layer, linking)); requestAnimationFrame(() => { if (narrow) setViewport(START_NARROW); else fitView({ padding: 0.04, duration: 250 }) }) }
 
   // Keys, while the pointer is over the drawing: Esc closes what is open on top (a form, a menu, a line or step being
   // placed) and otherwise goes back one layer; Ctrl+Z undoes and Ctrl+Shift+Z (or Ctrl+Y) redoes.
@@ -234,7 +237,7 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
       <div ref={wrap} className={`opx-pm${lanes ? "" : " sub"}${placing ? " placing" : ""}`} onContextMenu={(e) => { if (can) e.preventDefault() }}>
         <ReactFlow
           key={livePath.map((s) => s.id).join("/") || "top"} nodes={nodes} edges={edges} onNodesChange={onNodesChange} nodeTypes={nodeTypes}
-          fitView fitViewOptions={{ padding: 0.04, minZoom: narrow ? 0.6 : 0.25 }} minZoom={0.25} maxZoom={1.6} nodesConnectable={false} zoomOnDoubleClick={false} deleteKeyCode={null} nodesDraggable={can}
+          fitView={!narrow} defaultViewport={narrow ? START_NARROW : undefined} fitViewOptions={{ padding: 0.04 }} minZoom={0.25} maxZoom={1.6} nodesConnectable={false} zoomOnDoubleClick={false} deleteKeyCode={null} nodesDraggable={can}
           onNodeDoubleClick={(_, n) => { const tg = targetOf(n); if (tg && (tg.kind === "node" || tg.kind === "stage")) open(tg.kind, tg.id) }}
           onNodeClick={(e, n) => {
             if (placing && n.type === "lane") { const c = cellAt(layer, flowAt(e)); if (c && stepInto(c, at(e))) setPlacing(false) }
