@@ -8,6 +8,7 @@ import { StackProvider, StackTheme } from "@stackframe/stack"
 import { stackServerApp } from "@/lib/auth/stack-auth"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister"
+import { StagingMark } from "@/components/layout/StagingMark"
 import { FeedbackWidget } from "@/components/feedback/FeedbackWidget"
 import { AskSheet } from "@/components/agents/AskSheet"
 import { Attention } from "@/components/agents/Attention"
@@ -61,6 +62,7 @@ export default function RootLayout({
         <Toaster position="top-center" theme="system" richColors />
         <Analytics />
         <ServiceWorkerRegister />
+        <StagingMark />
         <FeedbackWidget source="ai-project-planner" />
         <AskSheet />
         <Attention />
