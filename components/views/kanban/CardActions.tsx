@@ -37,7 +37,7 @@ export function CardActions({
         type="button"
         className={btn}
         title={isDone ? "Reopen" : "Mark done"}
-        aria-label={isDone ? "Reopen" : "Mark done"}
+        aria-label={`${isDone ? "Reopen" : "Mark done"}: ${step.title}`}
         aria-pressed={isDone}
         onClick={(e) => { e.stopPropagation(); onToggleComplete(step) }}
         style={isDone ? { color: "var(--opx-good,#307e59)" } : undefined}
@@ -49,7 +49,7 @@ export function CardActions({
           type="button"
           className={btn}
           title="Start"
-          aria-label="Start"
+          aria-label={`Start: ${step.title}`}
           onClick={(e) => { e.stopPropagation(); onPatch(step.id, { status: activeKey }) }}
         >
           <Play className="h-3.5 w-3.5" strokeWidth={2.25} />
@@ -59,7 +59,7 @@ export function CardActions({
         type="button"
         className={btn}
         title={flagged ? "Remove flag" : "Flag"}
-        aria-label={flagged ? "Remove flag" : "Flag"}
+        aria-label={`${flagged ? "Remove flag" : "Flag"}: ${step.title}`}
         aria-pressed={flagged}
         onClick={(e) => {
           e.stopPropagation()
@@ -74,7 +74,7 @@ export function CardActions({
           type="button"
           className={btn}
           title="Set due date"
-          aria-label="Set due date"
+          aria-label={`Set due date: ${step.title}`}
           onClick={(e) => {
             e.stopPropagation()
             const el = dateRef.current
@@ -88,7 +88,7 @@ export function CardActions({
         <input
           ref={dateRef}
           type="date"
-          aria-label="Due date"
+          aria-label={`Due date: ${step.title}`}
           tabIndex={-1}
           defaultValue={step.end_date ? step.end_date.slice(0, 10) : ""}
           onChange={(e) => onPatch(step.id, { end_date: e.target.value || null })}

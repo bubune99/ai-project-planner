@@ -698,6 +698,7 @@ export const KanbanBoard = React.forwardRef<HTMLDivElement, KanbanBoardProps>(
                   {onAddTask && (
                     <button
                       type="button"
+                      aria-label={`Add task to ${col.name}`}
                       onClick={() => onAddTask(col.id)}
                       className={cn(
                         "mt-2 flex w-full items-center gap-1.5 rounded-[10px] px-2 py-2 text-[12.5px] font-medium",
