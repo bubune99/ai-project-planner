@@ -146,9 +146,11 @@ export function KanbanToolbar({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All priorities</SelectItem>
+                <SelectItem value="urgent">Urgent</SelectItem>
                 <SelectItem value="high">High</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="medium">Normal</SelectItem>
                 <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="none">No priority</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -229,6 +231,7 @@ export function KanbanToolbar({
         variant={expandSubtasks ? "secondary" : "outline"}
         size="sm"
         className="h-8"
+        aria-pressed={expandSubtasks}
         onClick={() => onExpandSubtasksChange(!expandSubtasks)}
         title={expandSubtasks ? "Collapse subtasks on cards" : "Expand subtasks on cards"}
       >
@@ -241,6 +244,7 @@ export function KanbanToolbar({
         variant="outline"
         size="sm"
         className="h-8"
+        aria-pressed={showCompleted}
         onClick={() => onShowCompletedChange(!showCompleted)}
         title={showCompleted ? "Hide completed" : "Show completed"}
       >

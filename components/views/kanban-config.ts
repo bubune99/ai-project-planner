@@ -80,9 +80,13 @@ export function tagColor(name: string): string {
   return STATUS_PALETTE[h % STATUS_PALETTE.length]
 }
 
+// Every priority a step can have gets a column. Urgent was missing: grouped by priority, urgent steps were on no
+// column at all and vanished from the board (5 of 86 on the planner's own project, found by the page checks).
+// "medium" in the data is shown as "Normal", the word the cards use.
 export const PRIORITY_COLUMNS: ColumnDef[] = [
+  { key: "urgent", label: "Urgent", pillClass: "bg-rose-500/15 text-rose-300", dotClass: "bg-rose-500" },
   { key: "high", label: "High", pillClass: "bg-red-500/15 text-red-400", dotClass: "bg-red-500" },
-  { key: "medium", label: "Medium", pillClass: "bg-yellow-500/15 text-yellow-400", dotClass: "bg-yellow-500" },
+  { key: "medium", label: "Normal", pillClass: "bg-yellow-500/15 text-yellow-400", dotClass: "bg-yellow-500" },
   { key: "low", label: "Low", pillClass: "bg-green-500/15 text-green-400", dotClass: "bg-green-500" },
   { key: NONE_KEY, label: "No Priority", pillClass: "bg-zinc-500/15 text-zinc-300", dotClass: "bg-zinc-400", hideWhenEmpty: true },
 ]
@@ -160,7 +164,7 @@ export function patchForMove(groupBy: GroupBy, columnKey: string): Record<string
   }
 }
 
-const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 }
+export const PRIORITY_RANK: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 }
 
 export function sortSteps(steps: BoardStep[], sortBy: SortBy): BoardStep[] {
   const sorted = [...steps]
@@ -169,7 +173,7 @@ export function sortSteps(steps: BoardStep[], sortBy: SortBy): BoardStep[] {
       sorted.sort((a, b) => a.order_index - b.order_index)
       break
     case "priority":
-      sorted.sort((a, b) => (PRIORITY_RANK[a.priority ?? ""] ?? 3) - (PRIORITY_RANK[b.priority ?? ""] ?? 3))
+      sorted.sort((a, b) => (PRIORITY_RANK[a.priority ?? ""] ?? 4) - (PRIORITY_RANK[b.priority ?? ""] ?? 4))
       break
     case "due":
       sorted.sort((a, b) => {
