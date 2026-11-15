@@ -112,14 +112,14 @@ export function ColumnMenu({
                 className="w-3 h-3 rounded-full border border-border mr-1 shrink-0"
                 style={column.colorHex ? { backgroundColor: column.colorHex } : undefined}
               />
-              Colour
+              Color
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="p-2">
               <div className="flex flex-wrap gap-1.5 w-[132px]">
                 {STATUS_PALETTE.map((c) => (
                   <button
                     key={c}
-                    aria-label={`Set column colour ${c}`}
+                    aria-label={`Set column color ${c}`}
                     onClick={() => editColumn(column.key, { color: c })}
                     className={`w-5 h-5 rounded-full border-2 transition-transform hover:scale-110 ${
                       column.colorHex === c ? "border-foreground" : "border-transparent"
