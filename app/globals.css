@@ -362,7 +362,7 @@ body::before {
 
 /* ---------- Table ---------- */
 .j-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.j-table th { text-align: left; font-weight: 500; font-size: 11px; color: oklch(0.556 0 0); text-transform: uppercase; letter-spacing: 0.08em; padding: 10px 12px; border-bottom: 1px solid var(--j-hairline); }
+.j-table th { text-align: left; font-weight: 500; font-size: 12px; color: oklch(0.556 0 0); text-transform: uppercase; letter-spacing: 0.08em; padding: 10px 12px; border-bottom: 1px solid var(--j-hairline); }
 .j-table td { padding: 12px; border-bottom: 1px solid var(--j-hairline); vertical-align: middle; }
 .j-table tr:hover td { background: oklch(1 0 0 / 0.02); }
 
