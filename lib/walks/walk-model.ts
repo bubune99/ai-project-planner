@@ -51,7 +51,23 @@ export interface Finding {
   step?: number
   /** What would have made it work, when the walker has an idea. */
   suggest?: string
+  /** The owner's call on a finding that was theirs: change it (it becomes a task for agents) or leave it as it is. */
+  settled?: Settled
 }
+/** Only the owner settles a finding, and only from a signed-in session. An agent sending a walk cannot set this. */
+export interface Settled { call: "do" | "leave"; at: string; task?: string }
+/** What makes two findings the same finding: its kind and its words. */
+export const findingKey = (f: Pick<Finding, "kind" | "what">): string => `${f.kind}|${f.what.toLowerCase()}`
+/** A walk with every finding of that key settled (or, with null, put back to open). A new walk: nothing is changed in place. */
+export function settleIn<W extends Walk>(walk: W, key: string, settled: Settled | null): W {
+  return { ...walk, findings: walk.findings.map((f) => {
+    if (findingKey(f) !== key) return f
+    const { settled: _was, ...rest } = f
+    return settled ? { ...rest, settled } : rest
+  }) }
+}
+/** A walk as an agent may send it: whatever it says about the owner's calls is dropped. */
+export const withoutCalls = <W extends Walk>(walk: W): W => ({ ...walk, findings: walk.findings.map(({ settled: _s, ...rest }) => rest) })
 export interface Walk {
   goal: string
   /** Ids from the project's People and flows, when the goal is one of its use cases. */
@@ -129,7 +145,9 @@ export function parseWalk(raw: unknown): { walk: Walk; errors: string[] } {
     if (!what) errors.push(`Finding ${i + 1} does not say what was found`)
     const step = Number.isInteger(r.step) && (r.step as number) >= 0 && (r.step as number) < steps.length ? (r.step as number) : undefined
     const suggest = text(r.suggest), lens = LENSES.find((l) => l === r.lens)
-    return { kind: kind ?? "friction", what, ...(lens ? { lens } : {}), ...(step !== undefined ? { step } : {}), ...(suggest ? { suggest } : {}) }
+    const s = (r.settled && typeof r.settled === "object" ? r.settled : null) as Record<string, unknown> | null
+    const settled: Settled | undefined = s && (s.call === "do" || s.call === "leave") && typeof s.at === "string" ? { call: s.call, at: s.at, ...(typeof s.task === "string" ? { task: s.task } : {}) } : undefined
+    return { kind: kind ?? "friction", what, ...(lens ? { lens } : {}), ...(step !== undefined ? { step } : {}), ...(suggest ? { suggest } : {}), ...(settled ? { settled } : {}) }
   })
   const scores: Partial<Record<Lens, LensScore>> = {}
   const rawScores = (o.scores && typeof o.scores === "object" && !Array.isArray(o.scores) ? o.scores : {}) as Record<string, unknown>
@@ -176,14 +194,25 @@ export function coverage(useCases: { id: string; name: string }[], walks: Stored
   })
 }
 
-/** What a set of walks leaves open, newest walk first: each finding once, with who deals with it. */
+/**
+ * What a set of walks leaves open, newest walk first: each finding once, with who deals with it.
+ * The owner's call on a finding holds for every walk that met it, later ones included: left as it is, it is no longer
+ * open; to be changed, it is the agents' work.
+ */
 export function openFindings(walks: StoredWalk[]): (Finding & { walk: string; goal: string; who: "agents" | "owner" })[] {
+  const calls = new Map<string, Settled>()
+  for (const w of walks) for (const f of w.findings) {
+    const k = findingKey(f), had = calls.get(k)
+    if (f.settled && (!had || f.settled.at > had.at)) calls.set(k, f.settled)
+  }
   const seen = new Set<string>(), out: (Finding & { walk: string; goal: string; who: "agents" | "owner" })[] = []
   for (const w of [...walks].sort((a, b) => b.at.localeCompare(a.at))) for (const f of w.findings) {
-    const key = `${f.kind}|${f.what.toLowerCase()}`
+    const key = findingKey(f)
     if (seen.has(key)) continue
     seen.add(key)
-    out.push({ ...f, walk: w.id, goal: w.goal, who: handledBy(f, w.scores).who })
+    const call = calls.get(key)
+    if (call?.call === "leave") continue
+    out.push({ ...f, ...(call ? { settled: call } : {}), walk: w.id, goal: w.goal, who: call?.call === "do" ? "agents" : handledBy(f, w.scores).who })
   }
   return out
 }

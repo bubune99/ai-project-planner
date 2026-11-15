@@ -955,3 +955,15 @@ a.opx-stat:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
   .opx-waiting > button { min-height: 32px; }
 }
 .opx-ch-need { flex-basis: 100%; margin: 6px 0 0; font-size: 13px; color: var(--opx-hot); }
+
+/* Waiting on you: a finding that is the owner's call has its two answers beside it; rows do not stretch across a wide screen. */
+.opx-waiting-row, .opx-waiting-call, .opx-waiting-said { max-width: 980px; }
+.opx-waiting-call { display: flex; gap: 14px; align-items: center; justify-content: space-between; padding: 12px 0; border-top: 1px solid var(--opx-line); }
+.opx-waiting-call > div:first-child { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.opx-waiting-acts { display: flex; gap: 8px; flex: none; }
+.opx-waiting-foot { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.opx-waiting-said { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin: 8px 0; padding: 10px 14px; border-radius: 12px; background: var(--opx-soft); font-size: 13.5px; }
+@media (max-width: 700px) {
+  .opx-waiting-call { flex-direction: column; align-items: stretch; }
+  .opx-waiting-acts .opx-btn { flex: 1; min-height: 44px; }
+}

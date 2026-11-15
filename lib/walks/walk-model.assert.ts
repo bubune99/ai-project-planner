@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { HANDLED_BY, LENSES, coverage, handledBy, lowScores, openFindings, parseWalk, walkLine, type StoredWalk, type Walk } from "./walk-model"
+import { HANDLED_BY, LENSES, coverage, findingKey, handledBy, lowScores, openFindings, parseWalk, settleIn, walkLine, withoutCalls, type StoredWalk, type Walk } from "./walk-model"
 
 let n = 0
 const ok = (name: string, fn: () => void) => { fn(); n++; console.log("ok ", name) }
@@ -59,6 +59,27 @@ ok("the same finding met on two walks is listed once, from the newest", () => {
   const walks = [S("w1", "2026-11-14T10:00:00Z", { findings: [{ kind: "gap", what: "No undo" }] }), S("w2", "2026-11-14T12:00:00Z", { findings: [{ kind: "gap", what: "no undo" }, { kind: "error", what: "Save fails" }] })]
   const open = openFindings(walks)
   assert.deepEqual(open.map((f) => [f.what, f.walk, f.who]), [["no undo", "w2", "agents"], ["Save fails", "w2", "agents"]])
+})
+
+ok("the owner's call on a finding: left as it is, it is no longer open; to be changed, it is the agents' work; and it can be put back", () => {
+  const hard = { kind: "friction" as const, what: "The list is long", suggest: "Group it" }
+  const w1 = S("w1", "2026-11-14T10:00:00Z", { findings: [hard, { kind: "taste", what: "Blue is cold" }] })
+  const w2 = S("w2", "2026-11-14T12:00:00Z", { findings: [{ ...hard, what: "the list is long" }] })     // met again, later
+  const key = findingKey(hard)
+  assert.deepEqual(openFindings([w1, w2]).map((f) => [f.what, f.who]), [["the list is long", "owner"], ["Blue is cold", "owner"]])
+  const left = [w1, w2].map((w) => settleIn(w, key, { call: "leave", at: "2026-11-15T09:00:00Z" }))
+  assert.deepEqual(openFindings(left).map((f) => f.what), ["Blue is cold"])
+  assert.equal(w1.findings[0].settled, undefined)                                                         // nothing changed in place
+  const todo = [w1, w2].map((w) => settleIn(w, key, { call: "do", at: "2026-11-15T09:00:00Z", task: "t1" }))
+  assert.deepEqual(openFindings(todo).map((f) => [f.what, f.who, f.settled?.task]), [["the list is long", "agents", "t1"], ["Blue is cold", "owner", undefined]])
+  assert.deepEqual(openFindings(todo.map((w) => settleIn(w, key, null))).map((f) => f.who), ["owner", "owner"])
+  // A walk made after the call still obeys it: the same thing found again does not come back to the owner.
+  const w3 = S("w3", "2026-11-16T08:00:00Z", { findings: [hard] })
+  assert.deepEqual(openFindings([...left, w3]).map((f) => f.what), ["Blue is cold"])
+  // The call is read back from a stored walk, and an agent's walk cannot carry one in.
+  assert.equal(parseWalk(JSON.parse(JSON.stringify(left[0]))).walk.findings[0].settled?.call, "leave")
+  assert.equal(parseWalk({ ...good, findings: [{ ...hard, settled: { call: "maybe", at: "x" } }] }).walk.findings[0].settled, undefined)
+  assert.equal(withoutCalls(left[0]).findings.some((f) => f.settled), false)
 })
 
 ok("the six are scored 1 to 5, each with what was seen", () => {

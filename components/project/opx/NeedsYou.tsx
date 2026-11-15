@@ -10,7 +10,7 @@
 import { useMemo, useState } from "react"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import type { InboxItem } from "@/lib/inbox"
-import { KIND_WORD, type StoredWalk } from "@/lib/walks/walk-model"
+import { KIND_WORD, findingKey, type StoredWalk } from "@/lib/walks/walk-model"
 import { needsYou, needsYouLine, type WaitingChange } from "@/lib/project/needs-you"
 import { QuestionCard } from "@/components/inbox/QuestionCard"
 import { useJson } from "./shared"
@@ -27,16 +27,36 @@ export function useNeedsYou(projectId: string) {
     const items: InboxItem[] = (Array.isArray(inbox.data) ? inbox.data : inbox.data?.data ?? []).filter((q: InboxItem) => !answered.includes(q.id))
     return needsYou(projectId, { inbox: items, changes: changes.data?.changes ?? [], walks: walks.data?.walks ?? [] })
   }, [projectId, inbox.data, changes.data, walks.data, answered])
-  return { value, loading: inbox.loading || changes.loading || walks.loading, markAnswered: (id: string) => setAnswered((a) => [...a, id]) }
+  /** The owner's call on a finding that was theirs. Their own session only; the server refuses anyone else. */
+  const settle = async (key: string, call: "do" | "leave" | null): Promise<string | null> => {
+    const res = await fetch(`/api/projects/${projectId}/gates/walks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "settle", key, call }) })
+    const j = await res.json().catch(() => null)
+    if (!res.ok) return j?.error || "Could not save that"
+    walks.reload()
+    return null
+  }
+  return { value, loading: inbox.loading || changes.loading || walks.loading, markAnswered: (id: string) => setAnswered((a) => [...a, id]), settle }
 }
 
 export function NeedsYou({ state, onOpenTab }: { state: ReturnType<typeof useNeedsYou>; onOpenTab: (tab: string) => void }) {
-  const { value: y, loading, markAnswered } = state
+  const { value: y, loading, markAnswered, settle } = state
+  const [allYours, setAllYours] = useState(false)
+  /** The call just made, so it can be taken back from where it was made. */
+  const [said, setSaid] = useState<{ key: string; what: string; call: "do" | "leave" } | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [failed, setFailed] = useState<string | null>(null)
+  async function call(key: string, what: string, c: "do" | "leave" | null) {
+    setBusy(key); setFailed(null)
+    const err = await settle(key, c)
+    setBusy(null)
+    if (err) { setFailed(err); return }
+    setSaid(c ? { key, what, call: c } : null)
+  }
   const [open, setOpen] = useState(true)
   const [later, setLater] = useState<string[]>([])
   const [showAgents, setShowAgents] = useState(false)
-  if (loading && y.count === 0 && y.agents.length === 0) return null
-  if (y.count === 0 && y.agents.length === 0 && y.walks.total === 0) return null
+  if (loading && y.count === 0 && y.agents.length === 0 && !said) return null
+  if (y.count === 0 && y.agents.length === 0 && y.walks.total === 0 && !said) return null
 
   const questions = [...y.questions.filter((q) => !later.includes(q.id)), ...y.questions.filter((q) => later.includes(q.id))]
   return (
@@ -75,34 +95,53 @@ export function NeedsYou({ state, onOpenTab }: { state: ReturnType<typeof useNee
             </div>
           )}
 
-          {y.yours.length > 0 && (
+          {(y.yours.length > 0 || said) && (
             <div>
               <p style={label}>Your call: it works, but is it how you want it</p>
-              {y.yours.map((f, i) => (
-                <div key={i} style={{ ...row, flexDirection: "column", gap: 4 }}>
-                  <span style={{ fontSize: 14 }}>{f.what}</span>
-                  <span style={{ fontSize: 12.5, color: "var(--opx-muted)" }}>
-                    Met while trying to: {f.goal}{f.suggest ? `. Suggested: ${f.suggest}` : ""}
-                  </span>
-                </div>
-              ))}
-              <button type="button" className="opx-link" onClick={() => onOpenTab("people")}>See the walks in People and flows</button>
+              {said && (
+                <p className="opx-waiting-said" role="status">
+                  <span><b>{said.call === "do" ? "You said: change it." : "You said: leave it as it is."}</b> {said.what}{said.call === "do" ? " It is on the task list for agents." : ""}</span>
+                  <button type="button" className="opx-link" disabled={busy === said.key} onClick={() => call(said.key, said.what, null)}>Undo</button>
+                </p>
+              )}
+              {failed && <p role="alert" className="opx-ch-need">{failed}</p>}
+              {(allYours ? y.yours : y.yours.slice(0, 3)).map((f) => {
+                const key = findingKey(f)
+                return (
+                  <div key={key} className="opx-waiting-call">
+                    <div>
+                      <span style={{ fontSize: 14 }}>{f.what}</span>
+                      <span style={{ fontSize: 12.5, color: "var(--opx-muted)" }}>
+                        Met while trying to: {f.goal}{f.suggest ? `. Suggested: ${f.suggest}` : ""}
+                      </span>
+                    </div>
+                    <div className="opx-waiting-acts">
+                      <button type="button" className="opx-btn" disabled={busy === key} aria-label={`Change it: ${f.what}`} onClick={() => call(key, f.what, "do")}>Change it</button>
+                      <button type="button" className="opx-btn" disabled={busy === key} aria-label={`Leave it as it is: ${f.what}`} onClick={() => call(key, f.what, "leave")}>Leave it as it is</button>
+                    </div>
+                  </div>
+                )
+              })}
+              <div className="opx-waiting-foot">
+                {y.yours.length > 3 && <button type="button" className="opx-link" aria-expanded={allYours} onClick={() => setAllYours((v) => !v)}>{allYours ? "Show the first 3" : `Show all ${y.yours.length}`}</button>}
+                <button type="button" className="opx-link" onClick={() => onOpenTab("people")}>See the walks they came from</button>
+              </div>
             </div>
           )}
 
           {(y.agents.length > 0 || y.walks.total > 0) && (
-            <div>
-              <p style={label}>Not yours: found by walking the product, for agents to fix</p>
-              <div className="opx-waiting-row" style={row}>
-                <span style={{ flex: "1 1 220px", fontSize: 14 }} data-testid="needs-you-agents">
-                  {y.walks.total} {y.walks.total === 1 ? "walk" : "walks"}, {y.walks.reached} reached the goal, {y.walks.stopped} stopped short. {y.agents.length} {y.agents.length === 1 ? "thing" : "things"} to fix.
+            <div className="opx-waiting-theirs">
+              <p style={label}>Nothing for you to do here: what agents are fixing</p>
+              <p className="opx-waiting-foot" style={{ fontSize: 14, margin: "6px 0 0" }}>
+                <span data-testid="needs-you-agents">
+                  Agents walked the product {y.walks.total} {y.walks.total === 1 ? "time" : "times"} ({y.walks.reached} reached the goal, {y.walks.stopped} stopped short) and have {y.agents.length} {y.agents.length === 1 ? "thing" : "things"} to fix.
                 </span>
-                {y.agents.length > 0 && <button type="button" className="opx-link" aria-expanded={showAgents} onClick={() => setShowAgents((v) => !v)}>{showAgents ? "Hide" : "Show them"}</button>}
+                {y.agents.length > 0 && <button type="button" className="opx-link" aria-expanded={showAgents} onClick={() => setShowAgents((v) => !v)}>{showAgents ? "Hide them" : "Show them"}</button>}
                 <button type="button" className="opx-link" onClick={() => onOpenTab("people")}>Open the walks</button>
-              </div>
+              </p>
               {showAgents && y.agents.map((f, i) => (
                 <div key={i} style={{ ...row, flexDirection: "column", gap: 4 }}>
-                  <span style={{ fontSize: 14 }}><b style={{ fontWeight: 600 }}>{KIND_WORD[f.kind]}:</b> {f.what}</span>
+                  <span style={{ fontSize: 14 }}><b style={{ fontWeight: 600 }}>{f.settled?.call === "do" ? "You said to change it" : KIND_WORD[f.kind]}:</b> {f.what}</span>
                   <span style={{ fontSize: 12.5, color: "var(--opx-muted)" }}>Met while trying to: {f.goal}</span>
                 </div>
               ))}
