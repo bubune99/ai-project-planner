@@ -16,6 +16,8 @@ export function GuidesSection() {
   const { data, error, reload } = useJson<{ guides: Guide[] }>("/api/gates/guides")
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
+  /** Which lists the person has opened or closed by hand. Until they touch one, Statements opens itself when a draft waits. */
+  const [opened, setOpened] = useState<Record<string, boolean>>({})
   const guides = data?.guides ?? []
 
   async function post(body: unknown) {
@@ -45,7 +47,9 @@ export function GuidesSection() {
       )}
       {problem && <p className="opx-ck-note">{problem}</p>}
       {(["stack", "statement"] as const).map((kind) => group(kind).length > 0 && (
-        <details key={kind} open={kind === "statement" && drafts > 0}>
+        // Once touched, a list stays as the person left it. Before this, turning the last draft into a rule shut the
+        // Statements list under the person's hand, because "open" followed the number of drafts.
+        <details key={kind} open={opened[kind] ?? (kind === "statement" && drafts > 0)} onToggle={(e) => { const now = e.currentTarget.open; setOpened((o) => (o[kind] === now ? o : { ...o, [kind]: now })) }}>
           <summary>{kind === "stack" ? "Stack" : "Statements"} ({group(kind).length})</summary>
           <ul>
             {group(kind).map((g) => (
