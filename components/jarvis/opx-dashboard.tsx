@@ -92,7 +92,7 @@ export function OpxDashboard() {
       </ScrollRow>
 
       <div className="opx-2col even">
-        <Section title="Needs you" count={questions.length} action={<Link className="opx-link" href="/inbox">Open inbox ›</Link>}>
+        <Section title="Needs you" count={questions.length} action={<Link className="opx-link opx-act" href="/inbox">Open inbox ›</Link>}>
           {inboxQ.loading && !inboxQ.data && <p className="opx-muted">Loading…</p>}
           {!inboxQ.loading && questions.length === 0 && <p className="opx-muted" style={{ margin: 0 }}>Nothing is waiting on you.</p>}
           {questions.slice(0, 3).map((q) => (
@@ -108,7 +108,7 @@ export function OpxDashboard() {
             </div>
           ))}
         </Section>
-        <Section title="Overdue and blocked" count={typeof counts.overdue === "number" ? counts.overdue + blocked.length : attention.length} action={<Link className="opx-link" href="/todos">Open Today ›</Link>}>
+        <Section title="Overdue and blocked" count={typeof counts.overdue === "number" ? counts.overdue + blocked.length : attention.length} action={<Link className="opx-link opx-act" href="/todos">Open Today ›</Link>}>
           {focusQ.error && <p className="opx-muted">Couldn't load this: {focusQ.error}</p>}
           {!focusQ.loading && !focusQ.error && attention.length === 0 && <p className="opx-muted" style={{ margin: 0 }}>Nothing overdue or blocked.</p>}
           {/* Every row goes somewhere: a blocked step opens in its project, an overdue todo opens Today. */}
@@ -122,7 +122,7 @@ export function OpxDashboard() {
         </Section>
       </div>
 
-      <Section title="Projects" count={`${moving.length} active`} action={<Link className="opx-link" href="/projects">View all ›</Link>}>
+      <Section title="Projects" count={`${moving.length} active`} action={<Link className="opx-link opx-act" href="/projects">View all ›</Link>}>
         {projectsQ.loading && !projectsQ.data && <p className="opx-muted">Loading…</p>}
         <div className="opx-projs">
           {recent.map((p) => {
@@ -140,7 +140,7 @@ export function OpxDashboard() {
         </div>
       </Section>
 
-      <Section title="Latest ideas" count={ideas.length} action={<Link className="opx-link" href="/ideas">All ideas ›</Link>}>
+      <Section title="Latest ideas" count={ideas.length} action={<Link className="opx-link opx-act" href="/ideas">All ideas ›</Link>}>
         {ideas.slice(0, 6).map((i) => (
           <Link key={i.id} href={`/ideas/${i.id}`} className="opx-li" style={{ color: "inherit", textDecoration: "none" }}>
             <i className="opx-dot" style={{ background: "var(--opx-accent)" }} />

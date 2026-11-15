@@ -48,7 +48,8 @@ export function DitherBanner() {
 
   return (
     <div ref={wrap} className="opx-shader" aria-hidden>
-      <canvas ref={canvas} />
+      {/* Decoration only: hidden from screen readers, which were otherwise handed an unnamed canvas. */}
+      <canvas ref={canvas} aria-hidden="true" />
       <div className="opx-shader-vignette" />
       <div className="opx-shader-grain" />
     </div>
