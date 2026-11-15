@@ -357,7 +357,7 @@ export default function ProjectsPage() {
 
         {/* Stat strip — responsive grid (4 / 2 / 1 cols), contained on
             mobile so the whole page no longer scrolls sideways (feedback #1) */}
-        <div className="j-grid j-cols-4">
+        <div className="j-grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
           {[
             { label: "Total", value: total, cls: "" },
             { label: "Active", value: active, cls: "j-pos" },
