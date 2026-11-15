@@ -14,7 +14,7 @@ interface Answered {
   state: "unclaimed" | "claimed" | "done" | "waiting" | "set-aside"; projectName: string | null; where: string; canUndo?: boolean
 }
 
-export function AnsweredList({ refreshKey, onTakenBack }: { refreshKey?: number; /** Called after an answer is taken back, so the question can be shown waiting again. */ onTakenBack?: () => void }) {
+export function AnsweredList({ refreshKey, onTakenBack }: { refreshKey?: number; /** Called after an answer is taken back, so the question can be shown waiting again. */ onTakenBack?: () => void | Promise<void> }) {
   const [undoing, setUndoing] = useState<string | null>(null)
   const [undoError, setUndoError] = useState<{ id: string; why: string } | null>(null)
   const [items, setItems] = useState<Answered[] | null>(null)
@@ -37,7 +37,8 @@ export function AnsweredList({ refreshKey, onTakenBack }: { refreshKey?: number;
       const res = await fetch(`/api/inbox/${id}`, { method: "DELETE", credentials: "include" })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(j?.error?.message || `Could not take it back (${res.status})`)
-      await load(); onTakenBack?.()
+      // Both lists together: reloading this one first left a moment where the answer was gone and the question not yet back.
+      await Promise.all([load(), Promise.resolve(onTakenBack?.())])
     } catch (e) { setUndoError({ id, why: e instanceof Error ? e.message : "Could not take it back" }); await load() }
     setUndoing(null)
   }
