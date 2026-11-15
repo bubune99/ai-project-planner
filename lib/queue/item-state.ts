@@ -135,3 +135,28 @@ export function whereItWent(row: ItemRow, now: number): string {
   if (state === "claimed") return `Picked up by ${r.claimedBy} ${ago(r.claimedAt)}. Not finished yet.`
   return `Not picked up yet${r.askedBy ? ` (asked by ${r.askedBy})` : ""}. You answered ${ago(row.answeredAt)}.`
 }
+
+/**
+ * May the owner take an answer back and choose again? Only while nothing has acted on it: no agent has picked it up
+ * and the planner has not carried it out. A paused job he released is already running again, so that is not undone
+ * here either. After that point he says what should change, and the agent holding it changes course.
+ *
+ * Owner, 2026-11-14: "a way to see some of the decision made if I click something wrong should allow me to go back
+ * and reverse it because i just did that with one and have no way to go back".
+ */
+export function mayUndo(row: ItemRow): { ok: true } | { ok: false; why: string } {
+  const state = itemState(row), r = routing(row)
+  if (state === "waiting") return { ok: false, why: "This has not been answered yet." }
+  if (state === "set-aside") return { ok: false, why: "This item was set aside." }
+  if (row.applied) return { ok: false, why: "The planner has already carried this out." }
+  if (state === "claimed") return { ok: false, why: `${r.claimedBy} has already picked this up. Tell that agent what should change.` }
+  if (state === "done") return { ok: false, why: `${r.claimedBy ?? "An agent"} has already finished this.` }
+  if (row.status !== "completed") return { ok: false, why: "This released a paused job, which is running again." }
+  return { ok: true }
+}
+
+/** The metadata after an answer is taken back: keeps what he had said, so the record shows he changed his mind. */
+export function undoPatch(metadata: Record<string, unknown> | null, a: { was: string | null; now: number }): Record<string, unknown> {
+  const m = metadata ?? {}, before = Array.isArray(m.takenBack) ? (m.takenBack as unknown[]).slice(-9) : []
+  return { ...m, takenBack: [...before, { at: new Date(a.now).toISOString(), was: a.was }] }
+}

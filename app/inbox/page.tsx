@@ -96,7 +96,7 @@ export default function InboxPage() {
         ))}
 
         {/* Where each answer went: not picked up, picked up by an agent, or finished. */}
-        <AnsweredList refreshKey={answeredTick} />
+        <AnsweredList refreshKey={answeredTick} onTakenBack={load} />
       </div>
     </DashboardLayout>
   )

@@ -8,12 +8,17 @@
  *
  * The UPDATE is conditional on status = 'awaiting-unlock', so a double tap or
  * a second device answering the same card gets a 409 rather than overwriting.
+ *
+ * DELETE /api/inbox/:id — take an answer back, so the question waits again. Allowed only while nothing has acted
+ * on the answer (lib/queue/item-state.ts mayUndo). What he had said is kept in the record.
  */
 import { NextRequest } from "next/server"
 import { sql } from "@/lib/db/client"
 import { successResponse, errorResponse, ErrorCodes } from "@/lib/api-utils"
 import { getAuthContext } from "@/lib/auth/auth-utils"
 import { toInboxItem, resolveAnswer, statusAfterAnswer } from "@/lib/inbox"
+import { answeredRow } from "@/lib/mcp/queue-tools"
+import { mayUndo, undoPatch } from "@/lib/queue/item-state"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -58,5 +63,36 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   } catch (error: unknown) {
     console.error("POST /api/inbox/:id failed:", error)
     return errorResponse(ErrorCodes.INTERNAL_ERROR, "Failed to save answer", 500)
+  }
+}
+
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const auth = await getAuthContext()
+    if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, "Authentication required", 401)
+    // Taking an answer back is the owner's own act: a signed-in session only, never an agent's key.
+    if (auth.authType !== "session") return errorResponse(ErrorCodes.FORBIDDEN, "Only the owner can take an answer back", 403)
+    const { id } = await params
+    const found = await answeredRow(id, auth.userId)
+    if (!found) return errorResponse(ErrorCodes.NOT_FOUND, "Not found", 404)
+    const verdict = mayUndo(found.row)
+    if (!verdict.ok) return errorResponse(ErrorCodes.CONFLICT, verdict.why, 409)
+
+    const metadata = undoPatch(found.metadata, { was: found.was, now: Date.now() })
+    // Conditional on nobody having picked it up in the meantime: an agent's claim wins the race.
+    const [updated] = (await sql`
+      UPDATE agent_jobs
+      SET status = 'awaiting-unlock', unlock_resolved_at = NULL, unlock_resolved_by = NULL, unlock_note = NULL,
+          result = NULL, completed_at = NULL, metadata = ${JSON.stringify(metadata)}::jsonb, updated_at = NOW()
+      WHERE id = ${id} AND created_by = ${auth.userId} AND status = 'completed'
+        AND NOT (COALESCE(metadata, '{}'::jsonb) ? 'claimedBy') AND NOT (COALESCE(metadata, '{}'::jsonb) ? 'doneAt')
+        AND NOT EXISTS (SELECT 1 FROM gate_plan_changes c WHERE c.question_id = agent_jobs.id AND c.status IN ('approved', 'rejected'))
+      RETURNING id, status
+    `) as Record<string, any>[]
+    if (!updated) return errorResponse(ErrorCodes.CONFLICT, "Something picked this up just now. Refresh to see where it went.", 409)
+    return successResponse({ id: updated.id, status: updated.status, was: found.was })
+  } catch (error: unknown) {
+    console.error("DELETE /api/inbox/:id failed:", error)
+    return errorResponse(ErrorCodes.INTERNAL_ERROR, "Could not take the answer back", 500)
   }
 }

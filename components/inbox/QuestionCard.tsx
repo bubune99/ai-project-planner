@@ -111,12 +111,12 @@ export function QuestionCard({ item, deferred, onDefer, onAnswered, hideProject 
         <div className="j-col" style={{ gap: 8, marginTop: 12 }}>
           <textarea
             aria-label={`Reply to: ${item.question}`}
-            className="j-search"
+            className="j-reply"
             rows={3}
             placeholder={item.options.length ? "Say what you want instead…" : "Your answer…"}
             value={reply}
             onChange={(e) => setReply(e.target.value)}
-            style={{ resize: "vertical", height: "auto", padding: 12, fontSize: 15 }}
+            autoFocus={item.options.length > 0}
           />
           <button
             className="j-btn j-btn-primary"

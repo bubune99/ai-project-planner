@@ -1,6 +1,6 @@
 // npx -y tsx@4.23.15 lib/queue/item-state.assert.ts
 import assert from "node:assert/strict"
-import { QueueError, claimPatch, donePatch, itemState, mayClaim, planChangeNote, routing, whereItWent, type ItemRow } from "./item-state"
+import { QueueError, claimPatch, donePatch, itemState, mayClaim, mayUndo, planChangeNote, undoPatch, routing, whereItWent, type ItemRow } from "./item-state"
 
 let n = 0
 const t = (name: string, fn: () => void) => { fn(); n++; console.log("ok  ", name) }
@@ -87,6 +87,21 @@ t("an answer the planner carried out itself is finished, and says what it did", 
   assert.equal(refused.ok, false)
   // An agent's own finish still reads as the agent's.
   assert.match(whereItWent({ ...base, metadata: { claimedBy: "builder", doneAt: "2026-11-14T23:11:00Z", doneNote: "Did the thing asked for." } }, new Date("2026-11-14T23:41:00Z").getTime()), /^Finished by builder/)
+})
+
+t("an answer can be taken back only while nothing has acted on it", () => {
+  const base: ItemRow = { status: "completed", askedBy: "builder", projectId: "p1", answeredAt: "2026-11-14T17:14:00Z", metadata: {} }
+  assert.deepEqual(mayUndo(base), { ok: true })
+  assert.equal(mayUndo({ ...base, status: "awaiting-unlock" }).ok, false)
+  const claimed = mayUndo({ ...base, metadata: { claimedBy: "builder", claimedAt: "2026-11-14T17:20:00Z" } })
+  assert.equal(claimed.ok, false); assert.match((claimed as { why: string }).why, /builder has already picked this up/)
+  assert.equal(mayUndo({ ...base, metadata: { claimedBy: "builder", doneAt: "x", doneNote: "y" } }).ok, false)
+  assert.match((mayUndo({ ...base, applied: { at: null, what: "in the plan" } }) as { why: string }).why, /planner has already carried this out/)
+  assert.match((mayUndo({ ...base, status: "queued" }) as { why: string }).why, /paused job/)
+  const m = undoPatch({ askedFrom: "/work" }, { was: "Merge", now: new Date("2026-11-15T12:00:00Z").getTime() })
+  assert.equal(m.askedFrom, "/work")
+  assert.deepEqual(m.takenBack, [{ at: "2026-11-15T12:00:00.000Z", was: "Merge" }])
+  assert.equal((undoPatch(m, { was: "Keep", now: 0 }).takenBack as unknown[]).length, 2)
 })
 
 console.log(`\n${n} item-state checks passed`)

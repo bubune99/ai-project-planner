@@ -13,7 +13,7 @@
 import { z } from "zod"
 import { sql } from "@/lib/db/client"
 import { getMcpUserId, requireMcpScope } from "@/lib/auth/mcp-context"
-import { QueueError, claimPatch, donePatch, itemState, mayClaim, planChangeNote, routing, whereItWent, type ItemRow } from "@/lib/queue/item-state"
+import { QueueError, claimPatch, donePatch, itemState, mayClaim, mayUndo, planChangeNote, routing, whereItWent, type ItemRow } from "@/lib/queue/item-state"
 
 function ok(data: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(data) }] }
@@ -44,12 +44,25 @@ export const toItemRow = (j: Pick<JobRow, "status" | "assigned_to" | "input" | "
 
 const answerOf = (j: JobRow) => j.result?.answer?.option || j.result?.answer?.reply || j.unlock_note || null
 
+/** One answered question with what the planner did with it, for the owner's undo. Null when it is not his or not found. */
+export async function answeredRow(questionId: string, userId: string) {
+  if (!UUID.test(questionId)) return null
+  const [j] = (await sql`
+    SELECT j.id, j.title, j.status, j.assigned_to, j.input, j.metadata, j.result, j.unlock_note, j.unlock_prompt, j.unlock_resolved_at, j.created_at,
+           c.action AS pc_action, c.item->>'label' AS pc_label, c.route AS pc_route, c.status AS pc_status, c.decided_at AS pc_decided_at
+    FROM agent_jobs j
+    LEFT JOIN LATERAL (SELECT action, item, route, status, decided_at FROM gate_plan_changes WHERE question_id = j.id LIMIT 1) c ON true
+    WHERE j.id = ${questionId} AND j.created_by = ${userId} AND j.unlock_prompt IS NOT NULL
+  `) as (JobRow & Partial<PlanChange>)[]
+  return j ? { row: toItemRow(j), was: answerOf(j), metadata: j.metadata } : null
+}
+
 function describe(j: JobRow & Partial<PlanChange>, now: number) {
   const row = toItemRow(j), r = routing(row)
   return {
     questionId: j.id, question: j.unlock_prompt || j.title, answer: answerOf(j), answeredAt: row.answeredAt,
     state: itemState(row), projectId: row.projectId, askedBy: r.askedBy, askedFrom: r.askedFrom,
-    claimedBy: r.claimedBy, claimedAt: r.claimedAt, where: whereItWent(row, now),
+    claimedBy: r.claimedBy, claimedAt: r.claimedAt, where: whereItWent(row, now), canUndo: mayUndo(row).ok,
   }
 }
 

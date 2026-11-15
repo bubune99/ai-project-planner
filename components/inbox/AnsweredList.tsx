@@ -11,10 +11,12 @@ import { useCallback, useEffect, useState } from "react"
 
 interface Answered {
   questionId: string; question: string; answer: string | null; answeredAt: string | null
-  state: "unclaimed" | "claimed" | "done" | "waiting" | "set-aside"; projectName: string | null; where: string
+  state: "unclaimed" | "claimed" | "done" | "waiting" | "set-aside"; projectName: string | null; where: string; canUndo?: boolean
 }
 
-export function AnsweredList({ refreshKey }: { refreshKey?: number }) {
+export function AnsweredList({ refreshKey, onTakenBack }: { refreshKey?: number; /** Called after an answer is taken back, so the question can be shown waiting again. */ onTakenBack?: () => void }) {
+  const [undoing, setUndoing] = useState<string | null>(null)
+  const [undoError, setUndoError] = useState<{ id: string; why: string } | null>(null)
   const [items, setItems] = useState<Answered[] | null>(null)
   const [all, setAll] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -28,6 +30,17 @@ export function AnsweredList({ refreshKey }: { refreshKey?: number }) {
     } catch (e) { setError(e instanceof Error ? e.message : "Could not load") }
   }, [all])
   useEffect(() => { load() }, [load, refreshKey])
+
+  const takeBack = async (id: string) => {
+    setUndoing(id); setUndoError(null)
+    try {
+      const res = await fetch(`/api/inbox/${id}`, { method: "DELETE", credentials: "include" })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j?.error?.message || `Could not take it back (${res.status})`)
+      await load(); onTakenBack?.()
+    } catch (e) { setUndoError({ id, why: e instanceof Error ? e.message : "Could not take it back" }); await load() }
+    setUndoing(null)
+  }
 
   if (error) return <p className="j-muted" role="alert" style={{ fontSize: 13 }}>Couldn&apos;t load what you answered: {error}</p>
   if (!items) return null
@@ -52,6 +65,12 @@ export function AnsweredList({ refreshKey }: { refreshKey?: number }) {
           <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, overflowWrap: "anywhere" }}>{i.question}</p>
           <p style={{ margin: "6px 0 0", fontSize: 14, overflowWrap: "anywhere" }}><span className="j-muted">You said: </span>{i.answer ?? "(no text)"}</p>
           <p data-testid="answer-where" style={{ margin: "8px 0 0", fontSize: 13, fontWeight: i.state === "unclaimed" ? 600 : 400 }} className={i.state === "unclaimed" ? undefined : "j-muted"}>{i.where}</p>
+          {i.canUndo && (
+            <button type="button" className="j-btn j-btn-ghost" data-testid="answer-undo" style={{ minHeight: 44, marginTop: 8 }} disabled={undoing !== null} onClick={() => takeBack(i.questionId)} aria-label={`Change my answer to: ${i.question}`}>
+              {undoing === i.questionId ? "Taking it back" : "Change my answer"}
+            </button>
+          )}
+          {undoError?.id === i.questionId && <p role="alert" className="j-neg" style={{ margin: "6px 0 0", fontSize: 13 }}>{undoError.why}</p>}
         </article>
       ))}
     </section>
