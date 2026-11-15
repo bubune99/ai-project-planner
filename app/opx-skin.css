@@ -111,10 +111,11 @@ code, pre, kbd, samp, .font-mono { font-family: var(--font-inter), Inter, system
 .j-pill.j-pos  { background: color-mix(in srgb, var(--opx-good) 18%, transparent); color: var(--opx-good); }
 .j-pill.j-neg  { background: color-mix(in srgb, var(--opx-hot) 18%, transparent); color: var(--opx-hot); }
 .j-pill.j-warn { background: color-mix(in srgb, var(--opx-warn) 18%, transparent); color: var(--opx-warn); }
-.j-pill.j-info, .j-pill.j-proj { background: color-mix(in srgb, var(--opx-accent) 18%, transparent); color: var(--opx-accent); }
+/* Text on the tinted pill is a darker blue than the accent: the accent on its own tint was 3.9 to 1 in light. */
+.j-pill.j-info, .j-pill.j-proj { background: color-mix(in srgb, var(--opx-accent) 18%, transparent); color: #3d6294; }
 .j-pill.j-biz  { background: color-mix(in srgb, var(--opx-violet) 18%, transparent); color: var(--opx-violet); }
 .j-pill.j-muted, .j-pill.j-ghost { background: var(--opx-soft); color: var(--opx-title); box-shadow: none; }
-.dark .j-pill.j-pos { color: #6bc79c; } .dark .j-pill.j-neg { color: #e88a74; } .dark .j-pill.j-info, .dark .j-pill.j-proj { color: #8fb0db; }
+.dark .j-pill.j-pos { color: #6bc79c; } .dark .j-pill.j-neg { color: #e88a74; } .dark .j-pill.j-info, .dark .j-pill.j-proj { color: #b3cbea; }
 
 .j-progress { background: var(--opx-soft); }
 .j-progress > span { background: var(--opx-accent); }
