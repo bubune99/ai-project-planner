@@ -80,7 +80,7 @@ export function NotificationsTab() {
     setBusy(null)
   }
 
-  const label: React.CSSProperties = { fontSize: 12.5, fontWeight: 600, color: "var(--j-muted, oklch(0.556 0 0))", margin: "0 0 10px" }
+  const label: React.CSSProperties = { fontSize: 12.5, fontWeight: 600, color: "var(--opx-muted)", margin: "0 0 10px" }
   const big: React.CSSProperties = { minHeight: 44, padding: "0 16px" }
 
   return (
