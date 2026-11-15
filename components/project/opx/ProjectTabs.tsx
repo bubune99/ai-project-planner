@@ -260,7 +260,7 @@ export function SettingsTab({ projectId, project, onChange }: { projectId: strin
     setSaving(true)
     try {
       await saveProject(projectId, project,
-        { name: f.name.trim(), description: f.description, status: f.status, priority: f.priority, due_date: f.due_date || null, ...(f.github_repo_url ? { github_repo_url: f.github_repo_url } : {}) },
+        { name: f.name.trim(), description: f.description, status: f.status, priority: f.priority, due_date: f.due_date || null, github_repo_url: f.github_repo_url.trim() },
         { liveUrl: f.liveUrl.trim(), stagingUrl: f.stagingUrl.trim(), defaultTab: f.defaultTab, defaultTaskView: f.defaultTaskView, decisionsView: f.decisionsView as PlannerUi["decisionsView"], progressCountsSubtasks: f.progressCountsSubtasks, coreDocs: f.coreDocs })
       toast.success("Saved"); onChange()
     } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't save") }

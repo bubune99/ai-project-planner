@@ -140,6 +140,9 @@ export async function PATCH(
 
     const body = await request.json()
     const { name, description, status, priority, due_date, github_repo_url, metadata } = body
+    // A field that was sent empty is being cleared; a field that was not sent is left alone. Before this, an emptied
+    // description, target date or repository link was answered with "saved" and the old value stayed.
+    const sent = (k: string) => Object.prototype.hasOwnProperty.call(body, k)
 
     // Fetch existing envelope for merge
     const existingProject = await sql`SELECT documentation_5wh FROM projects WHERE id = ${id} AND user_id = ${userId}`
@@ -160,11 +163,11 @@ export async function PATCH(
       UPDATE projects
       SET
         name = COALESCE(${name || null}, name),
-        description = COALESCE(${description || null}, description),
+        description = COALESCE(${typeof description === 'string' ? description : null}, description),
         status = COALESCE(${status || null}, status),
         priority = COALESCE(${priority || null}, priority),
-        due_date = COALESCE(${due_date || null}, due_date),
-        github_repo_url = COALESCE(${github_repo_url || null}, github_repo_url),
+        due_date = CASE WHEN ${sent('due_date')}::boolean THEN ${due_date || null}::timestamp ELSE due_date END,
+        github_repo_url = CASE WHEN ${sent('github_repo_url')}::boolean THEN ${typeof github_repo_url === 'string' && github_repo_url.trim() ? github_repo_url.trim() : null} ELSE github_repo_url END,
         metadata = COALESCE(${metadata ? JSON.stringify(metadata) : null}::jsonb, metadata),
         documentation_5wh = ${envelopeForSql(mergeResult.envelope)}::jsonb,
         updated_at = NOW()
