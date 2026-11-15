@@ -187,3 +187,24 @@ export function filterCounts(items: WorkItem[], now: Date = new Date()): Record<
   for (const [k] of WORK_ONLY) out[k] = items.filter((x) => passesFilter(x, k, now)).length
   return out
 }
+
+/**
+ * Filters by column. Owner, 2026-11-15: "Major rule, chip filters when we can have drop downs in relation to a column.
+ * I will choose the column every time." One choice per column; the columns combine.
+ */
+export interface WorkColumns {
+  status: "any" | "open" | "active" | "stale"
+  priority: "any" | "hot" | WorkPriority | "none"
+  due: "any" | "overdue" | "week" | "nodate"
+  kind: "any" | WorkKind
+}
+export const NO_FILTER: WorkColumns = { status: "any", priority: "any", due: "any", kind: "any" }
+export const isFiltered = (f: WorkColumns) => f.status !== "any" || f.priority !== "any" || f.due !== "any" || f.kind !== "any"
+
+export function passesColumns(it: WorkItem, f: WorkColumns, now: Date = new Date()): boolean {
+  if (f.status === "stale" ? !passesFilter(it, "stale", now) : f.status !== "any" && it.statusKind !== f.status) return false
+  if (f.priority === "hot" ? !passesFilter(it, "hot", now) : f.priority === "none" ? !!it.priority : f.priority !== "any" && it.priority !== f.priority) return false
+  if (f.due !== "any" && !passesFilter(it, f.due, now)) return false
+  if (f.kind !== "any" && it.kind !== f.kind) return false
+  return true
+}

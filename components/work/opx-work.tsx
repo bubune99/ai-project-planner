@@ -13,7 +13,7 @@
 
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import { WORK_ONLY, compareWork, filterCounts, matchesQuery, passesFilter, staleDays, type WorkItem, type WorkOnly } from "@/lib/work-items"
+import { NO_FILTER, compareWork, filterCounts, isFiltered, matchesQuery, passesColumns, staleDays, type WorkColumns, type WorkItem } from "@/lib/work-items"
 import { dayOf, dayKey, type PlannedRange } from "@/lib/project-views/schedule"
 import { PlanCalendar, type CalExtra } from "@/components/project/opx/TaskViews"
 import { Failed, Loading, Priority, Seg, fmtDate, unwrap, useHoverTip, useJson } from "@/components/project/opx/shared"
@@ -71,11 +71,15 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
     }
   }
   const work = unwrap<WorkData>(data)
-  /** Narrowing a long list: words to look for, and one filter at a time. */
+  /**
+   * Narrowing a long list: words to look for, and one dropdown per column (owner, 2026-11-15: "Major rule, chip
+   * filters when we can have drop downs in relation to a column. I will choose the column every time.").
+   */
   const [q, setQ] = useState("")
-  const [only, setOnly] = useState<WorkOnly>("all")
+  const [cols, setCols] = useState<WorkColumns>(NO_FILTER)
   const counts = useMemo(() => filterCounts(work?.items || [], new Date()), [work])
-  const shown = useMemo(() => { const now = new Date(); return (work?.items || []).filter((x) => passesFilter(x, only, now) && matchesQuery(x, q.trim())) }, [work, only, q])
+  const shown = useMemo(() => { const now = new Date(); return (work?.items || []).filter((x) => passesColumns(x, cols, now) && matchesQuery(x, q.trim())) }, [work, cols, q])
+  const only = cols.status
   const groups = useMemo(() => {
     const now = new Date()
     const sorted = [...shown].sort((a, b) => compareWork(a, b, now))
@@ -92,7 +96,7 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
     catch (e) { setFlip((f) => ({ ...f, [w.id]: !next })); toast.error(e instanceof Error ? e.message : "Couldn't update it") }
   }
 
-  const all = work?.items.length ?? 0, total = shown.length, narrowed = only !== "all" || !!q.trim()
+  const all = work?.items.length ?? 0, total = shown.length, narrowed = isFiltered(cols) || !!q.trim()
   const today = dayOf(new Date())!
   return (
     <div className="opx-col" style={{ gap: 12 }}>
@@ -102,13 +106,23 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
       </div>
       {loading && !data && <Loading what="your work" />}
       {error && <Failed what="your work" error={error} retry={reload} />}
-      <div className="opx-wfilter" role="group" aria-label="Narrow the list">
+      <div className="opx-lv opx-lvp opx-wf" role="group" aria-label="Narrow the list">
+        <span />
         <input className="opx-input" placeholder="Find by words or project" aria-label="Find in my work" value={q} onChange={(e) => setQ(e.target.value)} />
-        {WORK_ONLY.map(([k, label]) => (
-          <button key={k} type="button" className={`opx-dc${only === k ? " on" : ""}`} aria-pressed={only === k} onClick={() => setOnly(k)}>{label} <em>{counts[k] ?? 0}</em></button>
-        ))}
-        {narrowed && <button type="button" className="opx-link opx-act" onClick={() => { setQ(""); setOnly("all") }}>Show everything</button>}
+        <select className={`opx-input${cols.status !== "any" ? " on" : ""}`} aria-label="Filter by status" value={cols.status} onChange={(e) => setCols({ ...cols, status: e.target.value as WorkColumns["status"] })}>
+          <option value="any">Status: any</option><option value="open">To do</option><option value="active">In progress</option><option value="stale">Not touched in 90 days ({counts.stale})</option>
+        </select>
+        <select className={`opx-input${cols.priority !== "any" ? " on" : ""}`} aria-label="Filter by priority" value={cols.priority} onChange={(e) => setCols({ ...cols, priority: e.target.value as WorkColumns["priority"] })}>
+          <option value="any">Priority: any</option><option value="hot">Urgent and high ({counts.hot})</option><option value="urgent">Urgent</option><option value="high">High</option><option value="medium">Normal</option><option value="low">Low</option><option value="none">None set</option>
+        </select>
+        <select className={`opx-input${cols.due !== "any" ? " on" : ""}`} aria-label="Filter by due date" value={cols.due} onChange={(e) => setCols({ ...cols, due: e.target.value as WorkColumns["due"] })}>
+          <option value="any">Due: any</option><option value="overdue">Overdue ({counts.overdue})</option><option value="week">This week ({counts.week})</option><option value="nodate">No date ({counts.nodate})</option>
+        </select>
+        <select className={`opx-input${cols.kind !== "any" ? " on" : ""}`} aria-label="Filter by type" value={cols.kind} onChange={(e) => setCols({ ...cols, kind: e.target.value as WorkColumns["kind"] })}>
+          <option value="any">Type: any</option><option value="todo">Todos ({counts.todo})</option><option value="step">Tasks ({counts.step})</option>
+        </select>
       </div>
+      {narrowed && <div className="opx-row"><button type="button" className="opx-link opx-act" onClick={() => { setQ(""); setCols(NO_FILTER) }}>Show everything</button></div>}
       {only === "stale" && total > 0 && <p className="opx-muted" style={{ margin: 0, fontSize: 13 }}>Open and not changed for 90 days or more. Each row says how long. Nothing here is closed for you.</p>}
       {!loading && !error && total === 0 && <div className="opx-empty">{narrowed ? "Nothing matches. Press Show everything to see the whole list." : view === "open" ? "Nothing open. Add something above." : "Nothing finished yet."}</div>}
       {groups.map(([g, list]) => (

@@ -9,7 +9,7 @@ import {
   groupWork,
   dueText,
   matchesQuery,
-  passesFilter, staleDays, filterCounts,
+  passesFilter, staleDays, filterCounts, passesColumns, isFiltered, NO_FILTER, type WorkColumns,
   type WorkItem,
 } from "./work-items"
 
@@ -161,6 +161,19 @@ eq(matchesQuery(s, "stripe"), false, "a non-match is excluded")
   eq(ids("step"), "late,soon,far", "tasks only")
   eq(staleDays(far, NOW), 200, "how long since it was touched, in days")
   eq(JSON.stringify(filterCounts(all, NOW)), JSON.stringify({ all: 4, overdue: 1, week: 1, nodate: 1, hot: 2, stale: 2, todo: 1, step: 3 }), "counts for every filter")
+  // Owner, same day: "Major rule, chip filters when we can have drop downs in relation to a column." One choice per
+  // column, and the columns combine.
+  const pick = (f: Partial<WorkColumns>) => all.filter((x) => passesColumns(x, { ...NO_FILTER, ...f }, NOW)).map((x) => x.id).join()
+  eq(pick({}), "late,soon,far,none", "no column chosen keeps everything")
+  eq(pick({ priority: "hot" }), "soon,far", "priority column: urgent and high")
+  eq(pick({ priority: "none" }), "none", "priority column: none set")
+  eq(pick({ priority: "low" }), "late", "priority column: one level")
+  eq(pick({ due: "overdue" }), "late", "due column: overdue")
+  eq(pick({ status: "stale" }), "far,none", "status column: not touched in 90 days")
+  eq(pick({ status: "stale", kind: "step" }), "far", "columns combine")
+  eq(pick({ status: "stale", priority: "hot", due: "nodate" }), "", "columns that exclude each other leave nothing")
+  eq(isFiltered(NO_FILTER), false, "nothing chosen")
+  eq(isFiltered({ ...NO_FILTER, due: "week" }), true, "something chosen")
 }
 
 console.log(`\n${pass} passed, ${fail} failed`)
