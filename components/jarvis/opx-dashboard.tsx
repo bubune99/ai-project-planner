@@ -75,12 +75,13 @@ export function OpxDashboard() {
             {n(questions.length, inboxQ.loading)} decisions waiting on you · {n(moving.length, projectsQ.loading)} projects moving · {n(counts.overdue, todosQ.loading)} overdue
           </div>
         </div>
+        {/* Each figure opens the list it counts: they were plain tiles that led nowhere (owner, phone comment b143e615). */}
         <div className="opx-stats">
-          <div className="opx-stat"><b>{n(moving.length, projectsQ.loading)}</b><span>Active projects</span></div>
-          <div className="opx-stat"><b>{n(questions.length, inboxQ.loading)}</b><span>Waiting on you</span></div>
-          <div className="opx-stat"><b>{n(counts.active, todosQ.loading)}</b><span>Open todos</span></div>
-          <div className={`opx-stat${counts.overdue ? " hot" : ""}`}><b>{n(counts.overdue, todosQ.loading)}</b><span>Overdue</span></div>
-          <div className="opx-stat"><b>{n(ideas.length, ideasQ.loading)}</b><span>Ideas</span></div>
+          <Link href="/projects" className="opx-stat"><b>{n(moving.length, projectsQ.loading)}</b><span>Active projects</span></Link>
+          <Link href="/inbox" className="opx-stat"><b>{n(questions.length, inboxQ.loading)}</b><span>Waiting on you</span></Link>
+          <Link href="/todos" className="opx-stat"><b>{n(counts.active, todosQ.loading)}</b><span>Open todos</span></Link>
+          <Link href="/todos" className={`opx-stat${counts.overdue ? " hot" : ""}`}><b>{n(counts.overdue, todosQ.loading)}</b><span>Overdue</span></Link>
+          <Link href="/ideas" className="opx-stat"><b>{n(ideas.length, ideasQ.loading)}</b><span>Ideas</span></Link>
         </div>
       </header>
 

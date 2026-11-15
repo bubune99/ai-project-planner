@@ -940,3 +940,8 @@ button.opx-ck::before { content: ''; position: absolute; inset: -12px; }
 .opx-link.opx-act { display: inline-flex; align-items: center; min-height: 32px; padding: 0 10px; margin-right: -10px; border-radius: 10px; text-decoration: none; }
 .opx-link.opx-act:hover { background: var(--opx-soft); color: var(--opx-text); }
 @media (max-width: 640px) { .opx-link.opx-act { min-height: 44px; } }
+
+/* A figure tile that is a link: same look, with a sign that it can be pressed. */
+a.opx-stat { display: block; color: inherit; text-decoration: none; transition: transform .12s ease, box-shadow .12s ease; }
+a.opx-stat:hover { transform: translateY(-1px); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .28); }
+a.opx-stat:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
