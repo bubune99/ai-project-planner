@@ -939,7 +939,7 @@ button.opx-ck::before { content: ''; position: absolute; inset: -12px; }
    does not; the negative margin keeps the text where it was. 44 on a phone. */
 .opx-link.opx-act { display: inline-flex; align-items: center; min-height: 32px; padding: 0 10px; margin-right: -10px; border-radius: 10px; text-decoration: none; }
 .opx-link.opx-act:hover { background: var(--opx-soft); color: var(--opx-text); }
-@media (max-width: 640px) { .opx-link.opx-act { min-height: 44px; } }
+@media (max-width: 700px) { .opx-link.opx-act { min-height: 44px; } }
 
 /* A figure tile that is a link: same look, with a sign that it can be pressed. */
 a.opx-stat { display: block; color: inherit; text-decoration: none; transition: transform .12s ease, box-shadow .12s ease; }
@@ -948,6 +948,10 @@ a.opx-stat:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
 /* Bare links on a project page that were 20px tall (Projects, Refresh, See before and after), and the bar that opens
    Waiting on you (23px): a box big enough to press, the text where it was. Phones already give these 44. */
-.opx-pbar .opx-link, .opx-waiting .opx-link { display: inline-flex; align-items: center; min-height: 28px; }
-.opx-waiting > button { min-height: 32px; }
+/* Wider than a phone only: phones have their own, larger rules above, and a plain rule here would override them
+   (it did, for an hour on staging: these links dropped from 44 to 28 on a phone). */
+@media (min-width: 701px) {
+  .opx-pbar .opx-link, .opx-waiting .opx-link { display: inline-flex; align-items: center; min-height: 28px; }
+  .opx-waiting > button { min-height: 32px; }
+}
 .opx-ch-need { flex-basis: 100%; margin: 6px 0 0; font-size: 13px; color: var(--opx-hot); }
