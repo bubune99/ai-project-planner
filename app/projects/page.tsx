@@ -6,9 +6,9 @@ import Link from "next/link"
 import { DashboardLayout } from "@/components/navigation"
 import { NewProjectModal } from "@/components/projects/NewProjectModal"
 import type { ProjectSummary } from "@/lib/types"
+import { PROJECT_STATUSES, countByStatus, listStats, showing, type ProjectStatusFilter } from "@/lib/project-views/project-list"
 
 type ViewMode = "cards" | "table" | "portfolio" | "phase"
-type StatusFilter = "all" | "in_progress" | "planning" | "review" | "on_hold"
 
 const STATUS_LABEL: Record<string, string> = {
   in_progress: "Active",
@@ -72,7 +72,7 @@ function ProjectCard({ p, onClick }: { p: ProjectSummary; onClick: () => void })
           </span>
         </div>
         <h3 style={{ fontSize: 15, fontWeight: 500, margin: "0 0 4px", letterSpacing: "-0.01em" }}>
-          {p.name}
+          <Link href={`/project/${p.id}`} onClick={(e) => e.stopPropagation()} style={{ color: "inherit", textDecoration: "none" }}>{p.name}</Link>
         </h3>
         {p.description && (
           <p className="j-muted" style={{ fontSize: 12, margin: 0, lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } as React.CSSProperties}>
@@ -83,8 +83,8 @@ function ProjectCard({ p, onClick }: { p: ProjectSummary; onClick: () => void })
 
       <div style={{ marginBottom: 10 }}>
         <div className="j-row j-between" style={{ marginBottom: 5 }}>
-          <span className="j-muted" style={{ fontSize: 11 }}>Progress</span>
-          <span className="j-num" style={{ fontSize: 11 }}>{p.progress}%</span>
+          <span className="j-muted" style={{ fontSize: 12 }}>Progress</span>
+          <span className="j-num" style={{ fontSize: 12 }}>{p.progress}%</span>
         </div>
         <div className="j-progress"><span style={{ width: `${p.progress}%` }} /></div>
       </div>
@@ -92,10 +92,10 @@ function ProjectCard({ p, onClick }: { p: ProjectSummary; onClick: () => void })
       {p.techStack && p.techStack.length > 0 && (
         <div className="j-row j-wrap" style={{ gap: 4, marginBottom: 10 }}>
           {p.techStack.slice(0, 4).map(t => (
-            <span key={t} className="j-pill j-ghost" style={{ fontSize: 10, padding: "1px 7px" }}>{t}</span>
+            <span key={t} className="j-pill j-ghost" style={{ fontSize: 12, padding: "1px 7px" }}>{t}</span>
           ))}
           {p.techStack.length > 4 && (
-            <span className="j-pill j-ghost" style={{ fontSize: 10, padding: "1px 7px" }}>+{p.techStack.length - 4}</span>
+            <span className="j-pill j-ghost" style={{ fontSize: 12, padding: "1px 7px" }}>+{p.techStack.length - 4}</span>
           )}
         </div>
       )}
@@ -103,11 +103,11 @@ function ProjectCard({ p, onClick }: { p: ProjectSummary; onClick: () => void })
       <div className="j-row j-between" style={{ borderTop: "1px solid var(--j-hairline)", paddingTop: 10, marginTop: "auto" }}>
         <div className="j-col" style={{ gap: 0 }}>
           <span className="j-num" style={{ fontSize: 12 }}>{p.completedTasks}/{p.totalTasks}</span>
-          <span className="j-muted" style={{ fontSize: 10 }}>tasks · {p.activeAgents} agents</span>
+          <span className="j-muted" style={{ fontSize: 12 }}>tasks · {p.activeAgents} agents</span>
         </div>
         <div className="j-col" style={{ gap: 0, textAlign: "right" }}>
           <span className="j-num" style={{ fontSize: 12 }}>{lastActivityLabel(p.lastActivity)}</span>
-          <span className="j-muted" style={{ fontSize: 10 }}>last activity</span>
+          <span className="j-muted" style={{ fontSize: 12 }}>last activity</span>
         </div>
       </div>
     </div>
@@ -133,9 +133,9 @@ function ProjectsTable({ projects, onOpen }: { projects: ProjectSummary[]; onOpe
           {projects.map(p => (
             <tr key={p.id} style={{ cursor: "pointer" }} onClick={() => onOpen(p.id)}>
               <td>
-                <div style={{ fontWeight: 500 }}>{p.name}</div>
+                <div style={{ fontWeight: 500 }}><Link href={`/project/${p.id}`} onClick={(e) => e.stopPropagation()} style={{ color: "inherit", textDecoration: "none" }}>{p.name}</Link></div>
                 {p.description && (
-                  <div className="j-muted" style={{ fontSize: 11, marginTop: 2 }}>
+                  <div className="j-muted" style={{ fontSize: 12, marginTop: 2 }}>
                     {p.description.slice(0, 64)}{p.description.length > 64 ? "…" : ""}
                   </div>
                 )}
@@ -154,7 +154,7 @@ function ProjectsTable({ projects, onOpen }: { projects: ProjectSummary[]; onOpe
                   <div className="j-progress" style={{ flex: 1, minWidth: 80 }}>
                     <span style={{ width: `${p.progress}%` }} />
                   </div>
-                  <span className="j-num" style={{ fontSize: 11, minWidth: 28, textAlign: "right" }}>{p.progress}%</span>
+                  <span className="j-num" style={{ fontSize: 12, minWidth: 28, textAlign: "right" }}>{p.progress}%</span>
                 </div>
               </td>
               <td className="j-num" style={{ fontSize: 12 }}>{p.completedTasks}/{p.totalTasks}</td>
@@ -185,39 +185,39 @@ function ProjectsPortfolio({ projects, onOpen }: { projects: ProjectSummary[]; o
             style={{ padding: "14px 18px", cursor: "pointer", display: "flex", gap: 16, alignItems: "center" }}
             onClick={() => onOpen(p.id)}
           >
-            <div style={{ width: 4, alignSelf: "stretch", borderRadius: 4, background: barColor, flexShrink: 0 }} />
+            <i aria-hidden="true" style={{ width: 9, height: 9, borderRadius: "50%", background: barColor, flexShrink: 0 }} />
 
             <div style={{ flex: "0 0 220px", minWidth: 0 }}>
-              <div style={{ fontWeight: 500, fontSize: 14, marginBottom: 3 }}>{p.name}</div>
+              <div style={{ fontWeight: 500, fontSize: 14, marginBottom: 3 }}><Link href={`/project/${p.id}`} onClick={(e) => e.stopPropagation()} style={{ color: "inherit", textDecoration: "none" }}>{p.name}</Link></div>
               <div className="j-row" style={{ gap: 6 }}>
-                <span className={`j-pill ${STATUS_CLASS[p.status] || "j-muted"}`} style={{ fontSize: 10 }}>
+                <span className={`j-pill ${STATUS_CLASS[p.status] || "j-muted"}`} style={{ fontSize: 12 }}>
                   {STATUS_LABEL[p.status] || p.status}
                 </span>
-                {p.phase && <span className="j-pill j-ghost" style={{ fontSize: 10 }}>{p.phase}</span>}
+                {p.phase && <span className="j-pill j-ghost" style={{ fontSize: 12 }}>{p.phase}</span>}
               </div>
             </div>
 
             <div style={{ flex: "0 0 180px" }}>
               <div className="j-row j-between" style={{ marginBottom: 5 }}>
-                <span className="j-muted" style={{ fontSize: 10 }}>Progress</span>
-                <span className="j-num" style={{ fontSize: 10 }}>{p.progress}%</span>
+                <span className="j-muted" style={{ fontSize: 12 }}>Progress</span>
+                <span className="j-num" style={{ fontSize: 12 }}>{p.progress}%</span>
               </div>
               <div className="j-progress"><span style={{ width: `${p.progress}%` }} /></div>
             </div>
 
             <div style={{ flex: "0 0 100px", textAlign: "center" }}>
               <div className="j-num" style={{ fontSize: 13 }}>{lastActivityLabel(p.lastActivity)}</div>
-              <div className="j-muted" style={{ fontSize: 10 }}>last activity</div>
+              <div className="j-muted" style={{ fontSize: 12 }}>last activity</div>
             </div>
 
             <div style={{ flex: "0 0 90px", textAlign: "center" }}>
               <div className="j-num" style={{ fontSize: 15, fontWeight: 500 }}>{p.completedTasks}/{p.totalTasks}</div>
-              <div className="j-muted" style={{ fontSize: 10 }}>tasks done</div>
+              <div className="j-muted" style={{ fontSize: 12 }}>tasks done</div>
             </div>
 
             <div style={{ flex: "0 0 80px", textAlign: "center" }}>
               <div className="j-num" style={{ fontSize: 13 }}>{p.activeAgents}</div>
-              <div className="j-muted" style={{ fontSize: 10 }}>agents</div>
+              <div className="j-muted" style={{ fontSize: 12 }}>agents</div>
             </div>
 
             <div style={{ marginLeft: "auto" }}>
@@ -251,10 +251,10 @@ function ProjectsByPhase({ projects, onOpen }: { projects: ProjectSummary[]; onO
             <div className="j-row j-between" style={{ marginBottom: 12 }}>
               <div className="j-row" style={{ gap: 8 }}>
                 <span style={{ width: 8, height: 8, borderRadius: 999, background: color, display: "inline-block" }} />
-                <h3 style={{ fontSize: 11, fontWeight: 700, margin: 0, letterSpacing: "0.12em", textTransform: "uppercase", color: "oklch(0.708 0 0)" }}>{phase}</h3>
-                <span className="j-pill j-ghost" style={{ fontSize: 10 }}>{items.length}</span>
+                <h3 style={{ fontSize: 12, fontWeight: 700, margin: 0, letterSpacing: "0.12em", textTransform: "uppercase", color: "oklch(0.708 0 0)" }}>{phase}</h3>
+                <span className="j-pill j-ghost" style={{ fontSize: 12 }}>{items.length}</span>
               </div>
-              <span className="j-muted" style={{ fontSize: 11 }}>avg {avgProg}% complete</span>
+              <span className="j-muted" style={{ fontSize: 12 }}>avg {avgProg}% complete</span>
             </div>
             <div className="j-grid j-cols-3">
               {items.map(p => (
@@ -265,8 +265,8 @@ function ProjectsByPhase({ projects, onOpen }: { projects: ProjectSummary[]; onO
                   onClick={() => onOpen(p.id)}
                 >
                   <div className="j-row j-between" style={{ marginBottom: 8 }}>
-                    <span style={{ fontWeight: 500, fontSize: 13 }}>{p.name}</span>
-                    <span className={`j-pill ${STATUS_CLASS[p.status] || "j-muted"}`} style={{ fontSize: 10 }}>
+                    <Link href={`/project/${p.id}`} onClick={(e) => e.stopPropagation()} style={{ fontWeight: 500, fontSize: 13, color: "inherit", textDecoration: "none" }}>{p.name}</Link>
+                    <span className={`j-pill ${STATUS_CLASS[p.status] || "j-muted"}`} style={{ fontSize: 12 }}>
                       {STATUS_LABEL[p.status] || p.status}
                     </span>
                   </div>
@@ -274,8 +274,8 @@ function ProjectsByPhase({ projects, onOpen }: { projects: ProjectSummary[]; onO
                     <span style={{ width: `${p.progress}%` }} />
                   </div>
                   <div className="j-row j-between">
-                    <span className="j-muted" style={{ fontSize: 11 }}>{p.completedTasks}/{p.totalTasks} tasks</span>
-                    <span className={`j-pill ${HEALTH_CLASS[p.health] || "j-muted"}`} style={{ fontSize: 10 }}>
+                    <span className="j-muted" style={{ fontSize: 12 }}>{p.completedTasks}/{p.totalTasks} tasks</span>
+                    <span className={`j-pill ${HEALTH_CLASS[p.health] || "j-muted"}`} style={{ fontSize: 12 }}>
                       <span className="j-pill-dot" />{p.health}
                     </span>
                   </div>
@@ -289,14 +289,6 @@ function ProjectsByPhase({ projects, onOpen }: { projects: ProjectSummary[]; onO
   )
 }
 
-const STATUS_FILTERS: { id: StatusFilter | "all"; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "in_progress", label: "Active" },
-  { id: "planning", label: "Planning" },
-  { id: "review", label: "Review" },
-  { id: "on_hold", label: "On Hold" },
-]
-
 const VIEW_MODES: { id: ViewMode; label: string }[] = [
   { id: "cards", label: "Cards" },
   { id: "table", label: "Table" },
@@ -307,25 +299,27 @@ const VIEW_MODES: { id: ViewMode; label: string }[] = [
 export default function ProjectsPage() {
   const router = useRouter()
   const [view, setView] = useState<ViewMode>("cards")
-  const [filter, setFilter] = useState<StatusFilter | "all">("all")
+  const [filter, setFilter] = useState<ProjectStatusFilter>("all")
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false)
-  const [projects, setProjects] = useState<ProjectSummary[]>([])
+  /** Every project, fetched once. What is shown is narrowed here, so the counts and the figures at the top stay true. */
+  const [everything, setEverything] = useState<ProjectSummary[]>([])
+  const projects = showing(everything, filter)
+  const counts = countByStatus(everything)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchProjects()
-  }, [filter])
+  }, [])
 
   const fetchProjects = async () => {
     try {
       setLoading(true)
       setError(null)
-      const url = filter === "all" ? "/api/projects" : `/api/projects?status=${filter}`
-      const response = await fetch(url)
+      const response = await fetch("/api/projects")
       if (!response.ok) throw new Error(`${response.status} ${response.statusText}`)
       const data = await response.json()
-      setProjects(data.data || [])
+      setEverything(data.data || [])
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load projects")
     } finally {
@@ -335,10 +329,7 @@ export default function ProjectsPage() {
 
   const openProject = (id: string) => router.push(`/project/${id}`)
 
-  const total = projects.length
-  const active = projects.filter(p => p.status === "in_progress").length
-  const atRisk = projects.filter(p => p.health === "attention" || p.health === "critical").length
-  const avgProgress = total ? Math.round(projects.reduce((s, p) => s + p.progress, 0) / total) : 0
+  const { total, active, atRisk, avgProgress } = listStats(everything)
 
   return (
     <DashboardLayout>
@@ -384,28 +375,20 @@ export default function ProjectsPage() {
 
         {/* Filter chips + view mode tabs */}
         <div className="j-row j-between j-wrap" style={{ gap: 8 }}>
-          <div className="j-row j-wrap" style={{ gap: 6 }}>
-            {STATUS_FILTERS.map(f => {
-              const count = f.id === "all" ? total : projects.filter(p => p.status === f.id).length
-              const active = filter === f.id
-              return (
-                <button
-                  key={f.id}
-                  className={`j-pill ${active ? "j-proj" : "j-ghost"}`}
-                  style={active ? { background: "oklch(0.870 0.045 252 / 0.18)", color: "oklch(0.985 0 0)", boxShadow: "none" } : {}}
-                  onClick={() => setFilter(f.id)}
-                >
-                  {f.label}
-                  <span className="j-muted" style={{ fontSize: 10, marginLeft: 4 }}>{count}</span>
-                </button>
-              )
-            })}
-          </div>
-          <div className="j-tabs">
+          {/* Owner, 2026-11-15: "Chips that are more than 3 options or cause the need to be stacked is not ideal". */}
+          <label className="j-row" style={{ gap: 8, fontSize: 13 }}>
+            <span className="j-muted">Status</span>
+            <select className="opx-input" aria-label="Filter by status" value={filter} onChange={(e) => setFilter(e.target.value as ProjectStatusFilter)} style={{ width: "auto", minHeight: 36 }}>
+              {PROJECT_STATUSES.map(([k, label]) => <option key={k} value={k}>{label} ({counts[k]})</option>)}
+            </select>
+            {filter !== "all" && <button type="button" className="opx-link opx-act" onClick={() => setFilter("all")}>Show everything</button>}
+          </label>
+          <div className="j-tabs" role="tablist" aria-label="View">
             {VIEW_MODES.map(m => (
               <button
                 key={m.id}
                 className={`j-tab${view === m.id ? " j-active" : ""}`}
+                role="tab" aria-selected={view === m.id}
                 onClick={() => setView(m.id)}
               >
                 {m.label}
@@ -426,10 +409,19 @@ export default function ProjectsPage() {
           </div>
         ) : projects.length === 0 ? (
           <div className="j-card" style={{ textAlign: "center", padding: 48 }}>
-            <div style={{ marginBottom: 12 }}>No projects yet.</div>
-            <button className="j-btn j-btn-primary" onClick={() => setIsNewProjectModalOpen(true)}>
-              + Create your first project
-            </button>
+            {everything.length === 0 ? (
+              <>
+                <div style={{ marginBottom: 12 }}>No projects yet.</div>
+                <button className="j-btn j-btn-primary" onClick={() => setIsNewProjectModalOpen(true)}>
+                  + Create your first project
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ marginBottom: 12 }}>No project has this status. {everything.length} in all.</div>
+                <button className="j-btn j-btn-ghost" onClick={() => setFilter("all")}>Show everything</button>
+              </>
+            )}
           </div>
         ) : (
           <>
