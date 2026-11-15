@@ -172,6 +172,11 @@ ok("money: nothing entered is null, never 0", () => {
   assert.equal(moneyTotals({ costs: [{ id: "1", name: "Hosting", service: "Vercel", monthly: null }] }).monthly, null)
   assert.equal(formatMoney(null), "—")
   assert.equal(formatMoney(1200), "$1,200")
+  // Cents that were entered are shown: 12.50 is never "$13". Whole amounts stay short.
+  assert.equal(formatMoney(12.5), "$12.50")
+  assert.equal(formatMoney(0.1 + 0.2), "$0.30")
+  assert.equal(formatMoney(12.5 + 7.5), "$20")
+  assert.equal(formatMoney(1200.004), "$1,200")
 })
 
 ok("money: monthly cost against a monthly budget, with the warning level", () => {

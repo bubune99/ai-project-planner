@@ -110,5 +110,9 @@ export function moneyRollup(projects: { id: string; name: string; money?: Projec
     .sort((a, b) => b.rows.length - a.rows.length)
 }
 
-export const formatMoney = (n: number | null | undefined, currency = "USD") =>
-  n == null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(n)
+/** Whole amounts read short ("$1,200"); an amount with cents shows them ("$12.50"), never rounded to a different figure. */
+export const formatMoney = (n: number | null | undefined, currency = "USD") => {
+  if (n == null) return "—"
+  const cents = Math.round(n * 100) / 100, digits = Number.isInteger(cents) ? 0 : 2
+  return new Intl.NumberFormat("en-US", { style: "currency", currency, minimumFractionDigits: digits, maximumFractionDigits: digits }).format(cents)
+}
