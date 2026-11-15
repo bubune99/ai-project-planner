@@ -152,23 +152,23 @@ export function ActivityFeed({ projectId }: { projectId: string }) {
             className="j-row"
             style={{ gap: 12, padding: "12px 16px", borderBottom: "1px solid var(--j-hairline)", alignItems: "flex-start" }}
           >
-            <span className={`j-pill ${KIND_TONE[it.kind] || "j-ghost"}`} style={{ fontSize: 10, marginTop: 1, flexShrink: 0 }}>
+            <span className={`j-pill ${KIND_TONE[it.kind] || "j-ghost"}`} style={{ fontSize: 12, marginTop: 1, flexShrink: 0 }}>
               {it.kind.replace("_", " ")}
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 500 }}>{it.title || "Update"}</div>
               {it.detail && (
-                <div className="j-muted" style={{ fontSize: 11.5, marginTop: 2, lineHeight: 1.45 }}>
+                <div className="j-muted" style={{ fontSize: 13, marginTop: 2, lineHeight: 1.45 }}>
                   {typeof it.detail === "string" ? it.detail.slice(0, 140) : ""}
                 </div>
               )}
-              <div className="j-muted" style={{ fontSize: 10.5, marginTop: 3 }}>
+              <div className="j-muted" style={{ fontSize: 12, marginTop: 3 }}>
                 {SOURCE_LABEL[it.source] || it.source}
                 {it.actor ? ` · ${it.actor}` : ""}
                 {it.context ? ` · ${it.context}` : ""}
               </div>
             </div>
-            <span className="j-muted" style={{ fontSize: 11, whiteSpace: "nowrap", flexShrink: 0 }}>
+            <span className="j-muted" style={{ fontSize: 12, whiteSpace: "nowrap", flexShrink: 0 }}>
               {relTime(it.ts)}
             </span>
           </div>

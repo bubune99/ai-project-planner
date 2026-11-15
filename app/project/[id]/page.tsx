@@ -100,7 +100,7 @@ function OverviewFacet({ project, projectId, phases, progress, onProjectChange }
           {(project.tech_stack || []).length > 0 && (
             <div className="j-row j-wrap" style={{ marginTop: 14, gap: 6 }}>
               {(project.tech_stack as string[]).map((t) => (
-                <span key={t} className="j-pill j-ghost" style={{ fontSize: 11 }}>{t}</span>
+                <span key={t} className="j-pill j-ghost" style={{ fontSize: 12 }}>{t}</span>
               ))}
             </div>
           )}
@@ -154,12 +154,12 @@ function PhaseStrip({ phases }: { phases: any[] }) {
                   color: a || d ? "oklch(0.110 0.028 268)" : "oklch(0.708 0 0)",
                   display: "grid", placeItems: "center",
                   boxShadow: a ? "0 0 0 4px oklch(0.870 0.045 252 / 0.2), 0 0 0 1px var(--j-ring-strong)" : "0 0 0 1px var(--j-ring-strong)",
-                  fontWeight: 600, fontSize: 11,
+                  fontWeight: 600, fontSize: 12,
                 }}>
                   {d ? "✓" : i + 1}
                 </div>
-                <div style={{ fontSize: 11.5, fontWeight: 500, textAlign: "center", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ph.name}</div>
-                <span className="j-num j-muted" style={{ fontSize: 10.5 }}>{ph.progress || 0}%</span>
+                <div style={{ fontSize: 12.5, fontWeight: 500, textAlign: "center", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ph.name}</div>
+                <span className="j-num j-muted" style={{ fontSize: 12 }}>{ph.progress || 0}%</span>
               </div>
             )
           })}
@@ -335,7 +335,7 @@ function RisksFacet({ projectId, project, onChange, compact = false }: { project
                       className="j-search"
                       value={r.status}
                       onChange={e => updateStatus(r.id, e.target.value as Risk["status"])}
-                      style={{ fontSize: 11, padding: "2px 6px" }}
+                      style={{ fontSize: 12, padding: "2px 6px" }}
                     >
                       {RISK_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
