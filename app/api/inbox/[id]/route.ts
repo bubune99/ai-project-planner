@@ -26,11 +26,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     const auth = await getAuthContext()
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, "Authentication required", 401)
+    // An answer is the owner's own act: a signed-in session only. An agent's key was accepted here until 2026-11-15,
+    // which let an agent answer its own question as the owner. An answer the owner gave somewhere else is recorded
+    // with their words through the planner's tools, never through this route.
+    if (auth.authType !== "session") return errorResponse(ErrorCodes.FORBIDDEN, "Only the owner can answer a question", 403)
     const { id } = await params
     if (!UUID.test(id)) return errorResponse(ErrorCodes.NOT_FOUND, "Not found", 404)
 
     const body = await request.json().catch(() => null)
     if (!body || typeof body !== "object") return errorResponse(ErrorCodes.BAD_REQUEST, "JSON body required", 400)
+    // An agent working through the owner's signed-in tab says so (agent: true), and is refused the same way.
+    if ((body as { agent?: unknown }).agent === true) return errorResponse(ErrorCodes.FORBIDDEN, "Only the owner can answer a question", 403)
 
     const [row] = (await sql`
       SELECT id, title, unlock_prompt, created_by, assigned_to, created_at, input, status
