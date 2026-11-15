@@ -132,8 +132,22 @@ export default function TodosPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) { const j = await res.json().catch(() => null); throw new Error(j?.error?.message || `HTTP ${res.status}`) }
     setRefreshKey((k) => k + 1)
+  }
+
+  /** A delete can be taken back: the line says what went and offers Undo. */
+  const handleDeleteTodo = async () => {
+    if (!editingTodo) return
+    const gone = editingTodo
+    const res = await fetch(`/api/todos/${gone.id}`, { method: "DELETE" })
+    if (!res.ok) { const j = await res.json().catch(() => null); throw new Error(j?.error?.message || `HTTP ${res.status}`) }
+    setRefreshKey((k) => k + 1)
+    toast(`Deleted "${gone.title}"`, { duration: 10000, action: { label: "Undo", onClick: async () => {
+      const back = await fetch(`/api/todos/${gone.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ restore: true }) })
+      if (!back.ok) { toast.error("Couldn't bring it back"); return }
+      setRefreshKey((k) => k + 1)
+    } } })
   }
 
   if (!user) {
@@ -172,6 +186,7 @@ export default function TodosPage() {
           setEditingTodo(null)
         }}
         onSave={handleSaveTodo}
+        onDelete={handleDeleteTodo}
         projects={projects}
       />
     </DashboardLayout>

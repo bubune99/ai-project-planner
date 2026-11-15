@@ -156,6 +156,18 @@ export async function PATCH(
     }
 
     const { userId } = authContext
+    const body = await request.json()
+
+    // { restore: true } takes back a delete: the page offers Undo right after one. Same owner check as every other write.
+    if (body?.restore === true) {
+      const back = await sql`
+        UPDATE todos SET deleted_at = NULL, updated_at = NOW()
+        WHERE id = ${id} AND user_id = ${userId} AND deleted_at IS NOT NULL
+        RETURNING id
+      `
+      if (back.length === 0) return errorResponse(ErrorCodes.NOT_FOUND, 'Todo not found', 404)
+      return successResponse({ id, restored: true })
+    }
 
     // Verify ownership
     const hasAccess = await verifyTodoOwnership(id, userId)
@@ -163,7 +175,6 @@ export async function PATCH(
       return errorResponse(ErrorCodes.NOT_FOUND, 'Todo not found', 404)
     }
 
-    const body = await request.json()
     const { title, description, status, priority, dueDate, projectId, ideaId, transactionId, metadata } = body
 
     // Fetch existing todo row for envelope merge

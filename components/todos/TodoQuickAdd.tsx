@@ -43,11 +43,14 @@ export function TodoQuickAdd({ onAdd, projects = [], isLoading }: TodoQuickAddPr
   const [dueDate, setDueDate] = useState<Date | undefined>()
   const [projectId, setProjectId] = useState<string>("")
   const [showOptions, setShowOptions] = useState(false)
+  /** Add pressed with nothing typed: said in words, never a dimmed button that explains nothing. */
+  const [needTitle, setNeedTitle] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim()) return
+    if (!title.trim()) { setNeedTitle(true); inputRef.current?.focus(); return }
+    setNeedTitle(false)
 
     onAdd({
       title: title.trim(),
@@ -85,9 +88,11 @@ export function TodoQuickAdd({ onAdd, projects = [], isLoading }: TodoQuickAddPr
             ref={inputRef}
             type="text"
             placeholder="Add a new todo... (press Enter to save)"
+            aria-label="New todo"
             value={title}
             onChange={(e) => {
               setTitle(e.target.value)
+              if (e.target.value.trim()) setNeedTitle(false)
               if (e.target.value && !showOptions) {
                 setShowOptions(true)
               }
@@ -103,6 +108,7 @@ export function TodoQuickAdd({ onAdd, projects = [], isLoading }: TodoQuickAddPr
               variant="ghost"
               size="sm"
               className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+              aria-label="Clear what was typed"
               onClick={() => {
                 setTitle("")
                 setShowOptions(false)
@@ -112,11 +118,12 @@ export function TodoQuickAdd({ onAdd, projects = [], isLoading }: TodoQuickAddPr
             </Button>
           )}
         </div>
-        <Button type="submit" disabled={!title.trim() || isLoading}>
+        <Button type="submit" disabled={isLoading}>
           <Plus className="w-4 h-4 mr-1" />
           Add
         </Button>
       </div>
+      {needTitle && <p role="alert" className="opx-ch-need" style={{ margin: 0 }}>Type what needs doing first, then press Add.</p>}
 
       {/* Options row - shown when typing */}
       {showOptions && (

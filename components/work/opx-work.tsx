@@ -78,7 +78,7 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
         <section key={g} className="opx-sec" style={{ padding: "8px 0" }}>
           <div className="opx-sech" style={{ padding: "10px 18px 6px" }}>
             <h2 style={{ fontSize: 16 }}>{g}</h2><span className="opx-n">{list.length}</span>
-            {list[0]?.projectId && <a className="opx-link" style={{ marginLeft: "auto" }} href={`/project/${list[0].projectId}?tab=tasks&view=list`}>Open project ›</a>}
+            {list[0]?.projectId && <a className="opx-link opx-act" style={{ marginLeft: "auto" }} aria-label={`Open the project ${g}`} href={`/project/${list[0].projectId}?tab=tasks&view=list`}>Open project ›</a>}
           </div>
           <div className="opx-lv opx-lvp opx-lvh"><span /><span>Task</span><span>Status</span><span>Priority</span><span>Due</span><span>Type</span></div>
           {list.map((w) => {
@@ -89,7 +89,7 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
               <div key={w.id} className={`opx-lv opx-lvp${done ? " dn" : ""}`} {...tipProps(w.description)}>
                 <button className={`opx-ck${done ? " on" : ""}`} aria-label={done ? `Reopen ${w.title}` : `Mark ${w.title} done`} onClick={() => toggle(w)} />
                 {w.kind === "todo" && onEditTodo
-                  ? <button className="opx-link" style={{ textAlign: "left", fontWeight: 600, fontSize: 14.5, color: "inherit", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} onClick={() => onEditTodo(w.id)}>{w.title}</button>
+                  ? <button className="opx-link opx-act" style={{ justifyContent: "flex-start", textAlign: "left", fontWeight: 600, fontSize: 14.5, color: "inherit", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} onClick={() => onEditTodo(w.id)}>{w.title}</button>
                   : <b>{w.title}</b>}
                 <span className="opx-row" style={{ gap: 6, fontSize: 12.5 }}><i className="opx-dot" style={{ background: KIND_COLOR[w.statusKind], width: 7, height: 7 }} />{KIND_LABEL[w.statusKind]}</span>
                 <Priority p={w.priority} />

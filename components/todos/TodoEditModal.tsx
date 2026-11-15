@@ -40,6 +40,8 @@ interface TodoEditModalProps {
   open: boolean
   onClose: () => void
   onSave: (updates: Partial<Todo>) => Promise<void>
+  /** Removes the todo. The page offers Undo afterward. */
+  onDelete?: () => Promise<void>
   projects?: Project[]
 }
 
@@ -48,6 +50,7 @@ export function TodoEditModal({
   open,
   onClose,
   onSave,
+  onDelete,
   projects = [],
 }: TodoEditModalProps) {
   const [title, setTitle] = useState("")
@@ -70,8 +73,20 @@ export function TodoEditModal({
     }
   }, [todo])
 
+  const [problem, setProblem] = useState<string | null>(null)
+  useEffect(() => { setProblem(null) }, [todo, open])
+  const handleDelete = async () => {
+    if (!onDelete) return
+    setIsSaving(true); setProblem(null)
+    try { await onDelete(); onClose() }
+    catch (e) { setProblem(e instanceof Error ? `It was not deleted: ${e.message}` : "It was not deleted") }
+    finally { setIsSaving(false) }
+  }
+
   const handleSave = async () => {
-    if (!title.trim() || !todo) return
+    if (!todo) return
+    if (!title.trim()) { setProblem("Give it a title first, then press Save Changes."); return }
+    setProblem(null)
 
     setIsSaving(true)
     try {
@@ -84,6 +99,9 @@ export function TodoEditModal({
         projectId: projectId || null,
       })
       onClose()
+    } catch (e) {
+      // A save that failed used to leave the window open and say nothing.
+      setProblem(e instanceof Error ? `It was not saved: ${e.message}` : "It was not saved")
     } finally {
       setIsSaving(false)
     }
@@ -125,7 +143,7 @@ export function TodoEditModal({
             <div className="grid gap-2">
               <Label>Status</Label>
               <Select value={status} onValueChange={(v) => setStatus(v as TodoStatus)}>
-                <SelectTrigger>
+                <SelectTrigger aria-label="Status">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -139,7 +157,7 @@ export function TodoEditModal({
             <div className="grid gap-2">
               <Label>Priority</Label>
               <Select value={priority} onValueChange={(v) => setPriority(v as TodoPriority)}>
-                <SelectTrigger>
+                <SelectTrigger aria-label="Priority">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -216,7 +234,7 @@ export function TodoEditModal({
             <div className="grid gap-2">
               <Label>Link to Project</Label>
               <Select value={projectId || "__none__"} onValueChange={(v) => setProjectId(v === "__none__" ? "" : v)}>
-                <SelectTrigger>
+                <SelectTrigger aria-label="Project">
                   <SelectValue placeholder="No project linked" />
                 </SelectTrigger>
                 <SelectContent>
@@ -233,10 +251,16 @@ export function TodoEditModal({
         </div>
 
         <DialogFooter>
+          {problem && <p role="alert" className="opx-ch-need" style={{ margin: 0, marginRight: "auto", flexBasis: "100%" }}>{problem}</p>}
+          {onDelete && (
+            <Button variant="outline" onClick={handleDelete} disabled={isSaving} style={{ marginRight: "auto" }}>
+              Delete
+            </Button>
+          )}
           <Button variant="outline" onClick={onClose} disabled={isSaving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!title.trim() || isSaving}>
+          <Button onClick={handleSave} disabled={isSaving}>
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save Changes
           </Button>
