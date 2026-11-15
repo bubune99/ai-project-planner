@@ -100,7 +100,9 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
   const pathKey = livePath.map((s) => s.id).join("/")
   // On a phone the whole map shrunk to fit is too small to read: open at a size the words can be read (0.9 makes a
   // step's title 12px), from the top left corner where the process starts, and let it be dragged.
-  const narrow = typeof window !== "undefined" && window.innerWidth < 700
+  // The same holds on a tablet whenever fitting the whole map would shrink it below three quarters of its size.
+  const mapWidth = lanes ? DIM.laneLabel + (layer.stages?.length ?? 0) * DIM.col : Math.max(1, layer.nodes.length) * DIM.col
+  const narrow = typeof window !== "undefined" && window.innerWidth < 1100 && (window.innerWidth < 700 || (window.innerWidth - 80) / mapWidth < 0.75)
   useEffect(() => { setPicked(null) }, [pathKey])
   // What was picked may have been removed or moved since: only offer what is still there.
   const pickName = !picked ? null
