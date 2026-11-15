@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { DashboardLayout } from "@/components/navigation"
 import type { InboxItem } from "@/lib/inbox"
 import { QuestionCard } from "@/components/inbox/QuestionCard"
+import { AnsweredList } from "@/components/inbox/AnsweredList"
 
 export default function InboxPage() {
   const [items, setItems] = useState<InboxItem[] | null>(null)
@@ -42,7 +43,9 @@ export default function InboxPage() {
     return [...now, ...later]
   }, [items, deferred])
 
+  const [answeredTick, setAnsweredTick] = useState(0)
   const answered = (id: string) => {
+    setAnsweredTick((n) => n + 1)
     setItems((cur) => (cur ? cur.filter((i) => i.id !== id) : cur))
     setDeferred((d) => d.filter((x) => x !== id))
   }
@@ -84,6 +87,9 @@ export default function InboxPage() {
             onAnswered={() => answered(item.id)}
           />
         ))}
+
+        {/* Where each answer went: not picked up, picked up by an agent, or finished. */}
+        <AnsweredList refreshKey={answeredTick} />
       </div>
     </DashboardLayout>
   )

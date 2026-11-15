@@ -15,6 +15,7 @@ import { registerCatchupTools } from "./catchup-tools"
 import { registerUiTools } from "./ui-tools"
 import { registerFlowTools } from "./flow-tools"
 import { registerGateTools } from "./gate-tools"
+import { registerQueueTools } from "./queue-tools"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import { sql } from "@/lib/db/client"
@@ -4010,9 +4011,10 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         context: z.string().optional().describe("What the owner needs to know to answer — what you found, what each option implies"),
         projectId: z.string().optional().describe("Project this is about (defaults to the active project, if any)"),
         stepId: z.string().optional().describe("Task this is about"),
-        askedBy: z.string().optional().describe("Your agent name, shown on the card (e.g. claude-code)"),
+        askedBy: z.string().optional().describe("Your stable agent name, shown on the card and used to route the answer back (e.g. claude-code@planner)"),
+        askedFrom: z.string().optional().describe("Where you are working: the folder or machine. Lets the answer find you, or your project, later"),
       },
-      async ({ question, options, context, projectId, stepId, askedBy }) => {
+      async ({ question, options, context, projectId, stepId, askedBy, askedFrom }) => {
         try {
           requireMcpScope("write")
           const userId = getMcpUserId()
@@ -4025,11 +4027,12 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           const built = buildQuestionInput({ question, options, context, projectId: pid, stepId })
           if (!built.ok) return mcpError(built.error)
           const [job] = await sql`
-            INSERT INTO agent_jobs (title, description, created_by, assigned_to, status, priority, input, tags, parent_step_id, unlock_prompt)
+            INSERT INTO agent_jobs (title, description, created_by, assigned_to, status, priority, input, tags, parent_step_id, unlock_prompt, metadata)
             VALUES (
               ${built.value.question.slice(0, 255)}, ${built.value.input.context}, ${userId}, ${askedBy ?? "mcp-client"},
               'awaiting-unlock', 'normal', ${JSON.stringify(built.value.input)}::jsonb, ARRAY['question'],
-              ${built.value.input.stepId}, ${built.value.question}
+              ${built.value.input.stepId}, ${built.value.question},
+              ${JSON.stringify(askedFrom ? { askedFrom: askedFrom.slice(0, 300) } : {})}::jsonb
             )
             RETURNING id, status
           `
@@ -6910,4 +6913,5 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
   // Flow-first planning: flows, branches, owner-approved merges, button checks (lib/mcp/flow-tools.ts)
   registerFlowTools(server)
   registerGateTools(server)
+  registerQueueTools(server)
 }
