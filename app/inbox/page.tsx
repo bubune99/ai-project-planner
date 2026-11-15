@@ -91,6 +91,7 @@ export default function InboxPage() {
             item={item}
             deferred={deferred.includes(item.id)}
             onDefer={() => setDeferred((d) => [...d.filter((x) => x !== item.id), item.id])}
+            onBringBack={() => setDeferred((d) => d.filter((x) => x !== item.id))}
             onAnswered={() => answered(item.id)}
           />
         ))}

@@ -21,10 +21,12 @@ export function ago(iso: string): string {
   return `${Math.round(h / 24)}d ago`
 }
 
-export function QuestionCard({ item, deferred, onDefer, onAnswered, hideProject = false }: {
+export function QuestionCard({ item, deferred, onDefer, onBringBack, onAnswered, hideProject = false }: {
   item: InboxItem
   deferred: boolean
   onDefer: () => void
+  /** Undo "Not now". Without it a question put off could not be brought back short of reloading the page. */
+  onBringBack?: () => void
   onAnswered: () => void
   /** Inside a project the project name is already on the page. */
   hideProject?: boolean
@@ -116,28 +118,42 @@ export function QuestionCard({ item, deferred, onDefer, onAnswered, hideProject 
             placeholder={item.options.length ? "Say what you want instead…" : "Your answer…"}
             value={reply}
             onChange={(e) => setReply(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Escape" && item.options.length > 0) { e.stopPropagation(); setReplying(false) } }}
             autoFocus={item.options.length > 0}
           />
-          <button
-            className="j-btn j-btn-primary"
-            disabled={busy || !reply.trim()}
-            onClick={() => send({ reply }, "reply")}
-            style={{ minHeight: 44 }}
-          >
-            {sending === "reply" ? "Sending…" : "Send"}
-          </button>
+          <div className="j-row" style={{ gap: 8 }}>
+            <button
+              className="j-btn j-btn-primary"
+              disabled={busy || !reply.trim()}
+              onClick={() => send({ reply }, "reply")}
+              style={{ minHeight: 44, flex: 1 }}
+            >
+              {sending === "reply" ? "Sending…" : "Send"}
+            </button>
+            {/* A way out of the reply box: it could be opened and never closed. Only where there are options to go back to. */}
+            {item.options.length > 0 && (
+              <button className="j-btn j-btn-ghost" disabled={busy} onClick={() => setReplying(false)} style={{ minHeight: 44 }}>
+                Cancel reply
+              </button>
+            )}
+          </div>
         </div>
       )}
 
       <div className="j-row" style={{ gap: 4, marginTop: 10 }}>
         {item.options.length > 0 && !replying && (
-          <button className="j-btn j-btn-ghost" style={{ minHeight: 40 }} disabled={busy} onClick={() => setReplying(true)}>
+          <button className="j-btn j-btn-ghost" style={{ minHeight: 44 }} disabled={busy} onClick={() => setReplying(true)}>
             Reply instead
           </button>
         )}
         {!deferred && (
-          <button className="j-btn j-btn-ghost" style={{ minHeight: 40, marginLeft: "auto" }} disabled={busy} onClick={onDefer}>
+          <button className="j-btn j-btn-ghost" style={{ minHeight: 44, marginLeft: "auto" }} disabled={busy} onClick={onDefer}>
             Not now
+          </button>
+        )}
+        {deferred && onBringBack && (
+          <button className="j-btn j-btn-ghost" style={{ minHeight: 44, marginLeft: "auto" }} disabled={busy} onClick={onBringBack}>
+            Bring back
           </button>
         )}
       </div>
