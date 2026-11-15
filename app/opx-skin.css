@@ -1051,6 +1051,7 @@ input[type=date].opx-rowsel { color: var(--opx-muted); } input[type=date].opx-ro
 .opx-wfilter { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .opx-wfilter .opx-input { flex: 0 1 280px; }
 .opx-wfilter .opx-dc { width: auto; display: inline-flex; align-items: center; gap: 6px; }
-.opx-lv.opx-lvp { grid-template-columns: 44px minmax(0,1fr) 150px 110px 140px 110px; }
+@media (min-width: 761px) { .opx-lv.opx-lvp { grid-template-columns: 44px minmax(0,1fr) 150px 110px 140px 110px; } }
+@media (max-width: 760px) { .opx-lv.opx-lvp > :nth-child(2) { min-width: 0; white-space: normal !important; } }
 select.opx-rowsel { min-width: 78px; padding-right: 8px; }
 input[type=date].opx-rowsel { min-width: 128px; }
