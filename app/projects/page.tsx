@@ -72,7 +72,7 @@ function ProjectCard({ p, onClick }: { p: ProjectSummary; onClick: () => void })
           </span>
         </div>
         <h3 style={{ fontSize: 15, fontWeight: 500, margin: "0 0 4px", letterSpacing: "-0.01em" }}>
-          <Link href={`/project/${p.id}`} onClick={(e) => e.stopPropagation()} style={{ color: "inherit", textDecoration: "none" }}>{p.name}</Link>
+          <Link href={`/project/${p.id}`} onClick={(e) => e.stopPropagation()} style={{ color: "inherit", textDecoration: "none", display: "inline-block", padding: "3px 0" }}>{p.name}</Link>
         </h3>
         {p.description && (
           <p className="j-muted" style={{ fontSize: 12, margin: 0, lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } as React.CSSProperties}>
@@ -133,7 +133,7 @@ function ProjectsTable({ projects, onOpen }: { projects: ProjectSummary[]; onOpe
           {projects.map(p => (
             <tr key={p.id} style={{ cursor: "pointer" }} onClick={() => onOpen(p.id)}>
               <td>
-                <div style={{ fontWeight: 500 }}><Link href={`/project/${p.id}`} onClick={(e) => e.stopPropagation()} style={{ color: "inherit", textDecoration: "none" }}>{p.name}</Link></div>
+                <div style={{ fontWeight: 500 }}><Link href={`/project/${p.id}`} onClick={(e) => e.stopPropagation()} style={{ color: "inherit", textDecoration: "none", display: "inline-block", padding: "3px 0" }}>{p.name}</Link></div>
                 {p.description && (
                   <div className="j-muted" style={{ fontSize: 12, marginTop: 2 }}>
                     {p.description.slice(0, 64)}{p.description.length > 64 ? "…" : ""}
@@ -188,7 +188,7 @@ function ProjectsPortfolio({ projects, onOpen }: { projects: ProjectSummary[]; o
             <i aria-hidden="true" style={{ width: 9, height: 9, borderRadius: "50%", background: barColor, flexShrink: 0 }} />
 
             <div style={{ flex: "0 0 220px", minWidth: 0 }}>
-              <div style={{ fontWeight: 500, fontSize: 14, marginBottom: 3 }}><Link href={`/project/${p.id}`} onClick={(e) => e.stopPropagation()} style={{ color: "inherit", textDecoration: "none" }}>{p.name}</Link></div>
+              <div style={{ fontWeight: 500, fontSize: 14, marginBottom: 3 }}><Link href={`/project/${p.id}`} onClick={(e) => e.stopPropagation()} style={{ color: "inherit", textDecoration: "none", display: "inline-block", padding: "3px 0" }}>{p.name}</Link></div>
               <div className="j-row" style={{ gap: 6 }}>
                 <span className={`j-pill ${STATUS_CLASS[p.status] || "j-muted"}`} style={{ fontSize: 12 }}>
                   {STATUS_LABEL[p.status] || p.status}
@@ -265,7 +265,7 @@ function ProjectsByPhase({ projects, onOpen }: { projects: ProjectSummary[]; onO
                   onClick={() => onOpen(p.id)}
                 >
                   <div className="j-row j-between" style={{ marginBottom: 8 }}>
-                    <Link href={`/project/${p.id}`} onClick={(e) => e.stopPropagation()} style={{ fontWeight: 500, fontSize: 13, color: "inherit", textDecoration: "none" }}>{p.name}</Link>
+                    <Link href={`/project/${p.id}`} onClick={(e) => e.stopPropagation()} style={{ fontWeight: 500, fontSize: 13, color: "inherit", textDecoration: "none", display: "inline-block", padding: "4px 0" }}>{p.name}</Link>
                     <span className={`j-pill ${STATUS_CLASS[p.status] || "j-muted"}`} style={{ fontSize: 12 }}>
                       {STATUS_LABEL[p.status] || p.status}
                     </span>
