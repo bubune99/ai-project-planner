@@ -24,28 +24,28 @@ export default async function LandingPage() {
           ◈
         </div>
 
-        <p style={{ fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "oklch(0.870 0.045 252)", marginBottom: 12 }}>Central Nervous System</p>
+        <p style={{ fontSize: 12, letterSpacing: "0.14em", textTransform: "uppercase", color: "oklch(0.870 0.045 252)", marginBottom: 12 }}>Central Nervous System</p>
         <h1 style={{ fontSize: 36, fontWeight: 500, letterSpacing: "-0.03em", color: "oklch(0.985 0 0)", margin: "0 0 12px" }}>JARVIS</h1>
-        <p style={{ fontSize: 14, color: "oklch(0.556 0 0)", margin: "0 0 40px", lineHeight: 1.6 }}>
+        <p style={{ fontSize: 14, color: "oklch(0.700 0 0)", margin: "0 0 40px", lineHeight: 1.6 }}>
           Your businesses, projects, and agents — unified.
         </p>
 
         <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
           <Link
             href="/sign-in"
-            style={{ padding: "10px 24px", background: "oklch(0.870 0.045 252)", color: "oklch(0.110 0.028 268)", borderRadius: 8, fontWeight: 500, fontSize: 14, textDecoration: "none", letterSpacing: "-0.01em" }}
+            style={{ display: "inline-flex", alignItems: "center", minHeight: 44, padding: "10px 24px", background: "oklch(0.870 0.045 252)", color: "oklch(0.110 0.028 268)", borderRadius: 8, fontWeight: 500, fontSize: 14, textDecoration: "none", letterSpacing: "-0.01em" }}
           >
             Sign in
           </Link>
           <Link
             href="/sign-up"
-            style={{ padding: "10px 24px", background: "oklch(1 0 0 / 0.06)", color: "oklch(0.860 0 0)", borderRadius: 8, fontWeight: 500, fontSize: 14, textDecoration: "none", boxShadow: "inset 0 0 0 1px oklch(1 0 0 / 0.12)", letterSpacing: "-0.01em" }}
+            style={{ display: "inline-flex", alignItems: "center", minHeight: 44, padding: "10px 24px", background: "oklch(1 0 0 / 0.06)", color: "oklch(0.860 0 0)", borderRadius: 8, fontWeight: 500, fontSize: 14, textDecoration: "none", boxShadow: "inset 0 0 0 1px oklch(1 0 0 / 0.12)", letterSpacing: "-0.01em" }}
           >
             Create account
           </Link>
         </div>
 
-        <p style={{ marginTop: 48, fontSize: 11, color: "oklch(0.360 0 0)" }}>faridea.dev · {new Date().getFullYear()}</p>
+        <p style={{ marginTop: 48, fontSize: 12, color: "oklch(0.640 0 0)" }}>faridea.dev · {new Date().getFullYear()}</p>
       </div>
     </div>
   );
