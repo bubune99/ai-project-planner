@@ -37,7 +37,7 @@ export function ChangesTab({ projectId }: { projectId: string }) {
       const c = data.changes.find((x) => x.id === id)
       if (!c) return
       setShow(c.verdict ? "all" : "waiting"); setShownId(id)
-      window.setTimeout(() => { const el = document.getElementById(`change-${id}`); if (el) { el.scrollIntoView({ block: "start", behavior: "auto" }); el.focus({ preventScroll: true }) } }, 60)
+      window.setTimeout(() => { const el = document.getElementById(`change-${id}`); if (el) { el.scrollIntoView({ block: "start", behavior: "instant" as ScrollBehavior }); el.focus({ preventScroll: true }) } }, 60)
     }
     go()
     window.addEventListener("opx:show-change", go)
