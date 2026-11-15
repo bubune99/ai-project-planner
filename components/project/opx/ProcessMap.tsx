@@ -83,6 +83,8 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
   const [float, setFloat] = useState<Floating | null>(null)
   const [linking, setLinking] = useState<string | null>(null)
   const [placing, setPlacing] = useState(false)
+  /** The thing last clicked. The toolbar's Change button opens its menu, so nothing depends on a right-click (a phone has none). */
+  const [picked, setPicked] = useState<Target | null>(null)
   const [history, setHistory] = useState<{ past: Layer[]; future: Layer[] }>({ past: [], future: [] })
   const wrap = useRef<HTMLDivElement>(null)
   const { screenToFlowPosition, fitView } = useReactFlow()
@@ -93,6 +95,16 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
   useEffect(() => { setNodes(toNodes(layer, linking)) }, [layer, linking, setNodes])
   const edges = useMemo(() => toEdges(layer.links, place(layer), lanes), [layer, lanes])
   const issues = useMemo(() => (can ? checkLayer(layer) : []), [layer, can])
+  const pathKey = livePath.map((s) => s.id).join("/")
+  useEffect(() => { setPicked(null) }, [pathKey])
+  // What was picked may have been removed or moved since: only offer what is still there.
+  const pickName = !picked ? null
+    : picked.kind === "node" ? layer.nodes.find((n) => n.id === picked.id)?.title ?? null
+    : picked.kind === "stage" ? layer.stages?.find((s) => s.id === picked.id)?.title ?? null
+    : picked.kind === "lane" ? layer.lanes?.[picked.index] ?? null
+    : picked.kind === "edge" ? (layer.links[picked.index] ? layer.links[picked.index].label || "this line" : null)
+    : null
+  const pick = pickName != null ? picked : null
 
   /** Every change goes through here, so every change can be undone. */
   const commit = useCallback((next: Layer) => {
@@ -198,7 +210,7 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
         {names.map((name, i) => <span key={i} className="opx-pm-trail"><i aria-hidden="true">›</i><button type="button" className={`opx-pm-step${i === names.length - 1 ? " here" : ""}`} onClick={() => setPath(livePath.slice(0, i + 1))}>{name}</button></span>)}
       </nav>
       <p className="opx-muted">
-        {layer.say ? `${layer.say} ` : ""}Grey lines go forward; orange dashed lines are loops. Double-click a stage or step to open what is inside it{livePath.length ? ", and Back (or Esc) to come out" : ""}.{can ? " Right-click a step, line, lane or stage to change it, or drag a step to move it: it lands in the nearest free place and the lines follow." : " Drag to look around, scroll to zoom."}
+        {layer.say ? `${layer.say} ` : ""}Grey lines go forward; orange dashed lines are loops. Click a step, lane, stage or line and press Change to rename, move or remove it (a right-click does the same). Double-click a stage or step to open what is inside it{livePath.length ? ", and Back (or Esc) to come out" : ""}.{can ? " Right-click a step, line, lane or stage to change it, or drag a step to move it: it lands in the nearest free place and the lines follow." : " Drag to look around, scroll to zoom."}
       </p>
       {can && (
         <div className="opx-pm-bar" role="toolbar" aria-label="Change the map">
@@ -206,6 +218,10 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
           {lanes && <button type="button" className="opx-btn sm" disabled={laneCount >= 12} onClick={() => newLane(laneCount)}>Add a lane</button>}
           {lanes && <button type="button" className="opx-btn sm" disabled={stageCount >= 16} onClick={() => newStage(stageCount)}>Add a stage</button>}
           <button type="button" className="opx-btn sm" onClick={tidy}>Tidy up</button>
+          <button type="button" className="opx-btn sm" disabled={!pick} aria-haspopup="menu" title={pick ? undefined : "Click a step, lane, stage or line first"}
+            onClick={() => { if (!pick) return; const r = wrap.current!.getBoundingClientRect(); setLinking(null); setPlacing(false); setFloat({ x: Math.max(8, r.width / 2 - 130), y: 16, target: pick }) }}>
+            {pick ? `Change "${pickName!.length > 28 ? `${pickName!.slice(0, 27)}…` : pickName}"` : "Change"}
+          </button>
           <span className="gap" />
           <button type="button" className="opx-btn sm" disabled={!history.past.length} onClick={undo}><Undo2 size={13} /> Undo</button>
           <button type="button" className="opx-btn sm" disabled={!history.future.length} onClick={redo}><Redo2 size={13} /> Redo</button>
@@ -221,7 +237,10 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
           onNodeClick={(e, n) => {
             if (placing && n.type === "lane") { const c = cellAt(layer, flowAt(e)); if (c && stepInto(c, at(e))) setPlacing(false) }
             else if (linking && n.type === "box") { const from = linking, index = layer.links.length; setLinking(null); if (!layer.links.some((x) => x.from === from && x.to === n.id)) { change((l) => addLink(l, from, n.id)); nameIt({ kind: "edge", index }, "") } }
+            else if (!placing && !linking) { const tg = targetOf(n); if (tg) setPicked(tg) }
           }}
+          onEdgeClick={(_, edge) => setPicked({ kind: "edge", index: Number(edge.id.slice(1)) })}
+          onPaneClick={() => setPicked(null)}
           onNodeDragStop={(_, n) => drop(n)}
           onNodeContextMenu={(e, n) => { const tg = targetOf(n); if (tg) menu(e, tg.kind === "lane" ? { ...tg, at: flowAt(e) } : tg) }}
           onEdgeContextMenu={(e, edge) => menu(e, { kind: "edge", index: Number(edge.id.slice(1)) })}

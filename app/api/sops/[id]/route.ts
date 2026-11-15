@@ -49,17 +49,27 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   }
 }
 
-/** PATCH /api/sops/[id]  Body: any of { title, content, category, status, projectId } */
+/** PATCH /api/sops/[id]  Body: any of { title, content, category, status, projectId }, or { restore: true } to take back a delete */
 export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   try {
     const authContext = await getAuthContext()
     if (!authContext) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     const { userId } = authContext
+    const body = await request.json()
+    // { restore: true } takes back a delete: the page offers Undo right after one. Same owner check as every other write.
+    if (body?.restore === true) {
+      const back = await sql`
+        UPDATE sops SET deleted_at = NULL, updated_at = NOW()
+        WHERE id = ${params.id} AND user_id = ${userId} AND deleted_at IS NOT NULL
+        RETURNING id
+      `
+      if (back.length === 0) return errorResponse(ErrorCodes.NOT_FOUND, 'SOP not found', 404)
+      return successResponse({ id: params.id, restored: true })
+    }
     if (!(await ownedSop(params.id, userId))) {
       return errorResponse(ErrorCodes.NOT_FOUND, 'SOP not found', 404)
     }
-    const body = await request.json()
     const { title, content, category, status, projectId } = body
 
     if (title !== undefined && !title?.trim()) {

@@ -152,10 +152,16 @@ export default function LibraryPage() {
   }
 
   const remove = async (s: Sop) => {
-    if (!confirm(`Delete the SOP "${s.title}"? This can't be undone.`)) return
+    if (!confirm(`Delete the SOP "${s.title}"?`)) return
     const res = await fetch(`/api/sops/${s.id}`, { method: "DELETE" })
     if (!res.ok) { toast.error("Couldn't delete it"); return }
     setOpen(null); setForm(null); fetchSops()
+    // A delete can be taken back: the line says what went and offers Undo.
+    toast(`Deleted "${s.title}"`, { duration: 10000, action: { label: "Undo", onClick: async () => {
+      const back = await fetch(`/api/sops/${s.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ restore: true }) })
+      if (!back.ok) { toast.error("Couldn't bring it back"); return }
+      await fetchSops(); setOpen(s.id)
+    } } })
   }
 
   const editor = form && (
@@ -203,7 +209,7 @@ export default function LibraryPage() {
             {cats.map(([c, n]) => (
               <button key={c} className={`opx-dc${cat === c ? " on" : ""}`} onClick={() => { setCat(c); setOpen(null) }}>{c} <em>{n}</em></button>
             ))}
-            <button className="opx-btn primary" style={{ marginTop: 12, width: "100%", justifyContent: "center" }} onClick={() => { setOpen(null); setForm({ title: "", content: "", category: cat === "all" || cat === UNCAT ? "" : cat, status: "active" }) }}>＋ New SOP</button>
+            <button className="opx-btn primary" style={{ marginTop: 12, width: "100%", justifyContent: "center" }} onClick={() => { setOpen(null); setForm({ title: "", content: "", category: cat === "all" || cat === UNCAT ? "" : cat, status: "active" }) }}>New SOP</button>
             <button className="opx-btn" style={{ marginTop: 6, width: "100%", justifyContent: "center" }} onClick={newMap}>New process map</button>
             <div className="opx-muted" style={{ fontSize: 12, fontWeight: 600, margin: "18px 0 6px 4px", paddingTop: 12, borderTop: "1px solid var(--opx-line)" }}>For agents</div>
             {SHELVES.map((x) => (
@@ -216,7 +222,7 @@ export default function LibraryPage() {
           {form ? editor : cur ? (
             <section className="opx-sec" style={{ minHeight: 400 }}>
               <div className="opx-row" style={{ marginBottom: 6 }}>
-                <button className="opx-link" style={{ padding: 0 }} onClick={() => setOpen(null)}>‹ {cat === "all" ? "All SOPs" : cat}</button>
+                <button className="opx-link opx-act" onClick={() => setOpen(null)}>‹ {cat === "all" ? "All SOPs" : cat}</button>
                 <span className="opx-row" style={{ marginLeft: "auto", gap: 6 }}>
                   <button className="opx-btn" onClick={() => remove(cur)}>Delete</button>
                   <button className="opx-btn" onClick={() => setForm({ title: cur.title, content: stripMapBlock(cur.content), category: cur.category ?? "", status: cur.status })}>{curMap ? "Edit the words" : "Edit"}</button>
