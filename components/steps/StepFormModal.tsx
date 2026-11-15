@@ -352,7 +352,7 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
                   }
                 }}
               />
-              <Button type="button" onClick={addTask} size="sm">
+              <Button type="button" onClick={addTask} size="sm" aria-label="Add this subtask">
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
@@ -387,7 +387,7 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
                       ))}
                   </SelectContent>
                 </Select>
-                <Button type="button" onClick={addDependency} size="sm">
+                <Button type="button" onClick={addDependency} size="sm" aria-label="Add this dependency">
                   <Plus className="w-4 h-4" />
                 </Button>
               </div>
