@@ -21,6 +21,8 @@ export function ChangesTab({ projectId }: { projectId: string }) {
   const [show, setShow] = useState<"waiting" | "all" | "said">("waiting")
   const [notes, setNotes] = useState<Record<string, string>>({})
   const [failed, setFailed] = useState<string | null>(null)
+  /** The change whose "Not good" was pressed with nothing written: it is asked for there, in words anyone can see. */
+  const [needWords, setNeedWords] = useState<string | null>(null)
 
   if (loading && !data) return <Loading what="the changes" />
   if (error && !data) return <Failed what="the changes" error={error} retry={reload} />
@@ -75,9 +77,15 @@ export function ChangesTab({ projectId }: { projectId: string }) {
             <div className="opx-ch-judge">
               <input className="opx-input" aria-label={`Your thoughts on: ${c.title}`} placeholder={c.verdict ? "Add or change your thoughts" : "Your thoughts (needed if it was not a good change)"} value={notes[c.id] ?? ""} onChange={(e) => setNotes({ ...notes, [c.id]: e.target.value })} maxLength={600} />
               {!c.verdict && <>
-                <button type="button" className="opx-btn" onClick={() => judge(c.id, "good")}><ThumbsUp size={14} /> A good change</button>
-                <button type="button" className="opx-btn" onClick={() => judge(c.id, "bad")} disabled={!(notes[c.id] ?? "").trim()} title={(notes[c.id] ?? "").trim() ? undefined : "Say what was wrong first"}><ThumbsDown size={14} /> Not good</button>
+                <button type="button" className="opx-btn" onClick={() => { setNeedWords(null); judge(c.id, "good") }}><ThumbsUp size={14} /> A good change</button>
+                {/* Never disabled: a dimmed button with a hover tip told a phone nothing. Pressed with no words, it asks for them. */}
+                <button type="button" className="opx-btn" onClick={(e) => {
+                  if ((notes[c.id] ?? "").trim()) { setNeedWords(null); judge(c.id, "bad"); return }
+                  setNeedWords(c.id)
+                  ;(e.currentTarget.parentElement?.querySelector("input") as HTMLInputElement | null)?.focus()
+                }}><ThumbsDown size={14} /> Not good</button>
               </>}
+              {needWords === c.id && !(notes[c.id] ?? "").trim() && <p role="alert" className="opx-ch-need">Say what was wrong first, then press Not good.</p>}
             </div>
           )}
         </section>
