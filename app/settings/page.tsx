@@ -173,7 +173,7 @@ function McpTab() {
       const res = await fetch("/api/api-keys")
       if (res.ok) {
         const data = await res.json()
-        setKeys(data.keys || [])
+        setKeys(((data.apiKeys || []) as (Omit<ApiKey, "isActive"> & { isRevoked?: boolean; isExpired?: boolean })[]).map((k) => ({ ...k, isActive: !k.isRevoked && !k.isExpired })))
       }
     } finally {
       setIsLoading(false)
@@ -194,7 +194,9 @@ function McpTab() {
       })
       if (!res.ok) throw new Error("Failed to create key")
       const data = await res.json()
-      setRevealedKey(data.key)
+      const made = data?.apiKey?.key
+      if (!made) throw new Error("The key was made but not returned")
+      setRevealedKey(made)
       setShowCreate(false)
       setNewKeyName("")
       setNewKeyExpiry("never")
@@ -341,7 +343,7 @@ function McpTab() {
                     <span style={{ fontSize: 13, fontWeight: 500, color: key.isActive ? "var(--opx-ink)" : "var(--opx-muted)" }}>
                       {key.name}
                     </span>
-                    {!key.isActive && <span className="j-pill" style={{ fontSize: 12, background: "oklch(0.545 0.199 27 / 0.15)", color: "var(--j-neg)" }}>Revoked</span>}
+                    {!key.isActive && <span className="j-pill j-neg" style={{ fontSize: 12 }}>No longer works</span>}
                   </div>
                   <div className="j-row" style={{ gap: 12 }}>
                     <span style={{ fontSize: 12, fontFamily: "inherit", color: "var(--opx-muted)" }}>
@@ -441,11 +443,12 @@ function AppearanceTab() {
               style={{
                 flex: 1, padding: "16px 12px", borderRadius: 10, cursor: "pointer",
                 border: "none", fontFamily: "inherit",
-                background: density === d ? "oklch(0.870 0.045 252 / 0.12)" : "var(--opx-soft)",
+                background: density === d ? "color-mix(in srgb, var(--opx-accent) 16%, transparent)" : "var(--opx-soft)",
                 boxShadow: `0 0 0 1px ${density === d ? "color-mix(in srgb, var(--opx-accent) 45%, transparent)" : "var(--j-ring)"}`,
-                color: density === d ? "var(--j-accent)" : "var(--opx-ink)",
-                textTransform: "capitalize", fontWeight: density === d ? 500 : 400, fontSize: 13,
+                color: "var(--opx-ink)",
+                textTransform: "capitalize", fontWeight: density === d ? 600 : 400, fontSize: 13,
               }}
+              aria-pressed={density === d}
             >
               {d}
             </button>
@@ -485,7 +488,7 @@ function IntegrationsTab() {
               </div>
               <div>
                 <div style={{ fontWeight: 500, fontSize: 14 }}>{p.name}</div>
-                <span className="j-pill" style={{ fontSize: 12, background: "color-mix(in srgb, var(--opx-accent) 12%, transparent)", color: "var(--j-accent)" }}>Planned</span>
+                <span className="j-pill j-ghost" style={{ fontSize: 12 }}>Planned</span>
               </div>
             </div>
             <p className="j-muted" style={{ fontSize: 12, margin: 0, lineHeight: 1.5 }}>{p.description}</p>
