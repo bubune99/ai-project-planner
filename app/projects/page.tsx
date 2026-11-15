@@ -256,7 +256,7 @@ function ProjectsByPhase({ projects, onOpen }: { projects: ProjectSummary[]; onO
               </div>
               <span className="j-muted" style={{ fontSize: 12 }}>avg {avgProg}% complete</span>
             </div>
-            <div className="j-grid j-cols-3">
+            <div className="j-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(280px, 100%), 1fr))" }}>
               {items.map(p => (
                 <div
                   key={p.id}
@@ -426,7 +426,7 @@ export default function ProjectsPage() {
         ) : (
           <>
             {view === "cards" && (
-              <div className="j-grid j-cols-3">
+              <div className="j-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(280px, 100%), 1fr))" }}>
                 {projects.map(p => <ProjectCard key={p.id} p={p} onClick={() => openProject(p.id)} />)}
               </div>
             )}
