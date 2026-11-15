@@ -93,7 +93,7 @@ export function DocsTab({ projectId, coreDocs }: { projectId: string; coreDocs?:
               <i className="opx-sd" /><b>{s.name}</b><small className="opx-muted">Not written yet</small>
               <span className="opx-row" style={{ gap: 6, marginTop: 6 }}>
                 <button className="opx-btn sm" onClick={() => startNew(s.name)}>Start it</button>
-                <button className="opx-btn sm" onClick={() => askAssistant(`Draft a ${s.name.toLowerCase()} for this project, using its tasks, decisions and existing docs. Show me the draft before saving it.`)}>Draft with the assistant</button>
+                <button className="opx-btn sm" onClick={() => askAssistant(`Draft the "${s.name}" document for this project, using its tasks, decisions and existing docs. Show me the draft before saving it.`)}>Draft with the assistant</button>
               </span>
             </div>
           ))}

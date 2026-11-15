@@ -285,6 +285,8 @@ button.opx-ck.on::after { content: ''; position: absolute; left: 6px; top: 2px; 
 .opx-file { background: var(--opx-soft); border-radius: 16px; padding: 10px; display: flex; flex-direction: column; gap: 4px; color: inherit; text-decoration: none; min-width: 0; }
 .opx-file b { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .opx-dcard small, .opx-slot small { font-size: 12px; }
+.opx-slot .opx-row { flex-wrap: wrap; }
+.opx-slot .opx-btn { white-space: nowrap; }
 .opx-file small { font-size: 12px; }
 .opx-thumb { height: 120px; border-radius: 10px; background: var(--opx-card) center/cover no-repeat; display: grid; place-items: center; }
 .opx-ext { font-weight: 700; color: var(--opx-muted); }
