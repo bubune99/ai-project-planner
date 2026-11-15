@@ -1041,6 +1041,16 @@ input[type=date].opx-rowsel { color: var(--opx-muted); } input[type=date].opx-ro
   .opx-lv.opx-lvp > :nth-child(3) { display: inline-flex; grid-column: 2; grid-row: 2; }
   .opx-lv.opx-lvp > :nth-child(4) { display: inline-flex; grid-column: 3; grid-row: 2; }
   .opx-lv.opx-lvp > :nth-child(5) { display: inline-flex; grid-column: 4; grid-row: 2; justify-self: start; }
-  .opx-lv.opx-lvp > :nth-child(6), .opx-lv.opx-lvp.opx-lvh { display: none; }
+  .opx-lv.opx-lvp > :nth-child(6) { display: inline-flex; grid-column: 2 / -1; grid-row: 3; }
+  .opx-lv.opx-lvp.opx-lvh { display: none; }
+  .opx-wfilter .opx-input { flex-basis: 100%; max-width: none; font-size: 16px; min-height: 44px; }
+  .opx-wfilter .opx-dc { min-height: 44px; }
   .opx-rowsel { min-height: 44px; font-size: 14px; }
 }
+/* My work: the row of filters above the list, and room for the row's own controls. */
+.opx-wfilter { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.opx-wfilter .opx-input { flex: 0 1 280px; }
+.opx-wfilter .opx-dc { width: auto; display: inline-flex; align-items: center; gap: 6px; }
+.opx-lv.opx-lvp { grid-template-columns: 44px minmax(0,1fr) 150px 110px 140px 110px; }
+select.opx-rowsel { min-width: 78px; padding-right: 8px; }
+input[type=date].opx-rowsel { min-width: 128px; }

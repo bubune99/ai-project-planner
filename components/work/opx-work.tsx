@@ -13,7 +13,7 @@
 
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import { compareWork, type WorkItem } from "@/lib/work-items"
+import { WORK_ONLY, compareWork, filterCounts, matchesQuery, passesFilter, staleDays, type WorkItem, type WorkOnly } from "@/lib/work-items"
 import { dayOf, dayKey, type PlannedRange } from "@/lib/project-views/schedule"
 import { PlanCalendar, type CalExtra } from "@/components/project/opx/TaskViews"
 import { Failed, Loading, Priority, Seg, fmtDate, unwrap, useHoverTip, useJson } from "@/components/project/opx/shared"
@@ -71,13 +71,18 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
     }
   }
   const work = unwrap<WorkData>(data)
+  /** Narrowing a long list: words to look for, and one filter at a time. */
+  const [q, setQ] = useState("")
+  const [only, setOnly] = useState<WorkOnly>("all")
+  const counts = useMemo(() => filterCounts(work?.items || [], new Date()), [work])
+  const shown = useMemo(() => { const now = new Date(); return (work?.items || []).filter((x) => passesFilter(x, only, now) && matchesQuery(x, q.trim())) }, [work, only, q])
   const groups = useMemo(() => {
     const now = new Date()
-    const sorted = [...(work?.items || [])].sort((a, b) => compareWork(a, b, now))
+    const sorted = [...shown].sort((a, b) => compareWork(a, b, now))
     const m = new Map<string, WorkItem[]>()
     for (const w of sorted) { const g = w.projectName || "Personal"; m.set(g, [...(m.get(g) || []), w]) }
     return [...m.entries()].sort((a, b) => (a[0] === "Personal" ? 1 : b[0] === "Personal" ? -1 : b[1].length - a[1].length))
-  }, [work])
+  }, [shown])
 
   const isDone = (w: WorkItem) => flip[w.id] ?? (edits[w.id]?.statusKind ?? w.statusKind) === "done"
   const toggle = async (w: WorkItem) => {
@@ -87,17 +92,25 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
     catch (e) { setFlip((f) => ({ ...f, [w.id]: !next })); toast.error(e instanceof Error ? e.message : "Couldn't update it") }
   }
 
-  const total = work?.items.length ?? 0
+  const all = work?.items.length ?? 0, total = shown.length, narrowed = only !== "all" || !!q.trim()
   const today = dayOf(new Date())!
   return (
     <div className="opx-col" style={{ gap: 12 }}>
       <div className="opx-row">
         <Seg label="Show" value={view} onChange={(v) => { setView(v); setFlip({}) }} options={[["open", "Open"], ["done", "Done"]]} />
-        <span className="opx-muted" style={{ fontSize: 13 }}>{loading && !data ? "Loading…" : `${total} ${view === "open" ? "open" : "done"} across ${groups.length} group${groups.length === 1 ? "" : "s"}`}</span>
+        <span className="opx-muted" style={{ fontSize: 13 }}>{loading && !data ? "Loading…" : `${narrowed ? `${total} of ${all}` : total} ${view === "open" ? "open" : "done"} across ${groups.length} group${groups.length === 1 ? "" : "s"}`}</span>
       </div>
       {loading && !data && <Loading what="your work" />}
       {error && <Failed what="your work" error={error} retry={reload} />}
-      {!loading && !error && total === 0 && <div className="opx-empty">{view === "open" ? "Nothing open. Add something above." : "Nothing finished yet."}</div>}
+      <div className="opx-wfilter" role="group" aria-label="Narrow the list">
+        <input className="opx-input" placeholder="Find by words or project" aria-label="Find in my work" value={q} onChange={(e) => setQ(e.target.value)} />
+        {WORK_ONLY.map(([k, label]) => (
+          <button key={k} type="button" className={`opx-dc${only === k ? " on" : ""}`} aria-pressed={only === k} onClick={() => setOnly(k)}>{label} <em>{counts[k] ?? 0}</em></button>
+        ))}
+        {narrowed && <button type="button" className="opx-link opx-act" onClick={() => { setQ(""); setOnly("all") }}>Show everything</button>}
+      </div>
+      {only === "stale" && total > 0 && <p className="opx-muted" style={{ margin: 0, fontSize: 13 }}>Open and not changed for 90 days or more. Each row says how long. Nothing here is closed for you.</p>}
+      {!loading && !error && total === 0 && <div className="opx-empty">{narrowed ? "Nothing matches. Press Show everything to see the whole list." : view === "open" ? "Nothing open. Add something above." : "Nothing finished yet."}</div>}
       {groups.map(([g, list]) => (
         <section key={g} className="opx-sec" style={{ padding: "8px 0" }}>
           <div className="opx-sech" style={{ padding: "10px 18px 6px" }}>
@@ -128,7 +141,7 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
                 </select>
                 <input type="date" className={`opx-rowsel${late ? " hot" : ""}`} aria-label={`Due date of ${w.title}`} value={due ? dayKey(due) : ""}
                   onChange={(e) => change(w0, { dueDate: e.target.value ? new Date(`${e.target.value}T12:00:00`).toISOString() : null })} />
-                <span className="opx-muted" style={{ fontSize: 12.5 }}>{w.kind === "todo" ? "Todo" : "Task"}</span>
+                <span className="opx-muted" style={{ fontSize: 12.5 }}>{only === "stale" ? `${staleDays(w0)} days untouched` : w.kind === "todo" ? "Todo" : "Task"}</span>
               </div>
             )
           })}

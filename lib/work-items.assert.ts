@@ -9,6 +9,7 @@ import {
   groupWork,
   dueText,
   matchesQuery,
+  passesFilter, staleDays, filterCounts,
   type WorkItem,
 } from "./work-items"
 
@@ -137,6 +138,30 @@ eq(matchesQuery(s, "CATALOG"), true, "title match is case-insensitive")
 eq(matchesQuery(s, "in ci"), true, "description is searched")
 eq(matchesQuery(s, "mission"), true, "project name is searched")
 eq(matchesQuery(s, "stripe"), false, "a non-match is excluded")
+
+/* ───────────────────────────────── filters ───────────────────────────────── */
+// Owner, 2026-11-15: "The ability also to filter through this long list of tasks and to-dos would also be really
+// nice. In general this list really does need a look at stale things".
+{
+  const NOW = new Date(2026, 10, 15, 12)
+  const d = (n: number) => new Date(2026, 10, 15 + n, 12).toISOString()
+  const late = item({ id: "late", dueDate: d(-3), priority: "low", updatedAt: d(-2) })
+  const soon = item({ id: "soon", dueDate: d(4), priority: "urgent", updatedAt: d(-1) })
+  const far = item({ id: "far", dueDate: d(30), priority: "high", updatedAt: d(-200) })
+  const none = item({ id: "none", dueDate: null, priority: null, updatedAt: d(-91), kind: "todo" })
+  const all = [late, soon, far, none]
+  const ids = (only: Parameters<typeof passesFilter>[1]) => all.filter((x) => passesFilter(x, only, NOW)).map((x) => x.id).join()
+  eq(ids("all"), "late,soon,far,none", "all keeps everything")
+  eq(ids("overdue"), "late", "overdue is due before today")
+  eq(ids("week"), "soon", "this week is due today or in the next 7 days, not overdue")
+  eq(ids("nodate"), "none", "no date")
+  eq(ids("hot"), "soon,far", "urgent and high")
+  eq(ids("stale"), "far,none", "stale is not touched in 90 days")
+  eq(ids("todo"), "none", "todos only")
+  eq(ids("step"), "late,soon,far", "tasks only")
+  eq(staleDays(far, NOW), 200, "how long since it was touched, in days")
+  eq(JSON.stringify(filterCounts(all, NOW)), JSON.stringify({ all: 4, overdue: 1, week: 1, nodate: 1, hot: 2, stale: 2, todo: 1, step: 3 }), "counts for every filter")
+}
 
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)

@@ -153,3 +153,37 @@ export function matchesQuery(it: WorkItem, q: string): boolean {
     (it.projectName ?? "").toLowerCase().includes(s)
   )
 }
+
+/* ───────────────────────────────── filters ───────────────────────────────── */
+
+/** One-press filters over the list. Owner, 2026-11-15: a long list has to be narrowed, and stale things looked at. */
+export type WorkOnly = "all" | "overdue" | "week" | "nodate" | "hot" | "stale" | "todo" | "step"
+export const WORK_ONLY: [WorkOnly, string][] = [
+  ["all", "Everything"], ["overdue", "Overdue"], ["week", "Due this week"], ["nodate", "No date"],
+  ["hot", "Urgent and high"], ["stale", "Stale"], ["todo", "Todos"], ["step", "Tasks"],
+]
+/** Open and not touched for this many days is stale. */
+export const STALE_AFTER_DAYS = 90
+const DAY_MS = 86_400_000
+
+/** Whole days since the item was last changed. */
+export function staleDays(it: WorkItem, now: Date = new Date()): number {
+  return Math.max(0, Math.floor((now.getTime() - new Date(it.updatedAt || it.createdAt).getTime()) / DAY_MS))
+}
+
+export function passesFilter(it: WorkItem, only: WorkOnly, now: Date = new Date()): boolean {
+  if (only === "all") return true
+  if (only === "todo" || only === "step") return it.kind === only
+  if (only === "hot") return it.priority === "urgent" || it.priority === "high"
+  if (only === "stale") return staleDays(it, now) >= STALE_AFTER_DAYS
+  if (only === "nodate") return !it.dueDate
+  if (!it.dueDate) return false
+  const today = dayKey(now), due = dayKey(new Date(it.dueDate))
+  return only === "overdue" ? due < today : due >= today && due <= today + 7 * DAY_MS
+}
+
+export function filterCounts(items: WorkItem[], now: Date = new Date()): Record<WorkOnly, number> {
+  const out = {} as Record<WorkOnly, number>
+  for (const [k] of WORK_ONLY) out[k] = items.filter((x) => passesFilter(x, k, now)).length
+  return out
+}
