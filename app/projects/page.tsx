@@ -116,8 +116,8 @@ function ProjectCard({ p, onClick }: { p: ProjectSummary; onClick: () => void })
 
 function ProjectsTable({ projects, onOpen }: { projects: ProjectSummary[]; onOpen: (id: string) => void }) {
   return (
-    <div className="j-card" style={{ padding: 0 }}>
-      <table className="j-table">
+    <div className="j-card" style={{ padding: 0, overflowX: "auto" }} role="region" aria-label="Projects table" tabIndex={0}>
+      <table className="j-table" style={{ minWidth: 720 }}>
         <thead>
           <tr>
             <th>Project</th>
@@ -182,12 +182,12 @@ function ProjectsPortfolio({ projects, onOpen }: { projects: ProjectSummary[]; o
           <div
             key={p.id}
             className="j-card"
-            style={{ padding: "14px 18px", cursor: "pointer", display: "flex", gap: 16, alignItems: "center" }}
+            style={{ padding: "14px 18px", cursor: "pointer", display: "flex", flexWrap: "wrap", gap: "10px 16px", alignItems: "center" }}
             onClick={() => onOpen(p.id)}
           >
             <i aria-hidden="true" style={{ width: 9, height: 9, borderRadius: "50%", background: barColor, flexShrink: 0 }} />
 
-            <div style={{ flex: "0 0 220px", minWidth: 0 }}>
+            <div style={{ flex: "1 1 220px", minWidth: 0 }}>
               <div style={{ fontWeight: 500, fontSize: 14, marginBottom: 3 }}><Link href={`/project/${p.id}`} onClick={(e) => e.stopPropagation()} style={{ color: "inherit", textDecoration: "none", display: "inline-block", padding: "3px 0" }}>{p.name}</Link></div>
               <div className="j-row" style={{ gap: 6 }}>
                 <span className={`j-pill ${STATUS_CLASS[p.status] || "j-muted"}`} style={{ fontSize: 12 }}>
@@ -197,7 +197,7 @@ function ProjectsPortfolio({ projects, onOpen }: { projects: ProjectSummary[]; o
               </div>
             </div>
 
-            <div style={{ flex: "0 0 180px" }}>
+            <div style={{ flex: "1 1 160px", maxWidth: 240 }}>
               <div className="j-row j-between" style={{ marginBottom: 5 }}>
                 <span className="j-muted" style={{ fontSize: 12 }}>Progress</span>
                 <span className="j-num" style={{ fontSize: 12 }}>{p.progress}%</span>
