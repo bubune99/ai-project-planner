@@ -54,7 +54,7 @@ export function CardMenu({
               actions sit above the list instead of padding it out. */}
           <div className="flex gap-1 p-1">
             <button
-              className="flex-1 rounded-sm border border-border px-1.5 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="flex-1 rounded-sm border border-border px-1.5 py-1 text-[12px] text-muted-foreground hover:bg-accent hover:text-foreground"
               onClick={() => {
                 const url = `${window.location.origin}${window.location.pathname}?step=${step.id}`
                 navigator.clipboard?.writeText(url)
@@ -63,7 +63,7 @@ export function CardMenu({
               Copy link
             </button>
             <button
-              className="flex-1 rounded-sm border border-border px-1.5 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="flex-1 rounded-sm border border-border px-1.5 py-1 text-[12px] text-muted-foreground hover:bg-accent hover:text-foreground"
               onClick={() => navigator.clipboard?.writeText(step.id)}
             >
               Copy ID

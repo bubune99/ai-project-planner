@@ -52,7 +52,7 @@ const SQUIRCLE = "[corner-shape:squircle]";
 
 /** One chip. Fixed height and no line box, so the icon and label sit dead centre. */
 const CHIP =
-  "inline-flex h-[22px] items-center gap-1 rounded-[7px] px-2 text-[11px] leading-none";
+  "inline-flex h-[22px] items-center gap-1 rounded-[7px] px-2 text-[12px] leading-none";
 
 /** Vertical space between cards, in px. Needed in maths, not just in CSS. */
 const GAP = 8;
@@ -64,9 +64,9 @@ export type Priority = "urgent" | "high" | "normal" | "low";
 
 const PRIORITY_STYLES: Record<Priority, string> = {
   urgent:
-    "bg-rose-50 text-rose-600 dark:bg-rose-500/12 dark:text-rose-300",
-  high: "bg-amber-50 text-amber-700 dark:bg-amber-500/12 dark:text-amber-300",
-  normal: "bg-blue-50 text-blue-600 dark:bg-blue-500/12 dark:text-blue-300",
+    "bg-rose-50 text-rose-600 dark:bg-rose-500/[0.14] dark:text-rose-300",
+  high: "bg-amber-50 text-amber-700 dark:bg-amber-500/[0.14] dark:text-amber-300",
+  normal: "bg-blue-50 text-blue-600 dark:bg-blue-500/[0.14] dark:text-blue-300",
   low: "bg-neutral-100 text-neutral-500 dark:bg-white/[0.07] dark:text-neutral-400",
 };
 
@@ -861,8 +861,8 @@ function ColumnHeader({
         animate={{ y: 0, opacity: 1 }}
         transition={FLOW_SPRING}
         className={cn(
-          "grid h-[18px] min-w-[18px] place-items-center rounded-[6px] px-1 text-[11px] font-medium tabular-nums",
-          "bg-black/[0.06] text-neutral-500 dark:bg-white/[0.09] dark:text-neutral-400",
+          "grid h-[18px] min-w-[18px] place-items-center rounded-[6px] px-1 text-[12px] font-medium tabular-nums",
+          "bg-black/[0.06] text-neutral-600 dark:bg-white/[0.09] dark:text-neutral-300",
           SQUIRCLE,
         )}
       >
@@ -1040,7 +1040,7 @@ function CardShell({
           <span
             className={cn(
               "inline-flex items-center gap-1 tabular-nums",
-              task.dueSoon && "text-[var(--opx-hot,#d65a3e)]",
+              task.dueSoon && "text-[#b8432a] dark:text-[#f29a84]",
             )}
           >
             <CalendarDays aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2.25} />
@@ -1085,7 +1085,7 @@ function Tooltip({ label, children }: { label: string; children: React.ReactNode
       >
         <span
           className={cn(
-            "block whitespace-nowrap rounded-[7px] px-2 py-1 text-[11px] font-medium leading-none",
+            "block whitespace-nowrap rounded-[7px] px-2 py-1 text-[12px] font-medium leading-none",
             "text-white dark:text-neutral-900",
             skin,
             "shadow-[0_6px_16px_-4px_rgb(0_0_0/0.3)]",
@@ -1138,7 +1138,7 @@ function AvatarStack({ people }: { people: KanbanAssignee[] }) {
             <span
               tabIndex={0}
               className={cn(
-                "grid h-[22px] w-[22px] place-items-center rounded-full text-[10px] font-medium",
+                "grid h-[22px] w-[22px] place-items-center rounded-full text-[12px] font-medium",
                 "bg-neutral-200 text-neutral-600 ring-2 ring-white",
                 "dark:bg-white/15 dark:text-neutral-200 dark:ring-neutral-900",
                 "focus-visible:outline-none focus-visible:ring-neutral-900 dark:focus-visible:ring-white",
@@ -1206,7 +1206,7 @@ function ProgressRing({ value }: { value: number }) {
           className={done ? "stroke-emerald-500" : "stroke-neutral-900 dark:stroke-neutral-100"}
         />
       </svg>
-      <span className="text-[11.5px] font-normal tabular-nums text-neutral-500 dark:text-neutral-400">
+      <span className="text-[12px] font-normal tabular-nums text-neutral-600 dark:text-neutral-300">
         {v}%
       </span>
     </span>
