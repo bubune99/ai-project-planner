@@ -13,7 +13,7 @@
 
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import { NO_FILTER, compareWork, filterCounts, isFiltered, matchesQuery, passesColumns, staleDays, type WorkColumns, type WorkItem } from "@/lib/work-items"
+import { NO_FILTER, bulkPlan, compareWork, filterCounts, isFiltered, matchesQuery, passesColumns, staleDays, type BulkAction, type BulkStep, type WorkColumns, type WorkItem } from "@/lib/work-items"
 import { dayOf, dayKey, type PlannedRange } from "@/lib/project-views/schedule"
 import { PlanCalendar, type CalExtra } from "@/components/project/opx/TaskViews"
 import { Failed, Loading, Priority, Seg, fmtDate, unwrap, useHoverTip, useJson } from "@/components/project/opx/shared"
@@ -52,7 +52,7 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
    * at once and put back, with a line saying so, if the save fails.
    */
   const [edits, setEdits] = useState<Record<string, Partial<Pick<WorkItem, "statusKind" | "priority" | "dueDate">>>>({})
-  const change = async (w: WorkItem, patch: Partial<Pick<WorkItem, "statusKind" | "priority" | "dueDate">>) => {
+  const change = async (w: WorkItem, patch: Partial<Pick<WorkItem, "statusKind" | "priority" | "dueDate">>, quiet = false) => {
     const before = edits[w.id]
     setEdits((e) => ({ ...e, [w.id]: { ...e[w.id], ...patch } }))
     try {
@@ -65,10 +65,54 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
       if ("dueDate" in patch) body[w.kind === "todo" ? "dueDate" : "end_date"] = patch.dueDate
       await patchJson(w.kind === "todo" ? `/api/todos/${w.id}` : `/api/projects/${w.projectId}/steps/${w.id}`, body)
       if (patch.statusKind) setFlip((f) => { const { [w.id]: _, ...rest } = f; return rest })
+      return true
     } catch (e) {
       setEdits((x) => ({ ...x, [w.id]: before ?? {} }))
-      toast.error(e instanceof Error ? `Not saved: ${e.message}` : "Not saved")
+      if (!quiet) toast.error(e instanceof Error ? `Not saved: ${e.message}` : "Not saved")
+      return false
     }
+  }
+
+  /**
+   * Several rows at once. Owner, 2026-11-15, asked whether rows should be selectable so several can be changed
+   * together: "Yes: mark done, set priority, set due date, delete (todos only), with Undo".
+   */
+  const [picking, setPicking] = useState(false)
+  const [sel, setSel] = useState<Set<string>>(new Set())
+  const [busy, setBusy] = useState(false)
+  const pick = (ids: string[], on: boolean) => setSel((s) => { const n = new Set(s); for (const id of ids) on ? n.add(id) : n.delete(id); return n })
+  const stopPicking = () => { setPicking(false); setSel(new Set()) }
+  /** Carry out steps, six at a time. Returns how many did not go through. */
+  const carry = async (steps: BulkStep[], which: "patch" | "undo") => {
+    const byId = new Map((work?.items || []).map((x) => [x.id, x] as const))
+    let failed = 0
+    for (let i = 0; i < steps.length; i += 6) {
+      const got = await Promise.all(steps.slice(i, i + 6).map(async (s) => {
+        const w = byId.get(s.id), what = s[which]
+        if (!w) return false
+        if (what === "delete") return fetch(`/api/todos/${s.id}`, { method: "DELETE" }).then((r) => r.ok, () => false)
+        if (what === "restore") return patchJson(`/api/todos/${s.id}`, { restore: true }).then(() => true, () => false)
+        return change(w, what, true)
+      }))
+      failed += got.filter((ok) => !ok).length
+    }
+    return failed
+  }
+  const runBulk = async (action: BulkAction, said: string) => {
+    const now = (work?.items || []).map((x) => ({ ...x, ...edits[x.id] }))
+    const { steps, skipped } = bulkPlan(now, sel, action)
+    if (!steps.length) { toast(action.do === "delete" ? "Only todos can be deleted here. No todos are selected." : "Nothing to change: the selected rows are already like that."); return }
+    setBusy(true)
+    const failed = await carry(steps, "patch")
+    setBusy(false)
+    if (action.do === "delete" || action.do === "done") { setSel(new Set()); reload() }
+    const n = steps.length - failed
+    const line = `${said}: ${n} row${n === 1 ? "" : "s"}${skipped ? `, ${skipped} left as ${action.do === "delete" ? "they are (tasks are not deleted here)" : "they were"}` : ""}${failed ? `, ${failed} not saved` : ""}`
+    toast(line, { duration: 12000, action: { label: "Undo", onClick: async () => {
+      const back = await carry(steps, "undo")
+      reload()
+      if (back) toast.error(`${back} could not be put back`); else toast("Put back")
+    } } })
   }
   const work = unwrap<WorkData>(data)
   /**
@@ -103,6 +147,7 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
       <div className="opx-row">
         <Seg label="Show" value={view} onChange={(v) => { setView(v); setFlip({}) }} options={[["open", "Open"], ["done", "Done"]]} />
         <span className="opx-muted" style={{ fontSize: 13 }}>{loading && !data ? "Loading…" : `${narrowed ? `${total} of ${all}` : total} ${view === "open" ? "open" : "done"} across ${groups.length} group${groups.length === 1 ? "" : "s"}`}</span>
+        {total > 0 && <button type="button" className="opx-btn" style={{ marginLeft: "auto" }} aria-pressed={picking} onClick={() => (picking ? stopPicking() : setPicking(true))}>{picking ? "Stop selecting" : "Select several"}</button>}
       </div>
       {loading && !data && <Loading what="your work" />}
       {error && <Failed what="your work" error={error} retry={reload} />}
@@ -129,6 +174,7 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
         <section key={g} className="opx-sec" style={{ padding: "8px 0" }}>
           <div className="opx-sech" style={{ padding: "10px 18px 6px" }}>
             <h2 style={{ fontSize: 16 }}>{g}</h2><span className="opx-n">{list.length}</span>
+            {picking && (() => { const ids = list.map((x) => x.id), allIn = ids.every((id) => sel.has(id)); return <button type="button" className="opx-link opx-act" aria-label={`${allIn ? "Clear" : "Select"} all ${list.length} in ${g}`} onClick={() => pick(ids, !allIn)}>{allIn ? "Clear these" : `Select all ${list.length}`}</button> })()}
             {list[0]?.projectId && <a className="opx-link opx-act" style={{ marginLeft: "auto" }} aria-label={`Open the project ${g}`} href={`/project/${list[0].projectId}?tab=tasks&view=list`}>Open project ›</a>}
           </div>
           <div className="opx-lv opx-lvp opx-lvh"><span /><span>Task</span><span>Status</span><span>Priority</span><span>Due</span><span>Type</span></div>
@@ -139,7 +185,9 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
             const late = due && due < today && !done
             return (
               <div key={w.id} className={`opx-lv opx-lvp${done ? " dn" : ""}`} {...tipProps(w.description)}>
-                <button className={`opx-ck${done ? " on" : ""}`} aria-label={done ? `Reopen ${w.title}` : `Mark ${w.title} done`} onClick={() => toggle(w)} />
+                {picking
+                  ? <label className="opx-pick"><input type="checkbox" aria-label={`Select ${w.title}`} checked={sel.has(w.id)} onChange={(e) => pick([w.id], e.target.checked)} /></label>
+                  : <button className={`opx-ck${done ? " on" : ""}`} aria-label={done ? `Reopen ${w.title}` : `Mark ${w.title} done`} onClick={() => toggle(w)} />}
                 {w.kind === "todo" && onEditTodo
                   ? <button className="opx-link opx-act" style={{ justifyContent: "flex-start", textAlign: "left", fontWeight: 600, fontSize: 14.5, color: "inherit", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} onClick={() => onEditTodo(w.id)}>{w.title}</button>
                   : <b>{w.title}</b>}
@@ -161,6 +209,21 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
           })}
         </section>
       ))}
+      {picking && (() => {
+        const chosen = (work?.items || []).filter((x) => sel.has(x.id)), todos = chosen.filter((x) => x.kind === "todo").length, none = chosen.length === 0 || busy
+        return (
+          <div className="opx-bulk" role="region" aria-label="Change the selected rows">
+            <b aria-live="polite">{busy ? "Saving…" : `${chosen.length} selected`}</b>
+            {view === "open" && <button type="button" className="opx-btn" disabled={none} onClick={() => runBulk({ do: "done" }, "Marked done")}>Mark done</button>}
+            <select className="opx-input" aria-label="Set the priority of the selected rows" disabled={none} value="" onChange={(e) => { const p = e.target.value as "urgent" | "high" | "medium" | "low"; if (p) runBulk({ do: "priority", priority: p }, "Priority set") }}>
+              <option value="">Set priority</option><option value="urgent">Urgent</option><option value="high">High</option><option value="medium">Normal</option><option value="low">Low</option>
+            </select>
+            <label className="opx-bulkdue">Set due date <input type="date" className="opx-input" aria-label="Set the due date of the selected rows" disabled={none} value="" onChange={(e) => { if (e.target.value) runBulk({ do: "due", dueDate: new Date(`${e.target.value}T12:00:00`).toISOString() }, "Due date set") }} /></label>
+            <button type="button" className="opx-btn" disabled={none || todos === 0} title={todos === 0 && chosen.length ? "Only todos can be deleted here; tasks are removed in their project" : undefined} onClick={() => runBulk({ do: "delete" }, "Deleted")}>Delete {todos || ""} todo{todos === 1 ? "" : "s"}</button>
+            <button type="button" className="opx-link opx-act" onClick={stopPicking}>Stop selecting</button>
+          </div>
+        )
+      })()}
       {node}
     </div>
   )

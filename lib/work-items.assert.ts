@@ -9,7 +9,7 @@ import {
   groupWork,
   dueText,
   matchesQuery,
-  passesFilter, staleDays, filterCounts, passesColumns, isFiltered, NO_FILTER, type WorkColumns,
+  passesFilter, staleDays, filterCounts, bulkPlan, passesColumns, isFiltered, NO_FILTER, type WorkColumns,
   type WorkItem,
 } from "./work-items"
 
@@ -174,6 +174,34 @@ eq(matchesQuery(s, "stripe"), false, "a non-match is excluded")
   eq(pick({ status: "stale", priority: "hot", due: "nodate" }), "", "columns that exclude each other leave nothing")
   eq(isFiltered(NO_FILTER), false, "nothing chosen")
   eq(isFiltered({ ...NO_FILTER, due: "week" }), true, "something chosen")
+}
+
+/* ───────────────────────────────── several at once ───────────────────────────────── */
+// Owner, 2026-11-15, asked whether rows should be selectable so several can be changed at once:
+// "Yes: mark done, set priority, set due date, delete (todos only), with Undo".
+{
+  const d = (n: number) => new Date(2026, 10, 15 + n, 12).toISOString()
+  const a = item({ id: "a", kind: "step", statusKind: "open", priority: "low", dueDate: null })
+  const b = item({ id: "b", kind: "todo", statusKind: "active", priority: "high", dueDate: d(2) })
+  const c = item({ id: "c", kind: "todo", statusKind: "done", priority: "high", dueDate: d(2) })
+  const x = item({ id: "x", kind: "step", statusKind: "closed", priority: null, dueDate: null })
+  const all = [a, b, c, x], ids = new Set(["a", "b", "c", "x"])
+  const done = bulkPlan(all, ids, { do: "done" })
+  eq(done.steps.map((s) => s.id).join(), "a,b", "mark done leaves out what is already done or closed")
+  eq(done.skipped, 2, "and says how many it left out")
+  eq(JSON.stringify(done.steps[1].undo), JSON.stringify({ statusKind: "active" }), "undo puts each back to what it was")
+  const pr = bulkPlan(all, ids, { do: "priority", priority: "high" })
+  eq(pr.steps.map((s) => s.id).join(), "a,x", "priority changes only rows that differ")
+  eq(JSON.stringify(pr.steps.map((s) => s.undo)), JSON.stringify([{ priority: "low" }, { priority: null }]), "priority undo")
+  const due = bulkPlan(all, ids, { do: "due", dueDate: d(2) })
+  eq(due.steps.map((s) => s.id).join(), "a,x", "due date changes only rows on another day")
+  eq(JSON.stringify(due.steps[0].undo), JSON.stringify({ dueDate: null }), "due undo")
+  const del = bulkPlan(all, ids, { do: "delete" })
+  eq(del.steps.map((s) => s.id).join(), "b,c", "delete takes todos only")
+  eq(del.skipped, 2, "tasks are left alone and counted")
+  eq(del.steps[0].patch, "delete", "a delete step"); eq(del.steps[0].undo, "restore", "is undone by bringing it back")
+  eq(bulkPlan(all, new Set(["a"]), { do: "done" }).steps.length, 1, "only what was selected")
+  eq(bulkPlan(all, new Set(), { do: "done" }).steps.length, 0, "nothing selected, nothing done")
 }
 
 console.log(`\n${pass} passed, ${fail} failed`)

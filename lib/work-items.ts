@@ -208,3 +208,31 @@ export function passesColumns(it: WorkItem, f: WorkColumns, now: Date = new Date
   if (f.kind !== "any" && it.kind !== f.kind) return false
   return true
 }
+
+/* ───────────────────────────────── several at once ───────────────────────────────── */
+
+/**
+ * Owner, 2026-11-15, asked whether rows should be selectable so several can be changed at once:
+ * "Yes: mark done, set priority, set due date, delete (todos only), with Undo".
+ * This works out what one action does to a selection, and what puts each row back. Pure: the list carries it out.
+ */
+export type BulkAction =
+  | { do: "done" }
+  | { do: "priority"; priority: WorkPriority }
+  | { do: "due"; dueDate: string | null }
+  | { do: "delete" }
+export type WorkPatch = Partial<Pick<WorkItem, "statusKind" | "priority" | "dueDate">>
+export interface BulkStep { id: string; patch: WorkPatch | "delete"; undo: WorkPatch | "restore" }
+
+const sameDay = (a: string | null, b: string | null) => (!a || !b ? !a && !b : dayKey(new Date(a)) === dayKey(new Date(b)))
+
+export function bulkPlan(items: WorkItem[], ids: Set<string>, action: BulkAction): { steps: BulkStep[]; skipped: number } {
+  const picked = items.filter((x) => ids.has(x.id)), steps: BulkStep[] = []
+  for (const it of picked) {
+    if (action.do === "delete") { if (it.kind === "todo") steps.push({ id: it.id, patch: "delete", undo: "restore" }) }
+    else if (action.do === "done") { if (it.statusKind === "open" || it.statusKind === "active") steps.push({ id: it.id, patch: { statusKind: "done" }, undo: { statusKind: it.statusKind } }) }
+    else if (action.do === "priority") { if (it.priority !== action.priority) steps.push({ id: it.id, patch: { priority: action.priority }, undo: { priority: it.priority } }) }
+    else if (!sameDay(it.dueDate, action.dueDate)) steps.push({ id: it.id, patch: { dueDate: action.dueDate }, undo: { dueDate: it.dueDate } })
+  }
+  return { steps, skipped: picked.length - steps.length }
+}
