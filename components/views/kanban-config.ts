@@ -213,3 +213,18 @@ export function normalizeChecklist(tasks: BoardStep["tasks"]): Array<{ title: st
     typeof t === "string" ? { title: t, done: false } : { title: t.title ?? "", done: !!t.done }
   )
 }
+
+/** The title "Add task" gives a card before anything is typed. */
+export const UNTITLED_TASK = "Untitled task"
+
+const DRAFT_FIELDS = ["title", "description", "status", "priority", "assigned_agent", "phase", "stage", "start_date", "end_date", "estimated_hours", "tags", "tasks", "metadata"] as const
+
+/**
+ * Was a card made by "Add task" left exactly as it was made? Owner, 2026-11-15: "Drop it: an untitled card that
+ * was never changed should not be kept." Anything typed, set or added (a subtask counts) means it is kept.
+ */
+export function leftUntouched(created: BoardStep, now: BoardStep | null | undefined, subtaskCount: number): boolean {
+  if (!now || now.id !== created.id || now.title !== UNTITLED_TASK || subtaskCount > 0) return false
+  const a = created as unknown as Record<string, unknown>, b = now as unknown as Record<string, unknown>
+  return DRAFT_FIELDS.every((k) => JSON.stringify(a[k] ?? null) === JSON.stringify(b[k] ?? null))
+}

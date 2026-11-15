@@ -28,6 +28,8 @@ import {
   type ProjectStatus,
   type SortBy,
   type StatusKind,
+  UNTITLED_TASK,
+  leftUntouched,
 } from "./kanban-config"
 
 interface KanbanViewProps {
@@ -76,6 +78,8 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
   const [filters, setFilters] = useState<BoardFilters>(EMPTY_FILTERS)
   const [prefs, setPrefs] = useState<BoardPrefs>(() => loadPrefs(projectId))
   const [detailStepId, setDetailStepId] = useState<string | null>(null)
+  /** The card "Add task" just made, as it was made: closed untouched, it is not kept. */
+  const draftRef = useRef<BoardStep | null>(null)
 
   // Open the linked step once — only after steps have loaded, and only for an
   // id that actually belongs to this project, so a stale link opens nothing
@@ -587,8 +591,8 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
               onAddTask={async (columnId) => {
                 const preset = patchForMove(prefs.groupBy, columnId) ?? {}
                 try {
-                  const created = await createStep({ title: "Untitled task", ...preset })
-                  if (created?.id) setDetailStepId(created.id)
+                  const created = await createStep({ title: UNTITLED_TASK, ...preset })
+                  if (created?.id) { draftRef.current = created; setDetailStepId(created.id) }
                 } catch (err) {
                   toast.error(err instanceof Error ? err.message : "Failed to add task")
                 }
@@ -684,6 +688,15 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
           statuses={statuses}
           open={!!detailStep}
           onClose={() => {
+            // A card made by "Add task" and closed without anything typed, set or added is not kept.
+            const draft = draftRef.current
+            draftRef.current = null
+            if (draft && detailStep && leftUntouched(draft, detailStep, subtasksOf(detailStep.id).length)) {
+              setSteps((cur) => cur.filter((s) => s.id !== draft.id))
+              fetch(`/api/projects/${projectId}/steps/${draft.id}`, { method: "DELETE" })
+                .then((res) => { if (!res.ok) throw new Error(`HTTP ${res.status}`); toast("Nothing was typed, so the new task was not kept"); onRefresh?.() })
+                .catch(() => { toast.error("The empty task could not be removed"); refetch() })
+            }
             setDetailStepId(null)
             onTaskSelect?.(null)
           }}
