@@ -53,7 +53,7 @@ export function GuidesSection() {
                 <div className="opx-ck-ghead">
                   <b>{g.name}</b>
                   {g.status === "draft" && <span className="opx-muted">Draft</span>}
-                  <button type="button" disabled={busy} onClick={() => post({ action: "status", id: g.id, status: g.status === "draft" ? "active" : "draft" })}>{g.status === "draft" ? "Make it a rule" : "Set aside"}</button>
+                  <button type="button" disabled={busy} aria-label={`${g.status === "draft" ? "Make it a rule" : "Set aside"}: ${g.name}`} onClick={() => post({ action: "status", id: g.id, status: g.status === "draft" ? "active" : "draft" })}>{g.status === "draft" ? "Make it a rule" : "Set aside"}</button>
                 </div>
                 <span>{g.summary}</span>
                 <ol>{g.checks.map((c) => <li key={c.id}>{c.say}<small>{c.auto ? "Checked automatically" : "Checked by the agent, with what it saw"}</small></li>)}</ol>

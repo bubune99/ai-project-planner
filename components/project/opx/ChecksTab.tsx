@@ -118,9 +118,9 @@ function IntakeAnswer({ projectId, route, open, onDone }: { projectId: string; r
   return (
     <span className="opx-ck-settle">
       <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Your answer" aria-label={`Answer for ${open.label}: ${open.question.ask}`} />
-      <button type="button" disabled={text.trim().length < 3} onClick={() => save(text)}>Save my answer</button>
-      {open.proposal && <button type="button" onClick={() => save(open.proposal!)}>That is right</button>}
-      {error && <span className="opx-ck-note">{error}</span>}
+      <button type="button" aria-label={`Save my answer for ${open.label}: ${open.question.ask}`} onClick={() => { if (text.trim().length < 3) { setError("Write your answer first, then press Save my answer."); return } save(text) }}>Save my answer</button>
+      {open.proposal && <button type="button" aria-label={`That is right, for ${open.label}: ${open.question.ask}`} onClick={() => save(open.proposal!)}>That is right</button>}
+      {error && <span className="opx-ck-note" role="alert">{error}</span>}
     </span>
   )
 }
