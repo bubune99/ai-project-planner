@@ -66,7 +66,7 @@ export function AnsweredList({ refreshKey, onTakenBack }: { refreshKey?: number;
           <p style={{ margin: "6px 0 0", fontSize: 14, overflowWrap: "anywhere" }}><span className="j-muted">You said: </span>{i.answer ?? "(no text)"}</p>
           <p data-testid="answer-where" style={{ margin: "8px 0 0", fontSize: 13, fontWeight: i.state === "unclaimed" ? 600 : 400 }} className={i.state === "unclaimed" ? undefined : "j-muted"}>{i.where}</p>
           {i.canUndo && (
-            <button type="button" className="j-btn j-btn-ghost" data-testid="answer-undo" style={{ minHeight: 44, marginTop: 8 }} disabled={undoing !== null} onClick={() => takeBack(i.questionId)} aria-label={`Change my answer to: ${i.question}`}>
+            <button type="button" className="j-btn j-btn-ghost" data-testid="answer-undo" style={{ minHeight: 44, marginTop: 8 }} disabled={undoing !== null} onClick={() => takeBack(i.questionId)}>
               {undoing === i.questionId ? "Taking it back" : "Change my answer"}
             </button>
           )}

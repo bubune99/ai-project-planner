@@ -64,9 +64,9 @@ export function QuestionCard({ item, deferred, onDefer, onAnswered, hideProject 
   return (
     <article className="j-card" style={{ opacity: deferred ? 0.7 : 1 }} aria-label={item.question}>
       <div className="j-row" style={{ gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
-        {item.projectName && !hideProject && <span className="j-pill j-proj" style={{ fontSize: 10.5 }}>{item.projectName}</span>}
-        {item.kind === "unlock" && <span className="j-pill j-warn" style={{ fontSize: 10.5 }}>paused job</span>}
-        <span className="j-muted" style={{ fontSize: 11 }}>
+        {item.projectName && !hideProject && <span className="j-pill j-proj" style={{ fontSize: 12 }}>{item.projectName}</span>}
+        {item.kind === "unlock" && <span className="j-pill j-warn" style={{ fontSize: 12 }}>paused job</span>}
+        <span className="j-muted" style={{ fontSize: 12 }}>
           {item.askedBy ? `${item.askedBy} · ` : ""}{ago(item.askedAt)}
           {deferred ? " · put off" : ""}
         </span>
