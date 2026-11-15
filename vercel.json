@@ -40,12 +40,6 @@
     },
     {
       "source": "/(.*)",
-      "missing": [{ "type": "host", "value": "v0-ai-project-planner-git-staging-far-grace.vercel.app" }],
-      "headers": [{ "key": "X-Frame-Options", "value": "DENY" }]
-    },
-    {
-      "source": "/(.*)",
-      "has": [{ "type": "host", "value": "v0-ai-project-planner-git-staging-far-grace.vercel.app" }],
       "headers": [{ "key": "X-Frame-Options", "value": "SAMEORIGIN" }]
     }
   ]
