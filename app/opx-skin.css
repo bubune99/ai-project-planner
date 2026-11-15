@@ -980,3 +980,12 @@ a.opx-stat:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
   .opx-pf-tools button { padding: 3px 14px; font-size: 13px; }
   .opx-seg button { min-height: 44px; }
 }
+
+/* Checks on a phone: what is pressed is 44 high (section headings were 28, a check's state 26, verdict buttons 38).
+   The numbered pins on the picture stay 24: they are a second way to choose a control; the list beside them is the first. */
+@media (max-width: 700px) {
+  .opx-ck details > summary, .opx-ck-plan li button, .opx-ck-state > button, .opx-ck-guides li button, .opx-ck-add { min-height: 44px; display: flex; align-items: center; }
+  .opx-ck-state > button { width: 100%; }
+  .opx-ck-settle input, .opx-ck-settle button { min-height: 44px; font-size: 16px; }
+  .opx-ck-settle button { font-size: 14px; }
+}
