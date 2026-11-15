@@ -224,7 +224,7 @@ function IdeaPage({ id, onBack, onChanged }: { id: string; onBack: () => void; o
   const ask = (what: string) => askAssistant(`For the idea "${idea.title}" (idea ${id}): ${what}`)
   return (
     <div className="opx-col" style={{ gap: 12 }}>
-      <button className="opx-link" style={{ alignSelf: "flex-start", padding: 0 }} onClick={onBack}>‹ Ideas & decisions</button>
+      <button className="opx-link opx-act" style={{ alignSelf: "flex-start" }} onClick={onBack}>‹ Ideas & decisions</button>
       <section className="opx-sec">
         <div className="opx-row" style={{ alignItems: "flex-start", gap: 14 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -241,7 +241,7 @@ function IdeaPage({ id, onBack, onChanged }: { id: string; onBack: () => void; o
       </section>
       <div className="opx-iw">
         <section className="opx-sec">
-          <div className="opx-sech"><h2>Features</h2><span className="opx-n">{plan.features.length}</span><button className="opx-link" style={{ marginLeft: "auto" }} onClick={() => ask("add a feature. Ask me what it is, then update the idea's description with it as a new numbered layer.")}>＋ Add a feature</button></div>
+          <div className="opx-sech"><h2>Features</h2><span className="opx-n">{plan.features.length}</span><button className="opx-link" style={{ marginLeft: "auto" }} onClick={() => ask("add a feature. Ask me what it is, then update the idea's description with it as a new numbered layer.")}>Add a feature</button></div>
           {plan.features.length === 0 && <div className="opx-empty">No features yet. Ask the assistant to break the idea down into features, or add the first one.</div>}
           {plan.features.map((f, k) => (
             <div key={f.name} className="opx-feat">
@@ -316,7 +316,7 @@ function DecisionPage({ decision, steps, onBack }: { decision: Decision; steps: 
   const lines = (s: string) => s.split("\n").map((x) => x.trim()).filter(Boolean)
   return (
     <div className="opx-col" style={{ gap: 12 }}>
-      <button className="opx-link" style={{ alignSelf: "flex-start", padding: 0 }} onClick={onBack}>‹ Ideas & decisions</button>
+      <button className="opx-link opx-act" style={{ alignSelf: "flex-start" }} onClick={onBack}>‹ Ideas & decisions</button>
       <section className="opx-sec">
         <div className="opx-muted" style={{ fontSize: 12.5 }}>Decided {fmtDate(decision.createdAt, { month: "long", day: "numeric", year: "numeric" })}{decision.status ? ` · ${decision.status}` : ""}</div>
         <h1 style={{ fontSize: 30, margin: "6px 0 10px", fontWeight: 600 }}>{decision.title}</h1>
@@ -328,7 +328,7 @@ function DecisionPage({ decision, steps, onBack }: { decision: Decision; steps: 
         <section className="opx-sec">
           <div className="opx-sech"><h2>Options you weighed</h2></div>
           <label className="opx-muted" style={{ fontSize: 12.5 }}>Judged on (one per line)</label>
-          <textarea className="opx-input" rows={3} value={draft.criteria.join("\n")} onChange={(e) => setDraft({ ...draft, criteria: e.target.value.split("\n") })} />
+          <textarea className="opx-input" rows={3} aria-label="What the options are judged on, one per line" value={draft.criteria.join("\n")} onChange={(e) => setDraft({ ...draft, criteria: e.target.value.split("\n") })} />
           <div className="opx-optgrid" style={{ gridTemplateColumns: `repeat(${Math.max(1, draft.options.length)}, minmax(0,1fr))`, marginTop: 12 }}>
             {draft.options.map((o, i) => {
               const set = (patch: Partial<DecisionOption>) => setDraft({ ...draft, options: draft.options.map((x, k) => (k === i ? { ...x, ...patch } : x)) })
@@ -346,7 +346,7 @@ function DecisionPage({ decision, steps, onBack }: { decision: Decision; steps: 
             })}
           </div>
           <span className="opx-row" style={{ gap: 8, marginTop: 12 }}>
-            <button className="opx-btn" onClick={() => setDraft({ ...draft, options: [...draft.options, { name: "", pros: [], cons: [] }] })}>＋ Add an option</button>
+            <button className="opx-btn" onClick={() => setDraft({ ...draft, options: [...draft.options, { name: "", pros: [], cons: [] }] })}>Add an option</button>
             <button className="opx-btn" style={{ marginLeft: "auto" }} onClick={() => setDraft(null)} disabled={saving}>Cancel</button>
             <button className="opx-btn primary" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save options"}</button>
           </span>
@@ -360,7 +360,7 @@ function DecisionPage({ decision, steps, onBack }: { decision: Decision; steps: 
                 <div className="opx-row"><h2 style={{ fontSize: 18, margin: 0, fontWeight: 600 }}>{o.name}</h2><span className="opx-chip" style={{ marginLeft: "auto" }}>{o.chosen ? <><i className="opx-dot" style={{ background: "var(--opx-good)" }} />Chosen</> : "Considered"}</span></div>
                 {o.note && <p className="opx-muted" style={{ margin: "6px 0 12px" }}>{o.note}</p>}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, fontSize: 13.5 }}>
-                  <div>{o.pros.map((p) => <div key={p} style={{ color: "var(--opx-good)", marginBottom: 4 }}>＋ {p}</div>)}</div>
+                  <div>{o.pros.map((p) => <div key={p} style={{ color: "var(--opx-good)", marginBottom: 4 }}>{p}</div>)}</div>
                   <div>{o.cons.map((c) => <div key={c} style={{ color: "var(--opx-hot)", marginBottom: 4 }}>－ {c}</div>)}</div>
                 </div>
               </div>
@@ -373,7 +373,7 @@ function DecisionPage({ decision, steps, onBack }: { decision: Decision; steps: 
 
       {!draft && (
         <section className="opx-sec opx-row" style={{ gap: 10, flexWrap: "wrap" }}>
-          <button className="opx-btn" onClick={() => setDraft({ criteria: [...criteria], options: options.length ? options.map((o) => ({ ...o })) : [{ name: "", pros: [], cons: [] }, { name: "", pros: [], cons: [] }] })}>{options.length ? "Edit options" : "＋ Add the options you weighed"}</button>
+          <button className="opx-btn" onClick={() => setDraft({ criteria: [...criteria], options: options.length ? options.map((o) => ({ ...o })) : [{ name: "", pros: [], cons: [] }, { name: "", pros: [], cons: [] }] })}>{options.length ? "Edit options" : "Add the options you weighed"}</button>
           <button className="opx-btn" onClick={() => askAssistant(`Help me compare options for the decision "${decision.title}" (${decision.id}) and record them as alternatives with pros and cons.`)}>Compare with the assistant</button>
           <span className="opx-muted" style={{ marginLeft: "auto", fontSize: 13 }}>{steps.length ? `${steps.length} related task${steps.length > 1 ? "s" : ""}: ${steps.slice(0, 3).map((s) => s.title).join(" · ")}` : "No related tasks found."}</span>
         </section>

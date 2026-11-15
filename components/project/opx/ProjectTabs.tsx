@@ -124,7 +124,7 @@ export function MoneyTab({ projectId, project, onChange }: { projectId: string; 
         <div className="opx-stat"><b>{fmt(totals.broughtIn)}</b><span>Brought in so far</span></div>
       </div>
       <div className="opx-2col">
-        <Section title="What it costs to run" action={<button className="opx-link" onClick={() => setForm({ kind: "cost", a: "", b: "", c: "" })}>＋ Add a cost</button>}>
+        <Section title="What it costs to run" action={<button className="opx-link" onClick={() => setForm({ kind: "cost", a: "", b: "", c: "" })}>Add a cost</button>}>
           {costs.length === 0 && form.kind !== "cost" && <p className="opx-muted" style={{ margin: 0 }}>No running costs recorded. Add the services this project pays for (hosting, database, email, domain) and what each costs a month.</p>}
           {costs.map((c) => (
             <div key={c.id} className="opx-li">
@@ -157,7 +157,7 @@ export function MoneyTab({ projectId, project, onChange }: { projectId: string; 
             ) : <p className="opx-muted" style={{ margin: 0 }}>No budget set. Leave it empty if there isn't one.</p>}
           </Section>
           {([["in", "Money you've put in", putIn, "putIn"], ["out", "Money brought in", brought, "broughtIn"]] as const).map(([kind, title, list, key]) => (
-            <Section key={kind} title={title} count={list.length || undefined} action={<button className="opx-link" onClick={() => setForm({ kind, a: today, b: "", c: "" })}>＋ Log an amount</button>}>
+            <Section key={kind} title={title} count={list.length || undefined} action={<button className="opx-link" onClick={() => setForm({ kind, a: today, b: "", c: "" })}>Log an amount</button>}>
               {list.length === 0 && form.kind !== kind && <p className="opx-muted" style={{ margin: 0 }}>{kind === "in" ? "Your own money, tools, contractors: anything that went into building it." : "Sales, retainers or payments this project has earned."}</p>}
               {[...list].sort((a, b) => b.date.localeCompare(a.date)).map((x) => (
                 <div key={x.id} className="opx-li"><div><b>{fmt(x.amount)}</b><small>{fmtDate(x.date + "T12:00:00", { month: "short", day: "numeric", year: "numeric" })}{x.note ? ` · ${x.note}` : ""}</small></div>
