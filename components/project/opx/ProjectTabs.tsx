@@ -268,7 +268,8 @@ export function SettingsTab({ projectId, project, onChange }: { projectId: strin
   }
   const archive = async () => {
     if (!window.confirm(`Move "${project.name}" to On hold? It leaves the active list and everything is kept. You can set the status back under General.`)) return
-    try { await saveProject(projectId, project, { status: ON_HOLD }); toast.success("Moved to On hold"); onChange() }
+    // The form on General must learn the new status too, or its next Save would quietly put the old one back.
+    try { await saveProject(projectId, project, { status: ON_HOLD }); set({ status: ON_HOLD }); toast.success("Moved to On hold"); onChange() }
     catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't archive") }
   }
 
