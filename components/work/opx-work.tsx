@@ -37,7 +37,7 @@ function setWorkDone(w: { kind: "step" | "todo"; id: string; projectId?: string 
 }
 
 /** Priority is a dot beside plain text, as on every other screen: colored words at this size read at 3.4 to 1. */
-const PRI_DOT: Record<string, string> = { urgent: "var(--opx-hot)", high: "#e0913a", medium: "#8a94a3", low: "#5b6470" }
+const PRI_DOT: Record<string, string> = { urgent: "var(--opx-hot)", high: "var(--opx-warn)", medium: "var(--opx-accent)", low: "#8a94a3" }
 const KIND_LABEL: Record<string, string> = { open: "To do", active: "In progress", done: "Done", closed: "Closed" }
 const KIND_COLOR: Record<string, string> = { open: "#8a94a3", active: "var(--opx-accent)", done: "var(--opx-good)", closed: "#8a94a3" }
 
