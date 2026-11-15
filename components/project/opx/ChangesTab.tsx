@@ -37,7 +37,18 @@ export function ChangesTab({ projectId }: { projectId: string }) {
       const c = data.changes.find((x) => x.id === id)
       if (!c) return
       setShow(c.verdict ? "all" : "waiting"); setShownId(id)
-      window.setTimeout(() => { const el = document.getElementById(`change-${id}`); if (el) { el.scrollIntoView({ block: "start", behavior: "instant" as ScrollBehavior }); el.focus({ preventScroll: true }) } }, 60)
+      // The tab switch scrolls the page to the top and pictures above push the card down as they load, so one jump is
+      // not enough: keep the card in place for two seconds, and stop the moment the person scrolls or touches.
+      let tries = 0, focused = false
+      const stop = () => { window.clearInterval(timer); for (const e of ["touchstart", "wheel", "keydown"]) window.removeEventListener(e, stop) }
+      const timer = window.setInterval(() => {
+        const el = document.getElementById(`change-${id}`)
+        if (++tries > 10) return stop()
+        if (!el) return
+        if (Math.abs(el.getBoundingClientRect().top - 84) > 12) el.scrollIntoView({ block: "start", behavior: "instant" as ScrollBehavior })
+        if (!focused) { focused = true; el.focus({ preventScroll: true }) }
+      }, 200)
+      for (const e of ["touchstart", "wheel", "keydown"]) window.addEventListener(e, stop, { passive: true })
     }
     go()
     window.addEventListener("opx:show-change", go)
