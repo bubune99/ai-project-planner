@@ -64,7 +64,7 @@ export type Priority = "urgent" | "high" | "normal" | "low";
 
 const PRIORITY_STYLES: Record<Priority, string> = {
   urgent:
-    "bg-rose-50 text-rose-600 dark:bg-rose-500/[0.14] dark:text-rose-300",
+    "bg-rose-50 text-rose-700 dark:bg-rose-500/[0.14] dark:text-rose-300",
   high: "bg-amber-50 text-amber-700 dark:bg-amber-500/[0.14] dark:text-amber-300",
   normal: "bg-blue-50 text-blue-600 dark:bg-blue-500/[0.14] dark:text-blue-300",
   low: "bg-neutral-100 text-neutral-500 dark:bg-white/[0.07] dark:text-neutral-400",
