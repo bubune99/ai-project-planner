@@ -36,6 +36,8 @@ function setWorkDone(w: { kind: "step" | "todo"; id: string; projectId?: string 
   return patchJson(`/api/projects/${w.projectId}/steps/${w.id}`, { status: done ? k.done : k.open })
 }
 
+/** Priority is a dot beside plain text, as on every other screen: colored words at this size read at 3.4 to 1. */
+const PRI_DOT: Record<string, string> = { urgent: "var(--opx-hot)", high: "#e0913a", medium: "#8a94a3", low: "#5b6470" }
 const KIND_LABEL: Record<string, string> = { open: "To do", active: "In progress", done: "Done", closed: "Closed" }
 const KIND_COLOR: Record<string, string> = { open: "#8a94a3", active: "var(--opx-accent)", done: "var(--opx-good)", closed: "#8a94a3" }
 
@@ -215,10 +217,10 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
                     {w.statusKind === "closed" && <option value="closed" disabled>{KIND_LABEL.closed}</option>}
                   </select>
                 </span>
-                <select className={`opx-rowsel${w.priority === "urgent" || w.priority === "high" ? " hot" : ""}`} aria-label={`Priority of ${w.title}`} value={w.priority ?? ""} onChange={(e) => change(w0, { priority: (e.target.value || null) as WorkItem["priority"] })}>
+                <span className="opx-row" style={{ gap: 6, minWidth: 0 }}>{w.priority && <i className="opx-dot" style={{ background: PRI_DOT[w.priority] || "#8a94a3", width: 7, height: 7, flex: "none" }} />}<select className="opx-rowsel" aria-label={`Priority of ${w.title}`} value={w.priority ?? ""} onChange={(e) => change(w0, { priority: (e.target.value || null) as WorkItem["priority"] })}>
                   {!w.priority && <option value="">No priority</option>}
                   <option value="urgent">Urgent</option><option value="high">High</option><option value="medium">Normal</option><option value="low">Low</option>
-                </select>
+                </select></span>
                 <input type="date" className={`opx-rowsel${late ? " hot" : ""}`} aria-label={`Due date of ${w.title}`} value={due ? dayKey(due) : ""}
                   onChange={(e) => change(w0, { dueDate: e.target.value ? new Date(`${e.target.value}T12:00:00`).toISOString() : null })} />
                 <span className="opx-muted" style={{ fontSize: 12.5 }}>{only === "stale" ? `${staleDays(w0)} days untouched` : w.kind === "todo" ? "Todo" : "Task"}</span>
@@ -236,7 +238,7 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
             <select className="opx-input" aria-label="Set the priority of the selected rows" disabled={none} value="" onChange={(e) => { const p = e.target.value as "urgent" | "high" | "medium" | "low"; if (p) runBulk({ do: "priority", priority: p }, "Priority set") }}>
               <option value="">Set priority</option><option value="urgent">Urgent</option><option value="high">High</option><option value="medium">Normal</option><option value="low">Low</option>
             </select>
-            <label className="opx-bulkdue"><span>Set due date</span> <input type="date" className="opx-input" aria-label="Set the due date of the selected rows" disabled={none} value="" onChange={(e) => { if (e.target.value) runBulk({ do: "due", dueDate: new Date(`${e.target.value}T12:00:00`).toISOString() }, "Due date set") }} /></label>
+            <label className="opx-bulkdue"><span>Due</span> <input type="date" className="opx-input" aria-label="Set the due date of the selected rows" disabled={none} value="" onChange={(e) => { if (e.target.value) runBulk({ do: "due", dueDate: new Date(`${e.target.value}T12:00:00`).toISOString() }, "Due date set") }} /></label>
             <button type="button" className="opx-btn" disabled={none || todos === 0} title={todos === 0 && chosen.length ? "Only todos can be deleted here; tasks are removed in their project" : undefined} onClick={() => runBulk({ do: "delete" }, "Deleted")}>Delete {todos || ""} todo{todos === 1 ? "" : "s"}</button>
             <button type="button" className="opx-link opx-act" onClick={stopPicking}>Stop selecting</button>
           </div>
