@@ -120,7 +120,7 @@ code, pre, kbd, samp, .font-mono { font-family: var(--font-inter), Inter, system
 .j-pill.j-info, .j-pill.j-proj { background: color-mix(in srgb, var(--opx-accent) 18%, transparent); color: #315486; }
 .j-pill.j-biz  { background: color-mix(in srgb, var(--opx-violet) 18%, transparent); color: var(--opx-violet); }
 .j-pill.j-muted, .j-pill.j-ghost { background: var(--opx-soft); color: var(--opx-title); box-shadow: none; }
-.dark .j-pill.j-pos { color: #6bc79c; } .dark .j-pill.j-neg { color: #e88a74; } .dark .j-pill.j-info, .dark .j-pill.j-proj { color: #b3cbea; }
+.dark .j-pill.j-pos { color: #6bc79c; } .dark .j-pill.j-neg { color: #f0b3a4; } .dark .j-pill.j-info, .dark .j-pill.j-proj { color: #b3cbea; }
 
 .j-progress { background: var(--opx-soft); }
 .j-progress > span { background: var(--opx-accent); }
