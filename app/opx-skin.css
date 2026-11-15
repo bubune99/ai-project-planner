@@ -1072,3 +1072,4 @@ input[type=date].opx-rowsel { min-width: 128px; }
   .opx-bulk b { flex-basis: 100%; } .opx-bulk input[type=date].opx-input { width: 132px; }
   .opx-lv.opx-lvp.opx-wf .opx-input { min-height: 44px; font-size: 16px; }
 }
+@media (min-width: 761px) { .opx-wf select.opx-input { padding: 6px 2px 6px 8px; font-size: 12.5px; } }
