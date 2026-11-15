@@ -195,7 +195,7 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
             placeholder="Untitled step"
             required
-            className="!text-xl font-semibold h-auto px-0 py-1 border-0 shadow-none focus-visible:ring-0 bg-transparent"
+            className="!text-xl font-semibold h-auto pl-0 pr-10 py-1 border-0 shadow-none focus-visible:ring-0 bg-transparent"
           />
         </DialogHeader>
 

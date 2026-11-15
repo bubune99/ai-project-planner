@@ -996,3 +996,8 @@ a.opx-stat:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
   .opx-board-tools input { min-height: 44px; font-size: 16px; }
   .opx-board-tools > div:has(> input) { max-width: none; flex-basis: 100%; }
 }
+
+/* Menus and pickers on a phone: each row is 44 high (they were 24 to 28). */
+@media (max-width: 700px) {
+  [role="menu"] [role="menuitem"], [role="menu"] [role="menuitemcheckbox"], [role="listbox"] [role="option"] { min-height: 44px; }
+}
