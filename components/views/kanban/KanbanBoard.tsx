@@ -573,7 +573,7 @@ export const KanbanBoard = React.forwardRef<HTMLDivElement, KanbanBoardProps>(
         style={style}
         className={cn(
           // a board is dragged, not read: stop drags painting text selection
-          "w-full select-none text-neutral-950 antialiased dark:text-neutral-50",
+          "opx-board w-full select-none text-neutral-950 antialiased dark:text-neutral-50",
           // Fill the height the caller gives us and let the track below be the
           // single scroll container. Without this the board grows to its
           // tallest column and the page scrolls instead.
@@ -1001,7 +1001,7 @@ function CardShell({
       {menu && (
         <span
           data-kanban-no-drag
-          className="float-right -mr-1 -mt-1 ml-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover/card:opacity-100"
+          className="float-right -mr-1 -mt-1 ml-1 opacity-100 transition-opacity focus-within:opacity-100 group-hover/card:opacity-100 lg:[@media(hover:hover)]:opacity-0 lg:[@media(hover:hover)]:focus-within:opacity-100 lg:[@media(hover:hover)]:group-hover/card:opacity-100"
         >
           {menu}
         </span>

@@ -989,3 +989,10 @@ a.opx-stat:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
   .opx-ck-settle input, .opx-ck-settle button { min-height: 44px; font-size: 16px; }
   .opx-ck-settle button { font-size: 14px; }
 }
+
+/* The task board on a phone: everything pressed is 44 (card actions were 28, the column and card menus 24, the tools 32 to 36). */
+@media (max-width: 700px) {
+  .opx-board button, .opx-board-tools button, .opx-board-tools [role="combobox"] { min-height: 44px; min-width: 44px; }
+  .opx-board-tools input { min-height: 44px; font-size: 16px; }
+  .opx-board-tools > div:has(> input) { max-width: none; flex-basis: 100%; }
+}

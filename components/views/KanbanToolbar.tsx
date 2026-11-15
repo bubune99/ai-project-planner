@@ -73,7 +73,7 @@ export function KanbanToolbar({
   }
 
   return (
-    <div className="flex gap-2 items-center flex-wrap mb-4">
+    <div className="opx-board-tools flex gap-2 items-center flex-wrap mb-4">
       <Button onClick={onCreate} size="sm">
         <Plus className="w-4 h-4 mr-1.5" />
         New step
