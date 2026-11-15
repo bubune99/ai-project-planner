@@ -96,6 +96,8 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
   const edges = useMemo(() => toEdges(layer.links, place(layer), lanes), [layer, lanes])
   const issues = useMemo(() => (can ? checkLayer(layer) : []), [layer, can])
   const pathKey = livePath.map((s) => s.id).join("/")
+  // On a phone the whole map shrunk to fit is too small to read: open at a size the words can be read, and let it be dragged.
+  const narrow = typeof window !== "undefined" && window.innerWidth < 700
   useEffect(() => { setPicked(null) }, [pathKey])
   // What was picked may have been removed or moved since: only offer what is still there.
   const pickName = !picked ? null
@@ -117,7 +119,7 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
   const redo = useCallback(() => { const next = history.future[0]; if (!next || !onChange) return; setHistory({ past: [...history.past, map], future: history.future.slice(1) }); onChange(next) }, [history, map, onChange])
   const back = useCallback(() => setPath((p) => p.slice(0, -1)), [])
   const open = (kind: "stage" | "node", id: string) => { const door = doorOf(layer, kind, id); if (door) { setPath([...livePath, door]); setFloat(null) } return !!door }
-  const tidy = () => { setNodes(toNodes(layer, linking)); requestAnimationFrame(() => fitView({ padding: 0.04, duration: 250 })) }
+  const tidy = () => { setNodes(toNodes(layer, linking)); requestAnimationFrame(() => fitView({ padding: 0.04, duration: 250, minZoom: narrow ? 0.6 : 0.25 })) }
 
   // Keys, while the pointer is over the drawing: Esc closes what is open on top (a form, a menu, a line or step being
   // placed) and otherwise goes back one layer; Ctrl+Z undoes and Ctrl+Shift+Z (or Ctrl+Y) redoes.
@@ -210,7 +212,7 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
         {names.map((name, i) => <span key={i} className="opx-pm-trail"><i aria-hidden="true">›</i><button type="button" className={`opx-pm-step${i === names.length - 1 ? " here" : ""}`} onClick={() => setPath(livePath.slice(0, i + 1))}>{name}</button></span>)}
       </nav>
       <p className="opx-muted">
-        {layer.say ? `${layer.say} ` : ""}Grey lines go forward; orange dashed lines are loops. Click a step, lane, stage or line and press Change to rename, move or remove it (a right-click does the same). Double-click a stage or step to open what is inside it{livePath.length ? ", and Back (or Esc) to come out" : ""}.{can ? " Right-click a step, line, lane or stage to change it, or drag a step to move it: it lands in the nearest free place and the lines follow." : " Drag to look around, scroll to zoom."}
+        {layer.say ? `${layer.say} ` : ""}Grey lines go forward; orange dashed lines are loops. Click a step, lane, stage or line and press Change to rename, move or remove it. Double-click a stage or step to open what is inside it{livePath.length ? ", and Back (or Esc) to come out" : ""}.{can ? " A right-click opens the same menu. Drag a step to move it: it lands in the nearest free place and the lines follow." : " Drag to look around, scroll to zoom."}
       </p>
       {can && (
         <div className="opx-pm-bar" role="toolbar" aria-label="Change the map">
@@ -232,7 +234,7 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
       <div ref={wrap} className={`opx-pm${lanes ? "" : " sub"}${placing ? " placing" : ""}`} onContextMenu={(e) => { if (can) e.preventDefault() }}>
         <ReactFlow
           key={livePath.map((s) => s.id).join("/") || "top"} nodes={nodes} edges={edges} onNodesChange={onNodesChange} nodeTypes={nodeTypes}
-          fitView fitViewOptions={{ padding: 0.04 }} minZoom={0.25} maxZoom={1.6} nodesConnectable={false} zoomOnDoubleClick={false} deleteKeyCode={null} nodesDraggable={can}
+          fitView fitViewOptions={{ padding: 0.04, minZoom: narrow ? 0.6 : 0.25 }} minZoom={0.25} maxZoom={1.6} nodesConnectable={false} zoomOnDoubleClick={false} deleteKeyCode={null} nodesDraggable={can}
           onNodeDoubleClick={(_, n) => { const tg = targetOf(n); if (tg && (tg.kind === "node" || tg.kind === "stage")) open(tg.kind, tg.id) }}
           onNodeClick={(e, n) => {
             if (placing && n.type === "lane") { const c = cellAt(layer, flowAt(e)); if (c && stepInto(c, at(e))) setPlacing(false) }
