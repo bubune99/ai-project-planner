@@ -56,6 +56,9 @@ export function NewProjectModal({ open, onOpenChange, onProjectCreated }: NewPro
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // Create is never dimmed without a reason: what is missing is said in words.
+    const missing = [!formData.name.trim() && "a name", !formData.description.trim() && "a description", !formData.phase.trim() && "a starting phase"].filter(Boolean)
+    if (missing.length) { setError(`Still needed: ${missing.join(", ")}.`); return }
     setIsSubmitting(true)
     setError(null)
 
@@ -111,13 +114,12 @@ export function NewProjectModal({ open, onOpenChange, onProjectCreated }: NewPro
     }
   }
 
-  const isFormValid = formData.name.trim() && formData.description.trim() && formData.phase.trim()
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] bg-zinc-900 border-white/10">
+      <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-white">Create New Project</DialogTitle>
+          <DialogTitle className="text-2xl font-bold">Create New Project</DialogTitle>
           <DialogDescription className="text-muted-foreground">
             Set up a new project with AI-powered planning and management
           </DialogDescription>
@@ -125,14 +127,12 @@ export function NewProjectModal({ open, onOpenChange, onProjectCreated }: NewPro
 
         <form onSubmit={handleSubmit} className="space-y-6 py-4">
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-500 px-4 py-3 rounded">
-              {error}
-            </div>
+            <p role="alert" className="opx-ch-need" style={{ margin: 0 }}>{error}</p>
           )}
 
           {/* Project Name */}
           <div className="space-y-2">
-            <Label htmlFor="name" className="text-white">
+            <Label htmlFor="name">
               Project Name *
             </Label>
             <Input
@@ -140,14 +140,12 @@ export function NewProjectModal({ open, onOpenChange, onProjectCreated }: NewPro
               placeholder="E-commerce Platform"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="bg-black/40 border-white/10"
-              required
             />
           </div>
 
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description" className="text-white">
+            <Label htmlFor="description">
               Description *
             </Label>
             <Textarea
@@ -155,25 +153,24 @@ export function NewProjectModal({ open, onOpenChange, onProjectCreated }: NewPro
               placeholder="Describe your project goals and key features..."
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="bg-black/40 border-white/10 min-h-[100px] resize-none"
-              required
+              className="min-h-[100px] resize-none"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             {/* Status */}
             <div className="space-y-2">
-              <Label htmlFor="status" className="text-white">
+              <Label htmlFor="status">
                 Initial Status
               </Label>
               <Select
                 value={formData.status}
                 onValueChange={(value: any) => setFormData({ ...formData, status: value })}
               >
-                <SelectTrigger className="bg-black/40 border-white/10">
+                <SelectTrigger id="status" aria-label="Status">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-white/10">
+                <SelectContent>
                   <SelectItem value="planning">Planning</SelectItem>
                   <SelectItem value="in-progress">In Progress</SelectItem>
                   <SelectItem value="review">Review</SelectItem>
@@ -185,7 +182,7 @@ export function NewProjectModal({ open, onOpenChange, onProjectCreated }: NewPro
 
             {/* Phase */}
             <div className="space-y-2">
-              <Label htmlFor="phase" className="text-white">
+              <Label htmlFor="phase">
                 Starting Phase *
               </Label>
               <Input
@@ -193,15 +190,13 @@ export function NewProjectModal({ open, onOpenChange, onProjectCreated }: NewPro
                 placeholder="Phase 1: Foundation"
                 value={formData.phase}
                 onChange={(e) => setFormData({ ...formData, phase: e.target.value })}
-                className="bg-black/40 border-white/10"
-                required
               />
             </div>
           </div>
 
           {/* Tech Stack */}
           <div className="space-y-2">
-            <Label htmlFor="techStack" className="text-white">
+            <Label htmlFor="techStack">
               Tech Stack
             </Label>
             <div className="flex gap-2">
@@ -216,14 +211,13 @@ export function NewProjectModal({ open, onOpenChange, onProjectCreated }: NewPro
                     handleAddTech()
                   }
                 }}
-                className="bg-black/40 border-white/10"
               />
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
                 onClick={handleAddTech}
-                className="border-white/10 hover:bg-white/5"
+                aria-label="Add this technology"
               >
                 <Plus className="h-4 w-4" />
               </Button>
@@ -234,13 +228,14 @@ export function NewProjectModal({ open, onOpenChange, onProjectCreated }: NewPro
                   <Badge
                     key={tech}
                     variant="secondary"
-                    className="bg-blue-500/20 text-blue-300 border-blue-500/30 px-3 py-1"
+                    className="px-3 py-1"
                   >
                     {tech}
                     <button
                       type="button"
                       onClick={() => handleRemoveTech(tech)}
-                      className="ml-2 hover:text-white"
+                      aria-label={`Remove ${tech}`}
+                      className="ml-1 -mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -255,14 +250,12 @@ export function NewProjectModal({ open, onOpenChange, onProjectCreated }: NewPro
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="border-white/10 hover:bg-white/5"
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              disabled={!isFormValid || isSubmitting}
-              className="bg-blue-500 hover:bg-blue-600 text-white"
+              disabled={isSubmitting}
             >
               {isSubmitting ? "Creating..." : "Create Project"}
             </Button>

@@ -1028,3 +1028,4 @@ a.opx-stat:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 @container opxset (max-width: 720px) { .opx-setw { grid-template-columns: minmax(0,1fr); } .opx-sf { grid-template-columns: 1fr; gap: 6px; } }
 /* The drawing library's own credit line was 10px: nothing on a page is under 12. */
 .opx-pm .react-flow__attribution { font-size: 12px; }
+@media (max-width: 760px) { select.opx-input { min-height: 44px; } }
