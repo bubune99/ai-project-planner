@@ -187,11 +187,11 @@ body::before {
 }
 .j-brand-name { display: flex; flex-direction: column; line-height: 1.05; }
 .j-brand-name strong { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
-.j-brand-name span { font-size: 10px; color: oklch(0.708 0 0); letter-spacing: 0.18em; text-transform: uppercase; }
+.j-brand-name span { font-size: 12px; color: oklch(0.708 0 0); letter-spacing: 0.18em; text-transform: uppercase; }
 
 .j-nav-section { display: flex; flex-direction: column; gap: 2px; }
 .j-nav-section-title {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.16em;
   text-transform: uppercase; color: oklch(0.556 0 0);
   padding: 0 10px 6px;
 }
@@ -217,7 +217,7 @@ body::before {
 .j-nav-item:hover .j-nav-icon { color: white; }
 .j-nav-badge {
   margin-left: auto;
-  font-size: 9px; padding: 1px 6px; border-radius: 999px;
+  font-size: 12px; padding: 1px 6px; border-radius: 999px;
   background: oklch(0.870 0.045 252 / 0.20); color: var(--j-accent);
   font-weight: 600; letter-spacing: 0.04em;
 }
@@ -236,7 +236,7 @@ body::before {
 }
 .j-foot-meta { line-height: 1.1; flex: 1; min-width: 0; }
 .j-foot-meta strong { font-size: 12px; }
-.j-foot-meta span { font-size: 10px; color: oklch(0.556 0 0); display: block; }
+.j-foot-meta span { font-size: 12px; color: oklch(0.556 0 0); display: block; }
 
 /* ---------- Main shell ---------- */
 .j-main { display: flex; flex-direction: column; min-width: 0; }
@@ -260,7 +260,7 @@ body::before {
   font-size: 12px; color: oklch(0.708 0 0); min-width: 280px; cursor: pointer;
 }
 .j-kbd {
-  font-size: 10px; padding: 1px 5px; border-radius: 4px;
+  font-size: 12px; padding: 1px 5px; border-radius: 4px;
   background: oklch(1 0 0 / 0.06); color: oklch(0.708 0 0); margin-left: auto;
 }
 
@@ -295,14 +295,14 @@ body::before {
 .j-card-sub { font-size: 12px; color: oklch(0.556 0 0); margin: 2px 0 0; }
 
 .j-eyebrow {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.16em;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.16em;
   text-transform: uppercase; color: oklch(0.556 0 0);
 }
 
 /* ---------- Pills ---------- */
 .j-pill {
   display: inline-flex; align-items: center; gap: 4px;
-  padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 500; height: 20px; white-space: nowrap;
+  padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 500; height: 20px; white-space: nowrap;
 }
 .j-pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .j-pill.j-pos { background: oklch(0.520 0.150 154 / 0.18); color: var(--j-pos); }
@@ -606,7 +606,7 @@ body::before {
   .j-tab {
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
     min-height: 48px; padding: 4px 2px; border: 0; background: none; border-radius: 10px;
-    color: oklch(0.62 0 0); font: inherit; font-size: 10.5px; text-decoration: none; cursor: pointer;
+    color: oklch(0.62 0 0); font: inherit; font-size: 12px; text-decoration: none; cursor: pointer;
     touch-action: manipulation; -webkit-tap-highlight-color: transparent;
   }
   .j-tab-active { color: var(--j-accent); }
