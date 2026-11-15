@@ -60,7 +60,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     })
   } catch (error: any) {
     console.error(`[GET /api/projects/${params.id}/documents] Error:`, error)
-    return NextResponse.json({ error: "Failed to get documents", details: error.message }, { status: 500 })
+    return NextResponse.json({ error: "The documents could not be loaded" }, { status: 500 })
   }
 }
 
@@ -86,6 +86,9 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
 
     const body = await request.json()
     const { title, description, content, doc_type, parent_id, category } = body
+    if (typeof title !== "string" || !title.trim()) {
+      return NextResponse.json({ error: "A document needs a title", code: "VALIDATION" }, { status: 400 })
+    }
 
     console.log(`[POST /api/projects/${projectId}/documents] Creating document`, {
       title,
@@ -96,6 +99,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
     const [document] = await sql`
       INSERT INTO documents (
         project_id,
+        user_id,
         title,
         description,
         content,
@@ -104,6 +108,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
         category
       ) VALUES (
         ${projectId},
+        ${authContext.userId},
         ${title},
         ${description || null},
         ${content || ""},
@@ -119,6 +124,6 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
     return NextResponse.json(document, { status: 201 })
   } catch (error: any) {
     console.error(`[POST /api/projects/${params.id}/documents] Error:`, error)
-    return NextResponse.json({ error: "Failed to create document", details: error.message }, { status: 500 })
+    return NextResponse.json({ error: "The document could not be created" }, { status: 500 })
   }
 }

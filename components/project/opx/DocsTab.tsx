@@ -43,6 +43,7 @@ export function DocsTab({ projectId, coreDocs }: { projectId: string; coreDocs?:
   const [uploading, setUploading] = useState(0)
   const [newTitle, setNewTitle] = useState<string | null>(null)
   const [cat, setCat] = useState<string>("all")
+  const [needTitle, setNeedTitle] = useState(false)
   const [open, setOpen] = useState<string | null>(null)
   const [q, setQ] = useState("")
   const [editing, setEditing] = useState(false)
@@ -127,10 +128,11 @@ export function DocsTab({ projectId, coreDocs }: { projectId: string; coreDocs?:
           ))}
           <button className={`opx-dc${cat === "__files" ? " on" : ""}`} style={{ marginTop: 8, borderTop: "1px solid var(--opx-line)", borderRadius: 0, paddingTop: 12 }} onClick={() => { setCat("__files"); setOpen(null) }}>Files & images <em>{files.length}</em></button>
           {newTitle == null ? (
-            <button className="opx-btn primary" style={{ marginTop: 12, width: "100%", justifyContent: "center" }} onClick={() => setNewTitle("")}>＋ New document</button>
+            <button className="opx-btn primary" style={{ marginTop: 12, width: "100%", justifyContent: "center" }} onClick={() => { setNeedTitle(false); setNewTitle("") }}>New document</button>
           ) : (
-            <form style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (newTitle.trim()) { startNew(newTitle.trim()); setNewTitle(null) } }}>
+            <form style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (newTitle.trim()) { setNeedTitle(false); startNew(newTitle.trim()); setNewTitle(null) } else setNeedTitle(true) }}>
               <input autoFocus className="opx-input" placeholder="Document title" aria-label="New document title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") setNewTitle(null) }} />
+              {needTitle && <span role="alert" className="opx-ch-need">Give it a title first, then press Create.</span>}
               <span className="opx-row" style={{ gap: 6 }}><button type="submit" className="opx-btn primary sm">Create</button><button type="button" className="opx-btn sm" onClick={() => setNewTitle(null)}>Cancel</button></span>
             </form>
           )}
