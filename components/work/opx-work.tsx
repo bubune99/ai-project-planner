@@ -171,6 +171,8 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
       </div>
       {loading && !data && <Loading what="your work" />}
       {error && <Failed what="your work" error={error} retry={reload} />}
+      {/* The rows are laid out by the room this list has, not by the window: a side panel or a tablet leaves less. */}
+      <div className="opx-col opx-workc" style={{ gap: 12 }}>
       <div className="opx-lv opx-lvp opx-wf" role="group" aria-label="Narrow the list">
         <span />
         <input className="opx-input" placeholder="Find by words or project" aria-label="Find in my work" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -229,6 +231,7 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
           })}
         </section>
       ))}
+      </div>
       {picking && (() => {
         const chosen = (work?.items || []).filter((x) => sel.has(x.id)), todos = chosen.filter((x) => x.kind === "todo").length, none = chosen.length === 0 || busy
         return (

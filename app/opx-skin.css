@@ -1073,3 +1073,19 @@ input[type=date].opx-rowsel { min-width: 128px; }
   .opx-lv.opx-lvp.opx-wf .opx-input { min-height: 44px; font-size: 16px; }
 }
 @media (min-width: 761px) { .opx-wf select.opx-input { padding: 6px 2px 6px 8px; font-size: 12.5px; } }
+/* My work rows follow the width of the list itself. Under 700 the three controls go under the title. */
+.opx-workc { container-type: inline-size; }
+@container (max-width: 700px) {
+  .opx-workc .opx-lv.opx-lvp { grid-template-columns: 28px auto auto minmax(0,1fr); row-gap: 0; column-gap: 6px; }
+  .opx-workc .opx-lv.opx-lvp > :nth-child(2) { grid-column: 2 / -1; min-width: 0; white-space: normal !important; }
+  .opx-workc .opx-lv.opx-lvp > :nth-child(3) { display: inline-flex; grid-column: 2; grid-row: 2; }
+  .opx-workc .opx-lv.opx-lvp > :nth-child(4) { display: inline-flex; grid-column: 3; grid-row: 2; }
+  .opx-workc .opx-lv.opx-lvp > :nth-child(5) { display: inline-flex; grid-column: 4; grid-row: 2; justify-self: start; }
+  .opx-workc .opx-lv.opx-lvp > :nth-child(6) { display: inline-flex; grid-column: 2 / -1; grid-row: 3; }
+  .opx-workc .opx-lv.opx-lvp.opx-lvh { display: none; }
+  .opx-workc .opx-lv.opx-lvp.opx-wf { grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
+  .opx-workc .opx-lv.opx-lvp.opx-wf > span { display: none; }
+  .opx-workc .opx-lv.opx-lvp.opx-wf > * { grid-column: auto; grid-row: auto; display: block; }
+  .opx-workc .opx-lv.opx-lvp.opx-wf > input { grid-column: 1 / -1; }
+}
+@container (max-width: 460px) { .opx-workc .opx-lv.opx-lvp.opx-wf { grid-template-columns: minmax(0,1fr) minmax(0,1fr); } }
