@@ -26,13 +26,14 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "profile", label: "Profile" },
   { id: "notifications", label: "Notifications" },
   { id: "mcp", label: "MCP Server" },
-  { id: "ai", label: "AI" },
+  { id: "ai", label: "Assistant" },
   { id: "appearance", label: "Appearance" },
   { id: "integrations", label: "Integrations" },
   { id: "data", label: "Data & Export" },
 ]
 
-const MCP_ENDPOINT = "https://faridea.dev/mcp"
+/** The MCP address is this planner's own. It used to name faridea.dev, which does not serve the planner. */
+const MCP_PATH = "/mcp"
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -56,18 +57,19 @@ function relativeDate(iso: string | null) {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "oklch(0.45 0 0)", margin: "0 0 10px", fontWeight: 600 }}>
+    <p style={{ fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--opx-muted)", margin: "0 0 10px", fontWeight: 600 }}>
       {children}
     </p>
   )
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  // The label wraps its field, so the field is named by it for a screen reader and a press on the words focuses it.
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <label style={{ fontSize: 12, color: "oklch(0.556 0 0)", fontWeight: 500 }}>{label}</label>
+    <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <span style={{ fontSize: 12, color: "var(--opx-muted)", fontWeight: 500 }}>{label}</span>
       {children}
-    </div>
+    </label>
   )
 }
 
@@ -82,9 +84,9 @@ function Input({ value, onChange, placeholder, readOnly, type = "text" }: {
       placeholder={placeholder}
       onChange={e => onChange?.(e.target.value)}
       style={{
-        background: readOnly ? "oklch(1 0 0 / 0.02)" : "oklch(1 0 0 / 0.04)",
+        background: readOnly ? "var(--opx-soft)" : "var(--opx-soft)",
         border: "1px solid var(--j-ring)", borderRadius: 8,
-        padding: "8px 12px", color: readOnly ? "oklch(0.556 0 0)" : "oklch(0.860 0 0)",
+        padding: "8px 12px", color: readOnly ? "var(--opx-muted)" : "var(--opx-ink)",
         fontSize: 13, fontFamily: "inherit", outline: "none", width: "100%",
         cursor: readOnly ? "default" : "text",
       }}
@@ -100,8 +102,8 @@ function CopyField({ label, value }: { label: string; value: string }) {
           readOnly
           value={value}
           style={{
-            flex: 1, background: "oklch(1 0 0 / 0.02)", border: "1px solid var(--j-ring)",
-            borderRadius: 8, padding: "8px 12px", color: "oklch(0.556 0 0)",
+            flex: 1, background: "var(--opx-soft)", border: "1px solid var(--j-ring)",
+            borderRadius: 8, padding: "8px 12px", color: "var(--opx-muted)",
             fontSize: 13, fontFamily: "inherit", outline: "none",
           }}
         />
@@ -135,30 +137,20 @@ function ProfileTab({ user }: { user: ReturnType<typeof useUser> }) {
             <Input value={email} readOnly type="email" />
           </Field>
         </div>
-        <p className="j-muted" style={{ fontSize: 11, marginTop: 12, margin: "12px 0 0" }}>
+        <p className="j-muted" style={{ fontSize: 12, marginTop: 12, margin: "12px 0 0" }}>
           Account details are managed via your auth provider. Contact support to change your email.
         </p>
       </div>
 
       <div className="j-card">
         <SectionLabel>Preferences</SectionLabel>
-        <Field label="Timezone">
-          <select
-            defaultValue={Intl.DateTimeFormat().resolvedOptions().timeZone}
-            style={{
-              background: "oklch(1 0 0 / 0.04)", border: "1px solid var(--j-ring)",
-              borderRadius: 8, padding: "8px 12px", color: "oklch(0.860 0 0)",
-              fontSize: 13, fontFamily: "inherit", outline: "none",
-            }}
-          >
-            {(typeof Intl !== "undefined" && "supportedValuesOf" in Intl
-              ? (Intl as { supportedValuesOf: (key: string) => string[] }).supportedValuesOf("timeZone")
-              : ["UTC", "America/New_York", "America/Los_Angeles", "Europe/London", "Asia/Tokyo"]
-            ).map(tz => (
-              <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>
-            ))}
-          </select>
-        </Field>
+        {/* There was a timezone picker here that kept nothing and changed nothing. What is true is said instead. */}
+        <div className="j-row j-between j-wrap" style={{ gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>Timezone</div>
+            <div className="j-muted" style={{ fontSize: 12 }}>Dates and times are shown in this device&apos;s timezone: {typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, " ") : "unknown"}. Choosing another is not built yet.</div>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -172,6 +164,8 @@ function McpTab() {
   const [newKeyExpiry, setNewKeyExpiry] = useState("never")
   const [revealedKey, setRevealedKey] = useState<string | null>(null)
   const [showCreate, setShowCreate] = useState(false)
+  /** Generate pressed with no name: said in words rather than a dimmed button. */
+  const [needName, setNeedName] = useState(false)
 
   const fetchKeys = useCallback(async () => {
     try {
@@ -189,7 +183,8 @@ function McpTab() {
   useEffect(() => { fetchKeys() }, [fetchKeys])
 
   const createKey = async () => {
-    if (!newKeyName.trim()) return
+    if (!newKeyName.trim()) { setNeedName(true); return }
+    setNeedName(false)
     try {
       setIsCreating(true)
       const res = await fetch("/api/api-keys", {
@@ -223,6 +218,9 @@ function McpTab() {
     }
   }
 
+  const [origin, setOrigin] = useState("")
+  useEffect(() => { setOrigin(window.location.origin) }, [])
+  const MCP_ENDPOINT = `${origin}${MCP_PATH}`
   const claudeConfig = revealedKey
     ? JSON.stringify({ mcpServers: { jarvis: { url: MCP_ENDPOINT, headers: { Authorization: `Bearer ${revealedKey}` } } } }, null, 2)
     : `{\n  "mcpServers": {\n    "jarvis": {\n      "url": "${MCP_ENDPOINT}",\n      "headers": { "Authorization": "Bearer aipp_..." }\n    }\n  }\n}`
@@ -235,7 +233,7 @@ function McpTab() {
         <div className="j-col" style={{ gap: 12 }}>
           <CopyField label="Server URL" value={MCP_ENDPOINT} />
           <p className="j-muted" style={{ fontSize: 12, margin: 0 }}>
-            57 tools — projects, todos, ideas, finance, calendar, agents, memory, workers, sources
+            Tools for projects, tasks, todos, ideas, documents, finance, calendar, agents and memory.
           </p>
         </div>
       </div>
@@ -244,17 +242,17 @@ function McpTab() {
       <div className="j-card">
         <div className="j-row j-between" style={{ marginBottom: 12 }}>
           <SectionLabel>Claude Code Config</SectionLabel>
-          <button className="j-btn j-btn-ghost" style={{ fontSize: 11 }} onClick={() => copyText(claudeConfig, "Config copied")}>Copy</button>
+          <button className="j-btn j-btn-ghost" style={{ fontSize: 12 }} onClick={() => copyText(claudeConfig, "Config copied")}>Copy</button>
         </div>
         <pre style={{
-          background: "oklch(0.09 0 0)", borderRadius: 8, padding: "12px 14px",
-          fontSize: 12, fontFamily: "inherit", color: "oklch(0.780 0 0)",
+          background: "var(--opx-soft)", borderRadius: 8, padding: "12px 14px",
+          fontSize: 12, fontFamily: "inherit", color: "var(--opx-ink)",
           margin: 0, overflow: "auto", lineHeight: 1.6,
         }}>
           {claudeConfig}
         </pre>
         {!revealedKey && (
-          <p className="j-muted" style={{ fontSize: 11, marginTop: 8, margin: "8px 0 0" }}>
+          <p className="j-muted" style={{ fontSize: 12, marginTop: 8, margin: "8px 0 0" }}>
             Generate an API key below, then copy the config with your key filled in.
           </p>
         )}
@@ -262,15 +260,15 @@ function McpTab() {
 
       {/* Revealed key banner */}
       {revealedKey && (
-        <div className="j-card" style={{ background: "oklch(0.870 0.045 252 / 0.08)", boxShadow: "0 0 0 1px oklch(0.870 0.045 252 / 0.3)" }}>
+        <div className="j-card" style={{ background: "color-mix(in srgb, var(--opx-accent) 10%, transparent)", boxShadow: "0 0 0 1px color-mix(in srgb, var(--opx-accent) 40%, transparent)" }}>
           <p style={{ fontSize: 12, color: "var(--j-accent)", fontWeight: 600, margin: "0 0 8px" }}>Save this key — it won't be shown again</p>
           <div style={{ display: "flex", gap: 8 }}>
             <input
               readOnly
               value={revealedKey}
               style={{
-                flex: 1, background: "oklch(0.09 0 0)", border: "1px solid oklch(0.870 0.045 252 / 0.4)",
-                borderRadius: 8, padding: "8px 12px", color: "oklch(0.870 0.045 252)",
+                flex: 1, background: "var(--opx-soft)", border: "1px solid color-mix(in srgb, var(--opx-accent) 45%, transparent)",
+                borderRadius: 8, padding: "8px 12px", color: "var(--opx-ink)",
                 fontSize: 12, fontFamily: "inherit", outline: "none",
               }}
             />
@@ -290,7 +288,7 @@ function McpTab() {
         </div>
 
         {showCreate && (
-          <div className="j-card" style={{ background: "oklch(1 0 0 / 0.03)", marginBottom: 16 }}>
+          <div className="j-card" style={{ background: "var(--opx-soft)", marginBottom: 16 }}>
             <div className="j-grid j-cols-2" style={{ gap: 12, marginBottom: 12 }}>
               <Field label="Key name">
                 <Input value={newKeyName} onChange={setNewKeyName} placeholder="e.g. Claude Code local" />
@@ -299,7 +297,7 @@ function McpTab() {
                 <select
                   value={newKeyExpiry}
                   onChange={e => setNewKeyExpiry(e.target.value)}
-                  style={{ background: "oklch(1 0 0 / 0.04)", border: "1px solid var(--j-ring)", borderRadius: 8, padding: "8px 12px", color: "oklch(0.860 0 0)", fontSize: 13, fontFamily: "inherit", outline: "none" }}
+                  style={{ background: "var(--opx-soft)", border: "1px solid var(--j-ring)", borderRadius: 8, padding: "8px 12px", color: "var(--opx-ink)", fontSize: 13, fontFamily: "inherit", outline: "none" }}
                 >
                   <option value="never">Never</option>
                   <option value="30d">30 days</option>
@@ -311,17 +309,18 @@ function McpTab() {
             <button
               className="j-btn j-btn-primary"
               onClick={createKey}
-              disabled={!newKeyName.trim() || isCreating}
-              style={{ opacity: (!newKeyName.trim() || isCreating) ? 0.5 : 1 }}
+              disabled={isCreating}
+              style={{ opacity: isCreating ? 0.5 : 1 }}
             >
               {isCreating ? "Generating…" : "Generate key"}
             </button>
+            {needName && !newKeyName.trim() && <p role="alert" className="opx-ch-need" style={{ margin: "8px 0 0" }}>Give the key a name first, so you can tell it apart later.</p>}
           </div>
         )}
 
         {isLoading ? (
           <div className="j-col" style={{ gap: 8 }}>
-            {[1, 2].map(i => <div key={i} style={{ height: 48, background: "oklch(1 0 0 / 0.04)", borderRadius: 8 }} />)}
+            {[1, 2].map(i => <div key={i} style={{ height: 48, background: "var(--opx-soft)", borderRadius: 8 }} />)}
           </div>
         ) : keys.length === 0 ? (
           <p className="j-muted" style={{ fontSize: 13, textAlign: "center", padding: "24px 0" }}>
@@ -334,30 +333,30 @@ function McpTab() {
                 key={key.id}
                 style={{
                   display: "flex", alignItems: "center", gap: 12, padding: "10px 12px",
-                  borderRadius: 8, background: key.isActive ? "transparent" : "oklch(1 0 0 / 0.02)",
+                  borderRadius: 8, background: key.isActive ? "transparent" : "var(--opx-soft)",
                 }}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="j-row" style={{ gap: 8, marginBottom: 2 }}>
-                    <span style={{ fontSize: 13, fontWeight: 500, color: key.isActive ? "oklch(0.860 0 0)" : "oklch(0.45 0 0)" }}>
+                    <span style={{ fontSize: 13, fontWeight: 500, color: key.isActive ? "var(--opx-ink)" : "var(--opx-muted)" }}>
                       {key.name}
                     </span>
-                    {!key.isActive && <span className="j-pill" style={{ fontSize: 9, background: "oklch(0.545 0.199 27 / 0.15)", color: "var(--j-neg)" }}>Revoked</span>}
+                    {!key.isActive && <span className="j-pill" style={{ fontSize: 12, background: "oklch(0.545 0.199 27 / 0.15)", color: "var(--j-neg)" }}>Revoked</span>}
                   </div>
                   <div className="j-row" style={{ gap: 12 }}>
-                    <span style={{ fontSize: 11, fontFamily: "inherit", color: "oklch(0.556 0 0)" }}>
+                    <span style={{ fontSize: 12, fontFamily: "inherit", color: "var(--opx-muted)" }}>
                       {key.keyPrefix}••••
                     </span>
-                    <span className="j-muted" style={{ fontSize: 11 }}>Last used: {relativeDate(key.lastUsedAt)}</span>
+                    <span className="j-muted" style={{ fontSize: 12 }}>Last used: {relativeDate(key.lastUsedAt)}</span>
                     {key.expiresAt && (
-                      <span className="j-muted" style={{ fontSize: 11 }}>Expires: {new Date(key.expiresAt).toLocaleDateString()}</span>
+                      <span className="j-muted" style={{ fontSize: 12 }}>Expires: {new Date(key.expiresAt).toLocaleDateString()}</span>
                     )}
                   </div>
                 </div>
                 {key.isActive && (
                   <button
                     className="j-btn j-btn-ghost"
-                    style={{ fontSize: 11, color: "var(--j-neg)", flexShrink: 0 }}
+                    style={{ fontSize: 12, color: "var(--j-neg)", flexShrink: 0 }}
                     onClick={() => revokeKey(key.id, key.name)}
                   >
                     Revoke
@@ -373,49 +372,15 @@ function McpTab() {
 }
 
 function AiTab() {
-  const [modelPref, setModelPref] = useState(() =>
-    typeof window !== "undefined" ? localStorage.getItem("jarvis_model_pref") ?? "claude-sonnet-4-6" : "claude-sonnet-4-6"
-  )
-
-  const save = () => {
-    localStorage.setItem("jarvis_model_pref", modelPref)
-    toast.success("Model preference saved")
-  }
-
   return (
     <div className="j-col j-gap-4">
+      {/* A "Default model" picker used to sit here. It saved a choice in this browser that nothing ever read, and
+          listed models the assistants no longer run on. What is true is said instead. */}
       <div className="j-card">
-        <SectionLabel>Default Model</SectionLabel>
-        <div className="j-col" style={{ gap: 12 }}>
-          {[
-            { id: "claude-opus-4-7", label: "Claude Opus 4.7", sub: "Deepest reasoning — complex architecture, research" },
-            { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", sub: "Best coding model — recommended default" },
-            { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5", sub: "Fast, lightweight — quick lookups and summaries" },
-          ].map(m => (
-            <label
-              key={m.id}
-              style={{
-                display: "flex", alignItems: "flex-start", gap: 12, padding: "12px 14px",
-                borderRadius: 9, cursor: "pointer",
-                background: modelPref === m.id ? "oklch(0.870 0.045 252 / 0.1)" : "oklch(1 0 0 / 0.03)",
-                boxShadow: `0 0 0 1px ${modelPref === m.id ? "oklch(0.870 0.045 252 / 0.4)" : "var(--j-ring)"}`,
-              }}
-            >
-              <input
-                type="radio"
-                name="model"
-                value={m.id}
-                checked={modelPref === m.id}
-                onChange={() => setModelPref(m.id)}
-                style={{ marginTop: 2, accentColor: "var(--j-accent)" }}
-              />
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>{m.label}</div>
-                <div className="j-muted" style={{ fontSize: 12 }}>{m.sub}</div>
-              </div>
-            </label>
-          ))}
-          <button className="j-btn j-btn-primary" style={{ alignSelf: "flex-start" }} onClick={save}>Save preference</button>
+        <SectionLabel>Assistant model</SectionLabel>
+        <div className="j-row j-between j-wrap" style={{ gap: 10 }}>
+          <div className="j-muted" style={{ fontSize: 13 }}>The model each assistant runs on is set by the planner. Choosing it here is not built yet.</div>
+          <span className="j-pill j-ghost" style={{ fontSize: 12, flexShrink: 0 }}>Not built yet</span>
         </div>
       </div>
 
@@ -428,15 +393,14 @@ function AiTab() {
                 readOnly
                 value="Configured via environment variable"
                 style={{
-                  flex: 1, background: "oklch(1 0 0 / 0.02)", border: "1px solid var(--j-ring)",
-                  borderRadius: 8, padding: "8px 12px", color: "oklch(0.45 0 0)",
+                  flex: 1, background: "var(--opx-soft)", border: "1px solid var(--j-ring)",
+                  borderRadius: 8, padding: "8px 12px", color: "var(--opx-muted)",
                   fontSize: 13, fontFamily: "inherit", outline: "none",
                 }}
               />
-              <span className="j-pill" style={{ alignSelf: "center", background: "oklch(0.264 0.189 142 / 0.15)", color: "var(--j-pos)", fontSize: 11, flexShrink: 0 }}>Active</span>
             </div>
           </Field>
-          <p className="j-muted" style={{ fontSize: 11, margin: 0 }}>
+          <p className="j-muted" style={{ fontSize: 12, margin: 0 }}>
             The API key is set server-side via Vercel environment variables. To rotate it, update <code style={{ fontFamily: "inherit" }}>ANTHROPIC_API_KEY</code> in your Vercel project settings.
           </p>
         </div>
@@ -477,9 +441,9 @@ function AppearanceTab() {
               style={{
                 flex: 1, padding: "16px 12px", borderRadius: 10, cursor: "pointer",
                 border: "none", fontFamily: "inherit",
-                background: density === d ? "oklch(0.870 0.045 252 / 0.12)" : "oklch(1 0 0 / 0.04)",
-                boxShadow: `0 0 0 1px ${density === d ? "oklch(0.870 0.045 252 / 0.4)" : "var(--j-ring)"}`,
-                color: density === d ? "var(--j-accent)" : "oklch(0.780 0 0)",
+                background: density === d ? "oklch(0.870 0.045 252 / 0.12)" : "var(--opx-soft)",
+                boxShadow: `0 0 0 1px ${density === d ? "color-mix(in srgb, var(--opx-accent) 45%, transparent)" : "var(--j-ring)"}`,
+                color: density === d ? "var(--j-accent)" : "var(--opx-ink)",
                 textTransform: "capitalize", fontWeight: density === d ? 500 : 400, fontSize: 13,
               }}
             >
@@ -487,7 +451,7 @@ function AppearanceTab() {
             </button>
           ))}
         </div>
-        <p className="j-muted" style={{ fontSize: 11, marginTop: 10, margin: "10px 0 0" }}>
+        <p className="j-muted" style={{ fontSize: 12, marginTop: 10, margin: "10px 0 0" }}>
           Controls spacing throughout the app. Takes effect immediately.
         </p>
       </div>
@@ -516,12 +480,12 @@ function IntegrationsTab() {
         {PLANNED.map(p => (
           <div key={p.name} className="j-card" style={{ opacity: 0.7 }}>
             <div className="j-row" style={{ gap: 12, marginBottom: 10 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: "oklch(1 0 0 / 0.04)", display: "grid", placeItems: "center", fontSize: 20 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--opx-soft)", display: "grid", placeItems: "center", fontSize: 20 }}>
                 {p.icon}
               </div>
               <div>
                 <div style={{ fontWeight: 500, fontSize: 14 }}>{p.name}</div>
-                <span className="j-pill" style={{ fontSize: 10, background: "oklch(0.870 0.045 252 / 0.1)", color: "var(--j-accent)" }}>Planned</span>
+                <span className="j-pill" style={{ fontSize: 12, background: "color-mix(in srgb, var(--opx-accent) 12%, transparent)", color: "var(--j-accent)" }}>Planned</span>
               </div>
             </div>
             <p className="j-muted" style={{ fontSize: 12, margin: 0, lineHeight: 1.5 }}>{p.description}</p>
@@ -533,15 +497,6 @@ function IntegrationsTab() {
 }
 
 function DataTab() {
-  const [isExporting, setIsExporting] = useState<string | null>(null)
-
-  const exportData = async (type: string) => {
-    setIsExporting(type)
-    await new Promise(r => setTimeout(r, 800))
-    setIsExporting(null)
-    toast.info(`${type} export coming soon`)
-  }
-
   return (
     <div className="j-col j-gap-4">
       <div className="j-card">
@@ -554,39 +509,26 @@ function DataTab() {
             { key: "finance", label: "Finance", sub: "Accounts, transactions, and summaries" },
           ].map(item => (
             <div key={item.key} className="j-row j-between" style={{
-              padding: "12px 14px", borderRadius: 9, background: "oklch(1 0 0 / 0.03)", boxShadow: "0 0 0 1px var(--j-ring)"
+              padding: "12px 14px", borderRadius: 9, background: "var(--opx-soft)", boxShadow: "0 0 0 1px var(--j-ring)"
             }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>{item.label}</div>
-                <div className="j-muted" style={{ fontSize: 11 }}>{item.sub}</div>
+                <div className="j-muted" style={{ fontSize: 12 }}>{item.sub}</div>
               </div>
-              <div className="j-row" style={{ gap: 6, flexShrink: 0 }}>
-                <button className="j-btn j-btn-ghost" style={{ fontSize: 11 }} onClick={() => exportData(`${item.label} (JSON)`)}>
-                  {isExporting === `${item.label} (JSON)` ? "…" : "JSON"}
-                </button>
-                <button className="j-btn j-btn-ghost" style={{ fontSize: 11 }} onClick={() => exportData(`${item.label} (CSV)`)}>
-                  {isExporting === `${item.label} (CSV)` ? "…" : "CSV"}
-                </button>
-              </div>
+              <span className="j-pill j-ghost" style={{ fontSize: 12, flexShrink: 0 }}>Not built yet</span>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="j-card" style={{ boxShadow: "0 0 0 1px oklch(0.545 0.199 27 / 0.3)" }}>
-        <SectionLabel>Danger Zone</SectionLabel>
+      <div className="j-card">
+        <SectionLabel>Delete account</SectionLabel>
         <div className="j-row j-between">
           <div>
             <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>Delete account</div>
-            <div className="j-muted" style={{ fontSize: 11 }}>Permanently remove your account and all data</div>
+            <div className="j-muted" style={{ fontSize: 12 }}>Permanently remove your account and all data</div>
           </div>
-          <button
-            className="j-btn j-btn-ghost"
-            style={{ fontSize: 12, color: "var(--j-neg)", boxShadow: "0 0 0 1px oklch(0.545 0.199 27 / 0.4)", flexShrink: 0 }}
-            onClick={() => toast.error("Please contact support to delete your account")}
-          >
-            Delete account
-          </button>
+          <span className="j-pill j-ghost" style={{ fontSize: 12, flexShrink: 0 }}>Not built yet</span>
         </div>
       </div>
     </div>
@@ -597,21 +539,22 @@ function DataTab() {
 
 export default function SettingsPage() {
   const user = useUser()
-  const [activeTab, setActiveTab] = useState<Tab>(() => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "notifications" ? "notifications" : "profile"))
+  const [activeTab, setActiveTab] = useState<Tab>(() => (typeof window !== "undefined" && TABS.some((x) => x.id === new URLSearchParams(window.location.search).get("tab")) ? (new URLSearchParams(window.location.search).get("tab") as Tab) : "profile"))
 
   return (
     <DashboardLayout>
       <div className="j-content j-col j-gap-4">
         {/* Tab bar */}
-        <div className="j-row" style={{ gap: 4, borderBottom: "1px solid var(--j-hairline)", paddingBottom: 0, marginBottom: -4, overflowX: "auto", scrollbarWidth: "none" }}>
+        <div className="j-row" role="tablist" aria-label="Settings" style={{ gap: 4, borderBottom: "1px solid var(--j-hairline)", paddingBottom: 0, marginBottom: -4, overflowX: "auto", scrollbarWidth: "none" }}>
           {TABS.map(t => (
             <button
               key={t.id}
-              onClick={() => setActiveTab(t.id)}
+              role="tab" aria-selected={activeTab === t.id}
+              onClick={() => { setActiveTab(t.id); const u = new URL(window.location.href); u.searchParams.set("tab", t.id); window.history.replaceState(null, "", u) }}
               style={{
                 background: "none", border: "none", fontFamily: "inherit", cursor: "pointer",
                 fontSize: 13, fontWeight: activeTab === t.id ? 500 : 400,
-                color: activeTab === t.id ? "oklch(0.985 0 0)" : "oklch(0.556 0 0)",
+                color: activeTab === t.id ? "var(--opx-ink)" : "var(--opx-muted)",
                 padding: "8px 14px", minHeight: 44, flex: "none", whiteSpace: "nowrap",
                 borderBottom: `2px solid ${activeTab === t.id ? "var(--j-accent)" : "transparent"}`,
                 marginBottom: -1,
