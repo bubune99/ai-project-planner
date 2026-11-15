@@ -387,7 +387,7 @@ export function ChecksTab({ projectId }: { projectId: string }) {
           </div>
           <label className="opx-ck-page">
             <span className="opx-muted">Page</span>
-            <select value={current.id} onChange={(e) => { setPageId(e.target.value); setPick(null); setSettle(null) }}>
+            <select aria-label="Page" value={current.id} onChange={(e) => { setPageId(e.target.value); setPick(null); setSettle(null) }}>
               {list.map((p) => <option key={p.id} value={p.id}>{p.route} ({p.summary.cleared} of {p.summary.total})</option>)}
             </select>
           </label>
