@@ -11,7 +11,7 @@
  * routed and every edit come from lib/sops/process-map.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react"
 import { Controls, Handle, MarkerType, Panel, Position, ReactFlow, ReactFlowProvider, useNodesState, useReactFlow, type Edge, type Node, type NodeProps } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { ArrowLeft, Layers, Redo2, Undo2 } from "lucide-react"
@@ -102,7 +102,10 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
   // step's title 12px), from the top left corner where the process starts, and let it be dragged.
   // The same holds on a tablet whenever fitting the whole map would shrink it below three quarters of its size.
   const mapWidth = lanes ? DIM.laneLabel + (layer.stages?.length ?? 0) * DIM.col : Math.max(1, layer.nodes.length) * DIM.col
-  const narrow = typeof window !== "undefined" && window.innerWidth < 1100 && (window.innerWidth < 700 || (window.innerWidth - 80) / mapWidth < 0.75)
+  // Judged by the room the drawing really has (the assistant may be open beside the page), once it has been measured.
+  const [room, setRoom] = useState<number | null>(null)
+  useLayoutEffect(() => { if (wrap.current) setRoom(wrap.current.clientWidth) }, [])
+  const narrow = room != null ? room / mapWidth < 0.5 : typeof window !== "undefined" && window.innerWidth < 1100 && (window.innerWidth < 700 || (window.innerWidth - 80) / mapWidth < 0.75)
   useEffect(() => { setPicked(null) }, [pathKey])
   // What was picked may have been removed or moved since: only offer what is still there.
   const pickName = !picked ? null
@@ -238,7 +241,7 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
       {placing && <p className="opx-pm-note" role="status">Click an empty place in a lane to put the step there. Esc cancels.</p>}
       <div ref={wrap} className={`opx-pm${lanes ? "" : " sub"}${placing ? " placing" : ""}`} onContextMenu={(e) => { if (can) e.preventDefault() }}>
         <ReactFlow
-          key={livePath.map((s) => s.id).join("/") || "top"} nodes={nodes} edges={edges} onNodesChange={onNodesChange} nodeTypes={nodeTypes}
+          key={`${pathKey || "top"}|${narrow ? "near" : "fit"}`} nodes={nodes} edges={edges} onNodesChange={onNodesChange} nodeTypes={nodeTypes}
           fitView={!narrow} defaultViewport={narrow ? START_NARROW : undefined} fitViewOptions={{ padding: 0.04 }} minZoom={0.25} maxZoom={1.6} nodesConnectable={false} zoomOnDoubleClick={false} deleteKeyCode={null} nodesDraggable={can}
           onNodeDoubleClick={(_, n) => { const tg = targetOf(n); if (tg && (tg.kind === "node" || tg.kind === "stage")) open(tg.kind, tg.id) }}
           onNodeClick={(e, n) => {
