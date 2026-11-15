@@ -46,6 +46,30 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
   const { data, loading, error, reload } = useJson(`/api/work?view=${view}&r=${refreshKey}`)
   const { tipProps, node } = useHoverTip()
   const [flip, setFlip] = useState<Record<string, boolean>>({})
+  /**
+   * Status, priority and due date are changed on the row itself (owner, 2026-11-15: "todos route lacks a method to
+   * edit a due date or priority and even a status from that window. Should it have that?"). What was changed is shown
+   * at once and put back, with a line saying so, if the save fails.
+   */
+  const [edits, setEdits] = useState<Record<string, Partial<Pick<WorkItem, "statusKind" | "priority" | "dueDate">>>>({})
+  const change = async (w: WorkItem, patch: Partial<Pick<WorkItem, "statusKind" | "priority" | "dueDate">>) => {
+    const before = edits[w.id]
+    setEdits((e) => ({ ...e, [w.id]: { ...e[w.id], ...patch } }))
+    try {
+      const keys = (work?.statusKeys || {})[w.projectId ?? ""] ?? { done: "completed", open: "pending" }
+      const body: Record<string, unknown> = {}
+      if (patch.statusKind) body.status = w.kind === "todo"
+        ? ({ open: "pending", active: "in_progress", done: "completed" } as Record<string, string>)[patch.statusKind]
+        : ({ open: keys.open, active: "in-progress", done: keys.done } as Record<string, string>)[patch.statusKind]
+      if ("priority" in patch) body.priority = patch.priority
+      if ("dueDate" in patch) body[w.kind === "todo" ? "dueDate" : "end_date"] = patch.dueDate
+      await patchJson(w.kind === "todo" ? `/api/todos/${w.id}` : `/api/projects/${w.projectId}/steps/${w.id}`, body)
+      if (patch.statusKind) setFlip((f) => { const { [w.id]: _, ...rest } = f; return rest })
+    } catch (e) {
+      setEdits((x) => ({ ...x, [w.id]: before ?? {} }))
+      toast.error(e instanceof Error ? `Not saved: ${e.message}` : "Not saved")
+    }
+  }
   const work = unwrap<WorkData>(data)
   const groups = useMemo(() => {
     const now = new Date()
@@ -55,7 +79,7 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
     return [...m.entries()].sort((a, b) => (a[0] === "Personal" ? 1 : b[0] === "Personal" ? -1 : b[1].length - a[1].length))
   }, [work])
 
-  const isDone = (w: WorkItem) => flip[w.id] ?? w.statusKind === "done"
+  const isDone = (w: WorkItem) => flip[w.id] ?? (edits[w.id]?.statusKind ?? w.statusKind) === "done"
   const toggle = async (w: WorkItem) => {
     const next = !isDone(w)
     setFlip((f) => ({ ...f, [w.id]: next }))
@@ -81,7 +105,8 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
             {list[0]?.projectId && <a className="opx-link opx-act" style={{ marginLeft: "auto" }} aria-label={`Open the project ${g}`} href={`/project/${list[0].projectId}?tab=tasks&view=list`}>Open project ›</a>}
           </div>
           <div className="opx-lv opx-lvp opx-lvh"><span /><span>Task</span><span>Status</span><span>Priority</span><span>Due</span><span>Type</span></div>
-          {list.map((w) => {
+          {list.map((w0) => {
+            const w = { ...w0, ...edits[w0.id] }
             const done = isDone(w)
             const due = dayOf(w.dueDate)
             const late = due && due < today && !done
@@ -91,9 +116,18 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
                 {w.kind === "todo" && onEditTodo
                   ? <button className="opx-link opx-act" style={{ justifyContent: "flex-start", textAlign: "left", fontWeight: 600, fontSize: 14.5, color: "inherit", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} onClick={() => onEditTodo(w.id)}>{w.title}</button>
                   : <b>{w.title}</b>}
-                <span className="opx-row" style={{ gap: 6, fontSize: 12.5 }}><i className="opx-dot" style={{ background: KIND_COLOR[w.statusKind], width: 7, height: 7 }} />{KIND_LABEL[w.statusKind]}</span>
-                <Priority p={w.priority} />
-                <span style={{ fontSize: 13, color: late ? "var(--opx-hot)" : "var(--opx-muted)" }}>{due ? fmtDate(due) : "—"}</span>
+                <span className="opx-row" style={{ gap: 6, fontSize: 12.5, minWidth: 0 }}><i className="opx-dot" style={{ background: KIND_COLOR[w.statusKind], width: 7, height: 7, flex: "none" }} />
+                  <select className="opx-rowsel" aria-label={`Status of ${w.title}`} value={done ? "done" : w.statusKind} onChange={(e) => change(w0, { statusKind: e.target.value as WorkItem["statusKind"] })}>
+                    <option value="open">{KIND_LABEL.open}</option><option value="active">{KIND_LABEL.active}</option><option value="done">{KIND_LABEL.done}</option>
+                    {w.statusKind === "closed" && <option value="closed" disabled>{KIND_LABEL.closed}</option>}
+                  </select>
+                </span>
+                <select className={`opx-rowsel${w.priority === "urgent" || w.priority === "high" ? " hot" : ""}`} aria-label={`Priority of ${w.title}`} value={w.priority ?? ""} onChange={(e) => change(w0, { priority: (e.target.value || null) as WorkItem["priority"] })}>
+                  {!w.priority && <option value="">No priority</option>}
+                  <option value="urgent">Urgent</option><option value="high">High</option><option value="medium">Normal</option><option value="low">Low</option>
+                </select>
+                <input type="date" className={`opx-rowsel${late ? " hot" : ""}`} aria-label={`Due date of ${w.title}`} value={due ? dayKey(due) : ""}
+                  onChange={(e) => change(w0, { dueDate: e.target.value ? new Date(`${e.target.value}T12:00:00`).toISOString() : null })} />
                 <span className="opx-muted" style={{ fontSize: 12.5 }}>{w.kind === "todo" ? "Todo" : "Task"}</span>
               </div>
             )
