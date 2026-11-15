@@ -31,7 +31,7 @@ export interface NeedsYou {
 }
 
 export function needsYou(projectId: string, input: { inbox: InboxItem[]; changes: WaitingChange[]; walks: StoredWalk[] }): NeedsYou {
-  const questions = input.inbox.filter((q) => q.projectId === projectId).sort((a, b) => a.askedAt.localeCompare(b.askedAt))
+  const questions = input.inbox.filter((q) => q.projectId === projectId).sort((a, b) => b.askedAt.localeCompare(a.askedAt))
   const changes = input.changes.filter((c) => !c.verdict).sort((a, b) => b.at.localeCompare(a.at))
   const open = openFindings(input.walks)
   const yours = open.filter((f) => f.who === "owner")

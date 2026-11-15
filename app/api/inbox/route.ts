@@ -2,8 +2,9 @@
  * GET /api/inbox — what is waiting on the owner.
  *
  * Every agent_jobs row of the caller's in 'awaiting-unlock': questions asked
- * with the ask_owner MCP tool, plus jobs paused by request_unlock. Oldest
- * first, so nothing that has waited longest sinks under newer asks.
+ * with the ask_owner MCP tool, plus jobs paused by request_unlock. Newest
+ * first (owner, 2026-11-14: "newer items should appear towards the top, not the
+ * bottom"). Each card shows how long it has waited, so an old one is still seen for what it is.
  */
 import { NextRequest } from "next/server"
 import { sql } from "@/lib/db/client"
@@ -20,7 +21,7 @@ export async function GET(_request: NextRequest) {
       SELECT id, title, unlock_prompt, created_by, assigned_to, created_at, input
       FROM agent_jobs
       WHERE status = 'awaiting-unlock' AND created_by = ${auth.userId}
-      ORDER BY created_at ASC
+      ORDER BY created_at DESC
       LIMIT 200
     `) as Record<string, any>[]
 

@@ -15,8 +15,8 @@ const y = needsYou("p1", {
     walk("w2", "2026-11-14T04:00:00Z", "reached", [{ kind: "taste", what: "Reply time is a promise" }, { kind: "gap", what: "No tracking" }, { kind: "error", what: "live payments on staging" }]),
   ],
 })
-// 1. only this project's questions, oldest first
-assert.deepEqual(y.questions.map((x) => x.id), ["a", "b"])
+// 1. only this project's questions, newest first (owner, 2026-11-14: "newer items should appear towards the top")
+assert.deepEqual(y.questions.map((x) => x.id), ["b", "a"])
 // 2. only changes without a verdict, newest first
 assert.deepEqual(y.changes.map((x) => x.id), ["c3", "c1"])
 // 3. taste and friction above the line are the owner's; errors, gaps and friction scored below 3 are the agents'
