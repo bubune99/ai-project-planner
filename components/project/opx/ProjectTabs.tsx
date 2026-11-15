@@ -7,7 +7,7 @@
  * so every write merges onto the current metadata first).
  */
 
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { formatMoney, moneyTotals } from "@/lib/project-views/money"
 import { toast } from "sonner"
 import { projectMetrics, medianLabel } from "@/lib/project-views/metrics"
@@ -106,12 +106,26 @@ export function MoneyTab({ projectId, project, onChange }: { projectId: string; 
   const costs = money.costs || [], putIn = money.putIn || [], brought = money.broughtIn || []
   const [form, setForm] = useState<{ kind: "cost" | "in" | "out" | "budget" | null; a: string; b: string; c: string }>({ kind: null, a: "", b: "", c: "" })
   const [busy, setBusy] = useState(false)
-  const write = async (next: PlannerUi["money"]) => {
-    setBusy(true)
-    try { await saveProject(projectId, project, {}, { money: { ...money, ...next } }); onChange(); setForm({ kind: null, a: "", b: "", c: "" }) }
-    catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't save") }
+  /** The project as last drawn: an Undo pressed a moment later must add to what is there now, not to what was there then. */
+  const latest = useRef(project); latest.current = project
+  /** What a form was missing when Add was pressed: said in words, never a button that does nothing. */
+  const [need, setNeed] = useState<string | null>(null)
+  const write = async (next: PlannerUi["money"] | ((now: NonNullable<PlannerUi["money"]>) => PlannerUi["money"])) => {
+    setBusy(true); setNeed(null)
+    try {
+      const now = uiOf(latest.current).money || {}
+      await saveProject(projectId, latest.current, {}, { money: { ...now, ...(typeof next === "function" ? next(now) : next) } }); onChange(); setForm({ kind: null, a: "", b: "", c: "" })
+      return true
+    }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't save"); return false }
     finally { setBusy(false) }
   }
+  /** Removing a money record can be taken back: the line says what went and offers Undo. */
+  const remove = async (key: "costs" | "putIn" | "broughtIn", item: { id: string }, label: string) => {
+    if (!(await write((now) => ({ [key]: ((now[key] || []) as { id: string }[]).filter((x) => x.id !== item.id) })))) return
+    toast(`Removed ${label}`, { duration: 10000, action: { label: "Undo", onClick: () => { void write((now) => ({ [key]: [...((now[key] || []) as { id: string }[]).filter((x) => x.id !== item.id), item] })) } } })
+  }
+  const open = (next: typeof form) => { setNeed(null); setForm(next) }
   const num = (s: string) => { const n = Number(s.replace(/[^0-9.]/g, "")); return Number.isFinite(n) && s.trim() ? n : null }
   const today = new Date().toISOString().slice(0, 10)
   const budgetUsed = totals.budgetUsed
@@ -124,26 +138,27 @@ export function MoneyTab({ projectId, project, onChange }: { projectId: string; 
         <div className="opx-stat"><b>{fmt(totals.broughtIn)}</b><span>Brought in so far</span></div>
       </div>
       <div className="opx-2col">
-        <Section title="What it costs to run" action={<button className="opx-link" onClick={() => setForm({ kind: "cost", a: "", b: "", c: "" })}>Add a cost</button>}>
+        <Section title="What it costs to run" action={<button className="opx-link opx-act" onClick={() => open({ kind: "cost", a: "", b: "", c: "" })}>Add a cost</button>}>
           {costs.length === 0 && form.kind !== "cost" && <p className="opx-muted" style={{ margin: 0 }}>No running costs recorded. Add the services this project pays for (hosting, database, email, domain) and what each costs a month.</p>}
           {costs.map((c) => (
             <div key={c.id} className="opx-li">
               <div><b>{c.name}</b><small>{c.service}</small></div>
               <span>{c.monthly != null ? `${fmt(c.monthly)} / month` : "— / month"}</span>
-              <button className="opx-btn sm" disabled={busy} onClick={() => write({ costs: costs.filter((x) => x.id !== c.id) })} aria-label={`Remove ${c.name}`}>Remove</button>
+              <button className="opx-btn sm" disabled={busy} onClick={() => remove("costs", c, c.name)} aria-label={`Remove ${c.name}`}>Remove</button>
             </div>
           ))}
           {form.kind === "cost" && (
-            <form className="opx-row" style={{ gap: 8, marginTop: 10, flexWrap: "wrap" }} onSubmit={(e) => { e.preventDefault(); if (form.a.trim()) write({ costs: [...costs, { id: uid(), name: form.a.trim(), service: form.b.trim(), monthly: num(form.c) }] }) }}>
+            <form className="opx-row" style={{ gap: 8, marginTop: 10, flexWrap: "wrap" }} onSubmit={(e) => { e.preventDefault(); if (!form.a.trim()) { setNeed("Say what the cost is first, then press Add."); return } write((now) => ({ costs: [...(now.costs || []), { id: uid(), name: form.a.trim(), service: form.b.trim(), monthly: num(form.c) }] })) }}>
               <input className="opx-input" style={{ width: 160 }} placeholder="What (e.g. Hosting)" value={form.a} onChange={(e) => setForm({ ...form, a: e.target.value })} aria-label="Cost name" autoFocus />
               <input className="opx-input" style={{ width: 200 }} placeholder="Service (e.g. Vercel)" value={form.b} onChange={(e) => setForm({ ...form, b: e.target.value })} aria-label="Service" />
               <input className="opx-input" style={{ width: 130 }} placeholder="Per month" inputMode="decimal" value={form.c} onChange={(e) => setForm({ ...form, c: e.target.value })} aria-label="Monthly cost" />
-              <button className="opx-btn primary" disabled={busy}>Add</button><button type="button" className="opx-btn" onClick={() => setForm({ kind: null, a: "", b: "", c: "" })}>Cancel</button>
+              <button className="opx-btn primary" disabled={busy}>Add</button><button type="button" className="opx-btn" onClick={() => open({ kind: null, a: "", b: "", c: "" })}>Cancel</button>
+              {need && <span role="alert" className="opx-ch-need">{need}</span>}
             </form>
           )}
         </Section>
         <div className="opx-col" style={{ gap: 12 }}>
-          <Section title="Budget" action={<button className="opx-link" onClick={() => setForm({ kind: "budget", a: money.budget != null ? String(money.budget) : "", b: money.budgetPeriod || "month", c: String(money.warnAt ?? 80) })}>{money.budget != null ? "Change" : "Set a budget"}</button>}>
+          <Section title="Budget" action={<button className="opx-link opx-act" onClick={() => open({ kind: "budget", a: money.budget != null ? String(money.budget) : "", b: money.budgetPeriod || "month", c: String(money.warnAt ?? 80) })}>{money.budget != null ? "Change" : "Set a budget"}</button>}>
             {form.kind === "budget" ? (
               <form className="opx-row" style={{ gap: 8, flexWrap: "wrap" }} onSubmit={(e) => { e.preventDefault(); write({ budget: num(form.a), budgetPeriod: form.b === "total" ? "total" : "month", warnAt: num(form.c) ?? 80 }) }}>
                 <input className="opx-input" style={{ width: 130 }} placeholder="Amount" inputMode="decimal" value={form.a} onChange={(e) => setForm({ ...form, a: e.target.value })} aria-label="Budget amount" autoFocus />
@@ -157,18 +172,19 @@ export function MoneyTab({ projectId, project, onChange }: { projectId: string; 
             ) : <p className="opx-muted" style={{ margin: 0 }}>No budget set. Leave it empty if there isn't one.</p>}
           </Section>
           {([["in", "Money you've put in", putIn, "putIn"], ["out", "Money brought in", brought, "broughtIn"]] as const).map(([kind, title, list, key]) => (
-            <Section key={kind} title={title} count={list.length || undefined} action={<button className="opx-link" onClick={() => setForm({ kind, a: today, b: "", c: "" })}>Log an amount</button>}>
+            <Section key={kind} title={title} count={list.length || undefined} action={<button className="opx-link opx-act" aria-label={`Log an amount: ${title}`} onClick={() => open({ kind, a: today, b: "", c: "" })}>Log an amount</button>}>
               {list.length === 0 && form.kind !== kind && <p className="opx-muted" style={{ margin: 0 }}>{kind === "in" ? "Your own money, tools, contractors: anything that went into building it." : "Sales, retainers or payments this project has earned."}</p>}
               {[...list].sort((a, b) => b.date.localeCompare(a.date)).map((x) => (
                 <div key={x.id} className="opx-li"><div><b>{fmt(x.amount)}</b><small>{fmtDate(x.date + "T12:00:00", { month: "short", day: "numeric", year: "numeric" })}{x.note ? ` · ${x.note}` : ""}</small></div>
-                  <button className="opx-btn sm" disabled={busy} onClick={() => write({ [key]: list.filter((y) => y.id !== x.id) })} aria-label="Remove entry">Remove</button></div>
+                  <button className="opx-btn sm" disabled={busy} onClick={() => remove(key, x, `${fmt(x.amount)}${x.note ? `, ${x.note}` : ""}`)} aria-label={`Remove ${fmt(x.amount)} of ${fmtDate(x.date + "T12:00:00", { month: "short", day: "numeric", year: "numeric" })}`}>Remove</button></div>
               ))}
               {form.kind === kind && (
-                <form className="opx-row" style={{ gap: 8, marginTop: 10, flexWrap: "wrap" }} onSubmit={(e) => { e.preventDefault(); const amount = num(form.b); if (amount != null) write({ [key]: [...list, { id: uid(), date: form.a || today, amount, note: form.c.trim() }] }) }}>
+                <form className="opx-row" style={{ gap: 8, marginTop: 10, flexWrap: "wrap" }} onSubmit={(e) => { e.preventDefault(); const amount = num(form.b); if (amount == null) { setNeed("Type an amount first, then press Add."); return } write((now) => ({ [key]: [...(now[key] || []), { id: uid(), date: form.a || today, amount, note: form.c.trim() }] })) }}>
                   <input className="opx-input" type="date" style={{ width: 160 }} value={form.a} onChange={(e) => setForm({ ...form, a: e.target.value })} aria-label="Date" />
                   <input className="opx-input" style={{ width: 120 }} placeholder="Amount" inputMode="decimal" value={form.b} onChange={(e) => setForm({ ...form, b: e.target.value })} aria-label="Amount" autoFocus />
                   <input className="opx-input" style={{ flex: 1, minWidth: 160 }} placeholder="Note" value={form.c} onChange={(e) => setForm({ ...form, c: e.target.value })} aria-label="Note" />
-                  <button className="opx-btn primary" disabled={busy}>Add</button><button type="button" className="opx-btn" onClick={() => setForm({ kind: null, a: "", b: "", c: "" })}>Cancel</button>
+                  <button className="opx-btn primary" disabled={busy}>Add</button><button type="button" className="opx-btn" onClick={() => open({ kind: null, a: "", b: "", c: "" })}>Cancel</button>
+                  {need && <span role="alert" className="opx-ch-need">{need}</span>}
                 </form>
               )}
             </Section>
@@ -251,7 +267,7 @@ export function SettingsTab({ projectId, project, onChange }: { projectId: strin
     finally { setSaving(false) }
   }
   const archive = async () => {
-    if (!window.confirm(`Archive "${project.name}"? It's hidden from the dashboard and can be restored.`)) return
+    if (!window.confirm(`Move "${project.name}" to On hold? It leaves the active list and everything is kept. You can set the status back under General.`)) return
     try { await saveProject(projectId, project, { status: ON_HOLD }); toast.success("Moved to On hold"); onChange() }
     catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't archive") }
   }
@@ -259,8 +275,8 @@ export function SettingsTab({ projectId, project, onChange }: { projectId: strin
   const fld = (label: string, id: string, ctl: React.ReactNode, hint?: string) => (
     <div className="opx-sf"><label htmlFor={id}>{label}</label><div>{ctl}{hint && <small>{hint}</small>}</div></div>
   )
-  const pills = (id: string, opts: [string, string][], cur: string, on: (v: string) => void) => (
-    <div className="opx-seg" id={id} role="radiogroup" aria-label={id}>{opts.map(([k, l]) => <button key={k} role="radio" aria-checked={k === cur} className={k === cur ? "on" : ""} onClick={() => on(k)}>{l}</button>)}</div>
+  const pills = (id: string, opts: [string, string][], cur: string, on: (v: string) => void, label: string) => (
+    <div className="opx-seg" id={id} role="radiogroup" aria-label={label}>{opts.map(([k, l]) => <button key={k} role="radio" aria-checked={k === cur} className={k === cur ? "on" : ""} onClick={() => on(k)}>{l}</button>)}</div>
   )
   const canSave = sec === "general" || sec === "code" || sec === "docs" || sec === "views"
   const collab = unwrap<any>(team.data) || {}
@@ -275,8 +291,8 @@ export function SettingsTab({ projectId, project, onChange }: { projectId: strin
         {sec === "general" && <>
           {fld("Name", "ps-name", <input id="ps-name" className="opx-input" value={f.name} onChange={(e) => set({ name: e.target.value })} />)}
           {fld("Description", "ps-desc", <textarea id="ps-desc" className="opx-input" rows={7} value={f.description} onChange={(e) => set({ description: e.target.value })} />)}
-          {fld("Status", "status", pills("status", STATUSES.some(([k]) => k === f.status) ? STATUSES : [...STATUSES, [f.status, f.status]], f.status, (v) => set({ status: v })))}
-          {fld("Priority", "priority", pills("priority", PRIORITIES, f.priority, (v) => set({ priority: v })))}
+          {fld("Status", "status", pills("status", STATUSES.some(([k]) => k === f.status) ? STATUSES : [...STATUSES, [f.status, f.status]], f.status, (v) => set({ status: v }), "Status"))}
+          {fld("Priority", "priority", pills("priority", PRIORITIES, f.priority, (v) => set({ priority: v }), "Priority"))}
           {fld("Target date", "ps-due", <input id="ps-due" type="date" className="opx-input" style={{ maxWidth: 220 }} value={f.due_date} onChange={(e) => set({ due_date: e.target.value })} />, f.due_date ? undefined : "Not set. Leave it empty rather than guess.")}
           {fld("Tags", "tags", <div className="opx-row" style={{ gap: 6, flexWrap: "wrap" }}>{(project.tags || []).map((t: string) => <span key={t} className="opx-chip">{t}</span>)}{!(project.tags || []).length && <span className="opx-muted">None</span>}</div>, "Tags are set by agents for now.")}
         </>}
@@ -309,10 +325,10 @@ export function SettingsTab({ projectId, project, onChange }: { projectId: strin
           </form>
         </>}
         {sec === "views" && <>
-          {fld("Opens on", "open", pills("open", [["overview", "Overview"], ["tasks", "Tasks"], ["docs", "Docs & files"], ["decisions", "Ideas & decisions"]], f.defaultTab, (v) => set({ defaultTab: v })))}
-          {fld("Task view", "taskview", pills("taskview", [["board", "Board"], ["list", "List"], ["timeline", "Timeline"], ["calendar", "Calendar"]], f.defaultTaskView, (v) => set({ defaultTaskView: v })))}
-          {fld("Ideas & decisions", "decview", pills("decview", [["pipeline", "Pipeline"], ["timeline", "Timeline"]], f.decisionsView, (v) => set({ decisionsView: v as "pipeline" | "timeline" })))}
-          {fld("Progress counts", "progress", pills("progress", [["top", "Top-level tasks only"], ["all", "Include subtasks"]], f.progressCountsSubtasks ? "all" : "top", (v) => set({ progressCountsSubtasks: v === "all" })), "Decides the % shown at the top of this project.")}
+          {fld("Opens on", "open", pills("open", [["overview", "Overview"], ["tasks", "Tasks"], ["docs", "Docs & files"], ["decisions", "Ideas & decisions"]], f.defaultTab, (v) => set({ defaultTab: v }), "Opens on"))}
+          {fld("Task view", "taskview", pills("taskview", [["board", "Board"], ["list", "List"], ["timeline", "Timeline"], ["calendar", "Calendar"]], f.defaultTaskView, (v) => set({ defaultTaskView: v }), "Task view"))}
+          {fld("Ideas & decisions", "decview", pills("decview", [["pipeline", "Pipeline"], ["timeline", "Timeline"]], f.decisionsView, (v) => set({ decisionsView: v as "pipeline" | "timeline" }), "Ideas & decisions"))}
+          {fld("Progress counts", "progress", pills("progress", [["top", "Top-level tasks only"], ["all", "Include subtasks"]], f.progressCountsSubtasks ? "all" : "top", (v) => set({ progressCountsSubtasks: v === "all" }), "Progress counts"), "Decides the % shown at the top of this project.")}
         </>}
         {sec === "danger" && <>
           <div className="opx-dz"><div><b>Move to On hold</b><small className="opx-muted">Takes it out of the active list. Everything is kept.</small></div><button className="opx-btn" onClick={archive}>On hold</button></div>
