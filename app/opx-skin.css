@@ -655,7 +655,7 @@ a.opx-mt:hover b { text-decoration: underline; }
 .opx-ck-shotbar { display: flex; align-items: center; gap: 12px; font-size: 12.5px; margin-bottom: -6px; }
 .opx-ck-shotbar button { font: inherit; font-size: 12.5px; font-weight: 600; color: var(--opx-ink); background: var(--opx-soft); border: 0; border-radius: 999px; padding: 4px 11px; cursor: pointer; }
 .opx-ck-detail.narrow > .opx-ck-shotbar { grid-column: 1 / -1; }
-.opx-ck-pin { position: absolute; transform: translate(-50%, -50%); min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px; border: 0; background: var(--opx-accent-strong); color: #fff; font: inherit; font-size: 12px; font-weight: 700; line-height: 18px; box-shadow: 0 1px 4px rgb(0 0 0 / .5); cursor: pointer; }
+.opx-ck-pin { position: absolute; transform: translate(-50%, -50%); min-width: 24px; height: 24px; padding: 0 5px; border-radius: 999px; border: 0; background: var(--opx-accent-strong); color: #fff; font: inherit; font-size: 12px; font-weight: 700; line-height: 24px; box-shadow: 0 1px 4px rgb(0 0 0 / .5); cursor: pointer; }
 .opx-ck-pin.passed, .opx-ck-pin.waived { background: var(--opx-good); } .opx-ck-pin.failed { background: var(--opx-hot); } .opx-ck-pin.disputed { background: var(--opx-warn); } .opx-ck-pin.on { outline: 2px solid #fff; z-index: 2; }
 .opx-ck-ring { position: absolute; border: 2px solid #fff; border-radius: 6px; box-shadow: 0 0 0 9999px rgb(0 0 0 / .45); pointer-events: none; }
 .opx-ck-flows { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 10px; align-items: stretch; }
@@ -678,7 +678,7 @@ a.opx-mt:hover b { text-decoration: underline; }
 .opx-ck-plan { display: grid; gap: 10px; font-size: 13.5px; } .opx-ck-plan .opx-ck-h3, .opx-ck-plan .opx-ck-h4 { margin-left: 0; } .opx-ck-plan p { margin: 0; }
 .opx-ck-plancols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 6px 28px; }
 .opx-ck-plan ul { list-style: none; margin: 0; padding: 0; display: grid; } .opx-ck-plan li { display: grid; gap: 1px; padding: 7px 0; border-top: 1px solid var(--opx-line); }
-.opx-ck-plan li button { border: 0; background: none; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; } .opx-ck-plan li button:hover { color: var(--opx-accent-text); }
+.opx-ck-plan li button { border: 0; background: none; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; min-height: 28px; } .opx-ck-plan li button:hover { color: var(--opx-accent-text); }
 .opx-ck-plan .opx-ck-settle { margin: 6px 0 0; } .opx-ck-plan summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
 .opx-ck-guides { display: grid; gap: 10px; font-size: 13.5px; } .opx-ck-guides .opx-ck-h3 { margin-left: 0; } .opx-ck-guides p { margin: 0; }
 .opx-ck-guides summary { cursor: pointer; font-weight: 600; padding: 4px 0; }

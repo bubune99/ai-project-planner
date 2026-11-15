@@ -202,7 +202,7 @@ function PlanSection({ projectId, route, tick, onPick }: { projectId: string; ro
               </li>
             ))}
           </ul>
-          {error && <p className="opx-ck-note">{error}</p>}
+          {error && <p className="opx-ck-note" role="alert">{error}</p>}
         </div>
       )}
       {d.changes.some((x) => x.status !== "waiting") && (
@@ -512,7 +512,7 @@ export function ChecksTab({ projectId }: { projectId: string }) {
                       const evidence = data.images.find((i) => i.kind === "evidence" && i.key === key)
                       return (
                         <div key={state} className="opx-ck-state">
-                          <button type="button" disabled={!data.canSettle} aria-expanded={settle === key} onClick={() => { setSettle(settle === key ? null : key); setNote(""); setError(null) }}>
+                          <button type="button" disabled={!data.canSettle} aria-label={`${w.name}, ${state}: ${STATE_WORD[now]}`} aria-expanded={settle === key} onClick={() => { setSettle(settle === key ? null : key); setNote(""); setError(null) }}>
                             <Mark state={now} small /><span>{state}</span><small>{STATE_WORD[now]}</small>
                           </button>
                           {(now === "failed" || now === "disputed" || now === "flagged") && last?.note && <p className="opx-ck-note">{last.actor === "owner" ? "You" : `The ${last.actor}`}: {last.note}</p>}
@@ -521,9 +521,10 @@ export function ChecksTab({ projectId }: { projectId: string }) {
                             <div className="opx-ck-settle">
                               <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (needed to fail it)" aria-label="Note" />
                               <button type="button" onClick={() => verdict(key, "passed")}>It passes</button>
-                              <button type="button" disabled={!note.trim()} onClick={() => verdict(key, "failed")}>It fails</button>
+                              {/* Never dimmed: a dimmed button with only a placeholder to explain it told nobody why. Pressed with no note, it asks for one. */}
+                              <button type="button" onClick={() => { if (note.trim()) { verdict(key, "failed"); return } setError("Say what went wrong first, then press It fails.") }}>It fails</button>
                               <button type="button" onClick={() => verdict(key, "waived")}>Waive it</button>
-                              {error && <p className="opx-ck-note">{error}</p>}
+                              {error && <p className="opx-ck-note" role="alert">{error}</p>}
                             </div>
                           )}
                         </div>
