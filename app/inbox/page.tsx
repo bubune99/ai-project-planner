@@ -20,6 +20,8 @@ export default function InboxPage() {
   const [items, setItems] = useState<InboxItem[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [deferred, setDeferred] = useState<string[]>([])
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -28,6 +30,7 @@ export default function InboxPage() {
       if (!res.ok || !j.success) throw new Error(j?.error?.message || `HTTP ${res.status}`)
       setItems(j.data as InboxItem[])
       setError(null)
+      setUpdatedAt(new Date())
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to load")
     }
@@ -60,7 +63,11 @@ export default function InboxPage() {
               {items === null ? "Loading…" : items.length === 0 ? "Nothing waiting on you." : `${items.length} waiting on you`}
             </p>
           </div>
-          <button className="j-btn j-btn-ghost" onClick={load} aria-label="Refresh inbox">Refresh</button>
+          {/* Refresh reloads both lists and says when: pressing it used to reload only what is waiting, with no sign it ran. */}
+          <div className="j-row" style={{ alignItems: "baseline", gap: 10 }}>
+            {updatedAt && <span className="j-muted" role="status" style={{ fontSize: 12 }}>{refreshing ? "Refreshing" : `Updated ${updatedAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" })}`}</span>}
+            <button className="j-btn j-btn-ghost" disabled={refreshing} onClick={async () => { setRefreshing(true); setAnsweredTick((n) => n + 1); await load(); setRefreshing(false) }} aria-label="Refresh inbox">Refresh</button>
+          </div>
         </div>
 
         {error && (
