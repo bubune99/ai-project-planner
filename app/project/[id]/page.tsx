@@ -271,30 +271,30 @@ function RisksFacet({ projectId, project, onChange, compact = false }: { project
       {showForm && (
         <div className="j-card">
           <div className="j-col j-gap-3">
-            <input className="j-search" placeholder="Risk title *" value={form.title}
+            <input className="j-search" aria-label="Risk title" placeholder="Risk title *" value={form.title}
               onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
-            <div className="j-row j-gap-2">
-              <select className="j-search" value={form.sev}
+            <div className="j-row j-gap-2" style={{ flexWrap: "wrap" }}>
+              <select className="j-search" aria-label="Severity" value={form.sev}
                 onChange={e => setForm(f => ({ ...f, sev: e.target.value as Risk["sev"] }))}>
                 <option value="high">severity: high</option>
                 <option value="med">severity: medium</option>
                 <option value="low">severity: low</option>
               </select>
-              <select className="j-search" value={form.lik}
+              <select className="j-search" aria-label="Likelihood" value={form.lik}
                 onChange={e => setForm(f => ({ ...f, lik: e.target.value as Risk["lik"] }))}>
                 <option value="high">likelihood: high</option>
                 <option value="med">likelihood: medium</option>
                 <option value="low">likelihood: low</option>
               </select>
-              <select className="j-search" value={form.status}
+              <select className="j-search" aria-label="Status" value={form.status}
                 onChange={e => setForm(f => ({ ...f, status: e.target.value as Risk["status"] }))}>
                 {RISK_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
-            <div className="j-row j-gap-2">
-              <input className="j-search" style={{ flex: 1 }} placeholder="Owner (optional)"
+            <div className="j-row j-gap-2" style={{ flexWrap: "wrap" }}>
+              <input className="j-search" aria-label="Owner" style={{ flex: "1 1 160px" }} placeholder="Owner (optional)"
                 value={form.owner} onChange={e => setForm(f => ({ ...f, owner: e.target.value }))} />
-              <input className="j-search" style={{ flex: 2 }} placeholder="Mitigation plan (optional)"
+              <input className="j-search" aria-label="Mitigation plan" style={{ flex: "2 1 220px" }} placeholder="Mitigation plan (optional)"
                 value={form.mitig} onChange={e => setForm(f => ({ ...f, mitig: e.target.value }))} />
             </div>
             {err && <div className="j-pill j-neg" style={{ alignSelf: "flex-start" }}>{err}</div>}
@@ -333,6 +333,7 @@ function RisksFacet({ projectId, project, onChange, compact = false }: { project
                   <td>
                     <select
                       className="j-search"
+                      aria-label={`Status of the risk: ${r.title}`}
                       value={r.status}
                       onChange={e => updateStatus(r.id, e.target.value as Risk["status"])}
                       style={{ fontSize: 12, padding: "2px 6px" }}
@@ -341,7 +342,7 @@ function RisksFacet({ projectId, project, onChange, compact = false }: { project
                     </select>
                   </td>
                   <td>
-                    <button className="j-btn j-btn-icon j-btn-ghost" onClick={() => removeRisk(r.id)} aria-label="Delete risk">✕</button>
+                    <button className="j-btn j-btn-icon j-btn-ghost" onClick={() => removeRisk(r.id)} aria-label={`Delete the risk: ${r.title}`}>✕</button>
                   </td>
                 </tr>
               ))}

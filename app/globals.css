@@ -488,7 +488,11 @@ body::before {
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .j-topbar-left p { display: none; }            /* hide subtitle to save height */
-  .j-search { display: none; }                   /* desktop search → icon button */
+  /* The top bar's search becomes an icon button. Only that one: the same class is worn by form fields across the
+     product (risk form, Post a note, clients, catalog, library), and hiding ".j-search" everywhere made every one
+     of them vanish on a phone. Fields get a size a thumb and an iPhone can use (16px stops the zoom on focus). */
+  .j-topbar-right .j-search { display: none; }
+  main .j-search { min-width: 0; max-width: 100%; min-height: 44px; font-size: 16px; }
   .j-topbar-right { gap: 4px; }
 
   /* Content padding */
