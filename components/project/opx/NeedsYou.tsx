@@ -35,11 +35,13 @@ export function useNeedsYou(projectId: string) {
     walks.reload()
     return null
   }
-  return { value, loading: inbox.loading || changes.loading || walks.loading, markAnswered: (id: string) => setAnswered((a) => [...a, id]), settle }
+  return { value, loading: inbox.loading || changes.loading || walks.loading, markAnswered: (id: string) => setAnswered((a) => [...a, id]), unmark: (id: string) => setAnswered((a) => a.filter((x) => x !== id)), reload: inbox.reload, settle }
 }
 
 export function NeedsYou({ state, onOpenTab }: { state: ReturnType<typeof useNeedsYou>; onOpenTab: (tab: string) => void }) {
-  const { value: y, loading, markAnswered, settle } = state
+  const { value: y, loading, markAnswered, unmark, settle } = state
+  // Answered here: stays with what was chosen and Change my answer (walk 2026-11-16).
+  const [just, setJust] = useState<{ item: InboxItem; answer: string }[]>([])
   const [allYours, setAllYours] = useState(false)
   /** The call just made, so it can be taken back from where it was made. */
   const [said, setSaid] = useState<{ key: string; what: string; call: "do" | "leave" } | null>(null)
@@ -55,8 +57,8 @@ export function NeedsYou({ state, onOpenTab }: { state: ReturnType<typeof useNee
   const [open, setOpen] = useState(true)
   const [later, setLater] = useState<string[]>([])
   const [showAgents, setShowAgents] = useState(false)
-  if (loading && y.count === 0 && y.agents.length === 0 && !said) return null
-  if (y.count === 0 && y.agents.length === 0 && y.walks.total === 0 && !said) return null
+  if (loading && y.count === 0 && y.agents.length === 0 && !said && just.length === 0) return null
+  if (y.count === 0 && y.agents.length === 0 && y.walks.total === 0 && !said && just.length === 0) return null
 
   const questions = [...y.questions.filter((q) => !later.includes(q.id)), ...y.questions.filter((q) => later.includes(q.id))]
   return (
@@ -70,13 +72,18 @@ export function NeedsYou({ state, onOpenTab }: { state: ReturnType<typeof useNee
 
       {open && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 14 }}>
-          {questions.length > 0 && (
+          {(questions.length > 0 || just.length > 0) && (
             <div>
               <p style={label}>Questions</p>
               <div className="opx-qgrid">
+                {just.map(({ item, answer }) => (
+                  <QuestionCard key={item.id} item={item} hideProject deferred={false} answeredAs={answer} onDefer={() => {}}
+                    onAnswered={() => {}} onUndone={() => { setJust((j) => j.filter((x) => x.item.id !== item.id)); unmark(item.id) }} />
+                ))}
                 {questions.map((q) => (
                   <QuestionCard key={q.id} item={q} hideProject deferred={later.includes(q.id)}
-                    onDefer={() => setLater((d) => [...d.filter((x) => x !== q.id), q.id])} onAnswered={() => markAnswered(q.id)} />
+                    onDefer={() => setLater((d) => [...d.filter((x) => x !== q.id), q.id])}
+                    onAnswered={(a) => { if (a !== undefined) setJust((j) => [{ item: q, answer: a }, ...j]); markAnswered(q.id) }} />
                 ))}
               </div>
             </div>

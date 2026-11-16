@@ -38,19 +38,31 @@ export default function InboxPage() {
 
   useEffect(() => { load() }, [load])
 
+  // Answered here this visit: shown first under "Just answered", each with Change my answer (walk 2026-11-16).
+  const [justIds, setJustIds] = useState<string[]>([])
+  const [chosen, setChosen] = useState<Record<string, string>>({})
+  const just = useMemo(() => justIds.map((id) => items?.find((i) => i.id === id)).filter(Boolean) as InboxItem[], [items, justIds])
+  const waiting = useMemo(() => (items || []).filter((i) => !justIds.includes(i.id)), [items, justIds])
+
   // Deferred cards sink to the bottom, in the order they were put off.
   const ordered = useMemo(() => {
     if (!items) return []
-    const now = items.filter((i) => !deferred.includes(i.id))
-    const later = deferred.map((id) => items.find((i) => i.id === id)).filter(Boolean) as InboxItem[]
+    const now = waiting.filter((i) => !deferred.includes(i.id))
+    const later = deferred.map((id) => waiting.find((i) => i.id === id)).filter(Boolean) as InboxItem[]
     return [...now, ...later]
-  }, [items, deferred])
+  }, [items, waiting, deferred])
 
   const [answeredTick, setAnsweredTick] = useState(0)
-  const answered = (id: string) => {
+  const answered = (id: string, answer?: string) => {
     setAnsweredTick((n) => n + 1)
-    setItems((cur) => (cur ? cur.filter((i) => i.id !== id) : cur))
+    if (answer === undefined) { setItems((cur) => (cur ? cur.filter((i) => i.id !== id) : cur)); return }
+    setChosen((c) => ({ ...c, [id]: answer }))
+    setJustIds((j) => [id, ...j.filter((x) => x !== id)])
     setDeferred((d) => d.filter((x) => x !== id))
+  }
+  const undone = (id: string) => {
+    setAnsweredTick((n) => n + 1)
+    setJustIds((j) => j.filter((x) => x !== id))
   }
 
   return (
@@ -60,7 +72,7 @@ export default function InboxPage() {
           <div>
             <h1 style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>Inbox</h1>
             <p className="j-muted" style={{ fontSize: 13, margin: "4px 0 0" }}>
-              {items === null ? "Loading…" : items.length === 0 ? "Nothing waiting on you." : `${items.length} waiting on you`}
+              {items === null ? "Loading…" : waiting.length === 0 ? "Nothing waiting on you." : `${waiting.length} waiting on you`}
             </p>
           </div>
           {/* Refresh reloads both lists and says when: pressing it used to reload only what is waiting, with no sign it ran. */}
@@ -76,7 +88,21 @@ export default function InboxPage() {
           </div>
         )}
 
-        {items !== null && items.length === 0 && !error && (
+        {just.length > 0 && <h2 className="j-muted" style={{ fontSize: 13, fontWeight: 600, margin: "4px 0 0" }}>Just answered</h2>}
+        {just.map((item) => (
+          <QuestionCard
+            key={item.id}
+            item={item}
+            deferred={false}
+            onDefer={() => {}}
+            answeredAs={chosen[item.id]}
+            onAnswered={(a) => answered(item.id, a)}
+            onUndone={() => undone(item.id)}
+          />
+        ))}
+        {just.length > 0 && ordered.length > 0 && <h2 className="j-muted" style={{ fontSize: 13, fontWeight: 600, margin: "8px 0 0" }}>Waiting on you</h2>}
+
+        {items !== null && waiting.length === 0 && just.length === 0 && !error && (
           <div className="j-card" style={{ padding: 40, textAlign: "center" }}>
             <p style={{ margin: 0, fontSize: 15 }}>You&apos;re clear.</p>
             <p className="j-muted" style={{ margin: "6px 0 0", fontSize: 12.5 }}>
@@ -92,7 +118,8 @@ export default function InboxPage() {
             deferred={deferred.includes(item.id)}
             onDefer={() => setDeferred((d) => [...d.filter((x) => x !== item.id), item.id])}
             onBringBack={() => setDeferred((d) => d.filter((x) => x !== item.id))}
-            onAnswered={() => answered(item.id)}
+            onAnswered={(a) => answered(item.id, a)}
+            onUndone={() => undone(item.id)}
           />
         ))}
 

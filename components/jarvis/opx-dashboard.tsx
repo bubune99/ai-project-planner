@@ -8,17 +8,15 @@
  */
 
 import Link from "next/link"
-import { QuestionPictures, type QuestionPicture } from "@/components/inbox/QuestionPictures"
-import { announceInbox } from "@/lib/inbox/live"
+import { QuestionCard } from "@/components/inbox/QuestionCard"
+import type { InboxItem } from "@/lib/inbox"
 import { useState } from "react"
 import { useUser } from "@stackframe/stack"
-import { toast } from "sonner"
 import { DitherBanner } from "./DitherBanner"
 import { Section, Wait, ago, askAssistant, unwrap, useJson } from "@/components/project/opx/shared"
 import { ScrollRow } from "@/components/project/opx/ScrollRow"
 
 interface Project { id: string; name: string; description?: string | null; status?: string | null; progress?: number | null; updated_at?: string | null; updatedAt?: string | null }
-interface Question { id: string; question: string; options: string[]; pictures?: QuestionPicture[]; context?: string | null; projectName?: string | null }
 interface FocusItem { id: string; title: string; dueDate?: string | null; project?: { id: string; name: string } | null }
 interface Idea { id: string; title: string; createdAt?: string | null }
 
@@ -36,15 +34,13 @@ export function OpxDashboard() {
   const inboxQ = useJson("/api/inbox")
   const ideasQ = useJson("/api/ideas")
   const todosQ = useJson("/api/todos?status=open&limit=1")
-  const [answered, setAnswered] = useState<Record<string, string>>({})
-  // Questions answered here stay in place with what was chosen and a way to change it (walk 2026-11-16: the answer
-  // vanished with no way back; "Change my answer" lived only in the inbox).
-  const [justAnswered, setJustAnswered] = useState<Record<string, { q: Question; option: string }>>({})
+  // The inbox's own question card, compact; answered ones stay with Change my answer (walk 2026-11-16).
+  const [just, setJust] = useState<{ item: InboxItem; answer: string }[]>([])
 
   const projects = (unwrap<Project[]>(projectsQ.data) || []).filter((p) => p.status !== "archived")
   const moving = projects.filter((p) => active(p.status))
   const recent = [...moving].sort((a, b) => +new Date(b.updated_at || b.updatedAt || 0) - +new Date(a.updated_at || a.updatedAt || 0)).slice(0, 8)
-  const questions = unwrap<Question[]>(inboxQ.data) || []
+  const questions = (unwrap<InboxItem[]>(inboxQ.data) || []).filter((q) => !just.some((j) => j.item.id === q.id))
   const focus = unwrap<{ overdue?: FocusItem[]; blocked?: FocusItem[] }>(focusQ.data) || {}
   const overdue = focus.overdue || [], blocked = focus.blocked || []
   const ideas = unwrap<Idea[]>(ideasQ.data) || []
@@ -56,29 +52,6 @@ export function OpxDashboard() {
   const greet = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"
   const first = (user?.displayName || "").split(" ")[0]
 
-  const answer = async (q: Question, option: string) => {
-    setAnswered((a) => ({ ...a, [q.id]: option }))
-    try {
-      const r = await fetch(`/api/inbox/${q.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ option }) })
-      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j?.error?.message || j?.error || `HTTP ${r.status}`) }
-      setJustAnswered((m) => ({ ...m, [q.id]: { q, option } }))
-      announceInbox(-1); inboxQ.reload()
-    } catch (e) {
-      setAnswered((a) => { const { [q.id]: _, ...rest } = a; return rest })
-      toast.error(e instanceof Error ? e.message : "Couldn't save the answer")
-    }
-  }
-  const takeBack = async (id: string) => {
-    try {
-      const r = await fetch(`/api/inbox/${id}`, { method: "DELETE" })
-      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j?.error?.message || j?.error || `HTTP ${r.status}`) }
-      setJustAnswered((m) => { const { [id]: _, ...rest } = m; return rest })
-      setAnswered((a) => { const { [id]: _, ...rest } = a; return rest })
-      announceInbox(1); inboxQ.reload()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Couldn't take the answer back")
-    }
-  }
   const late = (d?: string | null) => { if (!d) return ""; const days = Math.floor((Date.now() - new Date(d).getTime()) / 86_400_000); return days > 0 ? `${days} day${days > 1 ? "s" : ""} late` : "" }
   const attention = [...blocked.map((b) => ({ ...b, blocked: true })), ...overdue.map((o) => ({ ...o, blocked: false }))].slice(0, 6)
 
@@ -111,33 +84,19 @@ export function OpxDashboard() {
       </ScrollRow>
 
       <div className="opx-2col even">
-        <Section title="Needs you" count={n(questions.length, inboxQ.loading && inboxQ.data == null)} action={<Link className="opx-link opx-act" href="/inbox">Open inbox ›</Link>}>
+        <Section title="Waiting on you" count={n(questions.length, inboxQ.loading && inboxQ.data == null)} action={<Link className="opx-link opx-act" href="/inbox">Open inbox ›</Link>}>
           {inboxQ.loading && !inboxQ.data && <p className="opx-muted">Loading…</p>}
-          {!inboxQ.loading && questions.length === 0 && <p className="opx-muted" style={{ margin: 0 }}>Nothing is waiting on you.</p>}
-          {Object.values(justAnswered).map(({ q, option }) => (
-            <div key={q.id} className="opx-card" data-answered style={{ marginBottom: 8 }}>
-              <div className="opx-muted" style={{ fontSize: 12.5 }}>{q.projectName || "Planner"}</div>
-              <b style={{ display: "block", fontSize: 15, margin: "2px 0" }}>{q.question}</b>
-              <span className="opx-row" style={{ gap: 10, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <span>You answered <b>{option}</b>.</span>
-                <button className="opx-btn sm" onClick={() => void takeBack(q.id)}>Change my answer</button>
-              </span>
-            </div>
-          ))}
-          {questions.filter((q) => !justAnswered[q.id]).slice(0, 3).map((q) => (
-            <div key={q.id} className="opx-card" style={{ marginBottom: 8 }}>
-              <div className="opx-muted" style={{ fontSize: 12.5 }}>{q.projectName || "Planner"}</div>
-              <b style={{ display: "block", fontSize: 15, margin: "2px 0" }}>{q.question}</b>
-              {q.context && <p className="opx-muted" style={{ margin: "4px 0 0", fontSize: 13 }}>{q.context.replace(/\[[a-z-]+:[^\]]+\]/g, "").slice(0, 190)}</p>}
-              <QuestionPictures pictures={q.pictures} small />
-              <span className="opx-row" style={{ gap: 6, marginTop: 10, flexWrap: "wrap" }}>
-                {q.options.slice(0, 4).map((o) => (
-                  // All answers drawn alike: a filled first one read as already chosen (walk 2026-11-16).
-                  <button key={o} className="opx-btn sm" disabled={!!answered[q.id]} onClick={() => answer(q, o)}>{o}</button>
-                ))}
-              </span>
-            </div>
-          ))}
+          {!inboxQ.loading && questions.length === 0 && just.length === 0 && <p className="opx-muted" style={{ margin: 0 }}>Nothing is waiting on you.</p>}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {just.map(({ item, answer }) => (
+              <QuestionCard key={item.id} item={item} compact deferred={false} answeredAs={answer} onDefer={() => {}} onAnswered={() => {}}
+                onUndone={() => { setJust((j) => j.filter((x) => x.item.id !== item.id)); inboxQ.reload() }} />
+            ))}
+            {questions.slice(0, 3).map((q) => (
+              <QuestionCard key={q.id} item={q} compact deferred={false} onDefer={() => {}}
+                onAnswered={(a) => { if (a !== undefined) setJust((j) => [{ item: q, answer: a }, ...j]); else inboxQ.reload() }} />
+            ))}
+          </div>
         </Section>
         <Section title="Overdue and blocked" count={n(typeof counts.overdue === "number" ? counts.overdue + blocked.length : attention.length, (todosQ.loading && todosQ.data == null) || (focusQ.loading && focusQ.data == null))} action={<Link className="opx-link opx-act" href="/todos">Open Today ›</Link>}>
           {focusQ.error && <p className="opx-muted">Couldn't load this: {focusQ.error}</p>}
