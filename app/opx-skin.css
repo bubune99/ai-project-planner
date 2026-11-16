@@ -1090,3 +1090,7 @@ input[type=date].opx-rowsel { min-width: 128px; }
 }
 @container (max-width: 460px) { .opx-workc .opx-lv.opx-lvp.opx-wf { grid-template-columns: minmax(0,1fr) minmax(0,1fr); } }
 @media (max-width: 760px) { select.opx-input { min-height: 44px; } }
+/* Settings: tabs on a wide screen, one picker on a narrow one. */
+.opx-setpick { display: none; align-items: center; gap: 10px; }
+.opx-setpick select { flex: 1; }
+@media (max-width: 760px) { .opx-setpick { display: flex; } .opx-settabs { display: none !important; } }
