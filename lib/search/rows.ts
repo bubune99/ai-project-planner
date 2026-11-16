@@ -1,7 +1,7 @@
 /**
  * The rows the top search shows for what was typed: pages first, then what /api/search found, then one row that asks
  * the assistant. Walk 2026-11-16: finding a card took the board's own search plus the assistant, and the box only
- * jumped to pages. Pure; checked in rows.assert.ts.
+ * jumped to pages. The ask row sits right after the pages so it is always in view. Pure; checked in rows.assert.ts.
  */
 export type Row =
   | { key: string; group: string; title: string; sub: string; href: string }
@@ -23,6 +23,7 @@ function hrefOf(kind: keyof Results, f: Found): string | null {
 export function searchRows(typed: string, pages: [string, { title: string; sub: string }][], results: Results | null, perGroup = 5): Row[] {
   const q = typed.trim()
   const rows: Row[] = pages.slice(0, 5).map(([href, m]) => ({ key: `page:${href}`, group: "Pages", title: m.title, sub: m.sub, href }))
+  if (q) rows.push({ key: "ask", group: "Assistant", title: `Ask the assistant: “${q}”`, sub: "Finds it or does it for you", ask: q })
   if (results) {
     for (const [kind, group] of GROUP) {
       for (const f of (results[kind] ?? []).slice(0, perGroup)) {
@@ -32,6 +33,5 @@ export function searchRows(typed: string, pages: [string, { title: string; sub: 
       }
     }
   }
-  if (q) rows.push({ key: "ask", group: "Assistant", title: `Ask the assistant: “${q}”`, sub: "Finds it or does it for you", ask: q })
   return rows
 }

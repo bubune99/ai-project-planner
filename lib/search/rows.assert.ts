@@ -5,17 +5,17 @@ let n = 0
 const t = (name: string, f: () => void) => { f(); n++; console.log("ok", name) }
 const pages: [string, { title: string; sub: string }][] = [["/inbox", { title: "Inbox", sub: "Questions waiting on you" }]]
 
-t("pages, then found things by kind, then ask", () => {
+t("pages, then ask, then found things by kind", () => {
   const r = searchRows("stripe", pages, {
     tasks: [{ id: "s1", title: "Register Stripe webhook", projectName: "BYB", url: "/project/p1?tab=tasks&step=s1" }],
     projects: [{ id: "p1", title: "BYB" }],
     documents: [{ id: "d1", title: "Stripe notes", projectName: "BYB", category: "spec", url: "/project/p1?tab=docs&doc=d1" }],
   })
-  assert.deepEqual(r.map((x) => x.group), ["Pages", "Projects", "Tasks", "Documents", "Assistant"])
-  assert.equal((r[1] as any).href, "/project/p1")
-  assert.equal((r[2] as any).href, "/project/p1?tab=tasks&step=s1")
-  assert.equal(r[3].sub, "BYB · spec")
-  assert.deepEqual(r[4], { key: "ask", group: "Assistant", title: "Ask the assistant: “stripe”", sub: "Finds it or does it for you", ask: "stripe" })
+  assert.deepEqual(r.map((x) => x.group), ["Pages", "Assistant", "Projects", "Tasks", "Documents"])
+  assert.equal((r[2] as any).href, "/project/p1")
+  assert.equal((r[3] as any).href, "/project/p1?tab=tasks&step=s1")
+  assert.equal(r[4].sub, "BYB · spec")
+  assert.deepEqual(r[1], { key: "ask", group: "Assistant", title: "Ask the assistant: “stripe”", sub: "Finds it or does it for you", ask: "stripe" })
 })
 
 t("nothing typed: no ask row", () => {
