@@ -9,7 +9,7 @@ import { RefreshCw } from "lucide-react"
 import { mayPull, onRelease, pullArmed, pullIntent, pullOffset, PULL_THRESHOLD } from "@/lib/shell/pull-refresh"
 
 const FIELD = "input, textarea, select, [contenteditable=''], [contenteditable='true']"
-const DRAGGED = "[draggable='true'], [data-rfd-draggable-id], [data-rfd-drag-handle-draggable-id], .react-flow, canvas, [role='slider'], [data-no-pull]"
+const DRAGGED = "[data-kanban-card], [draggable='true'], [data-rfd-draggable-id], [data-rfd-drag-handle-draggable-id], .react-flow, canvas, [role='slider'], [data-no-pull]"
 const OVERLAY = "[role='dialog'], [role='alertdialog'], [role='menu'], [role='listbox'], [data-radix-popper-content-wrapper]"
 
 /** Does anything between the touched element and the page's own scroller scroll by itself? */
@@ -34,7 +34,9 @@ export function PullToRefresh({ onRefresh, busy }: { onRefresh: () => void; busy
 
   useEffect(() => {
     const page = () => document.querySelector("main")
-    const onInput = (e: Event) => { if ((e.target as Element | null)?.closest?.("main")) typed.current = true }
+    // Words typed into a search or filter box are not work that could be lost.
+    const looksUp = (el: Element) => el.matches("[type='search'], [role='searchbox'], [role='combobox']") || /search|find|filter|jump/i.test(`${el.getAttribute("aria-label") ?? ""} ${el.getAttribute("placeholder") ?? ""}`)
+    const onInput = (e: Event) => { const el = e.target as Element | null; if (el?.closest?.("main") && !looksUp(el)) typed.current = true }
     const start = (e: TouchEvent) => {
       g.current = null
       if (e.touches.length !== 1) return
