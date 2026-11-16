@@ -1,5 +1,6 @@
 "use client"
 
+import { useRoomBelow } from "@/lib/layout/use-room-below"
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { DashboardLayout } from "@/components/navigation"
@@ -370,6 +371,12 @@ const TASK_VIEWS: TaskView[] = ["board", "list", "timeline", "calendar"]
   Owner 2026-11-13: views come in two pairs. Board and List show the same
   work as cards or rows; Timeline and Calendar show it against dates.
 */
+/** The board takes the room left below it, so the page does not scroll as well as the board (owner, 2026-11-16). */
+function BoardRoom({ children }: { children: React.ReactNode }) {
+  const { ref, height } = useRoomBelow<HTMLDivElement>()
+  return <div ref={ref} data-testid="board-room" style={{ height: height ?? "calc(100vh - 330px)" }}>{children}</div>
+}
+
 function TaskViewSwitcher({ view, onChange }: { view: TaskView; onChange: (v: TaskView) => void }) {
   return (
     <div className="opx-row" style={{ gap: 8 }}>
@@ -530,9 +537,9 @@ export default function ProjectDashboardPage() {
         <div className="opx-col" style={{ gap: 12 }}>
           <TaskViewSwitcher view={taskView} onChange={setTaskView} />
           {taskView === "board" && (
-            <div style={{ height: "calc(100vh - 330px)", minHeight: 480 }}>
+            <BoardRoom>
               <KanbanView projectId={projectId} onTaskSelect={() => {}} initialStepId={focusStepId} />
-            </div>
+            </BoardRoom>
           )}
           {taskView === "list" && <TaskList projectId={projectId} />}
           {taskView === "timeline" && <TaskTimeline projectId={projectId} />}
