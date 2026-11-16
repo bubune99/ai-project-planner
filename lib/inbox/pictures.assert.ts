@@ -1,6 +1,6 @@
 // npx -y tsx@4.23.15 lib/inbox/pictures.assert.ts
 import assert from "node:assert/strict"
-import { MAX_PICTURES, pictureKey, pictureType, readPictures, storedPictures } from "./pictures"
+import { MAX_PICTURES, pictureKey, pictureLayout, pictureType, readPictures, storedPictures } from "./pictures"
 
 let n = 0
 const t = (name: string, fn: () => void) => { fn(); n++; console.log("ok  ", name) }
@@ -40,10 +40,31 @@ t("what is not a picture, too many, or too large is refused with the reason", ()
 })
 
 t("stored pictures are read back; anything that is not ours is left out", () => {
-  assert.deepEqual(storedPictures({ images: [{ key: "inbox/u1/q-1.png", caption: "A" }, { key: "gates/other.png" }, { key: 4 }, null] }), [{ key: "inbox/u1/q-1.png", caption: "A" }])
+  assert.deepEqual(storedPictures({ images: [{ key: "inbox/u1/q-1.png", caption: "A" }, { key: "gates/other.png" }, { key: 4 }, null] }), [{ key: "inbox/u1/q-1.png", caption: "A", option: null, current: false }])
+  assert.deepEqual(storedPictures({ images: [{ key: "inbox/u1/q-2.png", option: "Two rows", current: false }] }), [{ key: "inbox/u1/q-2.png", caption: null, option: "Two rows", current: false }])
   assert.deepEqual(storedPictures({}), [])
   assert.deepEqual(storedPictures(null), [])
   assert.equal(pictureKey("u1", "q", 0, "jpeg"), "inbox/u1/q-1.jpg")
+})
+
+t("a picture can stand for one option, or show how it is now", () => {
+  const opts = ["Two rows", "One row", "Leave it"]
+  const r = readPictures([{ base64: PNG, current: true }, { base64: PNG, option: "Two rows" }, { base64: JPG, option: " One row " }], opts)
+  assert.ok(r.ok)
+  if (r.ok) { assert.equal(r.value[0].current, true); assert.equal(r.value[0].option, null); assert.equal(r.value[1].option, "Two rows"); assert.equal(r.value[2].option, "One row") }
+  const bad = (raw: unknown, re: RegExp) => { const x = readPictures(raw, opts); assert.equal(x.ok, false); if (!x.ok) assert.match(x.error, re) }
+  bad([{ base64: PNG, option: "Three rows" }], /not one of the options/)
+  bad([{ base64: PNG, option: "One row" }, { base64: PNG, option: "One row" }], /two pictures are for/)
+  bad([{ base64: PNG, option: "One row", current: true }], /both an option and how it is now/)
+  bad([{ base64: PNG, current: true }, { base64: PNG, current: true }], /only one picture/)
+})
+
+t("the card lays out: how it is now, then the options in their order, then the rest", () => {
+  const pics = [{ k: "ctx" }, { k: "b", option: "B" }, { k: "now", current: true }, { k: "a", option: "A" }, { k: "gone", option: "Z" }]
+  const l = pictureLayout(pics, ["A", "B", "C"])
+  assert.equal(l.current?.k, "now")
+  assert.deepEqual(l.choices.map((c) => [c.option, c.picture.k]), [["A", "a"], ["B", "b"]])
+  assert.deepEqual(l.context.map((p) => p.k), ["ctx", "gone"])
 })
 
 console.log(`\n${n} inbox picture checks passed`)

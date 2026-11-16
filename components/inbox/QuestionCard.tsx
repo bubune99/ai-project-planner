@@ -11,6 +11,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { linkParts, questionHrefs } from "@/lib/inbox/links"
+import { pictureLayout } from "@/lib/inbox/pictures"
 import { QuestionPictures } from "./QuestionPictures"
 import { announceInbox } from "@/lib/inbox/live"
 import { toast } from "sonner"
@@ -67,6 +68,7 @@ export function QuestionCard({ item, deferred, onDefer, onBringBack, onAnswered,
   const [reply, setReply] = useState("")
   const [showContext, setShowContext] = useState(false)
   const longContext = (item.context?.length ?? 0) > 220
+  const layout = pictureLayout((item.pictures ?? []).filter((p) => p.url), item.options)
 
   const send = async (body: { option?: string; reply?: string }, label: string) => {
     setSending(label)
@@ -164,11 +166,24 @@ export function QuestionCard({ item, deferred, onDefer, onBringBack, onAnswered,
         </div>
       )}
 
-      <QuestionPictures pictures={item.pictures} />
+      {/* How it is now first, then any context pictures; pictures that stand for an option are shown as that option. */}
+      <QuestionPictures pictures={layout.current ? [layout.current, ...layout.context] : layout.context} />
+
+      {layout.choices.length > 0 && (
+        <div className="opx-qchoices" role="group" aria-label="Choose one">
+          {layout.choices.map(({ option, picture }) => (
+            <button key={option} type="button" className="opx-qchoice" disabled={busy} onClick={() => send({ option }, option)} aria-label={`Choose: ${option}`}>
+              <img src={picture.url!} alt={picture.caption || option} loading="lazy" />
+              <span>{sending === option ? "Sending…" : option}</span>
+              {picture.caption && picture.caption !== option && <small>{picture.caption}</small>}
+            </button>
+          ))}
+        </div>
+      )}
 
       {item.options.length > 0 && (
         <div className={compact ? "j-row" : "j-col"} style={{ gap: 8, marginTop: compact ? 10 : 14, flexWrap: "wrap" }}>
-          {item.options.map((opt) => (
+          {item.options.filter((opt) => !layout.choices.some((c) => c.option === opt)).map((opt) => (
             <button
               key={opt}
               className="j-btn"

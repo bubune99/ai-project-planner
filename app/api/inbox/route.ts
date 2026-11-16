@@ -42,7 +42,7 @@ export async function GET(_request: NextRequest) {
     const canLink = isR2Configured()
     const items = await Promise.all(rows.map(async (r) => {
       const kept = storedPictures(r.input).filter((p) => p.key.startsWith(`inbox/${auth.userId}/`))
-      const pictures = await Promise.all(kept.map(async (p) => ({ url: canLink ? await getSignedDownloadUrl(p.key, 3600).catch(() => null) : null, caption: p.caption })))
+      const pictures = await Promise.all(kept.map(async (p) => ({ url: canLink ? await getSignedDownloadUrl(p.key, 3600).catch(() => null) : null, caption: p.caption, option: p.option ?? null, current: !!p.current })))
       return { ...toInboxItem(r, names), pictures }
     }))
     return successResponse(items, { total: items.length, page: 1, limit: 200 })

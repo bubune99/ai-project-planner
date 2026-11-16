@@ -4224,7 +4224,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         stepId: z.string().optional().describe("Task this is about"),
         askedBy: z.string().optional().describe("Your stable agent name, shown on the card and used to route the answer back (e.g. claude-code@planner)"),
         askedFrom: z.string().optional().describe("Where you are working: the folder or machine. Lets the answer find you, or your project, later"),
-        images: z.array(z.object({ base64: z.string(), caption: z.string().optional() })).optional().describe("Up to 4 pictures that show what you are asking about (PNG, JPEG or WebP as base64, each under 1.5 MB, 3 MB together). Crop to the part that matters; give each a short caption."),
+        images: z.array(z.object({ base64: z.string(), caption: z.string().optional(), option: z.string().optional().describe("The exact words of the option this picture shows: the card then shows that option as its picture, and pressing the picture chooses it. For a matter of taste, mock each option on the live page in your own tab and send one picture per option."), current: z.boolean().optional().describe("This picture shows how it is now; shown first, marked as the current one") })).optional().describe("Up to 4 pictures that show what you are asking about (PNG, JPEG or WebP as base64, each under 1.5 MB, 3 MB together). Crop to the part that matters; give each a short caption."),
       },
       async ({ question, options, context, projectId, stepId, askedBy, askedFrom, images }) => {
         try {
@@ -4241,9 +4241,9 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           // Pictures for context (owner, 2026-11-16). Checked first, stored before the question exists, so a
           // question never points at a picture that is not there.
           const { readPictures, pictureKey } = await import("@/lib/inbox/pictures")
-          const pics = readPictures(images)
+          const pics = readPictures(images, options ?? [])
           if (!pics.ok) return mcpError(pics.error)
-          const kept: { key: string; caption: string | null }[] = []
+          const kept: { key: string; caption: string | null; option?: string | null; current?: boolean }[] = []
           if (pics.value.length) {
             const { uploadToR2, isR2Configured } = await import("@/lib/storage/r2-client")
             if (!isR2Configured()) return mcpError("File storage is not configured on this server, so pictures cannot be kept. Ask again without images.")
@@ -4251,7 +4251,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             for (let i = 0; i < pics.value.length; i++) {
               const p = pics.value[i], key = pictureKey(userId, pictureSet, i, p.type)
               await uploadToR2(key, Buffer.from(p.base64, "base64"), `image/${p.type}`)
-              kept.push({ key, caption: p.caption })
+              kept.push({ key, caption: p.caption, ...(p.option ? { option: p.option } : {}), ...(p.current ? { current: true } : {}) })
             }
           }
           const questionInput = kept.length ? { ...built.value.input, images: kept } : built.value.input

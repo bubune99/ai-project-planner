@@ -1242,3 +1242,12 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
 @media (max-width: 700px) {
   .opx-ck-pin::before { content: ""; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); border-radius: 999px; }
 }
+
+/* An inbox question whose options each come with a picture (a design choice): the picture is the button. */
+.opx-qchoices { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 10px; margin-top: 14px; }
+.opx-qchoice { display: flex; flex-direction: column; gap: 6px; padding: 8px; min-height: 44px; border: 0; border-radius: 12px; background: var(--opx-soft); color: var(--opx-ink); font: inherit; text-align: left; cursor: pointer; box-shadow: inset 0 0 0 1px var(--opx-line); }
+.opx-qchoice:hover, .opx-qchoice:focus-visible { box-shadow: inset 0 0 0 2px var(--opx-accent-strong); }
+.opx-qchoice:disabled { opacity: .6; cursor: default; }
+.opx-qchoice img { display: block; width: 100%; height: auto; max-height: 320px; object-fit: contain; border-radius: 8px; background: var(--opx-bg); }
+.opx-qchoice span { font-size: 14.5px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.opx-qchoice small { font-size: 13px; color: var(--opx-muted); line-height: 1.4; }
