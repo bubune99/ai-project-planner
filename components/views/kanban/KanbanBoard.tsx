@@ -465,6 +465,11 @@ export const KanbanBoard = React.forwardRef<HTMLDivElement, KanbanBoardProps>(
       };
     }, [drag, endDrag, slotAt, x, y]);
 
+    /*
+      A press only becomes a drag once the pointer has moved a few pixels (owner, 2026-11-16: "It doesn't look like your
+      click the card feature took"). Starting the drag on pointerdown took the card out of its column at once, so the
+      release landed on the floating copy and a plain press never opened the card.
+    */
     const startDrag = (e: React.PointerEvent, task: KanbanTask, colId: string, index: number) => {
       if (e.button !== 0) return;
       // a menu or button living inside the card is not a drag handle
@@ -472,14 +477,32 @@ export const KanbanBoard = React.forwardRef<HTMLDivElement, KanbanBoardProps>(
       pointerStart.current = { x: e.clientX, y: e.clientY };
       moved.current = false;
       const el = e.currentTarget as HTMLElement;
+      const press = { x: e.clientX, y: e.clientY };
+      const onMove = (ev: PointerEvent) => {
+        if (Math.abs(ev.clientX - press.x) <= 4 && Math.abs(ev.clientY - press.y) <= 4) return;
+        stop();
+        moved.current = true;
+        beginDrag(el, press, task, colId, index);
+      };
+      const stop = () => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", stop);
+        window.removeEventListener("pointercancel", stop);
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", stop);
+      window.addEventListener("pointercancel", stop);
+    };
+
+    const beginDrag = (el: HTMLElement, press: { x: number; y: number }, task: KanbanTask, colId: string, index: number) => {
       const r = el.getBoundingClientRect();
       const state: DragState = {
         taskId: task.id,
         fromCol: colId,
         width: r.width,
         height: r.height,
-        offsetX: e.clientX - r.left,
-        offsetY: e.clientY - r.top,
+        offsetX: press.x - r.left,
+        offsetY: press.y - r.top,
       };
       x.set(r.left);
       y.set(r.top);
