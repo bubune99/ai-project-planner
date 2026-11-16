@@ -258,6 +258,8 @@ export function TaskDetailModal({
                 ))}
               </SelectContent>
             </Select>
+            {/* An "only you" card has no Start: it is never sent to an agent. */}
+            {!(advance.label === "Start" && step.work_kind === "owner") && (
             <Button
               size="sm"
               variant="outline"
@@ -268,6 +270,7 @@ export function TaskDetailModal({
               <advance.icon className="w-3.5 h-3.5 mr-1.5" />
               {advance.label}
             </Button>
+            )}
             <div className="flex-1" />
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEditFull(step)} title="Full edit">
               <Pencil className="w-4 h-4" />
