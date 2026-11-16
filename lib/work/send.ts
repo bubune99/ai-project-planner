@@ -12,7 +12,8 @@ export async function sendIfMoved(step: WorkRow, from: string | null, projectId:
     SELECT id FROM agent_jobs WHERE parent_step_id = ${step.id} AND status IN ('pending', 'queued', 'assigned', 'claimed', 'in_progress') LIMIT 1
   `) as { id: string }[]
   if (open) return open.id
-  const j = jobFor(step, projectId, step.status === "in-progress")
+  const [project] = (await sql`SELECT name FROM projects WHERE id = ${projectId}`) as { name: string }[]
+  const j = jobFor(step, projectId, step.status === "in-progress", project?.name)
   const [job] = (await sql`
     INSERT INTO agent_jobs (title, description, created_by, status, priority, input, tags, parent_step_id, metadata)
     VALUES (${j.title}, ${j.description}, ${userId}, 'pending', ${j.priority}, ${JSON.stringify(j.input)}::jsonb, ${j.tags}::text[], ${j.parentStepId}, ${JSON.stringify({ from: "board" })}::jsonb)

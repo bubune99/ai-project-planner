@@ -58,12 +58,13 @@ export function faultOf(r: WorkRow, now: Date): string | null {
 
 const PRIORITY_JOB: Record<string, "low" | "normal" | "high" | "critical"> = { low: "low", medium: "normal", high: "high", urgent: "critical" }
 /** The job that wakes the project's agents for a card. The finish hook and the listener hand it to the bound session. */
-export function jobFor(r: WorkRow, projectId: string, startNow: boolean) {
+export function jobFor(r: WorkRow, projectId: string, startNow: boolean, projectName?: string) {
+  // The project is named, not only its id: the owner wants every card to say which project it belongs to.
   return {
-    title: `Work: ${r.title}`.slice(0, 250),
-    description: `${startNow ? "The owner moved this card to In progress: start it now." : "The owner moved this card to Up next."} Claim it (it then shows you as holding it), do it, and finish with proof, or put it back with a note on where it stands. Card ${r.id}.${r.description ? `\n\n${r.description.slice(0, 1200)}` : ""}`,
+    title: `Work${projectName ? ` (${projectName})` : ""}: ${r.title}`.slice(0, 250),
+    description: `${projectName ? `Project: ${projectName}. ` : ""}${startNow ? "The owner moved this card to In progress: start it now." : "The owner moved this card to Up next."} Claim it (it then shows you as holding it), do it, and finish with proof, or put it back with a note on where it stands. Card ${r.id}.${r.description ? `\n\n${r.description.slice(0, 1200)}` : ""}`,
     priority: startNow ? "high" as const : PRIORITY_JOB[r.priority ?? "medium"] ?? "normal",
-    input: { projectId, kind: "work", stepId: r.id },
+    input: { projectId, ...(projectName ? { projectName } : {}), kind: "work", stepId: r.id },
     tags: ["work"],
     parentStepId: r.id,
   }

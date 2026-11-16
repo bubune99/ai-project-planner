@@ -69,7 +69,8 @@ export function ColumnMenu({
 
   return (
     <div data-kanban-no-drag>
-      <DropdownMenu>
+      {/* Not modal: a modal menu locked the page and threw the board sideways when it opened (owner, 2026-11-16). */}
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"

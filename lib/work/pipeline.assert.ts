@@ -35,6 +35,10 @@ ok("the job names the project and the card, and says how to finish", () => {
   assert.equal(j.priority, "critical"); assert.equal(j.parentStepId, "t1")
   assert.match(j.description, /Claim it .* finish with proof, or put it back with a note/)
   assert.equal(jobFor(R("t2"), "p1", true).priority, "high")
+  const named = jobFor(R("t3", { title: "Fix the count" }), "p1", false, "AI Project Planner")
+  assert.equal(named.title, "Work (AI Project Planner): Fix the count")
+  assert.match(named.description, /^Project: AI Project Planner\. /)
+  assert.equal(named.input.projectName, "AI Project Planner")
 })
 
 ok("an initiative counts the steps of tasks that are broken down, and the task itself when not", () => {

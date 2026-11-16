@@ -43,7 +43,8 @@ export function CardMenu({
     // data-kanban-no-drag: a pointerdown here must open the menu, not pick the
     // card up. The board checks for this attribute before starting a drag.
     <div data-kanban-no-drag onClick={(e) => e.stopPropagation()}>
-      <DropdownMenu>
+      {/* Not modal: a modal menu locked the page and threw the board sideways when it opened (owner, 2026-11-16). */}
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="h-6 w-6" aria-label={`Actions for ${step.title}`}>
             <MoreHorizontal className="w-4 h-4" />

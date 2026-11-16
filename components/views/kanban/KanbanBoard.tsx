@@ -937,8 +937,10 @@ function Card({
       onKeyDown={onKeyDown}
       onClick={onOpen}
       transition={reduceMotion ? { duration: 0 } : FLOW_SPRING}
-      whileHover={reduceMotion ? undefined : { y: -1 }}
       className={cn(
+        // Owner, 2026-11-16: "All cards should be on the same layer. When an item is clicked to be dragged it can be
+        // risen to a higher layer." No transform at rest or on hover (a transform makes a card its own layer, which
+        // trapped its description under the next card); the dragged card is drawn in its own floating copy.
         "group/card cursor-grab touch-none active:cursor-grabbing",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/25 dark:focus-visible:ring-white/30",
         grabbed && "ring-2 ring-neutral-900/40 dark:ring-white/50",
@@ -971,7 +973,7 @@ function CardShell({
     <div
       className={cn(
         "group/shell relative rounded-[16px] p-3 [overflow-wrap:anywhere]",
-        "bg-[var(--opx-soft,#e9edf2)] text-[var(--opx-ink,#20355b)]",
+        "bg-[var(--opx-soft,#e9edf2)] text-[var(--opx-ink,#20355b)] transition-colors group-hover/card:bg-[var(--opx-card,#fff)]",
         floating ? "shadow-[0_16px_32px_-12px_rgb(0_0_0/0.35)]" : "",
         SQUIRCLE,
       )}
