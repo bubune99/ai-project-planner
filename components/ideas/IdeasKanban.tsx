@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { KanbanBoard, type KanbanTask } from "@/components/views/kanban/KanbanBoard"
 import { toIdeaColumns, type IdeaColumnDef } from "@/components/views/kanban/adaptIdeas"
@@ -47,6 +47,14 @@ export function IdeasKanban({
   const [categoryFilter, setCategoryFilter] = useState("")
   const [tagFilter, setTagFilter] = useState<string[]>([])
   const [tagMenuOpen, setTagMenuOpen] = useState(false)
+  const [tagQuery, setTagQuery] = useState("")
+  // The tag menu closes the usual three ways: choosing outside it, its own button, and Esc (Esc did nothing).
+  useEffect(() => {
+    if (!tagMenuOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setTagMenuOpen(false) }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [tagMenuOpen])
 
 
   // ── Derived data ─────────────────────────────────────────────────────────
@@ -323,6 +331,8 @@ export function IdeasKanban({
             <button
               className="j-btn j-btn-ghost"
               onClick={() => setTagMenuOpen((v) => !v)}
+              aria-haspopup="true"
+              aria-expanded={tagMenuOpen}
               style={{ gap: 6, fontSize: 12 }}
             >
               <Tag size={12} />
@@ -350,9 +360,22 @@ export function IdeasKanban({
                   overflowY: "auto",
                 }}
               >
-                {allTags.map((tag) => (
+                {/* With many tags (139 on the owner's account) the list needs a way to find one. */}
+                {allTags.length > 12 && (
+                  <input
+                    autoFocus
+                    className="opx-input"
+                    aria-label="Find a tag"
+                    placeholder="Find a tag"
+                    value={tagQuery}
+                    onChange={(e) => setTagQuery(e.target.value)}
+                    style={{ width: "100%", marginBottom: 6, fontSize: 13 }}
+                  />
+                )}
+                {allTags.filter((tag) => !tagQuery.trim() || tag.toLowerCase().includes(tagQuery.trim().toLowerCase())).map((tag) => (
                   <button
                     key={tag}
+                    aria-pressed={tagFilter.includes(tag)}
                     onClick={() => toggleTag(tag)}
                     style={{
                       display: "flex",
@@ -396,15 +419,16 @@ export function IdeasKanban({
 
         {/* Active tag chips */}
         {tagFilter.map((t) => (
-          <span
+          <button type="button"
             key={t}
             className="j-pill j-proj"
-            style={{ cursor: "pointer", gap: 4 }}
+            aria-label={`Remove the tag filter ${t}`}
+            style={{ cursor: "pointer", gap: 4, border: "none", fontFamily: "inherit", minHeight: 24 }}
             onClick={() => toggleTag(t)}
           >
             {t}
             <X size={9} />
-          </span>
+          </button>
         ))}
       </div>
 
