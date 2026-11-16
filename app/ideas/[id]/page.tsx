@@ -237,16 +237,23 @@ function InlineTitle({
       setEditing(false)
       return
     }
+    // A save that fails says so and gives the field back (it used to stay dimmed for good).
     setSaving(true)
-    await onSave(draft.trim())
-    setSaving(false)
-    setEditing(false)
+    try {
+      await onSave(draft.trim())
+      setEditing(false)
+    } catch {
+      toast.error("The title was not saved")
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (editing) {
     return (
       <input
         ref={ref}
+        aria-label="Idea title"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
@@ -276,7 +283,11 @@ function InlineTitle({
   return (
     <h1
       onClick={startEdit}
-      title="Click to edit"
+      role="button"
+      tabIndex={0}
+      aria-label={`${value}. Press to rename`}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startEdit() } }}
+      title="Press to rename"
       style={{
         fontSize: 22,
         fontWeight: 500,
@@ -308,9 +319,14 @@ function OverviewTab({
 
   const saveDesc = async () => {
     setSaving(true)
-    await onPatch({ description: desc })
-    setSaving(false)
-    setEditDesc(false)
+    try {
+      await onPatch({ description: desc })
+      setEditDesc(false)
+    } catch {
+      toast.error("The description was not saved")
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
