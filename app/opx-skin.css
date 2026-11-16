@@ -1160,3 +1160,6 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
 .opx-graphpage button[aria-label="Close the details"] { min-width: 28px; min-height: 28px; display: inline-grid; place-items: center; }
 /* On a phone the details' close button is a full press target. */
 @media (max-width: 640px) { .opx-graphpage button[aria-label="Close the details"] { min-width: 44px !important; min-height: 44px !important; } }
+/* A wide before or after picture scrolls sideways inside its box at a size that can be read. */
+.opx-ch-pair a[data-wide] { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.opx-ch-pair a[data-wide]::after { content: "Swipe sideways to see all of it. Press to open it at full size."; display: block; position: sticky; left: 0; padding: 6px 10px; font-size: 12px; color: var(--opx-muted); }
