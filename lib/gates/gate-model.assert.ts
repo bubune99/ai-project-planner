@@ -150,8 +150,8 @@ ok("pictures: a screenshot the current version still shows is kept, whatever ver
 
 ok("a menu is asked how it closes, and an editor is asked whether it is complete", () => {
   const ids = (kind: string) => intakeQuestions(kind).map((q) => q.id)
-  assert.deepEqual(ids("Menu"), ["purpose", "who", "flow", "closes", "reach"])
-  assert.deepEqual(ids("Editor"), ["purpose", "who", "flow", "complete", "between", "tidy", "undo", "found"])
+  assert.deepEqual(ids("Menu"), ["purpose", "who", "flow", "closes", "reach", "choices"])
+  assert.deepEqual(ids("Editor"), ["purpose", "who", "flow", "complete", "between", "tidy", "undo", "found", "unfinished"])
   // What a finished editor has is found in the code or the page, so these are the agents' to answer, not the owner's.
   assert.ok(intakeQuestions("Editor").filter((q) => !["purpose", "who", "flow"].includes(q.id)).every((q) => !q.owner))
   // Owner, 2026-11-15: "we need to have a system for filters and questions and gates of reasoning to keep in mind
@@ -389,14 +389,14 @@ ok("intake counts every question once, asks why before how, and holds an attende
   const book = E("b", "Book a session", "owner", { kind: "Button", answers: { purpose: { text: "A client reserves a slot", by: "owner", basis: "judgment", at: "t1" }, changes: { text: "Creates a booking and takes the slot off the calendar", by: "agent", basis: "judgment", at: "t2" } } })
   const total = E("t", "Sessions this month", "agent", { kind: "Text", answers: { source: { text: "Worked out", by: "agent", basis: "evidence", at: "t1" } } })
   const s = intakeStatus([book, total])
-  assert.equal(s.questions, 5 + 6)
+  assert.equal(s.questions, 6 + 6)   // a button is asked 6 (with "answer", 2026-11-16), a text 6
   assert.equal(s.settled + s.reasoned + s.proposed + s.missing, s.questions)
   assert.deepEqual([s.settled, s.reasoned, s.proposed], [1, 1, 1])
   assert.equal(s.open[0].question.id, "purpose")          // the Text item's purpose is unanswered: asked first
   assert.equal(s.open.find((o) => o.state === "proposed")?.proposal, "Creates a booking and takes the slot off the calendar")
   // Unattended: only what nobody answered. Attended: the agent's proposals are put to the owner too.
-  assert.match(intakeLine(s, false), /^8 questions about what is planned are not settled\. Next, about "Sessions this month": What is it for/)
-  assert.match(intakeLine(s, true), /^9 questions/)
+  assert.match(intakeLine(s, false), /^9 questions about what is planned are not settled\. Next, about "Sessions this month": What is it for/)
+  assert.match(intakeLine(s, true), /^10 questions/)
   assert.equal(intakeLine(intakeStatus([]), true), "")
 })
 

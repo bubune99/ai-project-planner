@@ -650,7 +650,7 @@ const Q = (id: string, ask: string, why: string): IntakeQuestion => ({ id, ask, 
 const ALWAYS = [
   Q("purpose", "What is it for? What could someone not do without it?", "A thing with no purpose anyone can state should not be built."),
   Q("who", "Who uses it, and who must not be able to?", "This decides what each kind of person sees and what is refused."),
-  Q("flow", "Which use case is it part of, and what comes just before and just after it?", "A control checked alone can pass while the journey it belongs to is broken."),
+  Q("flow", "Which use case is it part of, what comes just before and just after it, and does the person have to remember anything from the step before?", "A control checked alone can pass while the journey it belongs to is broken. People hold only a few things in mind at once (Working Memory, Miller's Law): carry it forward for them."),
 ]
 const CONTENT = [
   Q("source", "Is this typed in by someone, or worked out from something else?", "What is typed needs a way to change it. What is worked out must never be typed over."),
@@ -658,20 +658,21 @@ const CONTENT = [
   Q("empty", "What shows when there is nothing yet?", "An empty state nobody designed is a blank or a wrong zero."),
 ]
 const BY_KIND: Record<string, IntakeQuestion[]> = {
-  Field: [Q("kept", "What happens to what is typed: where is it kept, and what else changes because of it?", "This is the action check for the field."), Q("refused", "What must be refused, and what does the person see then?", "Limits nobody stated are limits nobody checks.")],
-  Button: [Q("changes", "What does pressing it change?", "This is the action check for the button."), Q("undo", "Can it be undone? If not, is the person asked first?", "Anything that cannot be undone is the owner's to approve.")],
-  Switch: [Q("changes", "What is different when it is on?", "This is the action check for the switch.")],
+  Field: [Q("kept", "What happens to what is typed: where is it kept, and what else changes because of it?", "This is the action check for the field."), Q("refused", "What must be refused, which other ways of writing the same thing must still be accepted (spaces, capitals, symbols, a pasted value), and what does the person see then?", "Limits nobody stated are limits nobody checks. Accept what people type and keep one exact form (Postel's Law)."), Q("fill", "What can be filled in for them: a sensible default, the last value, something worked out?", "Every system keeps some complexity; the product should carry it, not the person (Tesler's Law), and a field left open takes as long as it is given (Parkinson's Law).")],
+  Button: [Q("changes", "What does pressing it change?", "This is the action check for the button."), Q("undo", "Can it be undone? If not, is the person asked first?", "Anything that cannot be undone is the owner's to approve."), Q("answer", "What does the person see within 0.4 seconds of pressing it, and at the end, how do they know it worked?", "A reply under 0.4 seconds keeps people working (Doherty Threshold); the end of an action is what they remember of it (Peak-End Rule). Is it big enough and near where they are looking (Fitts's Law)?")],
+  Switch: [Q("changes", "What is different when it is on?", "This is the action check for the switch."), Q("default", "Which way is it set to start with, and is that the safe choice for someone who never touches it?", "Most people keep the default (Cognitive Bias), so the default is a decision.")],
   Tab: [Q("changes", "What does it show that the other tabs do not?", "Tabs that show the same thing are one tab.")],
   Link: [],
   // Anything that opens over the page: a menu, a dialog, a panel, a right-click menu.
-  Menu: [Q("closes", "Every way it closes: choosing something, pressing outside it, Esc. Which of these is missing?", "A menu that only closes one way traps the person who opened it by accident."), Q("reach", "Can everything in it also be reached from something visible on the page?", "What is only behind a right-click or a shortcut is not found by someone who was never told.")],
+  Menu: [Q("closes", "Every way it closes: choosing something, pressing outside it, Esc. Which of these is missing?", "A menu that only closes one way traps the person who opened it by accident."), Q("reach", "Can everything in it also be reached from something visible on the page?", "What is only behind a right-click or a shortcut is not found by someone who was never told."), Q("choices", "How many choices does it offer at once? Past about seven, how are they grouped, and are the most used first or last?", "Each extra choice slows the decision (Hick's Law, Choice Overload); people hold about seven (Miller's Law) and remember the first and last best (Serial Position Effect).")],
   // Anything a person builds or arranges things in: a map, a board, a form builder, a list they order.
   Editor: [
     Q("complete", "For every kind of thing it shows: can it be added, changed, moved and removed here? Name each kind, and each action that is missing.", "An editor that shows lanes but cannot add one is half an editor. The missing actions are the feature list."),
     Q("between", "Can something be put in between two existing things, not only at the end?", "Real work is mostly inserting and rearranging, not appending."),
     Q("tidy", "When things are moved, what keeps them lined up and their connections true?", "Without it every change leaves a mess the person has to clean up by hand."),
     Q("undo", "Can any change be undone, and redone?", "People only try things in an editor they can back out of."),
-    Q("found", "How does someone who was never told find each action?", "This decides what is a visible button and what may hide in a menu."),
+    Q("found", "How does someone who was never told find each action?", "This decides what is a visible button and what may hide in a menu. People start without reading anything (Paradox of the Active User) and expect it to work like tools they already use (Jakob's Law)."),
+    Q("unfinished", "Is unfinished work shown where they will see it next time, so it can be picked up?", "Unfinished things stay on people's minds (Zeigarnik Effect); the product should hold them instead."),
   ],
   // Anything that shows many rows of the same kind: a table, a task list, an inbox, a ledger.
   // Owner, 2026-11-15: "we need to have a system for filters and questions and gates of reasoning to keep in mind for
@@ -685,8 +686,8 @@ const BY_KIND: Record<string, IntakeQuestion[]> = {
     Q("long", "What does it look like with 400 rows, and how does someone see what is old or no longer true?", "Lists are designed with ten rows and lived in with hundreds."),
   ],
   Text: CONTENT,
-  Card: [...CONTENT, Q("order", "What is the most important thing in it, and is that the first thing seen?", "This is what its layout is judged against.")],
-  Chart: [...CONTENT, Q("agrees", "Which figures elsewhere must it agree with?", "A chart is right only if it matches the numbers it is drawn from.")],
+  Card: [...CONTENT, Q("order", "What is the most important thing in it, is that the first thing seen, and is it the only thing that stands out?", "This is what its layout is judged against. People notice what serves their goal (Selective Attention) and remember the one thing that differs (Von Restorff Effect): one standout, not five."), Q("together", "Do the things that belong together sit closer to each other than to anything else, look alike, and come in a few small groups?", "Nearness, likeness and connection are how people see what belongs together (Law of Proximity, Similarity, Common Region, Uniform Connectedness); small groups are easier to take in (Chunking).")],
+  Chart: [...CONTENT, Q("agrees", "Which figures elsewhere must it agree with?", "A chart is right only if it matches the numbers it is drawn from."), Q("simple", "Can it be read at a glance? How many series, colors or slices does it use?", "People read a picture in its simplest form (Law of Pr\u00e4gnanz) and hold about seven things (Miller's Law).")],
 }
 
 /** The questions to settle about a planned item, by what kind of thing it is. */

@@ -13,7 +13,7 @@ import {
   type ControlRef, type FlowDoc, type PageRecord, type Person, type Step, type StepState,
 } from "@/lib/people/people-model"
 import { shotAt, type Checklist, type Result, type View } from "@/lib/gates/gate-model"
-import { KIND_WORD, LENS, SHIP_FLOOR, handledBy, lowScores, type Coverage, type StoredWalk } from "@/lib/walks/walk-model"
+import { KIND_WORD, LENS, SHIP_FLOOR, handledBy, lensLaws, lowScores, type Coverage, type StoredWalk } from "@/lib/walks/walk-model"
 import { Shots, type Piece } from "./ChecksTab"
 import { stableUrls, type Kept } from "@/lib/gates/stable-urls"
 import { UseCaseFlow } from "./UseCaseFlow"
@@ -244,7 +244,7 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
                 <div className="opx-pf-walkin">
                   {w.why && <span><small>Why it stopped</small>{w.why}</span>}
                   <ol>{w.steps.map((st, i) => <li key={i} className={st.ok ? "" : "off"}><b>{st.did}</b><span className="opx-muted">{st.expected ? `Expected: ${st.expected}. ` : ""}Saw: {st.saw}</span></li>)}</ol>
-                  {lowScores(w).length > 0 && <div className="opx-pf-six">{lowScores(w).map((x) => <span key={x.lens} className={x.score < SHIP_FLOOR ? "low" : ""} title={LENS[x.lens].asks}><b>{x.score}</b> {LENS[x.lens].name}<small>{x.note}</small></span>)}</div>}
+                  {lowScores(w).length > 0 && <div className="opx-pf-six">{lowScores(w).map((x) => <span key={x.lens} className={x.score < SHIP_FLOOR ? "low" : ""} title={LENS[x.lens].asks}><b>{x.score}</b> {LENS[x.lens].name}<small>{x.note}</small>{lensLaws(x.lens).length > 0 && <small className="opx-muted">Judged by {lensLaws(x.lens).join(", ")}</small>}</span>)}</div>}
                   {w.findings.length > 0 && <ul>{w.findings.map((f, i) => (
                     <li key={i}><b>{KIND_WORD[f.kind]}: {f.what}</b><span className="opx-muted">{f.suggest ? `Would help: ${f.suggest}. ` : ""}{handledBy(f, w.scores).how}</span>
                       {can && f.kind === "gap" && useCase && !doc.flows.find((x) => x.id === useCase)?.steps.some((x) => x.does === f.what) && <button type="button" className="opx-pf-add" onClick={() => edit((d) => { d.flows.find((x) => x.id === useCase)?.steps.push({ id: freshId("s", allIds(), seed), does: f.what, expects: f.suggest ?? "", data: "", ref: null, note: "Found on a walk." }) })}>Add it as a step that is not built</button>}</li>
@@ -378,7 +378,7 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
               <h4>Paths to walk</h4>
               <span className="opx-muted">Every way through a choice is walked and proved on its own. The use case is proved when every path is.</span>
               <ul>{pathsOf(flow).map((p) => { const st = p.steps.map((x) => stepState(records, x)), ok = st.filter((x) => x === "passed").length; return (
-                <li key={p.name}><b>{p.name}</b><span className="opx-muted">{p.steps.length} steps, {ok} verified · {p.ends === "left" ? "the person stops before the end" : "reaches the end"}</span></li>
+                <li key={p.name}><b>{p.name}</b><span className="opx-muted">{p.steps.length} step{p.steps.length === 1 ? "" : "s"}, {ok} verified · {p.ends === "left" ? "the person stops before the end" : "reaches the end"}</span></li>
               ) })}</ul>
             </div>
           )}

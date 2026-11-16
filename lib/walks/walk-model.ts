@@ -1,3 +1,4 @@
+import { lawsAt } from "../gates/ux-laws"
 /**
  * Walks: an agent given a goal uses the product the way a person would, and
  * writes down what happened. A script checks what it was told to check; a walk
@@ -38,6 +39,8 @@ export const LENS: Record<Lens, { name: string; asks: string; five: string; one:
   density: { name: "How full it is", asks: "Is this crowded, just right, or empty?", five: "Content fills the space it has without crowding; nothing squeezed, no dead area", one: "Overwhelming, or abandoned" },
   consistent: { name: "Feels like the same product", asks: "Is this built from the same parts as the rest?", five: "Shared parts, spacing and colors throughout", one: "Looks like a different product" },
 }
+/** The Laws of UX a lens is judged by (lib/gates/ux-laws.ts), named beside its score and in the fix it asks for. */
+export const lensLaws = (lens: Lens): string[] => lawsAt(`walk:${lens}`)
 export interface LensScore { score: number; note: string }
 /** Below this, a score is a fix and not a preference. */
 export const SHIP_FLOOR = 3
@@ -103,7 +106,7 @@ export const KIND_WORD: Record<FindingKind, string> = {
  */
 export function handledBy(f: Finding, scores?: Partial<Record<Lens, LensScore>>): { who: "agents" | "owner"; how: string } {
   const low = f.lens && scores?.[f.lens] && scores[f.lens]!.score < SHIP_FLOOR
-  if (f.kind === "friction" && low) return { who: "agents", how: `${LENS[f.lens!].name} scored ${scores![f.lens!]!.score} of 5: a fix, not a preference. Fixed and proved by agents.` }
+  if (f.kind === "friction" && low) { const laws = lensLaws(f.lens!); return { who: "agents", how: `${LENS[f.lens!].name} scored ${scores![f.lens!]!.score} of 5: a fix, not a preference. Fixed and proved by agents.${laws.length ? ` Judged by ${laws.join(", ")}.` : ""}` } }
   return HANDLED_BY[f.kind]
 }
 /** The six, lowest first, for a walk that scored any. */

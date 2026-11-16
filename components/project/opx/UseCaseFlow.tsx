@@ -86,7 +86,7 @@ function Drawing({ flow, describe, onOpen, name }: Props) {
     return { nodes, edges, width: lay.width, height: lay.height }
   }, [flow, describe, perRow, branched])
   // A use case with choices is drawn at a size that can be read and moved sideways, not shrunk to a sliver.
-  const zoom = branched && room ? Math.max(0.45, Math.min(1, (room - 24) / Math.max(1, drawn.width))) : 1
+  const zoom = branched && room ? Math.max(0.7, Math.min(1, (room - 24) / Math.max(1, drawn.width))) : 1
   const wide = branched && drawn.width * zoom > room - 24
   const height = branched ? Math.min(Math.max(320, drawn.height * zoom + 40), 900) : Math.min(Math.max(380, drawn.height + 90), 780)
   return (
