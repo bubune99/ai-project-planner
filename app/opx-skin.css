@@ -1171,3 +1171,10 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
 @keyframes opx-pull-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .opx-pull, .opx-pull:not(.on) { transition: none; } .opx-pull.busy svg { animation: none; } }
 .opx-pull-note { position: fixed; top: 64px; left: 16px; right: 16px; z-index: 60; padding: 12px 14px; border-radius: 12px; background: var(--opx-card); color: var(--opx-ink); box-shadow: 0 6px 20px rgba(0,0,0,.28), inset 0 0 0 1px var(--opx-line); font-size: 14px; line-height: 1.4; }
+/* Pictures an agent sent with an inbox question. */
+.opx-qpics { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 10px; margin-top: 10px; }
+.opx-qpics figure { margin: 0; min-width: 0; }
+.opx-qpics a { display: block; border-radius: 10px; overflow: hidden; background: var(--opx-bg); box-shadow: inset 0 0 0 1px var(--opx-line); }
+.opx-qpics img { display: block; width: 100%; height: auto; max-height: 360px; object-fit: contain; }
+.opx-qpics figcaption { font-size: 12.5px; color: var(--opx-muted); margin-top: 4px; line-height: 1.35; }
+.opx-qpics.small { grid-template-columns: repeat(auto-fit, minmax(110px, 160px)); } .opx-qpics.small img { max-height: 120px; }

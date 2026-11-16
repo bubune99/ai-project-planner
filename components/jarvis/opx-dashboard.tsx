@@ -8,6 +8,7 @@
  */
 
 import Link from "next/link"
+import { QuestionPictures, type QuestionPicture } from "@/components/inbox/QuestionPictures"
 import { announceInbox } from "@/lib/inbox/live"
 import { useState } from "react"
 import { useUser } from "@stackframe/stack"
@@ -17,7 +18,7 @@ import { Section, Wait, ago, askAssistant, unwrap, useJson } from "@/components/
 import { ScrollRow } from "@/components/project/opx/ScrollRow"
 
 interface Project { id: string; name: string; description?: string | null; status?: string | null; progress?: number | null; updated_at?: string | null; updatedAt?: string | null }
-interface Question { id: string; question: string; options: string[]; context?: string | null; projectName?: string | null }
+interface Question { id: string; question: string; options: string[]; pictures?: QuestionPicture[]; context?: string | null; projectName?: string | null }
 interface FocusItem { id: string; title: string; dueDate?: string | null; project?: { id: string; name: string } | null }
 interface Idea { id: string; title: string; createdAt?: string | null }
 
@@ -103,6 +104,7 @@ export function OpxDashboard() {
               <div className="opx-muted" style={{ fontSize: 12.5 }}>{q.projectName || "Planner"}</div>
               <b style={{ display: "block", fontSize: 15, margin: "2px 0" }}>{q.question}</b>
               {q.context && <p className="opx-muted" style={{ margin: "4px 0 0", fontSize: 13 }}>{q.context.replace(/\[[a-z-]+:[^\]]+\]/g, "").slice(0, 190)}</p>}
+              <QuestionPictures pictures={q.pictures} small />
               <span className="opx-row" style={{ gap: 6, marginTop: 10, flexWrap: "wrap" }}>
                 {q.options.slice(0, 4).map((o, k) => (
                   <button key={o} className={`opx-btn sm${k === 0 ? " primary" : ""}`} disabled={!!answered[q.id]} onClick={() => answer(q, o)}>{answered[q.id] === o ? `✓ ${o}` : o}</button>

@@ -4013,8 +4013,9 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         stepId: z.string().optional().describe("Task this is about"),
         askedBy: z.string().optional().describe("Your stable agent name, shown on the card and used to route the answer back (e.g. claude-code@planner)"),
         askedFrom: z.string().optional().describe("Where you are working: the folder or machine. Lets the answer find you, or your project, later"),
+        images: z.array(z.object({ base64: z.string(), caption: z.string().optional() })).optional().describe("Up to 4 pictures that show what you are asking about (PNG, JPEG or WebP as base64, each under 1.5 MB, 3 MB together). Crop to the part that matters; give each a short caption."),
       },
-      async ({ question, options, context, projectId, stepId, askedBy, askedFrom }) => {
+      async ({ question, options, context, projectId, stepId, askedBy, askedFrom, images }) => {
         try {
           requireMcpScope("write")
           const userId = getMcpUserId()
@@ -4026,11 +4027,28 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           }
           const built = buildQuestionInput({ question, options, context, projectId: pid, stepId })
           if (!built.ok) return mcpError(built.error)
+          // Pictures for context (owner, 2026-11-16). Checked first, stored before the question exists, so a
+          // question never points at a picture that is not there.
+          const { readPictures, pictureKey } = await import("@/lib/inbox/pictures")
+          const pics = readPictures(images)
+          if (!pics.ok) return mcpError(pics.error)
+          const kept: { key: string; caption: string | null }[] = []
+          if (pics.value.length) {
+            const { uploadToR2, isR2Configured } = await import("@/lib/storage/r2-client")
+            if (!isR2Configured()) return mcpError("File storage is not configured on this server, so pictures cannot be kept. Ask again without images.")
+            const pictureSet = crypto.randomUUID()
+            for (let i = 0; i < pics.value.length; i++) {
+              const p = pics.value[i], key = pictureKey(userId, pictureSet, i, p.type)
+              await uploadToR2(key, Buffer.from(p.base64, "base64"), `image/${p.type}`)
+              kept.push({ key, caption: p.caption })
+            }
+          }
+          const questionInput = kept.length ? { ...built.value.input, images: kept } : built.value.input
           const [job] = await sql`
             INSERT INTO agent_jobs (title, description, created_by, assigned_to, status, priority, input, tags, parent_step_id, unlock_prompt, metadata)
             VALUES (
               ${built.value.question.slice(0, 255)}, ${built.value.input.context}, ${userId}, ${askedBy ?? "mcp-client"},
-              'awaiting-unlock', 'normal', ${JSON.stringify(built.value.input)}::jsonb, ARRAY['question'],
+              'awaiting-unlock', 'normal', ${JSON.stringify(questionInput)}::jsonb, ARRAY['question'],
               ${built.value.input.stepId}, ${built.value.question},
               ${JSON.stringify(askedFrom ? { askedFrom: askedFrom.slice(0, 300) } : {})}::jsonb
             )
@@ -4042,6 +4060,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             questionId: job.id,
             status: job.status,
             options: built.value.input.options,
+            pictures: kept.length,
             next_actions: [`Carry on with other work; call get_answer({ questionId: "${job.id}" }) later. The owner answers at /inbox.`],
           })
         } catch (error: unknown) {

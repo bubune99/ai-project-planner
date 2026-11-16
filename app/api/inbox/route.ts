@@ -7,6 +7,7 @@
  * bottom"). Each card shows how long it has waited, so an old one is still seen for what it is.
  */
 import { NextRequest } from "next/server"
+import { storedPictures } from "@/lib/inbox/pictures"
 import { sql } from "@/lib/db/client"
 import { successResponse, errorResponse, ErrorCodes } from "@/lib/api-utils"
 import { getAuthContext } from "@/lib/auth/auth-utils"
@@ -36,7 +37,14 @@ export async function GET(_request: NextRequest) {
       : []
     const names = Object.fromEntries(projects.map((p) => [p.id, p.name]))
 
-    const items = rows.map((r) => toInboxItem(r, names))
+    // Pictures an agent sent with a question: private files, shown through links that last an hour.
+    const { getSignedDownloadUrl, isR2Configured } = await import("@/lib/storage/r2-client")
+    const canLink = isR2Configured()
+    const items = await Promise.all(rows.map(async (r) => {
+      const kept = storedPictures(r.input).filter((p) => p.key.startsWith(`inbox/${auth.userId}/`))
+      const pictures = await Promise.all(kept.map(async (p) => ({ url: canLink ? await getSignedDownloadUrl(p.key, 3600).catch(() => null) : null, caption: p.caption })))
+      return { ...toInboxItem(r, names), pictures }
+    }))
     return successResponse(items, { total: items.length, page: 1, limit: 200 })
   } catch (error: unknown) {
     console.error("GET /api/inbox failed:", error)

@@ -37,6 +37,8 @@ export interface InboxItem {
   stepId: string | null
   askedBy: string | null
   askedAt: string
+  /** Pictures sent with the question, as links that work for an hour. Added by the route, not by toInboxItem. */
+  pictures?: { url: string | null; caption: string | null }[]
 }
 
 export interface Answer {
