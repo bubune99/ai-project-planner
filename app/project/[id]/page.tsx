@@ -10,6 +10,7 @@ import { phaseStrip, type StripPhase } from "@/lib/project/phase-strip"
 import { Check } from "lucide-react"
 import { ActivityFeed } from "@/components/project/activity-feed"
 import { Figure, Seg, unwrap, useJson } from "@/components/project/opx/shared"
+import { RisksCard } from "@/components/project/opx/RisksCard"
 import { TaskList, TaskTimeline, TaskCalendar } from "@/components/project/opx/TaskViews"
 import { DocsTab } from "@/components/project/opx/DocsTab"
 import { ChecksTab } from "@/components/project/opx/ChecksTab"
@@ -110,7 +111,7 @@ function OverviewFacet({ project, projectId, phases, progress, onProjectChange }
         </div>
       )}
 
-      <RisksFacet projectId={projectId} project={project} onChange={onProjectChange} compact />
+      <RisksCard projectId={projectId} project={project} onChange={onProjectChange} />
       <ActivityFeed projectId={projectId} />
     </div>
   )
@@ -176,189 +177,6 @@ function PhaseStrip({ strip }: { strip: { phases: StripPhase[]; outside: number 
 }
 
 // ─── Risks ───────────────────────────────────────────────────────────────────
-
-type Risk = {
-  id: string
-  title: string
-  sev: "high" | "med" | "low"
-  lik: "high" | "med" | "low"
-  owner: string
-  mitig: string
-  status: "open" | "monitoring" | "mitigating" | "mitigated" | "scheduled"
-}
-
-const RISK_SEV_TONE: Record<string, string> = { high: "j-neg", med: "j-warn", low: "j-info" }
-const RISK_STATUS_OPTIONS = ["open", "monitoring", "mitigating", "mitigated", "scheduled"] as const
-
-function RisksFacet({ projectId, project, onChange, compact = false }: { projectId: string; project: any; onChange: () => void; compact?: boolean }) {
-  const initialRisks: Risk[] = Array.isArray(project?.metadata?.risks) ? project.metadata.risks : []
-  const [risks, setRisks] = useState<Risk[]>(initialRisks)
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState<Risk>({
-    id: "", title: "", sev: "med", lik: "med", owner: "", mitig: "", status: "open",
-  })
-  const [saving, setSaving] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
-
-  // Keep local state in sync with refetched project data
-  useEffect(() => {
-    if (Array.isArray(project?.metadata?.risks)) setRisks(project.metadata.risks)
-  }, [project?.metadata?.risks])
-
-  const persist = async (next: Risk[]) => {
-    setSaving(true); setErr(null)
-    try {
-      const mergedMetadata = { ...(project?.metadata || {}), risks: next }
-      const res = await fetch(`/api/projects/${projectId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ metadata: mergedMetadata }),
-      })
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}))
-        throw new Error(j?.error?.message || j?.error || "Failed to save risk")
-      }
-      setRisks(next)
-      onChange()
-    } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "Failed to save risk")
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const addRisk = async () => {
-    if (!form.title.trim()) { setErr("Risk title is required"); return }
-    const next: Risk[] = [
-      ...risks,
-      { ...form, id: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `r-${Date.now()}` },
-    ]
-    await persist(next)
-    if (!err) {
-      setForm({ id: "", title: "", sev: "med", lik: "med", owner: "", mitig: "", status: "open" })
-      setShowForm(false)
-    }
-  }
-
-  const updateStatus = async (id: string, status: Risk["status"]) => {
-    await persist(risks.map(r => r.id === id ? { ...r, status } : r))
-  }
-
-  const removeRisk = async (id: string) => {
-    if (!confirm("Delete this risk?")) return
-    await persist(risks.filter(r => r.id !== id))
-  }
-
-  const counts = {
-    high: risks.filter(r => r.sev === "high" && r.status !== "mitigated").length,
-    med:  risks.filter(r => r.sev === "med"  && r.status !== "mitigated").length,
-    low:  risks.filter(r => r.sev === "low"  && r.status !== "mitigated").length,
-    mitigated: risks.filter(r => r.status === "mitigated").length,
-  }
-
-  return (
-    <div className="j-col j-gap-4">
-      {!compact && (
-        <div className="j-grid j-cols-4">
-          {[
-            ["High", counts.high, "j-neg"],
-            ["Medium", counts.med, "j-warn"],
-            ["Low", counts.low, "j-info"],
-            ["Mitigated", counts.mitigated, "j-pos"],
-          ].map(([l, v]) => (
-            <div key={l as string} className="j-card j-tight" style={{ padding: 14 }}>
-              <div className="j-eyebrow">{l}</div>
-              <div className="j-amount-lg" style={{ marginTop: 6 }}>{v as number}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {showForm && (
-        <div className="j-card">
-          <div className="j-col j-gap-3">
-            <input className="j-search" aria-label="Risk title" placeholder="Risk title *" value={form.title}
-              onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
-            <div className="j-row j-gap-2" style={{ flexWrap: "wrap" }}>
-              <select className="j-search" aria-label="Severity" value={form.sev}
-                onChange={e => setForm(f => ({ ...f, sev: e.target.value as Risk["sev"] }))}>
-                <option value="high">severity: high</option>
-                <option value="med">severity: medium</option>
-                <option value="low">severity: low</option>
-              </select>
-              <select className="j-search" aria-label="Likelihood" value={form.lik}
-                onChange={e => setForm(f => ({ ...f, lik: e.target.value as Risk["lik"] }))}>
-                <option value="high">likelihood: high</option>
-                <option value="med">likelihood: medium</option>
-                <option value="low">likelihood: low</option>
-              </select>
-              <select className="j-search" aria-label="Status" value={form.status}
-                onChange={e => setForm(f => ({ ...f, status: e.target.value as Risk["status"] }))}>
-                {RISK_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-            <div className="j-row j-gap-2" style={{ flexWrap: "wrap" }}>
-              <input className="j-search" aria-label="Owner" style={{ flex: "1 1 160px" }} placeholder="Owner (optional)"
-                value={form.owner} onChange={e => setForm(f => ({ ...f, owner: e.target.value }))} />
-              <input className="j-search" aria-label="Mitigation plan" style={{ flex: "2 1 220px" }} placeholder="Mitigation plan (optional)"
-                value={form.mitig} onChange={e => setForm(f => ({ ...f, mitig: e.target.value }))} />
-            </div>
-            {err && <div className="j-pill j-neg" style={{ alignSelf: "flex-start" }}>{err}</div>}
-            <div className="j-row j-gap-2">
-              <button className="j-btn j-btn-primary" onClick={addRisk} disabled={saving}>
-                {saving ? "Saving…" : "Add risk"}
-              </button>
-              <button className="j-btn j-btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="j-card" style={{ padding: 0 }}>
-        <div className="j-row j-between" style={{ padding: 16 }}>
-          <h3 className="j-card-title">Risk register</h3>
-          <button className="j-btn j-btn-primary" onClick={() => { setShowForm(s => !s); setErr(null) }}>+ New risk</button>
-        </div>
-        {risks.length === 0 ? (
-          <div style={{ padding: 32, textAlign: "center" }}>
-            <p className="j-muted" style={{ fontSize: 13, margin: 0 }}>
-              No risks tracked yet. Add what could derail this project.
-            </p>
-          </div>
-        ) : (
-          <table className="j-table">
-            <thead><tr><th>Risk</th><th>Severity</th><th>Likelihood</th><th>Owner</th><th>Mitigation</th><th>Status</th><th></th></tr></thead>
-            <tbody>
-              {risks.map(r => (
-                <tr key={r.id}>
-                  <td style={{ fontWeight: 500 }}>{r.title}</td>
-                  <td><span className={`j-pill ${RISK_SEV_TONE[r.sev]}`}>{r.sev}</span></td>
-                  <td><span className={`j-pill ${RISK_SEV_TONE[r.lik]}`}>{r.lik}</span></td>
-                  <td className="j-muted">{r.owner || "—"}</td>
-                  <td className="j-muted" style={{ fontSize: 12 }}>{r.mitig || "—"}</td>
-                  <td>
-                    <select
-                      className="j-search"
-                      aria-label={`Status of the risk: ${r.title}`}
-                      value={r.status}
-                      onChange={e => updateStatus(r.id, e.target.value as Risk["status"])}
-                      style={{ fontSize: 12, padding: "2px 6px" }}
-                    >
-                      {RISK_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </td>
-                  <td>
-                    <button className="j-btn j-btn-icon j-btn-ghost" onClick={() => removeRisk(r.id)} aria-label={`Delete the risk: ${r.title}`}>✕</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
-  )
-}
 
 // Tabs retired 2026-10-03, mapped to where their content now lives so links
 // already shared keep working: Notes joined the Overview activity feed, Risks

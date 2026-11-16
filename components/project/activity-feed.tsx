@@ -14,6 +14,7 @@
  */
 
 import { useEffect, useState } from "react"
+import { toast } from "sonner"
 
 interface FeedItem {
   id: string
@@ -98,6 +99,24 @@ export function ActivityFeed({ projectId }: { projectId: string }) {
     }
   }
 
+  /** Takes a note off the page at once and offers Undo; the server keeps it, flagged, so Undo is exact. */
+  const removeNote = async (it: FeedItem) => {
+    setItems((cur) => (cur ? cur.filter((x) => x.id !== it.id) : cur))
+    const res = await fetch(`/api/progress-notes/${it.ref_id}`, { method: "DELETE", credentials: "include" }).catch(() => null)
+    if (!res?.ok) { toast.error("The note could not be removed"); setReload((r) => r + 1); return }
+    toast(`Removed "${(it.detail || it.title || "the note").slice(0, 40)}"`, {
+      duration: 10000,
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          const back = await fetch(`/api/progress-notes/${it.ref_id}`, { method: "PATCH", credentials: "include" }).catch(() => null)
+          if (!back?.ok) toast.error("Couldn't bring it back")
+          setReload((r) => r + 1)
+        },
+      },
+    })
+  }
+
   useEffect(() => {
     let cancelled = false
     fetch(`/api/projects/${projectId}/feed?limit=20`, { credentials: "include" })
@@ -168,8 +187,14 @@ export function ActivityFeed({ projectId }: { projectId: string }) {
                 {it.context ? ` · ${it.context}` : ""}
               </div>
             </div>
-            <span className="j-muted" style={{ fontSize: 12, whiteSpace: "nowrap", flexShrink: 0 }}>
-              {relTime(it.ts)}
+            <span className="j-col" style={{ alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
+              <span className="j-muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}>{relTime(it.ts)}</span>
+              {/* A note can be taken off the page, with Undo (Overview check, 2026-11-15). Other kinds are records. */}
+              {it.source === "note" && it.ref_id && (
+                <button type="button" className="opx-link" style={{ fontSize: 12, minHeight: 32, padding: 0 }} aria-label={`Remove the note: ${it.title || "Update"}`} onClick={() => removeNote(it)}>
+                  Remove
+                </button>
+              )}
             </span>
           </div>
         ))

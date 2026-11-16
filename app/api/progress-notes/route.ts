@@ -56,6 +56,7 @@ export async function GET(request: NextRequest) {
         WHERE project_id = ${projectId}
           AND step_id = ${stepId}
           AND user_id = ${userId}
+          AND COALESCE((metadata->>'deleted')::boolean, false) = false
         ORDER BY created_at DESC
         LIMIT ${limit}
       `;
@@ -64,6 +65,7 @@ export async function GET(request: NextRequest) {
         SELECT * FROM progress_notes
         WHERE project_id = ${projectId}
           AND user_id = ${userId}
+          AND COALESCE((metadata->>'deleted')::boolean, false) = false
         ORDER BY created_at DESC
         LIMIT ${limit}
       `;

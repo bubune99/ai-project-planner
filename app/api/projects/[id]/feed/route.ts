@@ -116,6 +116,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
           pn.created_at::timestamptz     AS ts
         FROM progress_notes pn
         WHERE pn.project_id = ${params.id}
+          AND COALESCE((pn.metadata->>'deleted')::boolean, false) = false
       )
       SELECT * FROM feed
       WHERE ts IS NOT NULL

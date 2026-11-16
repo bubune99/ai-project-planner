@@ -220,7 +220,7 @@ SELECT * FROM (
   SELECT pn.project_id::text, 'note', pn.id::text, pn.title,
          (pn.created_at AT TIME ZONE 'UTC'), pn.note_type, NULL
   FROM progress_notes pn
-  WHERE pn.project_id = ANY($2::uuid[]) AND pn.user_id <> $1
+  WHERE pn.project_id = ANY($2::uuid[]) AND pn.user_id <> $1 AND COALESCE((pn.metadata->>'deleted')::boolean, false) = false
     AND (pn.created_at AT TIME ZONE 'UTC') > $3::timestamptz
   UNION ALL
   SELECT d.project_id::text, 'decision', d.id::text, d.title,
