@@ -1148,3 +1148,6 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
 /* The ideas count pill read at 3.2 to 1 on its tint in the light theme. */
 .j-pill.j-idea { color: #6b4a00; }
 .dark .j-pill.j-idea { color: #f0c38a; }
+/* The danger button's words read at 3.4 to 1 on the page; these read above 4.5 in both themes. */
+.opx-btn.danger { color: #a3261a; }
+.dark .opx-btn.danger { color: #ff9c8f; }

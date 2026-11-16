@@ -1797,9 +1797,32 @@ export default function IdeaDetailPage() {
     }
   }
 
-  const archiveIdea = async () => {
-    await patchIdea({ lifecycle: "archived" })
+  // A stage change says what it did and can be undone; a change that fails says so (it used to fail in silence).
+  const changeStage = async (to: string) => {
+    if (!idea || to === idea.lifecycle) return
+    const from = idea.lifecycle
+    const label = (v: string) => LIFECYCLE_OPTIONS.find((o) => o.value === v)?.label ?? v
+    try {
+      const res = await fetch(`/api/ideas/${ideaId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lifecycle: to }) })
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.success) throw new Error("not saved")
+      setIdea((prev) => (prev ? { ...prev, ...json.data } : prev))
+      toast.success(`Moved to ${label(to)}`, { action: { label: "Undo", onClick: () => { void changeStageBack(from) } } })
+    } catch {
+      toast.error("The stage was not changed")
+    }
   }
+  const changeStageBack = async (to: string) => {
+    try {
+      const res = await fetch(`/api/ideas/${ideaId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lifecycle: to }) })
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.success) throw new Error("not saved")
+      setIdea((prev) => (prev ? { ...prev, ...json.data } : prev))
+    } catch {
+      toast.error("It was not moved back")
+    }
+  }
+  const archiveIdea = () => changeStage("archived")
 
   if (!user || isLoading) {
     return (
@@ -1891,28 +1914,21 @@ export default function IdeaDetailPage() {
 
           <div
             className="j-row j-between"
-            style={{ alignItems: "flex-start", gap: 16 }}
+            style={{ alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}
           >
-            {/* Left: title + meta */}
+            {/* Left: title + meta. It keeps a readable width: on a phone the actions go to their own line
+                (the title was squeezed into about 165 pixels beside them). */}
             <div
               className="j-col"
-              style={{ gap: 8, flex: 1, minWidth: 0 }}
+              style={{ gap: 8, flex: "1 1 300px", minWidth: 0 }}
             >
               {/* Lifecycle pill + category + tags row */}
               <div className="j-row j-wrap" style={{ gap: 6 }}>
                 <select
+                  className="opx-input opx-rowsel"
+                  aria-label="Stage"
                   value={idea.lifecycle}
-                  onChange={(e) =>
-                    patchIdea({ lifecycle: e.target.value })
-                  }
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    outline: "none",
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                    padding: 0,
-                  }}
+                  onChange={(e) => changeStage(e.target.value)}
                 >
                   {LIFECYCLE_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>
@@ -1920,9 +1936,6 @@ export default function IdeaDetailPage() {
                     </option>
                   ))}
                 </select>
-                <span className={`j-pill ${lifecycleDef.pill}`}>
-                  {lifecycleDef.label}
-                </span>
                 {idea.category && (
                   <span
                     style={{
