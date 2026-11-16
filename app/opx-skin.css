@@ -1156,5 +1156,7 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
 .opx-graphpage .react-flow__controls button { background: var(--opx-card); color: var(--opx-ink); border-color: var(--opx-line); }
 .opx-graphpage .react-flow__controls button svg { fill: currentColor; }
 @media (max-width: 640px) { .opx-graphpage .react-flow__minimap { display: none; } }
+/* The details' close button is at least 28 pixels square (it was 18 on the knowledge graph). */
+.opx-graphpage button[aria-label="Close the details"] { min-width: 28px; min-height: 28px; display: inline-grid; place-items: center; }
 /* On a phone the details' close button is a full press target. */
 @media (max-width: 640px) { .opx-graphpage button[aria-label="Close the details"] { min-width: 44px !important; min-height: 44px !important; } }
