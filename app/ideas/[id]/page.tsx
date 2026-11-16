@@ -129,15 +129,16 @@ const FACET_TYPE_LABELS: Record<string, string> = {
   custom: "Custom",
 }
 
-const REFINEMENT_TYPE_OPTIONS = [
-  "feature_request",
-  "bug_report",
-  "scope_change",
-  "technical_debt",
-  "learning",
-  "pivot",
-  "validation_result",
-]
+// The kinds the database holds. The form offered seven others (feature_request, bug_report, ...) that it does not
+// have, so creating a refinement failed every time.
+const REFINEMENT_TYPE_OPTIONS = ["barrier_found", "new_approach", "pivot_needed", "enhancement", "feedback"]
+const REFINEMENT_TYPE_LABELS: Record<string, string> = {
+  barrier_found: "A barrier was found",
+  new_approach: "A new approach",
+  pivot_needed: "A change of direction is needed",
+  enhancement: "An improvement",
+  feedback: "Feedback",
+}
 
 const DOCUMENT_TYPE_OPTIONS = [
   "business_plan",
@@ -980,7 +981,7 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
   const [showNew, setShowNew] = useState(false)
   const [form, setForm] = useState({
     sourceProjectId: "",
-    refinementType: "feature_request",
+    refinementType: "enhancement",
     title: "",
     description: "",
     rationale: "",
@@ -1040,7 +1041,7 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
       setShowNew(false)
       setForm({
         sourceProjectId: "",
-        refinementType: "feature_request",
+        refinementType: "enhancement",
         title: "",
         description: "",
         rationale: "",
@@ -1177,7 +1178,7 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
               >
                 {REFINEMENT_TYPE_OPTIONS.map((t) => (
                   <option key={t} value={t}>
-                    {t.replace(/_/g, " ")}
+                    {REFINEMENT_TYPE_LABELS[t]}
                   </option>
                 ))}
               </select>
