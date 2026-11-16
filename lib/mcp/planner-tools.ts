@@ -3853,17 +3853,17 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
     // ==========================================
     server.tool(
       "global_search",
-      "Search across all modules: projects, ideas, todos, decisions, documents.",
+      "Search across all modules: projects, ideas, todos, board cards (tasks), decisions, documents.",
       {
         query: z.string().describe("Search query"),
-        types: z.array(z.enum(["project", "idea", "todo", "decision", "document"])).optional().describe("Types to search (default: all)"),
+        types: z.array(z.enum(["project", "idea", "todo", "task", "decision", "document"])).optional().describe("Types to search (default: all). task = the project boards' cards"),
         limit: z.number().optional().describe("Max results per type"),
       },
       async ({ query, types, limit }) => {
         try {
           const userId = getMcpUserId()
           const actualLimit = Math.min(limit || 5, 20)
-          const searchTypes = types || ["project", "idea", "todo", "decision", "document"]
+          const searchTypes = types || ["project", "idea", "todo", "task", "decision", "document"]
           const results: Record<string, unknown[]> = {}
 
           if (searchTypes.includes("project")) {
@@ -3902,6 +3902,21 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             `
             results.todos = todos.map((t: Record<string, unknown>) => ({
               id: t.id, title: t.title, description: truncate(t.description as string, 80), type: t.type
+            }))
+          }
+
+          // Board cards (2026-11-16: security findings moved to the boards were invisible to this search).
+          if (searchTypes.includes("task")) {
+            const tasks = await sql`
+              SELECT s.id, s.title, s.description, s.status, p.name AS project
+                FROM project_steps s JOIN projects p ON p.id = s.project_id AND p.deleted_at IS NULL
+               WHERE p.user_id = ${userId} AND s.deleted_at IS NULL
+                 AND (s.title ILIKE ${'%' + query + '%'} OR s.description ILIKE ${'%' + query + '%'})
+               ORDER BY s.updated_at DESC
+               LIMIT ${actualLimit}
+            `
+            results.tasks = tasks.map((s: Record<string, unknown>) => ({
+              id: s.id, title: s.title, description: truncate(s.description as string, 80), type: "task", status: s.status, project: s.project,
             }))
           }
 
