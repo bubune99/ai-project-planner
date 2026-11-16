@@ -10,6 +10,7 @@ import { Moon, Sun } from "lucide-react"
 import { AppSidebar, OPEN_POPOUT_EVENT } from "./app-sidebar"
 import { Icon } from "@/components/jarvis/icons"
 import { DOCK_STATE_EVENT, DOCK_TOGGLE_EVENT } from "@/components/ade/AssistantDock"
+import { REPORT_EVENT } from "@/lib/chat/events"
 
 /**
  * Every page, by address: its name in the top bar, and its line in the jump box. Kept in step with the menu
@@ -267,6 +268,15 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
             >
               <Icon name="sparkle" size={14} />
               <span>Assistant</span>
+            </button>
+            {/* Report a problem from any page: pick the part that is wrong, then say what. Right-click was the only way in. */}
+            <button
+              className="j-btn j-btn-ghost"
+              data-ui="report.start"
+              onClick={() => window.dispatchEvent(new Event(REPORT_EVENT))}
+              title="Point at a part of the page and say what is wrong or what you wish it did"
+            >
+              {vp === "mobile" ? "Report" : "Report a problem"}
             </button>
             {/* The bell opens the inbox: the questions and notices waiting on you. It used to do nothing. */}
             <Link

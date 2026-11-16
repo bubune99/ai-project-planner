@@ -39,6 +39,9 @@ function row(r: any) {
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     resolvedAt: r.resolved_at,
+    kind: r.metadata?.kind ?? null,
+    picked: r.metadata?.picked ?? null,
+    stepId: r.metadata?.stepId ?? null,
   };
 }
 
@@ -113,14 +116,15 @@ export async function POST(request: NextRequest) {
  */
 async function cardForReport(reportId: string, b: any): Promise<{ id: string; column: string } | null> {
   const kind = reportKind(b.kind);
+  const picked = typeof b.picked === "string" ? b.picked.slice(0, 200) : null;
   try {
     const card = reportCard({
       id: reportId, source: b.source, kind, title: b.title, comment: b.comment, url: b.url, route: b.route,
-      selector: b.selector, picked: typeof b.picked === "string" ? b.picked.slice(0, 200) : null,
+      selector: b.selector, picked,
       screenshot: typeof b.screenshot === "string" && /^https?:\/\//.test(b.screenshot) ? b.screenshot : b.screenshot ? "kept" : null,
     });
     if (!card) {
-      await sql`UPDATE feedback SET metadata = COALESCE(metadata, '{}'::jsonb) || ${JSON.stringify({ kind })}::jsonb WHERE id = ${reportId}`;
+      await sql`UPDATE feedback SET metadata = COALESCE(metadata, '{}'::jsonb) || ${JSON.stringify({ kind, picked })}::jsonb WHERE id = ${reportId}`;
       return null;
     }
     const [step] = await sql`
@@ -136,7 +140,7 @@ async function cardForReport(reportId: string, b: any): Promise<{ id: string; co
     `;
     await sql`
       UPDATE feedback SET project_id = ${card.projectId},
-             metadata = COALESCE(metadata, '{}'::jsonb) || ${JSON.stringify({ kind, stepId: step.id })}::jsonb
+             metadata = COALESCE(metadata, '{}'::jsonb) || ${JSON.stringify({ kind, picked, stepId: step.id })}::jsonb
        WHERE id = ${reportId}
     `;
     return { id: step.id, column: card.status === "requested" ? "Requests" : "Up next" };
@@ -155,11 +159,14 @@ export async function GET(request: NextRequest) {
     const status = u.searchParams.get("status");
     const source = u.searchParams.get("source");
     const limit = Math.min(parseInt(u.searchParams.get("limit") || "100", 10) || 100, 200);
+    // ?mine=1: only what this person sent (the inbox's My reports).
+    const mine = u.searchParams.get("mine") === "1" ? auth.userId : null;
 
     const items = await sql`
       SELECT * FROM feedback
       WHERE (${status}::text IS NULL OR status = ${status})
         AND (${source}::text IS NULL OR source = ${source})
+        AND (${mine}::text IS NULL OR reporter_user_id = ${mine})
       ORDER BY
         CASE status WHEN 'open' THEN 0 WHEN 'in_progress' THEN 1 ELSE 2 END,
         created_at DESC
@@ -171,6 +178,7 @@ export async function GET(request: NextRequest) {
         COUNT(*) FILTER (WHERE status = 'in_progress')::int AS in_progress,
         COUNT(*)::int                                        AS total
       FROM feedback
+      WHERE (${mine}::text IS NULL OR reporter_user_id = ${mine})
     `;
     return successResponse(items.map(row), {
       total: counts.total,

@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Figure } from "@/components/project/opx/shared"
 import { toast } from "sonner";
+import Link from "next/link";
 import { DashboardLayout } from "@/components/navigation";
 
 interface FeedbackItem {
@@ -29,6 +30,10 @@ interface FeedbackItem {
   reporterEmail: string | null;
   createdAt: string;
   annotations: any[];
+  kind?: string | null;
+  picked?: string | null;
+  stepId?: string | null;
+  projectId?: string | null;
 }
 
 const STATUSES = ["open", "in_progress", "fixed", "wont_fix", "duplicate"];
@@ -46,6 +51,8 @@ export default function FeedbackInboxPage() {
   const [items, setItems] = useState<FeedbackItem[]>([]);
   const [meta, setMeta] = useState<{ openCount?: number; total?: number }>({});
   const [filter, setFilter] = useState<string>("");
+  // ?mine=1 (from the inbox): only the reports this person sent.
+  const [mine, setMine] = useState<boolean>(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mine") === "1");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [shot, setShot] = useState<string | null>(null);
@@ -53,7 +60,10 @@ export default function FeedbackInboxPage() {
   const load = useCallback(async (quiet?: boolean) => {
     if (!quiet) setLoading(true);
     try {
-      const qs = filter ? `?status=${filter}` : "";
+      const p = new URLSearchParams();
+      if (filter) p.set("status", filter);
+      if (mine) p.set("mine", "1");
+      const qs = p.toString() ? `?${p}` : "";
       const r = await fetch(`/api/feedback${qs}`, { credentials: "include" });
       const j = await r.json().catch(() => null);
       if (!r.ok || !j) throw new Error(j?.error?.message || "The feedback could not be loaded");
@@ -65,7 +75,7 @@ export default function FeedbackInboxPage() {
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, mine]);
 
   useEffect(() => {
     load();
@@ -104,7 +114,7 @@ export default function FeedbackInboxPage() {
     <DashboardLayout>
       <div className="opx-page" style={{ maxWidth: 1100, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Feedback</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{mine ? "My reports" : "Feedback"}</h1>
           <span className="opx-muted" style={{ fontSize: 13 }}>
             <Figure value={loading && meta.openCount === undefined ? null : meta.openCount ?? 0} /> open · <Figure value={loading && meta.total === undefined ? null : meta.total ?? items.length} /> total
           </span>
@@ -117,6 +127,10 @@ export default function FeedbackInboxPage() {
           <select className="opx-input opx-afilter" aria-label="Filter by status" value={filter} onChange={(e) => setFilter(e.target.value)}>
             <option value="">Status: all</option>
             {STATUSES.map((s) => <option key={s} value={s}>{label(s)}</option>)}
+          </select>
+          <select className="opx-input opx-afilter" aria-label="Filter by who sent it" value={mine ? "me" : "anyone"} onChange={(e) => setMine(e.target.value === "me")}>
+            <option value="anyone">Sent by: anyone</option>
+            <option value="me">Sent by: me</option>
           </select>
           {filter && <button className="opx-btn sm" onClick={() => setFilter("")}>Show everything</button>}
           {filter && !loading && <span className="opx-muted" style={{ fontSize: 13 }}>{items.length} shown</span>}
@@ -151,7 +165,9 @@ export default function FeedbackInboxPage() {
                   )}
                   <div className="opx-muted" style={{ fontSize: 12, marginTop: 6, lineHeight: 1.7, overflowWrap: "anywhere" }}>
                     <span>{it.route || it.url}</span>
-                    {it.selector && <>{" · "}<span>{it.selector}</span></>}
+                    {it.picked && <>{" · "}<span>{it.picked}</span></>}
+                    {it.kind && <>{" · "}<span>{it.kind === "wish" ? "A wish" : "Something wrong"}</span></>}
+                    {it.stepId && it.projectId && <>{" · "}<Link className="opx-link" style={{ textDecoration: "underline" }} href={`/project/${it.projectId}?tab=tasks&step=${it.stepId}`}>Its card</Link></>}
                     <br />
                     {it.env?.deviceType} · {it.env?.viewport?.w}×{it.env?.viewport?.h} @{it.env?.devicePixelRatio}x
                     {it.env?.colorScheme ? ` · ${it.env.colorScheme}` : ""}

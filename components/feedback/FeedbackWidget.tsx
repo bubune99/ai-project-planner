@@ -23,7 +23,7 @@ import {
   type CapturedTarget,
   type SelectController,
 } from "@/lib/feedback/core";
-import { ASK_EVENT, QUOTE_EVENT, SHEET_EVENT, askStub, emit } from "@/lib/chat/events";
+import { ASK_EVENT, QUOTE_EVENT, REPORT_EVENT, SHEET_EVENT, askStub, emit } from "@/lib/chat/events";
 
 type MenuState = { x: number; y: number; el: Element; touch: boolean };
 
@@ -189,6 +189,14 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
       () => setPhase("idle")
     );
   }, []);
+
+  // The top bar's "Report a problem" starts here: pick a part of the page, then describe it.
+  useEffect(() => {
+    // After this press has finished, so the press on the button is not taken as the pick.
+    const go = () => { setMenu(null); setTimeout(beginSelect, 0); };
+    window.addEventListener(REPORT_EVENT, go);
+    return () => window.removeEventListener(REPORT_EVENT, go);
+  }, [beginSelect]);
 
   const skipTarget = useCallback(() => {
     ctrl.current?.stop();
@@ -416,6 +424,10 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
               }}
             >
               You pointed at {pickedWords(target)}
+              {target.screenshot && (
+                <img src={target.screenshot} alt={`What you pointed at: ${pickedWords(target)}`}
+                  style={{ display: "block", marginTop: 6, maxWidth: "100%", maxHeight: 120, borderRadius: 4, background: "#fff" }} />
+              )}
             </div>
           ) : (
             <div style={{ fontSize: 12, color: "#8b93a7", marginBottom: 10 }}>

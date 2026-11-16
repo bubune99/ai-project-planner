@@ -15,6 +15,7 @@ import { DashboardLayout } from "@/components/navigation"
 import type { InboxItem } from "@/lib/inbox"
 import { QuestionCard } from "@/components/inbox/QuestionCard"
 import { AnsweredList } from "@/components/inbox/AnsweredList"
+import Link from "next/link"
 
 export default function InboxPage() {
   const [items, setItems] = useState<InboxItem[] | null>(null)
@@ -122,6 +123,9 @@ export default function InboxPage() {
             onUndone={() => undone(item.id)}
           />
         ))}
+
+        {/* What he reported and where each one stands (walk 2026-11-16: there was no way to follow a report). */}
+        <Link href="/feedback?mine=1" className="opx-link" style={{ fontSize: 13.5, textDecoration: "underline", alignSelf: "flex-start" }}>My reports: what you pointed out and where each one stands</Link>
 
         {/* Where each answer went: not picked up, picked up by an agent, or finished. */}
         <AnsweredList refreshKey={answeredTick} onTakenBack={load} />

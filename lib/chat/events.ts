@@ -1,6 +1,8 @@
 /** Window events that connect long-press menus, swipe gestures and the composer. */
 export const QUOTE_EVENT = "chat:quote" // detail: { text }  -> composer gets a quoted reply
 export const ASK_EVENT = "jarvis:ask" // detail: { text }    -> composer gets a prefilled question (on /chat)
+/** The top bar's "Report a problem": the feedback widget starts picking a part of the page. */
+export const REPORT_EVENT = "fbw:report"
 export const SHEET_EVENT = "jarvis:sheet" // detail: { text }  -> pull-up sheet (other pages)
 
 export type TextDetail = { text: string }
