@@ -99,10 +99,10 @@ export default function SkillsPage() {
   }, [])
 
   const createSkill = async () => {
-    if (!newForm.name.trim()) { setErr("name is required"); return }
-    if (!newForm.title.trim()) { setErr("title is required"); return }
-    if (!newForm.description.trim()) { setErr("description is required"); return }
-    if (!newForm.rationale.trim()) { setErr("rationale is required"); return }
+    if (!newForm.name.trim()) { setErr("Give it a slug name first."); return }
+    if (!newForm.title.trim()) { setErr("Give it a display title first."); return }
+    if (!newForm.description.trim()) { setErr("Add a description first."); return }
+    if (!newForm.rationale.trim()) { setErr("Say why it belongs in the library first (rationale)."); return }
     try {
       setSaving(true)
       const res = await fetch("/api/skills", {
@@ -288,7 +288,7 @@ export default function SkillsPage() {
               <div className="j-card j-col" style={{ alignItems: "center", gap: 10, padding: 32 }}>
                 <Icon name="bolt" size={24} />
                 <p className="j-muted" style={{ textAlign: "center", fontSize: 13 }}>
-                  No skills yet. Create one to start building your library.
+                  {filter || search.trim() ? "No skills match these filters." : "No skills yet. Create one to start building your library."}
                 </p>
               </div>
             ) : (
@@ -357,6 +357,7 @@ export default function SkillsPage() {
                         style={{ gap: 8, cursor: "text" }}
                         onClick={() => { setEditField("title"); setEditValue(selected.title) }}
                         title="Click to edit title"
+                        role="button" tabIndex={0} aria-label="Edit the title" onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click() } }}
                       >
                         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>{selected.title}</h2>
                         <Icon name="cog" size={13} style={{ opacity: 0.4 } as React.CSSProperties} />
@@ -526,6 +527,7 @@ function InlineEdit({ value, onChange, onSave, onCancel, saving, inputStyle }: I
     <div className="j-row" style={{ gap: 6, flexWrap: "wrap" }}>
       <input
         autoFocus
+        aria-label="New value"
         className="j-search"
         style={{ flex: 1, minWidth: 200, ...inputStyle }}
         value={value}
@@ -575,6 +577,7 @@ function EditableTextArea({
           <button
             className="j-btn j-btn-ghost"
             style={{ padding: "2px 8px", fontSize: 12 }}
+            aria-label={`Edit ${label}`}
             onClick={() => onStartEdit(field, value)}
           >
             <Icon name="cog" size={11} /> Edit

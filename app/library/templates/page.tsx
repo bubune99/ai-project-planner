@@ -113,10 +113,10 @@ export default function TemplatesPage() {
   }, [])
 
   const createTemplate = async () => {
-    if (!newForm.name.trim()) { setErr("name is required"); return }
-    if (!newForm.title.trim()) { setErr("title is required"); return }
-    if (!newForm.description.trim()) { setErr("description is required"); return }
-    if (!newForm.rationale.trim()) { setErr("rationale is required"); return }
+    if (!newForm.name.trim()) { setErr("Give it a slug name first."); return }
+    if (!newForm.title.trim()) { setErr("Give it a display title first."); return }
+    if (!newForm.description.trim()) { setErr("Add a description first."); return }
+    if (!newForm.rationale.trim()) { setErr("Say why it belongs in the library first (rationale)."); return }
     try {
       setSaving(true)
       const res = await fetch("/api/feature-templates", {
@@ -315,7 +315,7 @@ export default function TemplatesPage() {
               <div className="j-card j-col" style={{ alignItems: "center", gap: 10, padding: 32 }}>
                 <Icon name="layers" size={24} />
                 <p className="j-muted" style={{ textAlign: "center", fontSize: 13 }}>
-                  No templates yet. Create one to package reusable feature blueprints.
+                  {filter || search.trim() ? "No templates match these filters." : "No templates yet. Create one to package reusable feature blueprints."}
                 </p>
               </div>
             ) : (
@@ -364,6 +364,7 @@ export default function TemplatesPage() {
                       <div className="j-row" style={{ gap: 6, flexWrap: "wrap" }}>
                         <input
                           autoFocus
+                          aria-label="New value"
                           className="j-search"
                           style={{ flex: 1, minWidth: 200, fontSize: 18, fontWeight: 600 }}
                           value={editValue}
@@ -386,6 +387,7 @@ export default function TemplatesPage() {
                         style={{ gap: 8, cursor: "text" }}
                         onClick={() => { setEditField("title"); setEditValue(selected.title) }}
                         title="Click to edit title"
+                        role="button" tabIndex={0} aria-label="Edit the title" onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click() } }}
                       >
                         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>{selected.title}</h2>
                         <Icon name="cog" size={13} style={{ opacity: 0.4 } as React.CSSProperties} />

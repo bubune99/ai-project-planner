@@ -1,4 +1,5 @@
 import { sql } from '@/lib/db/client'
+import { textArray } from '@/lib/db/text-array'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectOwnership } from '@/lib/auth/auth-utils'
@@ -185,8 +186,8 @@ export async function POST(request: NextRequest) {
         ${ruleBody.trim()},
         ${safeSeverity},
         ${autoAction?.trim() || null},
-        ${JSON.stringify(appliesToTypes || [])},
-        ${JSON.stringify(appliesToCategories || [])},
+        ${textArray(appliesToTypes)},
+        ${textArray(appliesToCategories)},
         ${safeStatus},
         ${safeVisibility},
         ${envelopeForSql(envelopeResult.envelope)}::jsonb

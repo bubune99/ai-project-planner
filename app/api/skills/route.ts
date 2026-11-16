@@ -1,4 +1,5 @@
 import { sql } from '@/lib/db/client'
+import { textArray } from '@/lib/db/text-array'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectOwnership } from '@/lib/auth/auth-utils'
@@ -174,8 +175,8 @@ export async function POST(request: NextRequest) {
         ${description.trim()},
         ${whenToUse?.trim() || null},
         ${skillBody?.trim() || ''},
-        ${JSON.stringify(prerequisites || [])},
-        ${JSON.stringify(provides || [])},
+        ${textArray(prerequisites)},
+        ${textArray(provides)},
         ${JSON.stringify(examples || [])}::jsonb,
         ${safeStatus},
         ${safeVisibility},

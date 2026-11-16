@@ -107,12 +107,12 @@ export default function ProtocolsPage() {
   }, [])
 
   const createProtocol = async () => {
-    if (!newForm.name.trim()) { setErr("name is required"); return }
-    if (!newForm.title.trim()) { setErr("title is required"); return }
-    if (!newForm.description.trim()) { setErr("description is required"); return }
-    if (!newForm.triggerEvent.trim()) { setErr("triggerEvent is required"); return }
-    if (!newForm.ruleBody.trim()) { setErr("rule body is required"); return }
-    if (!newForm.rationale.trim()) { setErr("rationale is required"); return }
+    if (!newForm.name.trim()) { setErr("Give it a slug name first."); return }
+    if (!newForm.title.trim()) { setErr("Give it a display title first."); return }
+    if (!newForm.description.trim()) { setErr("Add a description first."); return }
+    if (!newForm.triggerEvent.trim()) { setErr("Say which event triggers it first."); return }
+    if (!newForm.ruleBody.trim()) { setErr("Write the rule body first."); return }
+    if (!newForm.rationale.trim()) { setErr("Say why it belongs in the library first (rationale)."); return }
     try {
       setSaving(true)
       const res = await fetch("/api/protocols", {
@@ -334,7 +334,7 @@ export default function ProtocolsPage() {
               <div className="j-card j-col" style={{ alignItems: "center", gap: 10, padding: 32 }}>
                 <Icon name="shield" size={24} />
                 <p className="j-muted" style={{ textAlign: "center", fontSize: 13 }}>
-                  No protocols yet. Create one to enforce rules at key trigger events.
+                  {filter || search.trim() ? "No protocols match these filters." : "No protocols yet. Create one to enforce rules at key trigger events."}
                 </p>
               </div>
             ) : (
@@ -385,6 +385,7 @@ export default function ProtocolsPage() {
                       <div className="j-row" style={{ gap: 6, flexWrap: "wrap" }}>
                         <input
                           autoFocus
+                          aria-label="New value"
                           className="j-search"
                           style={{ flex: 1, minWidth: 200, fontSize: 18, fontWeight: 600 }}
                           value={editValue}
@@ -407,6 +408,7 @@ export default function ProtocolsPage() {
                         style={{ gap: 8, cursor: "text" }}
                         onClick={() => { setEditField("title"); setEditValue(selected.title) }}
                         title="Click to edit title"
+                        role="button" tabIndex={0} aria-label="Edit the title" onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click() } }}
                       >
                         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>{selected.title}</h2>
                         <Icon name="cog" size={13} style={{ opacity: 0.4 } as React.CSSProperties} />
