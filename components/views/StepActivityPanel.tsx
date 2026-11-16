@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Loader2, MessageSquare, History, Play, Send, Square } from "lucide-react"
+import { Loader2, MessageSquare, History, Play, Square } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { toast } from "sonner"
 
@@ -119,7 +119,7 @@ export function StepActivityPanel({ projectId, stepId }: { projectId: string; st
                   <span className="text-xs font-semibold">
                     {c.author_label || c.user_name || "Unknown"}
                   </span>
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-[12px] text-muted-foreground">
                     {formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}
                   </span>
                 </div>
@@ -127,20 +127,26 @@ export function StepActivityPanel({ projectId, stepId }: { projectId: string; st
               </div>
             ))
           )}
-          <div className="flex items-end gap-1.5">
+          {/* Owner, 2026-11-16: no Mac key symbols (he is not on a Mac), no send icon, no drag corner. */}
+          <div className="space-y-2">
             <Textarea
               value={draft}
-              rows={3}
-              placeholder="Write a comment…  (⌘/Ctrl+Enter to send)"
-              className="text-sm"
+              rows={2}
+              aria-label="Write a comment"
+              placeholder="Write a comment"
+              className="text-sm min-h-[64px] max-h-[40vh] resize-none"
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) postComment()
               }}
             />
-            <Button size="icon" className="h-8 w-8 shrink-0" onClick={postComment} disabled={posting || !draft.trim()}>
-              {posting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-            </Button>
+            <div className="flex items-center justify-end gap-3">
+              <span className="text-[12px] text-muted-foreground">Ctrl+Enter also sends</span>
+              <Button className="h-9 px-4" onClick={postComment} disabled={posting || !draft.trim()}>
+                {posting ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : null}
+                {posting ? "Sending" : "Comment"}
+              </Button>
+            </div>
           </div>
         </div>
       ) : (

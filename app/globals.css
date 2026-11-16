@@ -628,3 +628,9 @@ body.ade-open{padding-left:var(--ade-w,0px)}
 
 .j-app.j-nav-hidden { grid-template-columns: minmax(0, 1fr); }
 .j-app.j-nav-hidden > .j-sidebar { display: none; }
+
+/*
+  No drag corner on any text box (owner, 2026-11-16: "the composer has the drag that I also really don't like in the
+  bottom right corner"). A box grows with what is typed instead.
+*/
+textarea { resize: none; }
