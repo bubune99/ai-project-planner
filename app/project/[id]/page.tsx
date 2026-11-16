@@ -5,7 +5,8 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { DashboardLayout } from "@/components/navigation"
 import { KanbanView } from "@/components/views/KanbanView"
-import { transformStepsToPhases } from "@/lib/data-transforms"
+import { phaseStrip, type StripPhase } from "@/lib/project/phase-strip"
+import { Check } from "lucide-react"
 import { ActivityFeed } from "@/components/project/activity-feed"
 import { Seg, unwrap, useJson } from "@/components/project/opx/shared"
 import { TaskList, TaskTimeline, TaskCalendar } from "@/components/project/opx/TaskViews"
@@ -69,7 +70,7 @@ interface ProjectData {
 interface OverviewProgress { pct: number; done: number; total: number }
 interface OverviewKpi { l: string; v: string; tone?: string }
 
-function OverviewFacet({ project, projectId, phases, progress, onProjectChange }: { project: any; projectId: string; phases: any[]; progress: OverviewProgress; onProjectChange: () => void }) {
+function OverviewFacet({ project, projectId, phases, progress, onProjectChange }: { project: any; projectId: string; phases: { phases: StripPhase[]; outside: number }; progress: OverviewProgress; onProjectChange: () => void }) {
   const health = project.health || "good"
   // Progress and Tasks done are the header's own figures, worked out from the live tasks. The stored
   // project.progress was a second figure that drifted (33% here beside a header saying 31%).
@@ -92,7 +93,7 @@ function OverviewFacet({ project, projectId, phases, progress, onProjectChange }
         ))}
       </div>
 
-      <PhaseStrip phases={phases} />
+      <PhaseStrip strip={phases} />
 
       {project.description && (
         <div className="j-card">
@@ -124,32 +125,33 @@ function OverviewFacet({ project, projectId, phases, progress, onProjectChange }
   anything to show. This renders only for those, and returns null otherwise,
   so a one-phase project does not get a one-dot timeline.
 */
-function PhaseStrip({ phases }: { phases: any[] }) {
-  if (!phases || phases.length < 2) return null
-  const isDone = (p: any) => p.status === "done" || p.status === "completed"
-  const isActive = (p: any) => p.status === "in_progress" || p.status === "in-progress" || p.status === "active"
-  const done = phases.filter(isDone).length
-  const active = phases.filter(isActive).length
+function PhaseStrip({ strip }: { strip: { phases: StripPhase[]; outside: number } }) {
+  const phases = strip.phases
+  if (phases.length < 2) return null
+  const done = phases.filter((p) => p.status === "done").length
+  const active = phases.filter((p) => p.status === "active").length
   const fillPct = Math.max(0, ((done + active * 0.5) / phases.length) * 100)
+  const sub = [`${done} done`, `${active} active`, `${phases.length - done - active} upcoming`]
+  if (strip.outside) sub.push(`${strip.outside} ${strip.outside === 1 ? "task" : "tasks"} not in a phase`)
 
   return (
-    <div className="j-card">
+    <div className="j-card" data-testid="phase-strip">
       <div className="j-card-head">
         <div>
           <h3 className="j-card-title">Phases</h3>
-          <p className="j-card-sub">{done} done · {active} active · {phases.length - done - active} upcoming</p>
+          <p className="j-card-sub">{sub.join(" · ")}</p>
         </div>
       </div>
       <div style={{ position: "relative", padding: "4px 0 8px" }}>
         <div style={{ position: "absolute", top: 18, left: 18, right: 18, height: 2, background: "var(--j-hairline)" }} />
         <div style={{ position: "absolute", top: 18, left: 18, width: `calc(${fillPct}% - 18px)`, height: 2, background: "var(--j-accent)" }} />
-        <div className="j-row" style={{ justifyContent: "space-between", position: "relative" }}>
-          {phases.map((ph: any, i: number) => {
-            const d = isDone(ph)
-            const a = isActive(ph)
+        <div className="j-row" style={{ justifyContent: "space-between", alignItems: "flex-start", position: "relative" }}>
+          {phases.map((ph) => {
+            const d = ph.status === "done"
+            const a = ph.status === "active"
             return (
-              <div key={ph.id || i} className="j-col" style={{ alignItems: "center", flex: 1, minWidth: 0, gap: 6 }} title={`${ph.name} · ${ph.progress || 0}%`}>
-                <div style={{
+              <div key={ph.number} data-phase={ph.number} className="j-col" style={{ alignItems: "center", flex: 1, minWidth: 0, gap: 6, padding: "0 6px" }}>
+                <div aria-hidden style={{
                   width: 28, height: 28, borderRadius: 14,
                   background: a ? "var(--j-accent)" : d ? "var(--j-pos)" : "oklch(0.180 0 0)",
                   color: a || d ? "oklch(0.110 0.028 268)" : "oklch(0.708 0 0)",
@@ -157,10 +159,12 @@ function PhaseStrip({ phases }: { phases: any[] }) {
                   boxShadow: a ? "0 0 0 4px oklch(0.870 0.045 252 / 0.2), 0 0 0 1px var(--j-ring-strong)" : "0 0 0 1px var(--j-ring-strong)",
                   fontWeight: 600, fontSize: 12,
                 }}>
-                  {d ? "✓" : i + 1}
+                  {d ? <Check className="h-3.5 w-3.5" /> : ph.number}
                 </div>
-                <div style={{ fontSize: 12.5, fontWeight: 500, textAlign: "center", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ph.name}</div>
-                <span className="j-num j-muted" style={{ fontSize: 12 }}>{ph.progress || 0}%</span>
+                <div style={{ fontSize: 13, fontWeight: 500, textAlign: "center", lineHeight: 1.3 }}>{ph.name}</div>
+                <span className="j-muted" style={{ fontSize: 12, textAlign: "center" }}>
+                  Phase {ph.number} · {d ? "done" : a ? "in progress" : "not started"}{ph.total > 1 ? ` · ${ph.done} of ${ph.total} tasks` : ""}
+                </span>
               </div>
             )
           })}
@@ -452,11 +456,7 @@ export default function ProjectDashboardPage() {
 
   useEffect(() => { if (projectId) fetchProjectData() }, [projectId, fetchProjectData])
 
-  const phases = useMemo(() => {
-    if (!projectData?.steps) return []
-    try { return transformStepsToPhases(projectData.steps) }
-    catch { return [] }
-  }, [projectData?.steps])
+  const phases = useMemo(() => phaseStrip(projectData?.steps || []), [projectData?.steps])
 
   if (loading) {
     return (
