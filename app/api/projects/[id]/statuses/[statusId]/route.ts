@@ -82,7 +82,8 @@ export async function DELETE(
       WHERE project_id = ${projectId} AND status = ${deleted.key} AND deleted_at IS NULL
       RETURNING id
     `;
-    return NextResponse.json({ success: true, reassigned: moved.length, reassigned_to: reassignTo });
+    // The moved tasks' ids let an Undo put them back in the column (POST ./restore).
+    return NextResponse.json({ success: true, reassigned: moved.length, reassigned_to: reassignTo, moved_ids: moved.map((m) => String(m.id)), key: deleted.key });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ error: "Failed to delete status", details: message }, { status: 500 });

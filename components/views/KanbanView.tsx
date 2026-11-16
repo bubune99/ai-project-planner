@@ -321,8 +321,8 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
 
   const handleDeleteColumn = useCallback(
     async (key: string) => {
-      const count = parents.filter((s) => s.status === key).length
-      if (!window.confirm(`Delete this column?${count ? ` ${count} task(s) will move to the first column.` : ""}`)) return
+      // No browser confirm box: the delete happens and offers Undo, which brings the column and its tasks back
+      // (Tasks tab check, 2026-11-15).
       try {
         const rows = await ensureCustomized()
         const row = rows.find((s) => s.key === key)
@@ -333,13 +333,28 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
           { method: "DELETE" }
         )
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const j = await res.json().catch(() => ({}))
+        const movedIds: string[] = Array.isArray(j?.moved_ids) ? j.moved_ids : []
         await refetch()
-        toast.success("Column deleted")
+        toast(`Column "${row.label || key}" deleted${movedIds.length ? `; ${movedIds.length} task${movedIds.length === 1 ? "" : "s"} moved to ${fallback?.label || "the first column"}` : ""}`, {
+          duration: 10000,
+          action: {
+            label: "Undo",
+            onClick: async () => {
+              const back = await fetch(`/api/projects/${projectId}/statuses/${row.id}/restore`, {
+                method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stepIds: movedIds }),
+              }).catch(() => null)
+              if (!back?.ok) toast.error("Couldn't bring the column back")
+              await refetchStatuses?.()
+              await refetch()
+            },
+          },
+        })
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to delete column")
       }
     },
-    [parents, ensureCustomized, projectId, refetch]
+    [ensureCustomized, projectId, refetch, refetchStatuses]
   )
 
   const handleAddGroup = useCallback(async () => {
@@ -410,14 +425,25 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
 
   const handleDelete = useCallback(
     async (step: BoardStep) => {
-      if (!window.confirm(`Delete "${step.title}"?`)) return
+      // No browser confirm box: the task goes at once and the notice offers Undo (Tasks tab check, 2026-11-15).
       const prev = steps
       setSteps((cur) => cur.filter((s) => s.id !== step.id && s.parent_task_id !== step.id))
       setDetailStepId((cur) => (cur === step.id ? null : cur))
       try {
         const res = await fetch(stepUrl(step.id), { method: "DELETE" })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        toast.success("Task deleted")
+        toast(`Deleted "${step.title.slice(0, 40)}"`, {
+          duration: 10000,
+          action: {
+            label: "Undo",
+            onClick: async () => {
+              const back = await fetch(`${stepUrl(step.id)}/restore`, { method: "POST" }).catch(() => null)
+              if (!back?.ok) { toast.error("Couldn't bring the task back"); return }
+              setSteps((cur) => (cur.some((s) => s.id === step.id) ? cur : [...cur, ...prev.filter((s) => s.id === step.id || s.parent_task_id === step.id)]))
+              onRefresh?.()
+            },
+          },
+        })
         onRefresh?.()
       } catch (err) {
         console.error("Failed to delete step:", err)
