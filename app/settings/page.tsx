@@ -111,6 +111,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
           className="j-btn j-btn-ghost"
           style={{ flexShrink: 0, fontSize: 12 }}
           onClick={() => copyText(value, `${label} copied`)}
+          aria-label={`Copy the ${label.toLowerCase()}`}
         >
           Copy
         </button>
@@ -245,7 +246,7 @@ function McpTab() {
       <div className="j-card">
         <div className="j-row j-between" style={{ marginBottom: 12 }}>
           <SectionLabel>Claude Code Config</SectionLabel>
-          <button className="j-btn j-btn-ghost" style={{ fontSize: 12 }} onClick={() => copyText(claudeConfig, "Config copied")}>Copy</button>
+          <button className="j-btn j-btn-ghost" style={{ fontSize: 12 }} onClick={() => copyText(claudeConfig, "Config copied")} aria-label="Copy the Claude Code config">Copy</button>
         </div>
         <pre style={{
           background: "var(--opx-soft)", borderRadius: 8, padding: "12px 14px",
@@ -275,7 +276,7 @@ function McpTab() {
                 fontSize: 12, fontFamily: "inherit", outline: "none",
               }}
             />
-            <button className="j-btn j-btn-ghost" style={{ fontSize: 12, flexShrink: 0 }} onClick={() => copyText(revealedKey, "Key copied")}>Copy</button>
+            <button className="j-btn j-btn-ghost" style={{ fontSize: 12, flexShrink: 0 }} onClick={() => copyText(revealedKey, "Key copied")} aria-label="Copy the new key">Copy</button>
             <button className="j-btn j-btn-ghost" style={{ fontSize: 12, flexShrink: 0 }} onClick={() => setRevealedKey(null)}>Dismiss</button>
           </div>
         </div>
@@ -361,6 +362,7 @@ function McpTab() {
                     className="j-btn j-btn-ghost"
                     style={{ fontSize: 12, color: "color-mix(in srgb, var(--opx-hot) 55%, var(--opx-ink))", flexShrink: 0 }}
                     onClick={() => revokeKey(key.id, key.name)}
+                    aria-label={`Revoke ${key.name}`}
                   >
                     Revoke
                   </button>
