@@ -187,12 +187,24 @@ function MarkStaleDialog({
     }
   }
 
+  // It closes the usual three ways: its own buttons, Esc, and a press outside it.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel() }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [onCancel])
+
   return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 100,
-      background: "rgba(0,0,0,0.6)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-    }}>
+    <div
+      role="dialog"
+      aria-label="Mark as stale"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel() }}
+      style={{
+        position: "fixed", inset: 0, zIndex: 100,
+        background: "rgba(0,0,0,0.6)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}
+    >
       <div className="j-card" style={{ width: 400, maxWidth: "90vw" }}>
         <div className="j-card-head">
           <p className="j-card-title">Mark as stale</p>
@@ -702,7 +714,7 @@ export default function CatalogPage() {
         <div className={`opx-md${selected ? " has-sel" : ""}`}>
           {/* Master pane */}
           <div style={{ width: 360, flexShrink: 0 }}>
-            {loading ? (
+            {loading && surfaces.length === 0 ? (
               <div className="j-card"><span className="j-muted">Loading…</span></div>
             ) : surfaces.length === 0 ? (
               <div className="j-card j-col" style={{ alignItems: "center", gap: 10, padding: 32 }}>

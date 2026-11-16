@@ -280,7 +280,7 @@ export default function SkillsPage() {
         <div className={`opx-md${selected ? " has-sel" : ""}`}>
           {/* Master list */}
           <div style={{ width: 340, flexShrink: 0 }}>
-            {loading ? (
+            {loading && skills.length === 0 ? (
               <div className="j-card"><span className="j-muted">Loading…</span></div>
             ) : err && !showNew ? (
               <div className="j-card"><span className="j-muted">{err}</span></div>

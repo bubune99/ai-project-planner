@@ -296,7 +296,7 @@ export default function ClientsPage() {
         )}
 
         {/* List */}
-        {loading ? (
+        {loading && clients.length === 0 ? (
           <div className="j-card"><span className="j-muted">Loading clients…</span></div>
         ) : err && !showForm ? (
           <div className="j-card"><span className="j-muted">{err}</span></div>
