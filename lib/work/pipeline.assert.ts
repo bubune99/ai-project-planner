@@ -1,6 +1,6 @@
 // npx -y tsx@4.23.15 lib/work/pipeline.assert.ts
 import assert from "node:assert/strict"
-import { faultOf, holding, jobFor, rollup, sendsOnMove, type WorkRow } from "./pipeline"
+import { faultOf, holding, jobFor, rollup, sendsOnMove, type WorkRow, startMove } from "./pipeline"
 
 let n = 0
 const ok = (name: string, fn: () => void) => { fn(); n++; console.log("ok  ", name) }
@@ -51,6 +51,18 @@ ok("an initiative counts the steps of tasks that are broken down, and the task i
     R("idea", { parent_task_id: "camp", status: "requested" }),
   ]
   assert.deepEqual(rollup(rows[0], rows), { tasks: 3, done: 1, working: 1, steps: 5, stepsDone: 3, type: "campaign", ends: "2026-12-01" })
+})
+
+ok("Start puts a card in Up next and sends it; never makes an unheld In Progress card", () => {
+  const r = (o: any) => ({ id: "s", title: "t", status: "requested", ...o })
+  assert.deepEqual(startMove(r({})), { to: "pending", send: true })
+  assert.deepEqual(startMove(r({ status: "pending" })), { to: null, send: true })
+  assert.deepEqual(startMove(r({ status: "blocked" })), { to: "pending", send: true })
+  assert.equal(startMove(r({ status: "in-progress", claimed_by_id: "agent1" })).send, false)
+  assert.match(startMove(r({ status: "in-progress", claimed_by_id: "agent1" })).why!, /agent1/)
+  assert.equal(startMove(r({ status: "completed" })).send, false)
+  assert.equal(startMove(r({ work_kind: "initiative" })).send, false)
+  for (const s of ["requested", "pending", "blocked", "paused"]) assert.notEqual(startMove(r({ status: s })).to, "in-progress")
 })
 
 console.log(`\n${n} pipeline checks passed`)

@@ -180,6 +180,30 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
     [steps]
   )
 
+  /**
+   * Start: the card goes into Up next (the ready line) and is sent to its project's agents; it moves to In Progress
+   * only when an agent takes it (owner, inbox be28f3e9). Returns what to tell him.
+   */
+  const startStep = useCallback(
+    async (stepId: string): Promise<string> => {
+      try {
+        const res = await fetch(`${stepUrl(stepId)}/start`, { method: "POST" })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+        setSteps((prev) => prev.map((s) => (s.id === stepId ? ({ ...s, status: data.column || "pending" } as BoardStep) : s)))
+        toast.success(data.message || "In line for an agent")
+        onRefresh?.()
+        refetch()
+        return data.message || "In line for an agent"
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Could not start this card"
+        toast.error(msg)
+        return msg
+      }
+    },
+    [stepUrl, refetch, onRefresh]
+  )
+
   /** Optimistically apply a patch locally, then persist; revert via refetch on failure. */
   const patchStep = useCallback(
     async (stepId: string, patch: Record<string, unknown>) => {
@@ -650,6 +674,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
                     activeKey={statuses.find((s) => s.kind === "active")?.key ?? null}
                     onToggleComplete={handleToggleComplete}
                     onPatch={patchStep}
+                    onStart={startStep}
                   />
                 )
               }}
@@ -709,6 +734,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
         )}
 
         <TaskDetailModal
+          onStart={startStep}
           step={detailStep}
           subtasks={detailStep ? subtasksOf(detailStep.id) : []}
           allSteps={steps}

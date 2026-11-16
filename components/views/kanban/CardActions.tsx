@@ -20,6 +20,7 @@ export function CardActions({
   activeKey,
   onToggleComplete,
   onPatch,
+  onStart,
 }: {
   step: BoardStep
   isDone: boolean
@@ -28,6 +29,8 @@ export function CardActions({
   activeKey: string | null
   onToggleComplete: (step: BoardStep) => void
   onPatch: (stepId: string, patch: Record<string, unknown>) => void
+  /** Puts the card in line for its project's agents (KanbanView.startStep). */
+  onStart?: (stepId: string) => Promise<string>
 }) {
   const dateRef = useRef<HTMLInputElement>(null)
   const flagged = !!(step.metadata && (step.metadata as Record<string, unknown>).flagged)
@@ -66,9 +69,9 @@ export function CardActions({
         <button
           type="button"
           className={btn}
-          title="Start"
+          title="Start: send to an agent"
           aria-label={`Start: ${step.title}`}
-          onClick={(e) => { e.stopPropagation(); onPatch(step.id, { status: activeKey }) }}
+          onClick={(e) => { e.stopPropagation(); if (onStart) void onStart(step.id); else onPatch(step.id, { status: activeKey }) }}
         >
           <Play className="h-3.5 w-3.5" strokeWidth={2.25} />
         </button>

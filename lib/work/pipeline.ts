@@ -37,6 +37,20 @@ export function sendsOnMove(from: string | null, to: string, kind: Kind): boolea
   return kind !== "initiative" && GO.has(to) && !GO.has(from ?? "")
 }
 
+/*
+  Start, in the owner's words (inbox be28f3e9, 2026-11-16): "Agents can get swapped. So it gets put on the ready for when
+  an agent becomes available to take over and get things moving. If an agent is connected it gets added to the queue to
+  really run through." Start puts the card in Up next (the ready line) and sends it to the project's agents; the card
+  moves to In Progress only when an agent takes it. It never makes an In Progress card that nobody holds.
+*/
+export type StartMove = { to: "pending" | null; send: boolean; why?: string }
+export function startMove(r: WorkRow): StartMove {
+  if (kindOf(r) === "initiative") return { to: null, send: false, why: "Start one of its tasks; an initiative is never sent itself." }
+  if (isDone(r)) return { to: null, send: false, why: "It is finished. Reopen it first." }
+  if (r.status === "in-progress") return { to: null, send: false, why: r.claimed_by_id ? `${r.claimed_by_id} is already working on it.` : "It is already with an agent." }
+  return { to: r.status === "pending" ? null : "pending", send: true }
+}
+
 /** How long a card may sit in progress, sent but not picked up, before it is shown as a fault. */
 export const PICKUP_MINUTES = 30
 export type Holding = { state: "held"; by: string; since: string | null } | { state: "sent"; since: string } | { state: "nobody" }

@@ -52,6 +52,8 @@ interface TaskDetailModalProps {
   onOpenStep: (step: BoardStep) => void
   /** The cards in the same column, in board order, for the previous / next arrows. */
   siblings?: BoardStep[]
+  /** Start: in line for the project's agents, not In Progress until one takes it. Returns what to say. */
+  onStart?: (stepId: string) => Promise<string>
 }
 
 const NONE = "__none__"
@@ -108,6 +110,7 @@ export function TaskDetailModal({
   onEditFull,
   onOpenStep,
   siblings = [],
+  onStart,
 }: TaskDetailModalProps) {
   const [addingChecklist, setAddingChecklist] = useState(false)
   const [title, setTitle] = useState("")
@@ -255,7 +258,13 @@ export function TaskDetailModal({
                 ))}
               </SelectContent>
             </Select>
-            <Button size="sm" variant="outline" className="h-8" onClick={() => patch({ status: advance.next })}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8"
+              title={advance.label === "Start" ? "Send to the project's agents; it moves to In Progress when one takes it" : undefined}
+              onClick={() => (advance.label === "Start" && onStart ? void onStart(step.id) : patch({ status: advance.next }))}
+            >
               <advance.icon className="w-3.5 h-3.5 mr-1.5" />
               {advance.label}
             </Button>
