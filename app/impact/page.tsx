@@ -214,7 +214,7 @@ function NodeDetailPanel({ surface, onClose }: { surface: Surface; onClose: () =
         <span style={{ fontSize: 12, color: "var(--opx-muted)", textTransform: "uppercase", letterSpacing: 1 }}>
           {surface.kind}
         </span>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--opx-muted)", cursor: "pointer", padding: 2 }}>
+        <button onClick={onClose} aria-label="Close the details" style={{ background: "none", border: "none", color: "var(--opx-muted)", cursor: "pointer", padding: 6, minWidth: 28, minHeight: 28 }}>
           <X size={14} />
         </button>
       </div>
@@ -287,6 +287,8 @@ const overlayStyle: React.CSSProperties = {
 }
 
 // ── Main page ────────────────────────────────────────────────────────────────
+
+const words = (s: string) => { const w = String(s).replace(/[_-]+/g, " "); return w.charAt(0).toUpperCase() + w.slice(1) }
 
 export default function ImpactGraphPage() {
   const [allSurfaces, setAllSurfaces] = useState<Surface[]>([])
@@ -424,6 +426,7 @@ export default function ImpactGraphPage() {
         )}
         <div style={{ flex: 1 }} />
         <button
+          aria-pressed={showConflicts}
           onClick={() => setShowConflicts(v => !v)}
           style={{ ...btnStyle, color: showConflicts ? "#ef4444" : "var(--opx-ink)", borderColor: showConflicts ? "#ef4444" : "var(--opx-line)" }}
         >
@@ -454,9 +457,10 @@ export default function ImpactGraphPage() {
                     setKindFilter(prev => prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k])
                     syncQS({ kinds: kindFilter.join(",") })
                   }}
+                  aria-pressed={kindFilter.includes(k)}
                   style={chipStyle(kindFilter.includes(k), KIND_COLORS[k]?.border)}
                 >
-                  {k}
+                  {words(k)}
                 </button>
               ))}
             </div>
@@ -468,9 +472,10 @@ export default function ImpactGraphPage() {
                 <button
                   key={r}
                   onClick={() => setDepKindFilter(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r])}
+                  aria-pressed={depKindFilter.includes(r)}
                   style={chipStyle(depKindFilter.includes(r))}
                 >
-                  {r}
+                  {words(r)}
                 </button>
               ))}
             </div>
@@ -540,8 +545,7 @@ export default function ImpactGraphPage() {
           )}
           {!loading && !error && visibleSurfaces.length === 0 && (
             <div style={overlayStyle}>
-              No surfaces to display.{" "}
-              {allSurfaces.length > 0 ? "Adjust filters or focus to see nodes." : "Register surfaces via the catalog scanner."}
+              {allSurfaces.length > 0 ? "Nothing matches these filters. Change them, or clear the focus, to see the graph." : "Nothing to show yet. The graph fills in after a scan of the code records what the product is made of."}
             </div>
           )}
           {!loading && !error && visibleSurfaces.length > 0 && (
