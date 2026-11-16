@@ -166,6 +166,8 @@ export function toKanbanTask(step: BoardStep, opts: AdaptOptions): KanbanTask {
     // lossy on purpose, rather than crowding the card with every tag.
     // A card that is an initiative or upkeep says so first; otherwise its first tag.
     category: workKind === "initiative" ? INITIATIVE_WORD[initiativeType] : workKind === "upkeep" ? "Upkeep" : step.tags?.[0] || undefined,
+    // The kind is drawn on the card (the category above never was): owner, 2026-11-16, umbrellas become initiatives.
+    kind: workKind === "initiative" ? INITIATIVE_WORD[initiativeType] : workKind === "upkeep" ? "Upkeep" : undefined,
     // the first tag is already up top as the category chip; show the rest here
     tags: (step.tags ?? []).slice(1).map((label) => ({ label, color: tagColor(label) })),
     assignees: step.status === "in-progress" && step.claimed_by_id ? [{ name: step.claimed_by_id }] : step.assigned_agent ? [{ name: step.assigned_agent }] : undefined,
