@@ -5,7 +5,7 @@
 import assert from "node:assert/strict"
 import { formatMoney, hasMoney, moneyRollup, moneyTotals, parseAmount } from "./money"
 import { type Plannable, rangeOf, byDay, dedupeTodos, unscheduled, monthCells, addDays, dayKey, dayOf, dayTicks } from "./schedule"
-import { projectMetrics, weekOf, lastWeeks, medianLabel } from "./metrics"
+import { projectMetrics, weekOf, lastWeeks, medianLabel, figureMembers } from "./metrics"
 import { parseIdeaPlan, featureName, ideaStage, ideasForProject } from "./ideas"
 import { buildTimeline, byMonth, cleanSummary } from "./timeline"
 
@@ -224,6 +224,28 @@ ok("parseAmount: refuses what it used to quietly change, and says why", () => {
   assert.match(why("1.234") || "", /not an amount/)
   assert.match(why("") || "", /Type an amount/)
   assert.match(why("1,2") || "", /not an amount/)
+})
+
+ok("figureMembers lists exactly the tasks each figure counts", () => {
+  const now = new Date("2026-11-16T12:00:00Z")
+  const d = (days: number) => new Date(now.getTime() - days * 86_400_000).toISOString()
+  const steps = [
+    { id: "a", status: "completed", created_at: d(20), completed_at: d(3) },
+    { id: "b", status: "completed", created_at: d(60), completed_at: d(40) },
+    { id: "c", status: "in-progress", created_at: d(2) },
+    { id: "d", status: "pending", created_at: d(120) },
+    { id: "e", status: "pending", created_at: d(10) },
+    { id: "x", status: "pending", created_at: d(200), deleted_at: d(1) },
+  ]
+  const m = projectMetrics(steps, now)
+  const ids = (f: Parameters<typeof figureMembers>[2]) => figureMembers(steps, now, f).map((s) => s.id)
+  assert.deepEqual(ids("doneLast4"), ["a"]); assert.equal(ids("doneLast4").length, m.doneLast4)
+  assert.deepEqual(ids("inProgress"), ["c"]); assert.equal(m.inProgress, 1)
+  assert.deepEqual(ids("age:3"), ["d"]); assert.equal(ids("age:3").length, m.ages[3].count)
+  assert.deepEqual(ids("age:1"), ["e"]); assert.equal(ids("age:1").length, m.ages[1].count)
+  assert.deepEqual(ids("open"), ["c", "e", "d"]); assert.equal(m.open, 3)
+  const wk = m.weeks.find((w) => w.done > 0)!
+  assert.equal(ids(`week:${wk.week}:done`).length, wk.done)
 })
 
 console.log(`\n${passed} checks passed`)

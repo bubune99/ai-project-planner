@@ -10,9 +10,9 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { CURRENCIES, formatMoney, moneyTotals, parseAmount } from "@/lib/project-views/money"
 import { toast } from "sonner"
-import { projectMetrics, medianLabel } from "@/lib/project-views/metrics"
+import { figureMembers, projectMetrics, medianLabel, type Figure } from "@/lib/project-views/metrics"
 import { CORE_SLOTS } from "./DocsTab"
-import { Failed, Loading, Section, ago, fmtDate, unwrap, useJson } from "./shared"
+import { Failed, Loading, Section, Seg, ago, fmtDate, unwrap, useJson } from "./shared"
 
 export interface PlannerUi {
   /** Revision of this record, owned by the server (PATCH /api/projects/:id expectedUiRev). */
@@ -66,7 +66,19 @@ const uid = () => Math.random().toString(36).slice(2, 10)
 
 export function MetricsTab({ projectId }: { projectId: string }) {
   const { data, loading, error, reload } = useJson(`/api/projects/${projectId}/steps`)
-  const m = useMemo(() => projectMetrics(unwrap<any[]>(data, "steps") || [], new Date()), [data])
+  // A period for the chart, and any figure opened to the tasks behind it (Metrics check, 2026-11-15).
+  const [nWeeks, setNWeeks] = useState<"4" | "12" | "26">("12")
+  const [fig, setFig] = useState<{ key: Figure; label: string } | null>(null)
+  const steps = useMemo(() => unwrap<any[]>(data, "steps") || [], [data])
+  const m = useMemo(() => projectMetrics(steps, new Date(), Number(nWeeks)), [steps, nWeeks])
+  const members = useMemo(() => (fig ? figureMembers(steps, new Date(), fig.key, Number(nWeeks)) : []), [fig, steps, nWeeks])
+  const openFig = (key: Figure, label: string) => setFig((f) => (f?.key === key ? null : { key, label }))
+  const tile = (key: Figure, label: string, value: React.ReactNode, sub: string, hot = false) => (
+    <button type="button" className={`opx-stat${hot ? " hot" : ""}`} style={{ textAlign: "left", font: "inherit", color: "inherit", cursor: "pointer", border: fig?.key === key ? "1px solid var(--opx-accent)" : undefined }}
+      aria-expanded={fig?.key === key} aria-label={`${label}: show the tasks`} onClick={() => openFig(key, label)}>
+      <b>{value}</b><span>{sub}</span>
+    </button>
+  )
   if (loading && !data) return <Loading what="metrics" />
   if (error) return <Failed what="metrics" error={error} retry={reload} />
   const max = Math.max(1, ...m.weeks.flatMap((w) => [w.added, w.done]))
@@ -75,16 +87,33 @@ export function MetricsTab({ projectId }: { projectId: string }) {
   return (
     <div className="opx-col" style={{ gap: 12 }}>
       <div className="opx-stats">
-        <div className="opx-stat"><b>{m.doneLast4}</b><span>Done in the last 4 weeks{m.donePrev4 || m.doneLast4 ? ` (${diff >= 0 ? "+" : ""}${diff} vs the 4 before)` : ""}</span></div>
+        {tile("doneLast4", "Done in the last 4 weeks", m.doneLast4, `Done in the last 4 weeks${m.donePrev4 || m.doneLast4 ? ` (${diff >= 0 ? "+" : ""}${diff} vs the 4 before)` : ""}`)}
         <div className="opx-stat"><b>{medianLabel(m.medianDays)}</b><span>Typical time to finish{m.medianDays != null && m.medianDays < 1 ? ": most tasks are logged after the work is done" : ""}</span></div>
-        <div className="opx-stat"><b>{m.inProgress}</b><span>In progress now</span></div>
-        <div className={`opx-stat${m.ages[3].count ? " hot" : ""}`}><b>{m.ages[3].count}</b><span>Open over 3 months</span></div>
+        {tile("inProgress", "In progress now", m.inProgress, "In progress now")}
+        {tile("age:3", "Open over 3 months", m.ages[3].count, "Open over 3 months", m.ages[3].count > 0)}
       </div>
+      {fig && (
+        <Section title={`${fig.label}: ${members.length} ${members.length === 1 ? "task" : "tasks"}`} action={<button className="opx-link opx-act" onClick={() => setFig(null)}>Close</button>}>
+          {members.length === 0 ? <p className="opx-muted" style={{ margin: 0 }}>None.</p> : (
+            <div data-figure-list>
+              {members.slice(0, 200).map((s: any) => (
+                <a key={s.id} className="opx-li" href={`/project/${projectId}?tab=tasks&step=${s.id}`} style={{ color: "inherit", textDecoration: "none" }}>
+                  <div style={{ minWidth: 0 }}><b>{s.title}</b><small>{s.status}{s.completed_at ? ` · done ${fmtDate(s.completed_at)}` : s.created_at ? ` · added ${fmtDate(s.created_at)}` : ""}</small></div>
+                </a>
+              ))}
+              {members.length > 200 && <p className="opx-muted" style={{ fontSize: 12.5 }}>Showing the newest 200.</p>}
+            </div>
+          )}
+        </Section>
+      )}
       <div className="opx-2col">
-        <Section title="Added vs done, by week" action={<span className="opx-row opx-muted" style={{ fontSize: 12.5, gap: 12 }}><span className="opx-row" style={{ gap: 5 }}><i className="opx-dot" style={{ background: "color-mix(in srgb, var(--opx-accent) 45%, transparent)", borderRadius: 3 }} />Added</span><span className="opx-row" style={{ gap: 5 }}><i className="opx-dot" style={{ background: "var(--opx-good)", borderRadius: 3 }} />Done</span></span>}>
-          <div className="opx-chart" role="img" aria-label={`Tasks added and done per week over the last 12 weeks. ${m.weeks.map((w) => `Week of ${w.week}: ${w.added} added, ${w.done} done`).join(". ")}`}>
+        <Section title="Added vs done, by week" action={<span className="opx-row" style={{ gap: 12, flexWrap: "wrap", alignItems: "center" }}><Seg label="Period" value={nWeeks} options={[["4", "4 weeks"], ["12", "12 weeks"], ["26", "26 weeks"]]} onChange={(v) => { setNWeeks(v); setFig(null) }} />{<span className="opx-row opx-muted" style={{ fontSize: 12.5, gap: 12 }}><span className="opx-row" style={{ gap: 5 }}><i className="opx-dot" style={{ background: "color-mix(in srgb, var(--opx-accent) 45%, transparent)", borderRadius: 3 }} />Added</span><span className="opx-row" style={{ gap: 5 }}><i className="opx-dot" style={{ background: "var(--opx-good)", borderRadius: 3 }} />Done</span></span>}</span>}>
+          <div className="opx-chart" role="img" aria-label={`Tasks added and done per week over the last ${nWeeks} weeks. ${m.weeks.map((w) => `Week of ${w.week}: ${w.added} added, ${w.done} done`).join(". ")}`}>
             {m.weeks.map((w) => (
-              <div key={w.week} className="opx-bw">
+              <div key={w.week} className="opx-bw" role="button" tabIndex={0} style={{ cursor: "pointer" }}
+                aria-label={`Week of ${fmtDate(w.week + "T12:00:00")}: ${w.done} done. Show them`}
+                onClick={() => openFig(`week:${w.week}:done`, `Done in the week of ${fmtDate(w.week + "T12:00:00")}`)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openFig(`week:${w.week}:done`, `Done in the week of ${fmtDate(w.week + "T12:00:00")}`) } }}>
                 <div className="opx-bs">
                   <i title={`${w.added} added`} style={{ height: `${(w.added / max) * 100}%`, background: "color-mix(in srgb, var(--opx-accent) 45%, transparent)" }} />
                   <i title={`${w.done} done`} style={{ height: `${(w.done / max) * 100}%`, background: "var(--opx-good)" }} />
@@ -95,8 +124,11 @@ export function MetricsTab({ projectId }: { projectId: string }) {
           </div>
         </Section>
         <Section title="How old is the open work?" count={`${m.open} open`}>
-          {m.ages.map((a) => (
-            <div key={a.label} className="opx-agr">
+          {m.ages.map((a, i) => (
+            <div key={a.label} className="opx-agr" role="button" tabIndex={0} style={{ cursor: "pointer" }}
+              aria-label={`Open for ${a.label.toLowerCase()}: ${a.count}. Show them`}
+              onClick={() => openFig(`age:${i}`, `Open, ${a.label.toLowerCase()}`)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openFig(`age:${i}`, `Open, ${a.label.toLowerCase()}`) } }}>
               <span>{a.label}</span>
               <span className="opx-pg" style={{ height: 9 }}><i style={{ width: `${m.open ? (a.count / m.open) * 100 : 0}%`, background: a.label.startsWith("Over") ? "var(--opx-hot)" : "var(--opx-accent)" }} /></span>
               <b>{a.count}</b>

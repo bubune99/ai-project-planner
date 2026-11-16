@@ -82,3 +82,31 @@ export function medianLabel(days: number | null): string {
   const d = Math.round(days)
   return d === 1 ? "1 day" : `${d} days`
 }
+
+/** A figure on the Metrics tab that can be opened to the tasks it counts. */
+export type Figure = "doneLast4" | "inProgress" | "open" | `age:${number}` | `week:${string}:${"added" | "done"}`
+
+/**
+ * The tasks behind a figure, exactly as projectMetrics counts them (Metrics check, 2026-11-15: "61 open over 3
+ * months: which ones?"). Newest first. Pure; pass `now`.
+ */
+export function figureMembers<S extends StepDates>(steps: S[], now: Date, fig: Figure, nWeeks = 12): S[] {
+  const live = steps.filter((s) => !s.deleted_at)
+  const age = (s: StepDates) => (now.getTime() - new Date(s.created_at || now).getTime()) / DAY
+  const bands: [number, number][] = [[0, 7], [7, 30], [30, 90], [90, Infinity]]
+  const newest = (key: "created_at" | "completed_at") => (a: S, b: S) => +new Date(b[key] || 0) - +new Date(a[key] || 0)
+  if (fig === "doneLast4") {
+    const keep = new Set(lastWeeks(now, nWeeks).slice(-4))
+    return live.filter((s) => s.completed_at && keep.has(weekOf(s.completed_at))).sort(newest("completed_at"))
+  }
+  if (fig === "inProgress") return live.filter((s) => s.status === "in-progress" || s.status === "in_progress").sort(newest("created_at"))
+  if (fig === "open") return live.filter((s) => s.status !== "completed").sort(newest("created_at"))
+  if (fig.startsWith("age:")) {
+    const [lo, hi] = bands[Number(fig.slice(4))] || [0, -1]
+    return live.filter((s) => s.status !== "completed" && age(s) >= lo && age(s) < hi).sort(newest("created_at"))
+  }
+  const [, week, what] = fig.split(":")
+  return what === "done"
+    ? live.filter((s) => s.completed_at && weekOf(s.completed_at) === week).sort(newest("completed_at"))
+    : live.filter((s) => s.created_at && weekOf(s.created_at) === week).sort(newest("created_at"))
+}
