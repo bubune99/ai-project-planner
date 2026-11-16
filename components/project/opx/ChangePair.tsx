@@ -52,6 +52,18 @@ export function ChangePair({ projectId, id, title, before, after, onPictureLoad,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   useEffect(() => { tryCompare() }, [tryCompare])
+  // A picture wider than its box opens scrolled to the first change, so it is in view on a phone without hunting.
+  useEffect(() => {
+    if (diff?.verdict !== "some" || !show || !diff.boxes.length) return
+    const b = diff.boxes[0]
+    for (const img of [refs.before.current, refs.after.current]) {
+      const link = img?.closest("a"), frame = img?.parentElement
+      if (!link || !frame || link.scrollWidth <= link.clientWidth + 2) continue
+      const fw = frame.clientWidth
+      link.scrollLeft = Math.max(0, b.x * fw + (b.w * fw) / 2 - link.clientWidth / 2)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diff, show])
   const pictures = [["Before", "before", before], ["After", "after", after]] as const
   return (
     <>
