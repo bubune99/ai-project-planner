@@ -1183,3 +1183,10 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
 .opx-ucf-exp { font-size: 12.5px; color: var(--opx-muted); line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
 .opx-ucf-foot { margin-top: auto; display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--opx-muted); }
 .opx-pf-steps[hidden] { display: none !important; }
+/* Pictures an agent sent with an inbox question. */
+.opx-qpics { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 10px; margin-top: 10px; }
+.opx-qpics figure { margin: 0; min-width: 0; }
+.opx-qpics a { display: block; border-radius: 10px; overflow: hidden; background: var(--opx-bg); box-shadow: inset 0 0 0 1px var(--opx-line); }
+.opx-qpics img { display: block; width: 100%; height: auto; max-height: 360px; object-fit: contain; }
+.opx-qpics figcaption { font-size: 12.5px; color: var(--opx-muted); margin-top: 4px; line-height: 1.35; }
+.opx-qpics.small { grid-template-columns: repeat(auto-fit, minmax(110px, 160px)); } .opx-qpics.small img { max-height: 120px; }

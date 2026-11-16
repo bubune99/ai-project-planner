@@ -15,6 +15,7 @@
  */
 
 import { useMemo, useState } from "react"
+import { QuestionPictures, type QuestionPicture } from "@/components/inbox/QuestionPictures"
 import { announceInbox } from "@/lib/inbox/live"
 import { toast } from "sonner"
 import { parseIdeaPlan, ideaStage, ideasForProject } from "@/lib/project-views/ideas"
@@ -23,7 +24,7 @@ import { Failed, Loading, Md, Seg, ago, askAssistant, fmtDate, unwrap, useHoverT
 
 interface Decision { id: string; title: string; summary?: string | null; status?: string | null; tags?: string[] | null; createdAt?: string | null; nodeCount?: number }
 interface Idea { id: string; title: string; description?: string | null; category?: string | null; lifecycle?: string | null; createdAt?: string | null; updatedAt?: string | null; facetCount?: number; promotedToProjectId?: string | null }
-interface Question { id: string; question: string; options: string[]; context?: string | null; projectId?: string | null; askedAt?: string | null }
+interface Question { id: string; question: string; options: string[]; pictures?: QuestionPicture[]; context?: string | null; projectId?: string | null; askedAt?: string | null }
 interface Step { id: string; title: string; description?: string | null; completed_at?: string | null; is_subtask?: boolean | null }
 interface Doc { id: string; title: string; content?: string | null; updated_at?: string | null }
 export interface DecisionOption { name: string; note?: string; pros: string[]; cons: string[]; chosen?: boolean; image?: string; meets?: boolean[] }
@@ -109,6 +110,7 @@ export function IdeasDecisions({ projectId, projectName }: { projectId: string; 
           <div key={q.id} className="opx-pcard" style={{ cursor: "default" }}>
             <b>{q.question}</b>
             {q.context && <p className="opx-muted" style={{ margin: "6px 0 0", fontSize: 12.5 }}>{q.context.replace(/\[[a-z-]+:[^\]]+\]/g, "").slice(0, 220)}</p>}
+            <QuestionPictures pictures={q.pictures} small />
             <span className="opx-row" style={{ gap: 6, marginTop: 10, flexWrap: "wrap" }}>
               {q.options.map((o, k) => (
                 <button key={o} className={`opx-btn sm${k === 0 ? " primary" : ""}`} disabled={!!answered[q.id]} onClick={() => answer(q, o)}>{answered[q.id] === o ? `✓ ${o}` : o}</button>

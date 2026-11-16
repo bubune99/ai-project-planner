@@ -7,6 +7,7 @@
  */
 
 import { useState } from "react"
+import { QuestionPictures } from "./QuestionPictures"
 import { announceInbox } from "@/lib/inbox/live"
 import { toast } from "sonner"
 import type { InboxItem } from "@/lib/inbox"
@@ -91,6 +92,8 @@ export function QuestionCard({ item, deferred, onDefer, onBringBack, onAnswered,
           )}
         </div>
       )}
+
+      <QuestionPictures pictures={item.pictures} />
 
       {item.options.length > 0 && (
         <div className="j-col" style={{ gap: 8, marginTop: 14 }}>
