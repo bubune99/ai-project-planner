@@ -113,6 +113,21 @@ export async function middleware(request: NextRequest) {
   // to accept reports from anonymous/end users, so POST /api/feedback is open.
   // GET (admin inbox list) and PATCH (triage) stay auth-gated below.
   if (pathname === "/api/feedback" && request.method === "POST") {
+    // Signed in is optional here, but when there is a session the report is the person's: without this every report
+    // was anonymous, so "My reports" could never list the owner's own (2026-11-16). Identity headers were stripped
+    // above and are set only from the verified session; a failure leaves the report anonymous.
+    try {
+      const user = await stackServerApp.getUser();
+      if (user) {
+        requestHeaders.set("x-auth-type", "session");
+        requestHeaders.set("x-user-stack-id", user.id);
+        const { sql } = await import("@/lib/db/client");
+        const [row] = await sql`SELECT id FROM users WHERE stack_auth_id = ${user.id}`;
+        if (row?.id) requestHeaders.set("x-user-id", row.id as string);
+      }
+    } catch {
+      /* anonymous report */
+    }
     return continueWith(requestHeaders);
   }
 
