@@ -3738,12 +3738,15 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
       },
       async ({ status, source, limit }) => {
         try {
-          getMcpUserId()
+          const me = getMcpUserId()
+          // Everyone's reports for the platform owner; anyone else sees only what they sent (same rule as GET /api/feedback).
+          const only = isPlatformAdmin(me) ? null : me
           const rows = (await sql`
             SELECT id, source, route, title, comment, status, priority, created_at, metadata
               FROM feedback
              WHERE (${status ?? null}::text IS NULL OR status = ${status ?? null})
                AND (${source ?? null}::text IS NULL OR source = ${source ?? null})
+               AND (${only}::text IS NULL OR reporter_user_id = ${only})
              ORDER BY created_at DESC
              LIMIT ${Math.min(limit ?? 50, 200)}
           `) as any[]

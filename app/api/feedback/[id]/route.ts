@@ -7,6 +7,7 @@ import { NextRequest } from "next/server";
 import { sql } from "@/lib/db/client";
 import { successResponse, errorResponse, ErrorCodes } from "@/lib/api-utils";
 import { getAuthContext } from "@/lib/auth/auth-utils";
+import { isPlatformAdmin } from "@/lib/auth/platform-admin";
 import { mergeEnvelopeForPatch, envelopeForSql } from "@/lib/api/envelope-helpers";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,8 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
   try {
     const auth = await getAuthContext().catch(() => null);
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, "Authentication required", 401);
+    // Triage is the platform owner's (2026-11-16: any signed-in user could change any report's status).
+    if (!isPlatformAdmin(auth.userId)) return errorResponse(ErrorCodes.FORBIDDEN, "Only the owner can change a report", 403);
 
     const { id } = await ctx.params;
     const b = await request.json().catch(() => ({}));

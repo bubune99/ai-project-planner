@@ -12,6 +12,7 @@ import { NextRequest } from "next/server";
 import { sql } from "@/lib/db/client";
 import { successResponse, errorResponse, ErrorCodes } from "@/lib/api-utils";
 import { getAuthContext } from "@/lib/auth/auth-utils";
+import { isPlatformAdmin } from "@/lib/auth/platform-admin";
 import { buildEnvelopeForWrite, envelopeForSql } from "@/lib/api/envelope-helpers";
 import { reportCard, reportKind } from "@/lib/intake/report-card";
 
@@ -159,8 +160,9 @@ export async function GET(request: NextRequest) {
     const status = u.searchParams.get("status");
     const source = u.searchParams.get("source");
     const limit = Math.min(parseInt(u.searchParams.get("limit") || "100", 10) || 100, 200);
-    // ?mine=1: only what this person sent (the inbox's My reports).
-    const mine = u.searchParams.get("mine") === "1" ? auth.userId : null;
+    // ?mine=1: only what this person sent (the inbox's My reports). Only the platform owner sees everyone's reports:
+    // they carry screenshots and page addresses (2026-11-16, any signed-in user could read them all).
+    const mine = u.searchParams.get("mine") === "1" || !isPlatformAdmin(auth.userId) ? auth.userId : null;
 
     const items = await sql`
       SELECT * FROM feedback
