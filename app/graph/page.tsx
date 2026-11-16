@@ -109,7 +109,8 @@ function layoutNodes(graph: GraphResponse): { nodes: Node[]; edges: Edge[] } {
     const r = radii[ring] ?? baseRadius + ring * ringStep
     const angleStep = (2 * Math.PI) / Math.max(group.length, 1)
     group.forEach((n, i) => {
-      const angle = i * angleStep
+      // Each ring starts a little further round than the one inside it, so the rings' first boxes do not line up in a row.
+      const angle = i * angleStep + ring * 2.39996
       const colors = TYPE_COLORS[n.type] ?? TYPE_COLORS.default
       flowNodes.push({
         id: n.id,
