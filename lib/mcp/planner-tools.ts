@@ -843,8 +843,9 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         dueDate: z.string().optional().describe("Due date, ISO 8601"),
         estimatedHours: z.number().optional(),
         phase: z.string().optional(),
+        workKind: z.enum(["task", "initiative", "upkeep"]).optional().describe("'initiative' for a campaign, phase or sprint whose tasks sit under it (never in progress itself; its tasks are); 'upkeep' for an agent's maintenance work; default 'task'."),
       },
-      async ({ projectId, title, description, status, priority, parentTaskId, tags, dueDate, estimatedHours, phase }) => {
+      async ({ projectId, title, description, status, priority, parentTaskId, tags, dueDate, estimatedHours, phase, workKind }) => {
         try {
           requireMcpScope("write")
           const [resolvedId, error] = resolveProjectId(projectId)
@@ -854,6 +855,9 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           // Owner, 2026-11-16: "I don't think all 84 of those should be in up next rightnow". Up next means in line for
           // an agent now, so a new card waits in Requests unless it is asked for now.
           const statusKey = status || "requested"
+          // Owner, 2026-11-16: "some tasks really do need to get broken down into actionable steps but we need a good way to see
+          // that". An initiative holds tasks; agents take the tasks, so the initiative itself is never in progress.
+          if (workKind === "initiative" && statusKey === "in-progress") return mcpError("An initiative is never in progress itself: put it in Up next and take one of its tasks")
           const BUILTIN = ["requested", "pending", "in-progress", "completed", "blocked", "paused", "failed"]
           if (!BUILTIN.includes(statusKey)) {
             const custom = await sql`
@@ -877,7 +881,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           const [task] = await sql`
             INSERT INTO project_steps (
               project_id, title, description, status, phase, stage,
-              estimated_hours, priority, order_index, parent_task_id, tags, end_date
+              estimated_hours, priority, order_index, parent_task_id, tags, end_date, work_kind
             ) VALUES (
               ${resolvedId}, ${title}, ${description || ""}, ${statusKey},
               -- phase and stage are NOT NULL. Writing "" left every step in an
@@ -892,7 +896,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
               ${estimatedHours ?? 0}, ${priority || null}, ${(maxRow.max_order || 0) + 1},
               ${parentTaskId || null},
               ${(tags || []).map(t => String(t).trim()).filter(Boolean).slice(0, 20)}::text[],
-              ${dueDate || null}
+              ${dueDate || null},
+              ${workKind || "task"}
             )
             RETURNING id, title, status, parent_task_id
           `
@@ -982,15 +987,21 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         progress: z.number().min(0).max(100).optional(),
         tags: z.array(z.string()).optional().describe("Replaces the full tag list"),
         dueDate: z.string().nullable().optional(),
+        workKind: z.enum(["task", "initiative", "upkeep"]).optional().describe("Change what kind of card it is. An initiative is never in progress itself."),
         claimedBy: z.string().max(80).optional().describe("Your agent name. With status 'in-progress' it marks you as holding the card, so the board shows who has it. Moving it out of in-progress lets go."),
       },
-      async ({ taskId, title, description, status, priority, progress, tags, dueDate, claimedBy }) => {
+      async ({ taskId, title, description, status, priority, progress, tags, dueDate, claimedBy, workKind }) => {
         try {
           requireMcpScope("write")
           const [step] = await sql`
-            SELECT project_id FROM project_steps WHERE id = ${taskId} AND deleted_at IS NULL
+            SELECT project_id, status, work_kind FROM project_steps WHERE id = ${taskId} AND deleted_at IS NULL
           `
           if (!step) return mcpError("Task not found")
+          const kindAfter = workKind ?? step.work_kind
+          const statusAfter = status ?? step.status
+          if (kindAfter === "initiative" && statusAfter === "in-progress") {
+            return mcpError("An initiative is never in progress itself: put it in Up next (or leave it where it is) and take one of its tasks")
+          }
           await requireMcpProjectWriteAccess(step.project_id)
 
           let statusKind: string | null = null
@@ -1020,6 +1031,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
                 progress = COALESCE(${progress ?? null}, progress),
                 tags = CASE WHEN ${setTags} THEN ${cleanTags}::text[] ELSE tags END,
                 end_date = CASE WHEN ${setDue} THEN ${dueDate ?? null}::timestamp ELSE end_date END,
+                work_kind = COALESCE(${workKind || null}, work_kind),
                 -- In progress only while an agent holds it (lib/work/pipeline.ts): taking it records who, leaving lets go.
                 claimed_by_id = CASE WHEN ${status || null}::text = 'in-progress' THEN COALESCE(${claimedBy || null}, claimed_by_id, 'agent')
                                      WHEN ${status || null}::text IS NOT NULL THEN NULL ELSE claimed_by_id END,

@@ -200,7 +200,11 @@ export async function PATCH(
     // An agent taking a card names itself, so the board shows who holds it (only an agent's key may claim).
     const claimedBy = authType !== "session" && typeof body.claimed_by === "string" && body.claimed_by.trim() ? body.claimed_by.trim().slice(0, 80) : null;
     // Where the card was, so a move into Up next or In progress can send it to an agent (lib/work/pipeline.ts).
-    const [before] = (await sql`SELECT status FROM project_steps WHERE id = ${stepId} AND project_id = ${projectId} AND deleted_at IS NULL`) as { status: string }[];
+    const [before] = (await sql`SELECT status, work_kind FROM project_steps WHERE id = ${stepId} AND project_id = ${projectId} AND deleted_at IS NULL`) as { status: string; work_kind: string | null }[];
+    // An initiative holds tasks; its tasks are worked, so it is never in progress itself (owner, 2026-11-16).
+    if (before && (workKind ?? before.work_kind) === "initiative" && (status ?? before.status) === "in-progress") {
+      return NextResponse.json({ error: "An initiative is never in progress itself: move one of its tasks instead" }, { status: 400 });
+    }
 
     const result = await sql`
       UPDATE project_steps
