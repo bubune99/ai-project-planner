@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
-  STEP_WORD, areaMeaning, cellKind, findControl, freshId, orphans, refOf, sameRef, scoreFlow, shiftSpans, stepState,
+  MAX_WAYS, STEP_WORD, areaMeaning, cellKind, everyStep, findControl, freshId, orphans, refOf, sameRef, scoreFlow, shiftSpans, stepState,
   type ControlRef, type FlowDoc, type PageRecord, type Person, type Step, type StepState,
 } from "@/lib/people/people-model"
 import { shotAt, type Checklist, type Result, type View } from "@/lib/gates/gate-model"
@@ -17,6 +17,7 @@ import { KIND_WORD, LENS, SHIP_FLOOR, handledBy, lowScores, type Coverage, type 
 import { Shots, type Piece } from "./ChecksTab"
 import { stableUrls, type Kept } from "@/lib/gates/stable-urls"
 import { UseCaseFlow } from "./UseCaseFlow"
+import { pathsOf } from "@/lib/people/branches"
 import { Failed, Loading, Seg, ago, useJson } from "./shared"
 
 interface LogEntry { version: number; actor: "owner" | "agent"; lines: string[]; at: string }
@@ -175,7 +176,7 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
   const scores = doc.flows.map((f) => scoreFlow(records, f))
   const total = (k: "n" | "ok" | "gap") => scores.reduce((t, s) => t + s[k], 0)
   const loose = curPage ? orphans(curPage.route, curPage.checklist, doc) : []
-  const allIds = () => [...doc.people, ...doc.personas, ...doc.flows, ...doc.areas, ...doc.flows.flatMap((f) => f.steps)].map((x) => x.id)
+  const allIds = () => [...doc.people, ...doc.personas, ...doc.flows, ...doc.areas, ...doc.flows.flatMap((f) => everyStep(f)), ...doc.flows.flatMap((f) => f.steps.flatMap((s) => s.ways ?? []))].map((x) => x.id)
   const seed = Date.now() % 100000
 
   const imageOf = (page: PageData, key: string) => page.images.find((i) => i.kind === "view" && i.key === key)?.url
@@ -261,6 +262,43 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
     if (!person) return null
     if (!flow) return <p className="opx-muted">No use case is written for {person.name.toLowerCase()} yet. That is the first thing to settle.{can && <> <button type="button" className="opx-pf-add" onClick={addFlow}>Add a use case</button></>}</p>
     const states = flow.steps.map((s) => stepState(records, s))
+    // A step that is a choice lists its ways on: each named, its own steps, and whether it ends the use case or comes back.
+    const choiceBox = (s: Step, i: number) => {
+      const ways = s.ways ?? []
+      if (!ways.length) return null
+      const inWay = (k: number, fn: (w: NonNullable<Step["ways"]>[number], d: FlowDoc) => void) => inFlow((steps, d) => { const w = steps[i].ways?.[k]; if (w) fn(w, d) })
+      return (
+        <div className="opx-pf-choice" role="group" aria-label={`Step ${i + 1}: the ways on`}>
+          <small>A choice. The ways on from here</small>
+          {ways.map((w, k) => (
+            <div key={w.id} className="opx-pf-wayon">
+              <div className="opx-pf-wayhead"><span className="opx-pf-num">{"ABCD"[k]}</span><Ed as="b" value={w.label} label={`Step ${i + 1}, way ${"ABCD"[k]}: its name`} required can={can} onSave={(v) => inWay(k, (x) => { x.label = v })} /></div>
+              {w.steps.map((x, m) => (
+                <div key={x.id} className="opx-pf-waystep">
+                  <Ed as="div" value={x.does} label={`Way ${"ABCD"[k]}, step ${m + 1}: what they do`} required can={can} onSave={(v) => inWay(k, (y) => { y.steps[m].does = v })} />
+                  {controlPick(x.ref, `Way ${"ABCD"[k]}, step ${m + 1}: the control that does it`, (r) => inWay(k, (y) => { y.steps[m].ref = r }))}
+                  {can && <button type="button" className="opx-pf-x" aria-label={`Way ${"ABCD"[k]}, step ${m + 1}: remove it`} onClick={() => inWay(k, (y) => { y.steps.splice(m, 1) })}>Remove</button>}
+                </div>
+              ))}
+              {can && (
+                <div className="opx-pf-tools">
+                  <button type="button" aria-label={`Way ${"ABCD"[k]}: add a step to it`} onClick={() => inWay(k, (y) => { y.steps.push({ id: freshId("s", allIds(), seed), does: "New step: say what the person does", expects: "", data: "", ref: null }) })}>Add a step</button>
+                  <button type="button" aria-pressed={w.ends} aria-label={`Way ${"ABCD"[k]}: ${w.ends ? "it ends the use case; make it come back to the next step" : "it comes back to the next step; make it end the use case"}`} onClick={() => inWay(k, (y) => { y.ends = !y.ends })}>{w.ends ? "Ends the use case" : "Comes back to the next step"}</button>
+                  {ways.length > 2 && <button type="button" aria-label={`Way ${"ABCD"[k]}: remove it`} onClick={() => inFlow((steps) => { steps[i].ways!.splice(k, 1) })}>Remove this way</button>}
+                </div>
+              )}
+              {!can && <small className="opx-muted">{w.ends ? "Ends the use case" : "Comes back to the next step"}</small>}
+            </div>
+          ))}
+          {can && (
+            <div className="opx-pf-tools">
+              {ways.length < MAX_WAYS && <button type="button" aria-label={`Step ${i + 1}: add another way on`} onClick={() => inFlow((steps) => { steps[i].ways!.push({ id: freshId("w", allIds(), seed), label: "Another way", ends: true, steps: [] }) })}>Add a way</button>}
+              <button type="button" aria-label={`Step ${i + 1}: no longer a choice`} onClick={() => inFlow((steps) => { delete steps[i].ways })}>No longer a choice</button>
+            </div>
+          )}
+        </div>
+      )
+    }
     return (
       <div className="opx-pf-two">
         <div className="opx-pf-col">
@@ -300,8 +338,9 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
             {stepsAs === "drawing" && <small className="opx-muted">Press a step to open its card. Steps are changed on the cards.</small>}
           </div>
           {stepsAs === "drawing" && (
-            <UseCaseFlow name={flow.name} steps={flow.steps.map((s, i) => ({ id: s.id, does: s.does, expects: s.expects, state: STEP_WORD[states[i]], dot: DOT[states[i]], picture: pictureOf(s.ref, 264, 132), noPicture: states[i] === "unbuilt" ? "Not built yet" : states[i] === "missing" ? "Not in the latest scan" : "No screenshot of this step yet", tag: span && i === span[0] ? "Starts here" : span && i === span[1] ? "Usually stops here" : null, out: !!span && (i < span[0] || i > span[1]) }))}
-              onOpen={(i) => { setStepsAs("cards"); window.setTimeout(() => { const el = stepsRow.current?.children[i] as HTMLElement | undefined; el?.scrollIntoView({ block: "center", inline: "center", behavior: "instant" as ScrollBehavior }); el?.focus?.() }, 60) }} />
+            <UseCaseFlow name={flow.name} flow={flow}
+              describe={(s) => { const i = flow.steps.indexOf(s), st = stepState(records, s); return { id: s.id, does: s.does, expects: s.expects, state: STEP_WORD[st], dot: DOT[st], picture: pictureOf(s.ref, 264, 132), noPicture: st === "unbuilt" ? "Not built yet" : st === "missing" ? "Not in the latest scan" : "No screenshot of this step yet", tag: span && i >= 0 && i === span[0] ? "Starts here" : span && i >= 0 && i === span[1] ? "Usually stops here" : null, out: !!span && i >= 0 && (i < span[0] || i > span[1]) } }}
+              onOpen={(id) => { const i = flow.steps.findIndex((s) => s.id === id || (s.ways ?? []).some((w) => w.steps.some((x) => x.id === id))); setStepsAs("cards"); window.setTimeout(() => { const el = stepsRow.current?.children[i] as HTMLElement | undefined; el?.scrollIntoView({ block: "center", inline: "center", behavior: "instant" as ScrollBehavior }); el?.focus?.() }, 60) }} />
           )}
           <div className="opx-pf-steps" ref={stepsRow} hidden={stepsAs !== "cards"}>
             {flow.steps.map((s, i) => {
@@ -315,8 +354,13 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
                   <div><small>Expects</small><Ed as="div" value={s.expects} hint="What they expect to happen" label={`Step ${i + 1}: what they expect`} can={can} onSave={set("expects")} /></div>
                   <div><small>Its content</small><Ed as="div" value={s.data} hint="Typed in, worked out, or an action" label={`Step ${i + 1}: where its content comes from`} can={can} onSave={set("data")} /></div>
                   <div><small>What on the page does it</small>{controlPick(s.ref, `Step ${i + 1}: the control that does it`, (r) => inFlow((steps) => { steps[i].ref = r }))}</div>
+                  {choiceBox(s, i)}
                   {can && (
                     <div className="opx-pf-tools">
+                      {!s.ways?.length && <button type="button" aria-label={`Step ${i + 1}: make it a choice with ways on`} onClick={() => inFlow((steps) => { steps[i].ways = [
+                        { id: freshId("w", allIds(), seed), label: "Goes on", ends: false, steps: [] },
+                        { id: freshId("w", [...allIds(), freshId("w", allIds(), seed)], seed), label: "Stops here", ends: true, steps: [] },
+                      ] })}>Make it a choice</button>}
                       <button type="button" aria-label={`Step ${i + 1}: move it earlier`} disabled={i === 0} onClick={() => inFlow((steps) => { const [x] = steps.splice(i, 1); steps.splice(i - 1, 0, x) })}>Earlier</button>
                       <button type="button" aria-label={`Step ${i + 1}: move it later`} disabled={i === flow.steps.length - 1} onClick={() => inFlow((steps) => { const [x] = steps.splice(i, 1); steps.splice(i + 1, 0, x) })}>Later</button>
                       <button type="button" aria-label={`Step ${i + 1}: add a step after it`} onClick={() => inFlow((steps, d) => { steps.splice(i + 1, 0, { id: freshId("s", allIds(), seed), does: "New step: say what the person does", expects: "", data: "", ref: null }); shiftSpans(d.personas, flow.id, i + 1, "inserted") })}>Add a step after</button>
@@ -329,6 +373,15 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
               )
             })}
           </div>
+          {flow.steps.some((s) => (s.ways?.length ?? 0) >= 2) && (
+            <div className="opx-pf-box" data-testid="paths-to-walk">
+              <h4>Paths to walk</h4>
+              <span className="opx-muted">Every way through a choice is walked and proved on its own. The use case is proved when every path is.</span>
+              <ul>{pathsOf(flow).map((p) => { const st = p.steps.map((x) => stepState(records, x)), ok = st.filter((x) => x === "passed").length; return (
+                <li key={p.name}><b>{p.name}</b><span className="opx-muted">{p.steps.length} steps, {ok} verified · {p.ends === "left" ? "the person stops before the end" : "reaches the end"}</span></li>
+              ) })}</ul>
+            </div>
+          )}
           {walkBox(flow.id, flow.name)}
           <div className="opx-pf-box">
             <h4>What this use case asks of the build</h4>

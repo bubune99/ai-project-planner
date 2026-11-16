@@ -26,10 +26,20 @@ export interface Persona {
   /** Per use case: the step this persona starts at and the one they usually stop at (0-based, inclusive). */
   at: Record<string, [number, number]>
 }
-export interface Step { id: string; does: string; expects: string; data: string; ref?: ControlRef | null; note?: string }
+export interface Step { id: string; does: string; expects: string; data: string; ref?: ControlRef | null; note?: string; ways?: Way[] }
+/**
+ * One way on from a choice (owner, 2026-11-16: "a user at check out that has the cart go through or that decides to
+ * end the order"). Its own steps, then it either ends the use case or rejoins the main line at the next step.
+ * Ways hold no further choices. Rules for paths and drawing in lib/people/branches.ts.
+ */
+export interface Way { id: string; label: string; steps: Step[]; ends: boolean }
+export const MAX_WAYS = 4
 export interface UseCase { id: string; who: string; name: string; lens: string; steps: Step[] }
 export interface Area { id: string; route: string; name: string; ref?: ControlRef | null; does: Record<string, string> }
 export interface FlowDoc { people: Person[]; personas: Persona[]; flows: UseCase[]; areas: Area[] }
+
+/** Every step of a use case, the ways' included, in reading order. */
+export const everyStep = (flow: Pick<UseCase, "steps">): Step[] => flow.steps.flatMap((s) => [s, ...(s.ways ?? []).flatMap((w) => w.steps)])
 
 export const emptyDoc = (): FlowDoc => ({ people: [], personas: [], flows: [], areas: [] })
 
@@ -81,15 +91,31 @@ export function parseDoc(raw: unknown): { doc: FlowDoc; errors: string[] } {
   const fIds = new Set<string>()
   const flows = arr(d.flows, "flows").map((f, i) => {
     const o = obj(f), where = `Use case ${i + 1}`, sIds = new Set<string>()
+    // A step on the main line or in a way: the same fields, ids unique across the whole use case. Never a nested choice.
+    const readStep = (s: unknown, sw: string): Step => {
+      const so = obj(s)
+      const step: Step = { id: id(so.id, sw, sIds), does: text(so.does, `${sw} "does"`, true), expects: text(so.expects, `${sw} "expects"`), data: text(so.data, `${sw} "content"`), ref: ref(so.ref, sw) }
+      const note = text(so.note, `${sw} note`)
+      return note ? { ...step, note } : step
+    }
     const who = typeof o.who === "string" ? o.who : ""
     if (!pIds.has(who)) errors.push(`${where} belongs to a person who is not in the list`)
     return {
       id: id(o.id, where, fIds), who, name: text(o.name, `${where} name`, true), lens: text(o.lens, `${where} lens`),
       steps: arr(o.steps, "steps").map((s, k) => {
-        const so = obj(s), sw = `${where}, step ${k + 1}`
-        const step: Step = { id: id(so.id, sw, sIds), does: text(so.does, `${sw} "does"`, true), expects: text(so.expects, `${sw} "expects"`), data: text(so.data, `${sw} "content"`), ref: ref(so.ref, sw) }
-        const note = text(so.note, `${sw} note`)
-        return note ? { ...step, note } : step
+        const sw = `${where}, step ${k + 1}`, step = readStep(s, sw)
+        if (obj(s).ways === undefined) return step
+        if (!Array.isArray(obj(s).ways)) { errors.push(`${sw}: its ways must be a list`); return step }
+        const raw = obj(s).ways as unknown[]
+        if (raw.length > MAX_WAYS) errors.push(`${sw}: a choice has at most ${MAX_WAYS} ways`)
+        if (raw.length === 0) return step
+        if (raw.length === 1) errors.push(`${sw}: a choice needs at least two ways`)
+        const wIds = new Set<string>()
+        const ways: Way[] = raw.slice(0, MAX_WAYS).map((w, j) => {
+          const wo = obj(w), ww = `${sw}, way ${j + 1}`
+          return { id: id(wo.id, ww, wIds), label: text(wo.label, `${ww} name`, true), ends: wo.ends === true, steps: arr(wo.steps, "steps").map((x, m) => readStep(x, `${ww}, step ${m + 1}`)) }
+        })
+        return { ...step, ways }
       }),
     }
   })
@@ -167,14 +193,14 @@ export function stepState(pages: Record<string, PageRecord | undefined>, step: S
 export interface FlowScore { n: number; ok: number; bad: number; open: number; gap: number }
 /** A use case in numbers: steps verified, failing, still being checked, and with nothing behind them. */
 export function scoreFlow(pages: Record<string, PageRecord | undefined>, flow: UseCase): FlowScore {
-  const st = flow.steps.map((s) => stepState(pages, s))
+  const st = everyStep(flow).map((s) => stepState(pages, s))
   return { n: st.length, ok: st.filter((x) => x === "passed").length, bad: st.filter((x) => x === "failed").length, open: st.filter((x) => x === "flagged" || x === "pending").length, gap: st.filter((x) => x === "unbuilt" || x === "missing").length }
 }
 
 /** Controls on a page that no use case reaches. Each is part of a journey nobody wrote down, or something nobody needs. */
 export function orphans(route: string, list: Checklist, doc: FlowDoc): { view: View; control: Control }[] {
   const used = new Set<number>()
-  for (const f of doc.flows) for (const s of f.steps) { const hit = s.ref?.route === route ? findControl(list, s.ref) : null; if (hit) used.add(hit.control.n) }
+  for (const f of doc.flows) for (const s of everyStep(f)) { const hit = s.ref?.route === route ? findControl(list, s.ref) : null; if (hit) used.add(hit.control.n) }
   return list.views.flatMap((view) => view.controls.filter((c) => !CONTENT_KINDS.has(c.kind) && !used.has(c.n)).map((control) => ({ view, control })))
 }
 
@@ -213,10 +239,14 @@ export function describeChanges(before: FlowDoc, after: FlowDoc): string[] {
   group("person", before.people, after.people, [...PERSON_TEXT])
   group("persona", before.personas, after.personas, ["name", "habit", "cares", "at", "who"])
   group("use case", before.flows, after.flows, ["name", "lens", "who"], (x, y) => {
-    const A = byId(x.steps), B = byId(y.steps)
-    for (const s of y.steps) if (!A.has(s.id)) out.push(`Use case "${y.name}": added the step "${s.does}"`)
-    for (const s of x.steps) if (!B.has(s.id)) out.push(`Use case "${y.name}": removed the step "${s.does}"`)
+    const A = byId(everyStep(x)), B = byId(everyStep(y))
     for (const s of y.steps) {
+      const was = (A.get(s.id)?.ways ?? []).map((w) => `${w.label}${w.ends ? " (ends)" : ""}`).join(", "), now = (s.ways ?? []).map((w) => `${w.label}${w.ends ? " (ends)" : ""}`).join(", ")
+      if (A.has(s.id) && was !== now) out.push(now ? `Use case "${y.name}": "${s.does}" is now a choice: ${now}` : `Use case "${y.name}": "${s.does}" is no longer a choice`)
+    }
+    for (const s of everyStep(y)) if (!A.has(s.id)) out.push(`Use case "${y.name}": added the step "${s.does}"`)
+    for (const s of everyStep(x)) if (!B.has(s.id)) out.push(`Use case "${y.name}": removed the step "${s.does}"`)
+    for (const s of everyStep(y)) {
       const p = A.get(s.id)
       if (!p) continue
       const ch = (["does", "expects", "data", "note"] as const).filter((k) => (p[k] ?? "") !== (s[k] ?? ""))

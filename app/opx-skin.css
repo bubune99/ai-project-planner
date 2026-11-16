@@ -1195,3 +1195,10 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
 .opx-ch-mark { position: absolute; border-radius: 6px; box-shadow: 0 0 0 2px #e8590c, 0 0 0 4px rgba(232, 89, 12, .28); background: rgba(232, 89, 12, .10); pointer-events: none; }
 .opx-ch-diff { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; }
 @media (prefers-reduced-motion: no-preference) { .opx-ch-mark { transition: opacity .15s ease; } }
+/* Choices in a use case: the ways on from a step, in its card and in the drawing. */
+.opx-pf-choice { display: grid; gap: 8px; padding: 10px; border-radius: 10px; background: var(--opx-card); }
+.opx-pf-wayon { display: grid; gap: 6px; padding: 8px; border-radius: 8px; background: var(--opx-bg, transparent); }
+.opx-pf-wayhead { display: flex; align-items: center; gap: 8px; }
+.opx-pf-waystep { display: grid; gap: 4px; padding: 6px 0; border-top: 1px solid var(--opx-line, rgba(127,127,127,.2)); }
+.opx-ucf-end { display: grid; place-content: center; gap: 4px; text-align: center; border-radius: 14px; border: 1.5px dashed var(--opx-line, rgba(127,127,127,.5)); background: var(--opx-card); padding: 10px; font-size: 14px; }
+.opx-ucf-end b { font-size: 15px; }

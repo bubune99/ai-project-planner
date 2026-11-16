@@ -142,4 +142,41 @@ ok("a new id never collides with one in use", () => {
   assert.equal(freshId("s", [], 10), "sa")
 })
 
+ok("a step can be a choice with named ways on; each way is read back with its own steps", () => {
+  const raw = JSON.parse(JSON.stringify(doc))
+  raw.flows[0].steps[2].ways = [
+    { id: "w1", label: "Approves", ends: false, steps: [{ id: "w1s", does: "Presses Approve", expects: "", data: "", ref: null }] },
+    { id: "w2", label: "Walks away", ends: true, steps: [] },
+  ]
+  const { doc: out, errors } = parseDoc(raw)
+  assert.deepEqual(errors, [])
+  assert.deepEqual(out.flows[0].steps[2].ways, raw.flows[0].steps[2].ways)
+  assert.equal(out.flows[0].steps[0].ways, undefined, "a plain step stays plain")
+  // Every step counts toward the use case, the ways' included.
+  assert.equal(scoreFlow(page([]), out.flows[0]).n, 4)
+})
+
+ok("a choice is refused when a way has no name, ids repeat, or ways hold further choices", () => {
+  const raw = JSON.parse(JSON.stringify(doc))
+  raw.flows[0].steps[2].ways = [
+    { id: "w1", label: "", ends: false, steps: [{ id: "s1", does: "Again", expects: "", data: "", ref: null, ways: [{ id: "x", label: "X", steps: [] }, { id: "y", label: "Y", steps: [] }] }] },
+    { id: "w2", label: "Leaves", ends: true, steps: [] },
+  ]
+  const { doc: out, errors } = parseDoc(raw)
+  assert.ok(errors.some((e) => /way 1 name is empty/.test(e)), errors.join(" | "))
+  assert.ok(errors.some((e) => /"s1" is used twice/.test(e)), errors.join(" | "))
+  assert.equal((out.flows[0].steps[2].ways![0].steps[0] as { ways?: unknown }).ways, undefined, "no choice inside a way")
+  const five = JSON.parse(JSON.stringify(doc))
+  five.flows[0].steps[0].ways = [1, 2, 3, 4, 5].map((k) => ({ id: `v${k}`, label: `V${k}`, ends: true, steps: [] }))
+  assert.ok(parseDoc(five).errors.some((e) => /at most 4 ways/.test(e)))
+})
+
+ok("changes to the ways are said in words", () => {
+  const after = JSON.parse(JSON.stringify(doc))
+  after.flows[0].steps[2].ways = [{ id: "w1", label: "Approves", ends: false, steps: [{ id: "w1s", does: "Presses Approve", expects: "", data: "", ref: null }] }, { id: "w2", label: "Walks away", ends: true, steps: [] }]
+  const said = describeChanges(doc, after)
+  assert.ok(said.some((s) => /"Approves a change" is now a choice: Approves, Walks away/.test(s)), said.join(" | "))
+  assert.ok(said.some((s) => /added the step "Presses Approve"/.test(s)), said.join(" | "))
+})
+
 console.log(`\n${n} checks passed`)
