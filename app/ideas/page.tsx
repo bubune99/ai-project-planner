@@ -86,9 +86,15 @@ export default function IdeasPage() {
       })
       if (!res.ok) throw new Error("Failed to create idea")
       const data = await res.json()
-      // Optimistically add to local state so it appears immediately
-      if (data.data) {
-        setIdeas((prev) => [data.data, ...prev])
+      // The stage chosen in the dialog was never sent, so every idea started as a seed whatever was chosen.
+      // A new idea is made as a seed by the server; it is then moved to the chosen stage.
+      let made = data.data
+      if (made && newIdea.lifecycle !== "seed") {
+        const mv = await fetch(`/api/ideas/${made.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lifecycle: newIdea.lifecycle }) })
+        if (mv.ok) made = { ...made, lifecycle: newIdea.lifecycle }
+      }
+      if (made) {
+        setIdeas((prev) => [made, ...prev])
       } else {
         fetchIdeas()
       }
