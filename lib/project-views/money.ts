@@ -125,7 +125,7 @@ export const formatMoney = (n: number | null | undefined, currency = "USD") => {
 export function parseAmount(raw: string): { ok: true; value: number } | { ok: false; why: string } {
   const s = raw.trim().replace(/^[$€£₵]\s*/, "").replace(/,(?=\d{3}(\D|$))/g, "")
   if (!s) return { ok: false, why: "Type an amount first, then press Add." }
-  if (s.startsWith("-")) return { ok: false, why: "Amounts are positive. To record money going out, use the other list." }
+  if (s.startsWith("-")) return { ok: false, why: "Amounts are positive numbers, like 12.50." }
   if (!/^\d+(\.\d{1,2})?$/.test(s) && !/^\.\d{1,2}$/.test(s)) return { ok: false, why: `"${raw.trim()}" is not an amount. Use digits, like 12.50.` }
   return { ok: true, value: Math.round(Number(s) * 100) / 100 }
 }
