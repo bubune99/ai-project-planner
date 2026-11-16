@@ -133,7 +133,7 @@ function layoutNodes(graph: GraphResponse): { nodes: Node[]; edges: Edge[] } {
     source: e.source,
     target: e.target,
     label: e.type,
-    labelStyle: { fontSize: 9, fill: "#94a3b8", fontFamily: "inherit" },
+    labelStyle: { fontSize: 12, fill: "#94a3b8", fontFamily: "inherit" },
     labelBgPadding: [4, 2],
     labelBgBorderRadius: 3,
     labelBgStyle: { fill: "rgba(15, 23, 42, 0.7)" },
@@ -314,7 +314,7 @@ export default function KnowledgeGraphPage() {
               )}
             </div>
             {focusedEntity && (
-              <div style={{ fontSize: 10, color: "var(--j-muted, #94a3b8)", marginTop: 4 }}>
+              <div style={{ fontSize: 12, color: "var(--j-muted, #94a3b8)", marginTop: 4 }}>
                 Focused: {focusedEntity.type}/{focusedEntity.id.slice(0, 8)} (2-hop view)
               </div>
             )}
@@ -374,7 +374,7 @@ export default function KnowledgeGraphPage() {
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 10, color: "var(--j-muted, #94a3b8)", textTransform: "uppercase", letterSpacing: 1 }}>
+              <span style={{ fontSize: 12, color: "var(--j-muted, #94a3b8)", textTransform: "uppercase", letterSpacing: 1 }}>
                 {selectedNode.type}
               </span>
               <button onClick={() => setSelectedNode(null)} style={iconBtnStyle}>
@@ -390,7 +390,7 @@ export default function KnowledgeGraphPage() {
               </p>
             )}
             {Object.keys(selectedNode.metadata).length > 0 && (
-              <div style={{ marginTop: 12, fontSize: 11 }}>
+              <div style={{ marginTop: 12, fontSize: 12 }}>
                 {Object.entries(selectedNode.metadata).map(([k, v]) => (
                   <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
                     <span style={{ color: "var(--j-muted, #94a3b8)" }}>{k}</span>
@@ -405,7 +405,7 @@ export default function KnowledgeGraphPage() {
               <button onClick={focusOnSelected} style={{ ...btnStyle, justifyContent: "center" }}>
                 Focus on this node (2-hop)
               </button>
-              <div style={{ fontSize: 10, color: "var(--j-muted, #94a3b8)", marginTop: 4 }}>
+              <div style={{ fontSize: 12, color: "var(--j-muted, #94a3b8)", marginTop: 4 }}>
                 ID: <code>{selectedNode.id}</code>
               </div>
             </div>
@@ -438,7 +438,7 @@ const iconBtnStyle: React.CSSProperties = {
 }
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 10,
+  fontSize: 12,
   textTransform: "uppercase",
   letterSpacing: 1,
   color: "var(--j-muted, #94a3b8)",
@@ -462,7 +462,7 @@ function chipStyle(active: boolean, accent?: string): React.CSSProperties {
     border: `1px solid ${active ? accent ?? "var(--j-accent, #3b82f6)" : "var(--j-border, #334155)"}`,
     borderRadius: 12,
     color: active ? accent ?? "var(--j-accent, #3b82f6)" : "var(--j-muted, #94a3b8)",
-    fontSize: 10,
+    fontSize: 12,
     cursor: "pointer",
     fontFamily: "inherit",
   }

@@ -171,8 +171,8 @@ export default function ProtocolsPage() {
 
   const textareaStyle: React.CSSProperties = {
     width: "100%",
-    background: "oklch(1 0 0 / 0.04)",
-    color: "oklch(0.985 0 0)",
+    background: "var(--opx-soft)",
+    color: "var(--opx-ink)",
     border: "none",
     boxShadow: "0 0 0 1px var(--j-ring)",
     borderRadius: 8,
@@ -190,11 +190,11 @@ export default function ProtocolsPage() {
           <div className="j-col" style={{ gap: 2 }}>
             <div className="j-row" style={{ gap: 8 }}>
               <span className="j-muted" style={{ fontSize: 13 }}>
-                <a href="/library" style={{ color: "oklch(0.556 0 0)", textDecoration: "none" }}>Library</a>
+                <a href="/library" style={{ color: "var(--opx-muted)", textDecoration: "none" }}>Library</a>
                 {" / "}
               </span>
               <h1 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Protocols</h1>
-              <span className="j-pill j-ghost" style={{ fontSize: 11 }}>{counts.total}</span>
+              <span className="j-pill j-ghost" style={{ fontSize: 12 }}>{counts.total}</span>
             </div>
           </div>
           <button className="j-btn j-btn-primary" onClick={() => { setShowNew(true); setErr(null) }}>
@@ -343,16 +343,16 @@ export default function ProtocolsPage() {
                     </p>
                     <div className="j-row j-wrap" style={{ gap: 4 }}>
                       {proto.category && (
-                        <span className="j-pill j-proj" style={{ fontSize: 10 }}>{proto.category}</span>
+                        <span className="j-pill j-proj" style={{ fontSize: 12 }}>{proto.category}</span>
                       )}
-                      <span className={`j-pill ${STATUS_PILL[proto.status]}`} style={{ fontSize: 10 }}>
+                      <span className={`j-pill ${STATUS_PILL[proto.status]}`} style={{ fontSize: 12 }}>
                         {proto.status}
                       </span>
-                      <span className={`j-pill ${SEVERITY_PILL[proto.violationSeverity]}`} style={{ fontSize: 10 }}>
+                      <span className={`j-pill ${SEVERITY_PILL[proto.violationSeverity]}`} style={{ fontSize: 12 }}>
                         {proto.violationSeverity}
                       </span>
                       {proto.triggeredCount > 0 && (
-                        <span className="j-pill j-ghost" style={{ fontSize: 10 }}>
+                        <span className="j-pill j-ghost" style={{ fontSize: 12 }}>
                           ×{proto.triggeredCount}
                         </span>
                       )}
@@ -402,22 +402,22 @@ export default function ProtocolsPage() {
                     )}
                     <div className="j-row j-wrap" style={{ gap: 6 }}>
                       {/* Prominent protocol meta */}
-                      <span className="j-pill j-info" style={{ fontSize: 11 }}>
+                      <span className="j-pill j-info" style={{ fontSize: 12 }}>
                         trigger: {selected.triggerEvent}
                       </span>
-                      <span className={`j-pill ${SEVERITY_PILL[selected.violationSeverity]}`} style={{ fontSize: 11 }}>
+                      <span className={`j-pill ${SEVERITY_PILL[selected.violationSeverity]}`} style={{ fontSize: 12 }}>
                         {selected.violationSeverity}
                       </span>
                       {selected.autoAction && (
-                        <span className="j-pill j-ghost" style={{ fontSize: 11 }}>
+                        <span className="j-pill j-ghost" style={{ fontSize: 12 }}>
                           auto: {selected.autoAction}
                         </span>
                       )}
-                      <span className={`j-pill ${STATUS_PILL[selected.status]}`} style={{ fontSize: 11 }}>
+                      <span className={`j-pill ${STATUS_PILL[selected.status]}`} style={{ fontSize: 12 }}>
                         {selected.status}
                       </span>
-                      <span className="j-pill j-ghost" style={{ fontSize: 11 }}>v{selected.version}</span>
-                      <span className="j-pill j-ghost" style={{ fontSize: 11 }}>
+                      <span className="j-pill j-ghost" style={{ fontSize: 12 }}>v{selected.version}</span>
+                      <span className="j-pill j-ghost" style={{ fontSize: 12 }}>
                         Updated {formatDistanceToNow(new Date(selected.updatedAt), { addSuffix: true })}
                       </span>
                     </div>
@@ -429,11 +429,11 @@ export default function ProtocolsPage() {
 
                 {/* Stats */}
                 <div className="j-row j-wrap" style={{ gap: 8, marginTop: 10 }}>
-                  <span className="j-pill j-ghost" style={{ fontSize: 11 }}>Triggered: {selected.triggeredCount}</span>
-                  <span className={`j-pill ${selected.violatedCount > 0 ? "j-warn" : "j-ghost"}`} style={{ fontSize: 11 }}>
+                  <span className="j-pill j-ghost" style={{ fontSize: 12 }}>Triggered: {selected.triggeredCount}</span>
+                  <span className={`j-pill ${selected.violatedCount > 0 ? "j-warn" : "j-ghost"}`} style={{ fontSize: 12 }}>
                     Violated: {selected.violatedCount}
                   </span>
-                  <span className={`j-pill ${selected.blockedCount > 0 ? "j-neg" : "j-ghost"}`} style={{ fontSize: 11 }}>
+                  <span className={`j-pill ${selected.blockedCount > 0 ? "j-neg" : "j-ghost"}`} style={{ fontSize: 12 }}>
                     Blocked: {selected.blockedCount}
                   </span>
                 </div>
@@ -445,7 +445,7 @@ export default function ProtocolsPage() {
                       <>
                         <span className="j-muted" style={{ fontSize: 12 }}>Types:</span>
                         {selected.appliesToTypes.map(t => (
-                          <span key={t} className="j-pill j-proj" style={{ fontSize: 11 }}>{t}</span>
+                          <span key={t} className="j-pill j-proj" style={{ fontSize: 12 }}>{t}</span>
                         ))}
                       </>
                     )}
@@ -453,7 +453,7 @@ export default function ProtocolsPage() {
                       <>
                         <span className="j-muted" style={{ fontSize: 12, marginLeft: 4 }}>Categories:</span>
                         {selected.appliesToCategories.map(c => (
-                          <span key={c} className="j-pill j-ghost" style={{ fontSize: 11 }}>{c}</span>
+                          <span key={c} className="j-pill j-ghost" style={{ fontSize: 12 }}>{c}</span>
                         ))}
                       </>
                     )}
@@ -465,11 +465,11 @@ export default function ProtocolsPage() {
                 {/* Description inline edit */}
                 <div className="j-col" style={{ gap: 4 }}>
                   <div className="j-row j-between">
-                    <label style={{ fontSize: 11, fontWeight: 600, color: "oklch(0.556 0 0)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--opx-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                       Description
                     </label>
                     {editField !== "description" && (
-                      <button className="j-btn j-btn-ghost" style={{ padding: "2px 8px", fontSize: 11 }}
+                      <button className="j-btn j-btn-ghost" style={{ padding: "2px 8px", fontSize: 12 }}
                         onClick={() => { setEditField("description"); setEditValue(selected.description) }}>
                         <Icon name="cog" size={11} /> Edit
                       </button>
@@ -500,11 +500,11 @@ export default function ProtocolsPage() {
                 {/* Rule body inline edit */}
                 <div className="j-col" style={{ gap: 4, marginTop: 12 }}>
                   <div className="j-row j-between">
-                    <label style={{ fontSize: 11, fontWeight: 600, color: "oklch(0.556 0 0)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--opx-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                       Rule body
                     </label>
                     {editField !== "ruleBody" && (
-                      <button className="j-btn j-btn-ghost" style={{ padding: "2px 8px", fontSize: 11 }}
+                      <button className="j-btn j-btn-ghost" style={{ padding: "2px 8px", fontSize: 12 }}
                         onClick={() => { setEditField("ruleBody"); setEditValue(selected.ruleBody) }}>
                         <Icon name="cog" size={11} /> Edit
                       </button>
@@ -526,7 +526,7 @@ export default function ProtocolsPage() {
                     </div>
                   ) : (
                     <pre
-                      style={{ margin: 0, fontSize: 12, lineHeight: 1.6, fontFamily: "inherit", whiteSpace: "pre-wrap", cursor: "text", color: "oklch(0.860 0 0)" }}
+                      style={{ margin: 0, fontSize: 12, lineHeight: 1.6, fontFamily: "inherit", whiteSpace: "pre-wrap", cursor: "text", color: "var(--opx-ink)" }}
                       onClick={() => { setEditField("rule_body"); setEditValue(selected.ruleBody) }}
                     >
                       {selected.ruleBody || "(empty)"}

@@ -60,7 +60,7 @@ export default function MemoryPage() {
     <DashboardLayout>
       <div className="j-content j-col j-gap-4">
         {/* Stats strip */}
-        <div className="j-grid j-cols-3">
+        <div className="opx-fit">
           <div className="j-card j-tight">
             <div className="j-eyebrow">Total memory items</div>
             <div className="j-row j-between" style={{ marginTop: 8, alignItems: "flex-end" }}>
@@ -116,7 +116,7 @@ export default function MemoryPage() {
 
         {/* Memory layers grid */}
         {!error && (
-          <div className="j-grid j-cols-3">
+          <div className="opx-fit">
             {isLoading ? (
               [1,2,3,4,5,6].map(i => <MemoryLayerSkeleton key={i} />)
             ) : overview ? (
@@ -142,7 +142,7 @@ export default function MemoryPage() {
                 <span className="j-pill j-muted">{overview.settings.maxTokensPerRequest?.toLocaleString() ?? "—"} tokens/req</span>
               </div>
             </div>
-            <div className="j-grid j-cols-3" style={{ marginTop: 12 }}>
+            <div className="opx-fit" style={{ marginTop: 12 }}>
               <div className="j-col" style={{ gap: 4 }}>
                 <span className="j-eyebrow">Decision retention</span>
                 <span style={{ fontSize: 14 }}>{overview.settings.retentionDecisions ?? 90} days</span>

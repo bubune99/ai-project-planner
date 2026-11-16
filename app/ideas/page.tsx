@@ -180,16 +180,16 @@ export default function IdeasPage() {
 
       {/* Create idea dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="bg-black/95 border-white/10 sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle className="text-white">New idea</DialogTitle>
-            <DialogDescription className="text-gray-400">
+            <DialogTitle>New idea</DialogTitle>
+            <DialogDescription>
               Capture a new idea. You can add more details and facets later.
             </DialogDescription>
           </DialogHeader>
           <div className="j-col j-gap-3" style={{ paddingTop: 8, paddingBottom: 8 }}>
             <div className="j-col" style={{ gap: 6 }}>
-              <Label htmlFor="title" className="text-white" style={{ fontSize: 12 }}>
+              <Label htmlFor="title" style={{ fontSize: 12 }}>
                 Title *
               </Label>
               <input
@@ -197,11 +197,11 @@ export default function IdeasPage() {
                 placeholder="What's your idea?"
                 style={{
                   width: "100%",
-                  background: "oklch(1 0 0 / 0.04)",
+                  background: "var(--opx-soft)",
                   border: "1px solid var(--j-ring)",
                   borderRadius: 8,
                   padding: "8px 12px",
-                  color: "oklch(0.860 0 0)",
+                  color: "var(--opx-ink)",
                   fontSize: 13,
                   fontFamily: "inherit",
                   outline: "none",
@@ -212,7 +212,7 @@ export default function IdeasPage() {
               />
             </div>
             <div className="j-col" style={{ gap: 6 }}>
-              <Label htmlFor="description" className="text-white" style={{ fontSize: 12 }}>
+              <Label htmlFor="description" style={{ fontSize: 12 }}>
                 Description
               </Label>
               <textarea
@@ -221,11 +221,11 @@ export default function IdeasPage() {
                 rows={3}
                 style={{
                   width: "100%",
-                  background: "oklch(1 0 0 / 0.04)",
+                  background: "var(--opx-soft)",
                   border: "1px solid var(--j-ring)",
                   borderRadius: 8,
                   padding: "8px 12px",
-                  color: "oklch(0.860 0 0)",
+                  color: "var(--opx-ink)",
                   fontSize: 13,
                   resize: "vertical",
                   fontFamily: "inherit",
@@ -237,17 +237,17 @@ export default function IdeasPage() {
             </div>
             <div className="j-grid j-cols-2">
               <div className="j-col" style={{ gap: 6 }}>
-                <Label htmlFor="category" className="text-white" style={{ fontSize: 12 }}>
+                <Label htmlFor="category" style={{ fontSize: 12 }}>
                   Category
                 </Label>
                 <select
                   id="category"
                   style={{
-                    background: "oklch(1 0 0 / 0.04)",
+                    background: "var(--opx-soft)",
                     border: "1px solid var(--j-ring)",
                     borderRadius: 8,
                     padding: "8px 12px",
-                    color: "oklch(0.860 0 0)",
+                    color: "var(--opx-ink)",
                     fontSize: 13,
                     fontFamily: "inherit",
                     outline: "none",
@@ -266,7 +266,7 @@ export default function IdeasPage() {
                 </select>
               </div>
               <div className="j-col" style={{ gap: 6 }}>
-                <Label htmlFor="tags" className="text-white" style={{ fontSize: 12 }}>
+                <Label htmlFor="tags" style={{ fontSize: 12 }}>
                   Tags
                 </Label>
                 <input
@@ -274,11 +274,11 @@ export default function IdeasPage() {
                   placeholder="tag1, tag2, tag3"
                   style={{
                     width: "100%",
-                    background: "oklch(1 0 0 / 0.04)",
+                    background: "var(--opx-soft)",
                     border: "1px solid var(--j-ring)",
                     borderRadius: 8,
                     padding: "8px 12px",
-                    color: "oklch(0.860 0 0)",
+                    color: "var(--opx-ink)",
                     fontSize: 13,
                     fontFamily: "inherit",
                     outline: "none",
@@ -289,17 +289,17 @@ export default function IdeasPage() {
               </div>
             </div>
             <div className="j-col" style={{ gap: 6 }}>
-              <Label htmlFor="lifecycle" className="text-white" style={{ fontSize: 12 }}>
+              <Label htmlFor="lifecycle" style={{ fontSize: 12 }}>
                 Start in column
               </Label>
               <select
                 id="lifecycle"
                 style={{
-                  background: "oklch(1 0 0 / 0.04)",
+                  background: "var(--opx-soft)",
                   border: "1px solid var(--j-ring)",
                   borderRadius: 8,
                   padding: "8px 12px",
-                  color: "oklch(0.860 0 0)",
+                  color: "var(--opx-ink)",
                   fontSize: 13,
                   fontFamily: "inherit",
                   outline: "none",

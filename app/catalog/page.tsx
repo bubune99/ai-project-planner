@@ -78,11 +78,11 @@ function relTime(iso: string | null): string {
 function SectionLabel({ label }: { label: string }) {
   return (
     <div style={{
-      fontSize: 10,
+      fontSize: 12,
       fontWeight: 700,
       textTransform: "uppercase",
       letterSpacing: "0.07em",
-      color: "oklch(0.556 0 0)",
+      color: "var(--opx-muted)",
       marginBottom: 6,
       marginTop: 14,
       borderTop: "1px solid var(--j-hairline)",
@@ -106,10 +106,10 @@ function DepRow({ dep, direction, onNavigate }: DepRowProps) {
   return (
     <div className="j-row j-between" style={{ gap: 8, padding: "5px 0", borderBottom: "1px solid var(--j-hairline)" }}>
       <div className="j-row" style={{ gap: 6, minWidth: 0 }}>
-        <span className="j-pill j-ghost" style={{ fontSize: 10, flexShrink: 0 }}>{dep.kind}</span>
+        <span className="j-pill j-ghost" style={{ fontSize: 12, flexShrink: 0 }}>{dep.kind}</span>
         <button
           className="j-btn j-btn-ghost"
-          style={{ padding: "1px 6px", fontSize: 11, fontFamily: "inherit", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          style={{ padding: "1px 6px", fontSize: 12, fontFamily: "inherit", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
           onClick={() => onNavigate(targetId)}
           title={targetId}
         >
@@ -117,7 +117,7 @@ function DepRow({ dep, direction, onNavigate }: DepRowProps) {
         </button>
       </div>
       {dep.confidence != null && (
-        <span className="j-pill j-ghost" style={{ fontSize: 10, flexShrink: 0 }}>
+        <span className="j-pill j-ghost" style={{ fontSize: 12, flexShrink: 0 }}>
           {Math.round(dep.confidence * 100)}%
         </span>
       )}
@@ -130,7 +130,7 @@ function DepRow({ dep, direction, onNavigate }: DepRowProps) {
 function ScanEventRow({ ev }: { ev: CatalogScanEvent }) {
   return (
     <div className="j-row" style={{ gap: 8, padding: "5px 0", borderBottom: "1px solid var(--j-hairline)", alignItems: "flex-start" }}>
-      <span className="j-pill j-ghost" style={{ fontSize: 10, flexShrink: 0, marginTop: 1 }}>{ev.scan_type}</span>
+      <span className="j-pill j-ghost" style={{ fontSize: 12, flexShrink: 0, marginTop: 1 }}>{ev.scan_type}</span>
       <div className="j-col" style={{ gap: 2, minWidth: 0 }}>
         <div className="j-row j-wrap" style={{ gap: 6 }}>
           {ev.commit_sha && (
@@ -138,16 +138,16 @@ function ScanEventRow({ ev }: { ev: CatalogScanEvent }) {
               href={githubCommitUrl(ev.commit_sha)}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ fontFamily: "inherit", fontSize: 11, color: "var(--j-accent, #3b82f6)" }}
+              style={{ fontFamily: "inherit", fontSize: 12, color: "var(--j-accent, #3b82f6)" }}
             >
               {shortSha(ev.commit_sha)}
             </a>
           )}
           {ev.triggered_by && (
-            <span className="j-pill j-ghost" style={{ fontSize: 10 }}>{ev.triggered_by}</span>
+            <span className="j-pill j-ghost" style={{ fontSize: 12 }}>{ev.triggered_by}</span>
           )}
         </div>
-        <span className="j-muted" style={{ fontSize: 11 }}>{relTime(ev.scanned_at)}</span>
+        <span className="j-muted" style={{ fontSize: 12 }}>{relTime(ev.scanned_at)}</span>
       </div>
     </div>
   )
@@ -209,8 +209,8 @@ function MarkStaleDialog({
             onChange={e => setReason(e.target.value)}
             style={{
               width: "100%",
-              background: "oklch(1 0 0 / 0.04)",
-              color: "oklch(0.985 0 0)",
+              background: "var(--opx-soft)",
+              color: "var(--opx-ink)",
               border: "none",
               boxShadow: "0 0 0 1px var(--j-ring)",
               borderRadius: 8,
@@ -220,7 +220,7 @@ function MarkStaleDialog({
               fontFamily: "inherit",
             }}
           />
-          {err && <span className="j-pill j-neg" style={{ fontSize: 11, alignSelf: "flex-start" }}>{err}</span>}
+          {err && <span className="j-pill j-neg" style={{ fontSize: 12, alignSelf: "flex-start" }}>{err}</span>}
           <div className="j-row" style={{ gap: 8 }}>
             <button className="j-btn j-btn-primary" onClick={submit} disabled={saving}>
               {saving ? "Saving…" : "Mark stale"}
@@ -313,14 +313,14 @@ function DetailPane({ surface, onClose, onNavigate, onRefresh }: DetailPaneProps
                 {surface.canonical_id}
               </code>
               <div className="j-row j-wrap" style={{ gap: 6 }}>
-                <span className={`j-pill ${KIND_PILL[surface.kind] ?? "j-ghost"}`} style={{ fontSize: 10 }}>
+                <span className={`j-pill ${KIND_PILL[surface.kind] ?? "j-ghost"}`} style={{ fontSize: 12 }}>
                   {surface.kind}
                 </span>
-                <span className={`j-pill ${STATUS_PILL[surface.status]}`} style={{ fontSize: 10 }}>
+                <span className={`j-pill ${STATUS_PILL[surface.status]}`} style={{ fontSize: 12 }}>
                   {surface.status}
                 </span>
                 {surface.deleted_at && (
-                  <span className="j-pill j-neg" style={{ fontSize: 10 }}>
+                  <span className="j-pill j-neg" style={{ fontSize: 12 }}>
                     deprecated {relTime(surface.deleted_at)}
                   </span>
                 )}
@@ -362,45 +362,45 @@ function DetailPane({ surface, onClose, onNavigate, onRefresh }: DetailPaneProps
                 style={{ fontFamily: "inherit", fontSize: 12, color: "var(--j-accent, #3b82f6)", wordBreak: "break-all" }}
               >
                 {filePath}
-                {lineStart != null && <span style={{ color: "oklch(0.556 0 0)" }}>#{lineStart}{lineEnd && lineEnd !== lineStart ? `–${lineEnd}` : ""}</span>}
+                {lineStart != null && <span style={{ color: "var(--opx-muted)" }}>#{lineStart}{lineEnd && lineEnd !== lineStart ? `–${lineEnd}` : ""}</span>}
               </a>
             </div>
           ) : (
             <span className="j-muted" style={{ fontSize: 12 }}>No file path recorded</span>
           )}
           {loc.url_pattern && (
-            <code style={{ fontSize: 12, fontFamily: "inherit", color: "oklch(0.860 0 0)", marginTop: 4, display: "block" }}>
+            <code style={{ fontSize: 12, fontFamily: "inherit", color: "var(--opx-ink)", marginTop: 4, display: "block" }}>
               {loc.url_pattern as string}
             </code>
           )}
 
           {/* Signature */}
           <SectionLabel label="Signature" />
-          <div style={{ fontSize: 11 }}>
+          <div style={{ fontSize: 12 }}>
             <button
               className="j-btn j-btn-ghost"
-              style={{ padding: "2px 8px", fontSize: 11, marginBottom: 6 }}
+              style={{ padding: "2px 8px", fontSize: 12, marginBottom: 6 }}
               onClick={() => setSigExpanded(v => !v)}
             >
               {sigExpanded ? "Collapse" : "Expand"} signature
             </button>
             {sigExpanded && (
               <pre style={{
-                background: "oklch(1 0 0 / 0.03)",
+                background: "var(--opx-soft)",
                 borderRadius: 6,
                 padding: 10,
                 overflow: "auto",
                 maxHeight: 240,
-                fontSize: 11,
+                fontSize: 12,
                 fontFamily: "inherit",
-                color: "oklch(0.760 0 0)",
+                color: "var(--opx-muted)",
                 margin: 0,
               }}>
                 {JSON.stringify(surface.signature, null, 2)}
               </pre>
             )}
             {surface.content_hash && (
-              <span className="j-muted" style={{ fontSize: 10, display: "block", marginTop: 4 }}>
+              <span className="j-muted" style={{ fontSize: 12, display: "block", marginTop: 4 }}>
                 sha256: <code>{surface.content_hash.slice(0, 16)}…</code>
               </span>
             )}
@@ -436,7 +436,7 @@ function DetailPane({ surface, onClose, onNavigate, onRefresh }: DetailPaneProps
             )}
 
             <span className="j-muted">Last verified</span>
-            <span style={{ color: "oklch(0.860 0 0)" }}>
+            <span style={{ color: "var(--opx-ink)" }}>
               {relTime(surface.last_verified_at)}
               {surface.last_verified_method && (
                 <span className="j-muted" style={{ marginLeft: 6 }}>via {surface.last_verified_method}</span>
@@ -455,7 +455,7 @@ function DetailPane({ surface, onClose, onNavigate, onRefresh }: DetailPaneProps
           ) : (
             <div className="j-col" style={{ gap: 10 }}>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "oklch(0.556 0 0)", marginBottom: 4 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--opx-muted)", marginBottom: 4 }}>
                   Outgoing ({outDeps.length})
                 </div>
                 {outDeps.length === 0 ? (
@@ -465,7 +465,7 @@ function DetailPane({ surface, onClose, onNavigate, onRefresh }: DetailPaneProps
                 )}
               </div>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "oklch(0.556 0 0)", marginBottom: 4 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--opx-muted)", marginBottom: 4 }}>
                   Incoming ({inDeps.length})
                 </div>
                 {inDeps.length === 0 ? (
@@ -528,14 +528,14 @@ function SurfaceRow({ surface, selected, onClick }: { surface: Surface; selected
         {surface.canonical_id}
       </code>
       <div className="j-row j-wrap" style={{ gap: 4 }}>
-        <span className={`j-pill ${KIND_PILL[surface.kind] ?? "j-ghost"}`} style={{ fontSize: 10 }}>
+        <span className={`j-pill ${KIND_PILL[surface.kind] ?? "j-ghost"}`} style={{ fontSize: 12 }}>
           {surface.kind}
         </span>
-        <span className={`j-pill ${STATUS_PILL[surface.status]}`} style={{ fontSize: 10 }}>
+        <span className={`j-pill ${STATUS_PILL[surface.status]}`} style={{ fontSize: 12 }}>
           {surface.status}
         </span>
         {surface.last_verified_at && (
-          <span className="j-pill j-ghost" style={{ fontSize: 10 }}>
+          <span className="j-pill j-ghost" style={{ fontSize: 12 }}>
             {relTime(surface.last_verified_at)}
           </span>
         )}
@@ -650,13 +650,13 @@ export default function CatalogPage() {
         <div className="j-row j-between j-wrap" style={{ gap: 12 }}>
           <div className="j-row" style={{ gap: 8 }}>
             <h1 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Catalog</h1>
-            <span className="j-pill j-ghost" style={{ fontSize: 11 }}>{total}</span>
+            <span className="j-pill j-ghost" style={{ fontSize: 12 }}>{total}</span>
             {lastScan && (
               <div className="j-row" style={{ gap: 6 }}>
-                <span className="j-muted" style={{ fontSize: 11 }}>
+                <span className="j-muted" style={{ fontSize: 12 }}>
                   Last scan {relTime(lastScan.scanned_at)}
                 </span>
-                <span className="j-pill j-ghost" style={{ fontSize: 10 }}>{lastScan.scan_type}</span>
+                <span className="j-pill j-ghost" style={{ fontSize: 12 }}>{lastScan.scan_type}</span>
               </div>
             )}
           </div>
@@ -675,11 +675,11 @@ export default function CatalogPage() {
                 onClick={() => toggleKind(k as SurfaceKind)}
                 style={{
                   padding: "2px 8px",
-                  background: kinds.includes(k as SurfaceKind) ? "oklch(0.35 0.08 260)" : "transparent",
-                  border: `1px solid ${kinds.includes(k as SurfaceKind) ? "oklch(0.55 0.15 260)" : "var(--j-hairline)"}`,
+                  background: kinds.includes(k as SurfaceKind) ? "color-mix(in srgb, var(--opx-accent) 22%, transparent)" : "transparent",
+                  border: `1px solid ${kinds.includes(k as SurfaceKind) ? "var(--opx-accent)" : "var(--j-hairline)"}`,
                   borderRadius: 12,
-                  color: kinds.includes(k as SurfaceKind) ? "oklch(0.85 0.12 260)" : "oklch(0.556 0 0)",
-                  fontSize: 10,
+                  color: kinds.includes(k as SurfaceKind) ? "var(--opx-ink)" : "var(--opx-muted)",
+                  fontSize: 12,
                   cursor: "pointer",
                   fontFamily: "inherit",
                 }}

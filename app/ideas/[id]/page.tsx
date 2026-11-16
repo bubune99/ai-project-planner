@@ -183,7 +183,7 @@ function EmptyState({ msg }: { msg: string }) {
       style={{
         textAlign: "center",
         padding: "40px 16px",
-        color: "oklch(0.420 0 0)",
+        color: "var(--opx-muted)",
         fontSize: 13,
         border: "1px dashed var(--j-hairline)",
         borderRadius: 10,
@@ -203,7 +203,7 @@ function LoadingRows() {
           style={{
             height: 56,
             borderRadius: 8,
-            background: "oklch(1 0 0 / 0.04)",
+            background: "var(--opx-soft)",
             animation: "j-pulse 1.4s ease-in-out infinite",
           }}
         />
@@ -259,12 +259,12 @@ function InlineTitle({
           fontSize: 22,
           fontWeight: 500,
           letterSpacing: "-0.02em",
-          background: "oklch(1 0 0 / 0.04)",
+          background: "var(--opx-soft)",
           border: "none",
           boxShadow: "0 0 0 1px var(--j-ring)",
           borderRadius: 8,
           padding: "4px 10px",
-          color: "oklch(0.985 0 0)",
+          color: "var(--opx-ink)",
           outline: "none",
           fontFamily: "inherit",
           width: "100%",
@@ -337,8 +337,8 @@ function OverviewTab({
               onChange={(e) => setDesc(e.target.value)}
               style={{
                 width: "100%",
-                background: "oklch(1 0 0 / 0.04)",
-                color: "oklch(0.985 0 0)",
+                background: "var(--opx-soft)",
+                color: "var(--opx-ink)",
                 border: "none",
                 boxShadow: "0 0 0 1px var(--j-ring)",
                 borderRadius: 8,
@@ -409,7 +409,7 @@ function OverviewTab({
               <div className="j-eyebrow" style={{ marginBottom: 4 }}>
                 {row.label}
               </div>
-              <span style={{ fontSize: 13, color: "oklch(0.860 0 0)" }}>
+              <span style={{ fontSize: 13, color: "var(--opx-ink)" }}>
                 {row.value}
               </span>
             </div>
@@ -531,7 +531,7 @@ function FacetsTab({
       {showNew && (
         <div
           className="j-card"
-          style={{ background: "oklch(1 0 0 / 0.03)" }}
+          style={{ background: "var(--opx-soft)" }}
         >
           <div className="j-card-head">
             <p className="j-card-title">Add facet</p>
@@ -540,9 +540,9 @@ function FacetsTab({
             <div className="j-col" style={{ gap: 4 }}>
               <label
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 600,
-                  color: "oklch(0.556 0 0)",
+                  color: "var(--opx-muted)",
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
                 }}
@@ -553,13 +553,13 @@ function FacetsTab({
                 value={newType}
                 onChange={(e) => setNewType(e.target.value)}
                 style={{
-                  background: "oklch(1 0 0 / 0.04)",
+                  background: "var(--opx-soft)",
                   border: "none",
                   boxShadow: "0 0 0 1px var(--j-ring)",
                   borderRadius: 8,
                   padding: "7px 10px",
                   fontSize: 13,
-                  color: "oklch(0.860 0 0)",
+                  color: "var(--opx-ink)",
                   fontFamily: "inherit",
                   outline: "none",
                 }}
@@ -574,9 +574,9 @@ function FacetsTab({
             <div className="j-col" style={{ gap: 4 }}>
               <label
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 600,
-                  color: "oklch(0.556 0 0)",
+                  color: "var(--opx-muted)",
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
                 }}
@@ -588,13 +588,13 @@ function FacetsTab({
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="e.g. Competitive analysis"
                 style={{
-                  background: "oklch(1 0 0 / 0.04)",
+                  background: "var(--opx-soft)",
                   border: "none",
                   boxShadow: "0 0 0 1px var(--j-ring)",
                   borderRadius: 8,
                   padding: "7px 10px",
                   fontSize: 13,
-                  color: "oklch(0.860 0 0)",
+                  color: "var(--opx-ink)",
                   fontFamily: "inherit",
                   outline: "none",
                   width: "100%",
@@ -642,13 +642,13 @@ function FacetsTab({
                   >
                     {FACET_TYPE_LABELS[f.facetType] || f.facetType}
                   </span>
-                  <span style={{ fontSize: 13, color: "oklch(0.860 0 0)" }}>
+                  <span style={{ fontSize: 13, color: "var(--opx-ink)" }}>
                     {f.name || "(unnamed)"}
                   </span>
                 </div>
                 <span
                   className="j-muted"
-                  style={{ fontSize: 11, flexShrink: 0 }}
+                  style={{ fontSize: 12, flexShrink: 0 }}
                 >
                   {expanded === f.id ? "▲" : "▼"}
                 </span>
@@ -661,9 +661,9 @@ function FacetsTab({
                 >
                   <pre
                     style={{
-                      fontSize: 11,
-                      color: "oklch(0.708 0 0)",
-                      background: "oklch(1 0 0 / 0.03)",
+                      fontSize: 12,
+                      color: "var(--opx-muted)",
+                      background: "var(--opx-soft)",
                       boxShadow: "0 0 0 1px var(--j-hairline)",
                       borderRadius: 6,
                       padding: "10px 12px",
@@ -767,18 +767,18 @@ function BranchesTab({ ideaId }: { ideaId: string }) {
                 style={{
                   fontSize: 13,
                   fontWeight: 500,
-                  color: "oklch(0.985 0 0)",
+                  color: "var(--opx-ink)",
                 }}
               >
                 {b.name}
               </span>
               {b.isMain && (
-                <span className="j-pill j-ghost" style={{ fontSize: 10 }}>
+                <span className="j-pill j-ghost" style={{ fontSize: 12 }}>
                   main
                 </span>
               )}
               {b.isActive && (
-                <span className="j-pill j-proj" style={{ fontSize: 10 }}>
+                <span className="j-pill j-proj" style={{ fontSize: 12 }}>
                   active
                 </span>
               )}
@@ -786,7 +786,7 @@ function BranchesTab({ ideaId }: { ideaId: string }) {
             {!b.isActive && (
               <button
                 className="j-btn j-btn-ghost"
-                style={{ fontSize: 11 }}
+                style={{ fontSize: 12 }}
                 onClick={() => switchActive(b.id)}
                 disabled={switching === b.id}
               >
@@ -802,7 +802,7 @@ function BranchesTab({ ideaId }: { ideaId: string }) {
               Branched from: {b.parentBranchName}
             </p>
           )}
-          <p className="j-muted" style={{ fontSize: 11, margin: "4px 0 0" }}>
+          <p className="j-muted" style={{ fontSize: 12, margin: "4px 0 0" }}>
             Created {relTime(b.createdAt)}
           </p>
         </div>
@@ -870,7 +870,7 @@ function ValidationsTab({ ideaId }: { ideaId: string }) {
                 style={{
                   fontSize: 13,
                   fontWeight: 500,
-                  color: "oklch(0.860 0 0)",
+                  color: "var(--opx-ink)",
                   textTransform: "capitalize",
                 }}
               >
@@ -937,7 +937,7 @@ function ValidationsTab({ ideaId }: { ideaId: string }) {
             </div>
           )}
 
-          <p className="j-muted" style={{ fontSize: 11, marginTop: 8 }}>
+          <p className="j-muted" style={{ fontSize: 12, marginTop: 8 }}>
             {relTime(v.createdAt)}
             {v.completedAt && ` · completed ${relTime(v.completedAt)}`}
           </p>
@@ -1054,7 +1054,7 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
       </div>
 
       {showNew && (
-        <div className="j-card" style={{ background: "oklch(1 0 0 / 0.03)" }}>
+        <div className="j-card" style={{ background: "var(--opx-soft)" }}>
           <div className="j-card-head">
             <p className="j-card-title">New refinement</p>
           </div>
@@ -1076,9 +1076,9 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
               <div key={key} className="j-col" style={{ gap: 4 }}>
                 <label
                   style={{
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: 600,
-                    color: "oklch(0.556 0 0)",
+                    color: "var(--opx-muted)",
                     textTransform: "uppercase",
                     letterSpacing: "0.06em",
                   }}
@@ -1092,13 +1092,13 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
                   }
                   placeholder={placeholder}
                   style={{
-                    background: "oklch(1 0 0 / 0.04)",
+                    background: "var(--opx-soft)",
                     border: "none",
                     boxShadow: "0 0 0 1px var(--j-ring)",
                     borderRadius: 8,
                     padding: "7px 10px",
                     fontSize: 13,
-                    color: "oklch(0.860 0 0)",
+                    color: "var(--opx-ink)",
                     fontFamily: "inherit",
                     outline: "none",
                     width: "100%",
@@ -1110,9 +1110,9 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
             <div className="j-col" style={{ gap: 4 }}>
               <label
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 600,
-                  color: "oklch(0.556 0 0)",
+                  color: "var(--opx-muted)",
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
                 }}
@@ -1125,13 +1125,13 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
                   setForm((f) => ({ ...f, refinementType: e.target.value }))
                 }
                 style={{
-                  background: "oklch(1 0 0 / 0.04)",
+                  background: "var(--opx-soft)",
                   border: "none",
                   boxShadow: "0 0 0 1px var(--j-ring)",
                   borderRadius: 8,
                   padding: "7px 10px",
                   fontSize: 13,
-                  color: "oklch(0.860 0 0)",
+                  color: "var(--opx-ink)",
                   fontFamily: "inherit",
                   outline: "none",
                 }}
@@ -1147,9 +1147,9 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
             <div className="j-col" style={{ gap: 4 }}>
               <label
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 600,
-                  color: "oklch(0.556 0 0)",
+                  color: "var(--opx-muted)",
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
                 }}
@@ -1165,8 +1165,8 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
                 placeholder="Describe the refinement in detail…"
                 style={{
                   width: "100%",
-                  background: "oklch(1 0 0 / 0.04)",
-                  color: "oklch(0.985 0 0)",
+                  background: "var(--opx-soft)",
+                  color: "var(--opx-ink)",
                   border: "none",
                   boxShadow: "0 0 0 1px var(--j-ring)",
                   borderRadius: 8,
@@ -1181,9 +1181,9 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
             <div className="j-col" style={{ gap: 4 }}>
               <label
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 600,
-                  color: "oklch(0.556 0 0)",
+                  color: "var(--opx-muted)",
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
                 }}
@@ -1197,13 +1197,13 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
                 }
                 placeholder="Why does this refinement matter?"
                 style={{
-                  background: "oklch(1 0 0 / 0.04)",
+                  background: "var(--opx-soft)",
                   border: "none",
                   boxShadow: "0 0 0 1px var(--j-ring)",
                   borderRadius: 8,
                   padding: "7px 10px",
                   fontSize: 13,
-                  color: "oklch(0.860 0 0)",
+                  color: "var(--opx-ink)",
                   fontFamily: "inherit",
                   outline: "none",
                   width: "100%",
@@ -1245,11 +1245,11 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
                   >
                     {r.status}
                   </span>
-                  <span className="j-pill j-ghost" style={{ fontSize: 10 }}>
+                  <span className="j-pill j-ghost" style={{ fontSize: 12 }}>
                     {r.refinement_type?.replace(/_/g, " ")}
                   </span>
                 </div>
-                <span className="j-muted" style={{ fontSize: 11 }}>
+                <span className="j-muted" style={{ fontSize: 12 }}>
                   {relTime(r.created_at)}
                 </span>
               </div>
@@ -1257,7 +1257,7 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
                 style={{
                   fontSize: 13,
                   fontWeight: 500,
-                  color: "oklch(0.985 0 0)",
+                  color: "var(--opx-ink)",
                   margin: 0,
                 }}
               >
@@ -1274,7 +1274,7 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
               {r.source_project_name && (
                 <p
                   className="j-muted"
-                  style={{ fontSize: 11, margin: "6px 0 0" }}
+                  style={{ fontSize: 12, margin: "6px 0 0" }}
                 >
                   Source: {r.source_project_name}
                 </p>
@@ -1389,7 +1389,7 @@ function DocumentsTab({ ideaId }: { ideaId: string }) {
       </div>
 
       {showNew && (
-        <div className="j-card" style={{ background: "oklch(1 0 0 / 0.03)" }}>
+        <div className="j-card" style={{ background: "var(--opx-soft)" }}>
           <div className="j-card-head">
             <p className="j-card-title">New document</p>
           </div>
@@ -1397,9 +1397,9 @@ function DocumentsTab({ ideaId }: { ideaId: string }) {
             <div className="j-col" style={{ gap: 4 }}>
               <label
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 600,
-                  color: "oklch(0.556 0 0)",
+                  color: "var(--opx-muted)",
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
                 }}
@@ -1412,13 +1412,13 @@ function DocumentsTab({ ideaId }: { ideaId: string }) {
                   setForm((f) => ({ ...f, documentType: e.target.value }))
                 }
                 style={{
-                  background: "oklch(1 0 0 / 0.04)",
+                  background: "var(--opx-soft)",
                   border: "none",
                   boxShadow: "0 0 0 1px var(--j-ring)",
                   borderRadius: 8,
                   padding: "7px 10px",
                   fontSize: 13,
-                  color: "oklch(0.860 0 0)",
+                  color: "var(--opx-ink)",
                   fontFamily: "inherit",
                   outline: "none",
                 }}
@@ -1433,9 +1433,9 @@ function DocumentsTab({ ideaId }: { ideaId: string }) {
             <div className="j-col" style={{ gap: 4 }}>
               <label
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 600,
-                  color: "oklch(0.556 0 0)",
+                  color: "var(--opx-muted)",
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
                 }}
@@ -1449,13 +1449,13 @@ function DocumentsTab({ ideaId }: { ideaId: string }) {
                 }
                 placeholder="Document title"
                 style={{
-                  background: "oklch(1 0 0 / 0.04)",
+                  background: "var(--opx-soft)",
                   border: "none",
                   boxShadow: "0 0 0 1px var(--j-ring)",
                   borderRadius: 8,
                   padding: "7px 10px",
                   fontSize: 13,
-                  color: "oklch(0.860 0 0)",
+                  color: "var(--opx-ink)",
                   fontFamily: "inherit",
                   outline: "none",
                   width: "100%",
@@ -1465,9 +1465,9 @@ function DocumentsTab({ ideaId }: { ideaId: string }) {
             <div className="j-col" style={{ gap: 4 }}>
               <label
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 600,
-                  color: "oklch(0.556 0 0)",
+                  color: "var(--opx-muted)",
                   textTransform: "uppercase",
                   letterSpacing: "0.06em",
                 }}
@@ -1483,8 +1483,8 @@ function DocumentsTab({ ideaId }: { ideaId: string }) {
                 placeholder="Document body (markdown supported)…"
                 style={{
                   width: "100%",
-                  background: "oklch(1 0 0 / 0.04)",
-                  color: "oklch(0.985 0 0)",
+                  background: "var(--opx-soft)",
+                  color: "var(--opx-ink)",
                   border: "none",
                   boxShadow: "0 0 0 1px var(--j-ring)",
                   borderRadius: 8,
@@ -1540,22 +1540,22 @@ function DocumentsTab({ ideaId }: { ideaId: string }) {
                     style={{
                       fontSize: 13,
                       fontWeight: 500,
-                      color: "oklch(0.860 0 0)",
+                      color: "var(--opx-ink)",
                     }}
                   >
                     {d.title}
                   </span>
-                  <span className="j-pill j-ghost" style={{ fontSize: 10 }}>
+                  <span className="j-pill j-ghost" style={{ fontSize: 12 }}>
                     v{d.version}
                   </span>
                 </div>
                 <div className="j-row" style={{ gap: 8 }}>
-                  <span className="j-muted" style={{ fontSize: 11 }}>
+                  <span className="j-muted" style={{ fontSize: 12 }}>
                     {relTime(d.created_at)}
                   </span>
                   <span
                     className="j-muted"
-                    style={{ fontSize: 11, flexShrink: 0 }}
+                    style={{ fontSize: 12, flexShrink: 0 }}
                   >
                     {expanded === d.id ? "▲" : "▼"}
                   </span>
@@ -1570,8 +1570,8 @@ function DocumentsTab({ ideaId }: { ideaId: string }) {
                   <pre
                     style={{
                       fontSize: 12,
-                      color: "oklch(0.708 0 0)",
-                      background: "oklch(1 0 0 / 0.03)",
+                      color: "var(--opx-muted)",
+                      background: "var(--opx-soft)",
                       boxShadow: "0 0 0 1px var(--j-hairline)",
                       borderRadius: 6,
                       padding: "10px 12px",
@@ -1651,7 +1651,7 @@ function RelatedTab({ ideaId }: { ideaId: string }) {
     <div className="j-col" style={{ gap: 16 }}>
       {/* Idea-to-idea relationships (legacy idea_relationships table) */}
       <div>
-        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "var(--j-muted, #94a3b8)", marginBottom: 8 }}>
+        <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: 1, color: "var(--j-muted, #94a3b8)", marginBottom: 8 }}>
           Idea relationships
         </div>
         {loading ? (
@@ -1929,12 +1929,12 @@ export default function IdeaDetailPage() {
                 {idea.category && (
                   <span
                     style={{
-                      fontSize: 10,
+                      fontSize: 12,
                       fontWeight: 600,
                       letterSpacing: "0.08em",
                       textTransform: "uppercase",
-                      color: "oklch(0.556 0 0)",
-                      background: "oklch(1 0 0 / 0.04)",
+                      color: "var(--opx-muted)",
+                      background: "var(--opx-soft)",
                       padding: "2px 6px",
                       borderRadius: 5,
                       boxShadow: "inset 0 0 0 1px var(--j-hairline)",
@@ -1944,7 +1944,7 @@ export default function IdeaDetailPage() {
                   </span>
                 )}
                 {idea.tags.slice(0, 4).map((t) => (
-                  <span key={t} className="j-pill j-ghost" style={{ fontSize: 10 }}>
+                  <span key={t} className="j-pill j-ghost" style={{ fontSize: 12 }}>
                     {t}
                   </span>
                 ))}
@@ -1956,10 +1956,10 @@ export default function IdeaDetailPage() {
               />
 
               <div className="j-row j-wrap" style={{ gap: 12 }}>
-                <span className="j-muted" style={{ fontSize: 11 }}>
+                <span className="j-muted" style={{ fontSize: 12 }}>
                   Created {relTime(idea.createdAt)}
                 </span>
-                <span className="j-muted" style={{ fontSize: 11 }}>
+                <span className="j-muted" style={{ fontSize: 12 }}>
                   Updated {relTime(idea.updatedAt)}
                 </span>
               </div>

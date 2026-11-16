@@ -167,11 +167,11 @@ export default function SkillsPage() {
           <div className="j-col" style={{ gap: 2 }}>
             <div className="j-row" style={{ gap: 8 }}>
               <span className="j-muted" style={{ fontSize: 13 }}>
-                <a href="/library" style={{ color: "oklch(0.556 0 0)", textDecoration: "none" }}>Library</a>
+                <a href="/library" style={{ color: "var(--opx-muted)", textDecoration: "none" }}>Library</a>
                 {" / "}
               </span>
               <h1 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Skills</h1>
-              <span className="j-pill j-ghost" style={{ fontSize: 11 }}>{counts.total}</span>
+              <span className="j-pill j-ghost" style={{ fontSize: 12 }}>{counts.total}</span>
             </div>
           </div>
           <button className="j-btn j-btn-primary" onClick={() => { setShowNew(true); setErr(null) }}>
@@ -304,13 +304,13 @@ export default function SkillsPage() {
                         </p>
                         <div className="j-row j-wrap" style={{ gap: 4 }}>
                           {skill.category && (
-                            <span className="j-pill j-proj" style={{ fontSize: 10 }}>{skill.category}</span>
+                            <span className="j-pill j-proj" style={{ fontSize: 12 }}>{skill.category}</span>
                           )}
-                          <span className={`j-pill ${STATUS_PILL[skill.status]}`} style={{ fontSize: 10 }}>
+                          <span className={`j-pill ${STATUS_PILL[skill.status]}`} style={{ fontSize: 12 }}>
                             {skill.status}
                           </span>
                           {skill.usageCount > 0 && (
-                            <span className="j-pill j-ghost" style={{ fontSize: 10 }}>
+                            <span className="j-pill j-ghost" style={{ fontSize: 12 }}>
                               ×{skill.usageCount}
                             </span>
                           )}
@@ -352,13 +352,13 @@ export default function SkillsPage() {
                     )}
                     <div className="j-row j-wrap" style={{ gap: 6 }}>
                       {selected.category && (
-                        <span className="j-pill j-proj" style={{ fontSize: 11 }}>{selected.category}</span>
+                        <span className="j-pill j-proj" style={{ fontSize: 12 }}>{selected.category}</span>
                       )}
-                      <span className={`j-pill ${STATUS_PILL[selected.status]}`} style={{ fontSize: 11 }}>
+                      <span className={`j-pill ${STATUS_PILL[selected.status]}`} style={{ fontSize: 12 }}>
                         {selected.status}
                       </span>
-                      <span className="j-pill j-ghost" style={{ fontSize: 11 }}>v{selected.version}</span>
-                      <span className="j-pill j-ghost" style={{ fontSize: 11 }}>
+                      <span className="j-pill j-ghost" style={{ fontSize: 12 }}>v{selected.version}</span>
+                      <span className="j-pill j-ghost" style={{ fontSize: 12 }}>
                         Updated {formatDistanceToNow(new Date(selected.updatedAt), { addSuffix: true })}
                       </span>
                     </div>
@@ -423,7 +423,7 @@ export default function SkillsPage() {
                       <div className="j-row j-wrap" style={{ gap: 4 }}>
                         <span className="j-muted" style={{ fontSize: 12 }}>Provides:</span>
                         {selected.provides.map(p => (
-                          <span key={p} className="j-pill j-pos" style={{ fontSize: 11 }}>{p}</span>
+                          <span key={p} className="j-pill j-pos" style={{ fontSize: 12 }}>{p}</span>
                         ))}
                       </div>
                     )}
@@ -431,7 +431,7 @@ export default function SkillsPage() {
                       <div className="j-row j-wrap" style={{ gap: 4 }}>
                         <span className="j-muted" style={{ fontSize: 12 }}>Requires:</span>
                         {selected.prerequisites.map(p => (
-                          <span key={p} className="j-pill j-proj" style={{ fontSize: 11 }}>{p}</span>
+                          <span key={p} className="j-pill j-proj" style={{ fontSize: 12 }}>{p}</span>
                         ))}
                       </div>
                     )}
@@ -480,8 +480,8 @@ export default function SkillsPage() {
 
 const textareaStyle: React.CSSProperties = {
   width: "100%",
-  background: "oklch(1 0 0 / 0.04)",
-  color: "oklch(0.985 0 0)",
+  background: "var(--opx-soft)",
+  color: "var(--opx-ink)",
   border: "none",
   boxShadow: "0 0 0 1px var(--j-ring)",
   borderRadius: 8,
@@ -493,7 +493,7 @@ const textareaStyle: React.CSSProperties = {
 
 function StatChip({ label, value, colorClass }: { label: string; value: number; colorClass: string }) {
   return (
-    <span className={`j-pill ${colorClass}`} style={{ fontSize: 11 }}>
+    <span className={`j-pill ${colorClass}`} style={{ fontSize: 12 }}>
       {label}: {value}
     </span>
   )
@@ -555,13 +555,13 @@ function EditableTextArea({
   return (
     <div className="j-col" style={{ gap: 4, marginTop: 10 }}>
       <div className="j-row j-between">
-        <label style={{ fontSize: 11, fontWeight: 600, color: "oklch(0.556 0 0)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--opx-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
           {label}
         </label>
         {!isEditing && (
           <button
             className="j-btn j-btn-ghost"
-            style={{ padding: "2px 8px", fontSize: 11 }}
+            style={{ padding: "2px 8px", fontSize: 12 }}
             onClick={() => onStartEdit(field, value)}
           >
             <Icon name="cog" size={11} /> Edit
@@ -592,7 +592,7 @@ function EditableTextArea({
             margin: 0,
             fontSize: 13,
             lineHeight: 1.6,
-            color: value && value !== "(empty)" ? "oklch(0.860 0 0)" : "oklch(0.556 0 0)",
+            color: value && value !== "(empty)" ? "var(--opx-ink)" : "var(--opx-muted)",
             fontFamily: "inherit",
             whiteSpace: "pre-wrap",
             cursor: "text",

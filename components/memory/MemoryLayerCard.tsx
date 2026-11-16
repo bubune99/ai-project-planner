@@ -54,7 +54,7 @@ export function MemoryLayerCard({
   return (
     <Card
       className={cn(
-        "border-white/10 bg-black/40 hover:bg-black/50 transition-all cursor-pointer group"
+        "border-border bg-muted/40 hover:bg-muted transition-all cursor-pointer group"
       )}
       onClick={onClick}
     >
@@ -64,18 +64,18 @@ export function MemoryLayerCard({
             <Icon className={cn("h-5 w-5", config.color)} />
           </div>
           <div>
-            <CardTitle className="text-lg font-medium text-white">{title}</CardTitle>
-            <p className="text-xs text-gray-500 mt-1">{description}</p>
+            <CardTitle className="text-lg font-medium text-foreground">{title}</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">{description}</p>
           </div>
         </div>
-        <ChevronRight className="h-5 w-5 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <ChevronRight className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
       </CardHeader>
       <CardContent>
         {/* Primary Metric */}
         <div className="mb-4">
           <div className="flex items-end gap-2">
-            <span className="text-3xl font-bold text-white">{primaryCount}</span>
-            <span className="text-sm text-gray-400 mb-1">{primaryLabel}</span>
+            <span className="text-3xl font-bold text-foreground">{primaryCount}</span>
+            <span className="text-sm text-muted-foreground mb-1">{primaryLabel}</span>
           </div>
         </div>
 
@@ -86,7 +86,7 @@ export function MemoryLayerCard({
               <Badge
                 key={item.label}
                 variant="outline"
-                className="text-xs border-white/10 text-gray-400"
+                className="text-xs border-border text-muted-foreground"
               >
                 {item.value} {item.label}
               </Badge>
@@ -97,8 +97,8 @@ export function MemoryLayerCard({
         {/* Compression Level */}
         <div className="space-y-1">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-500">Compression</span>
-            <span className="text-gray-400">{compressionLevel}%</span>
+            <span className="text-muted-foreground">Compression</span>
+            <span className="text-muted-foreground">{compressionLevel}%</span>
           </div>
           <Progress value={compressionLevel} className="h-1.5" />
         </div>
@@ -109,25 +109,25 @@ export function MemoryLayerCard({
 
 export function MemoryLayerSkeleton() {
   return (
-    <Card className="border-white/10 bg-black/40 animate-pulse">
+    <Card className="border-border bg-muted/40 animate-pulse">
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-white/10" />
+          <div className="h-10 w-10 rounded-lg bg-muted" />
           <div>
-            <div className="h-5 w-24 bg-white/10 rounded" />
-            <div className="h-3 w-40 bg-white/10 rounded mt-2" />
+            <div className="h-5 w-24 bg-muted rounded" />
+            <div className="h-3 w-40 bg-muted rounded mt-2" />
           </div>
         </div>
       </CardHeader>
       <CardContent>
         <div className="mb-4">
-          <div className="h-8 w-20 bg-white/10 rounded" />
+          <div className="h-8 w-20 bg-muted rounded" />
         </div>
         <div className="flex gap-2 mb-4">
-          <div className="h-5 w-16 bg-white/10 rounded" />
-          <div className="h-5 w-16 bg-white/10 rounded" />
+          <div className="h-5 w-16 bg-muted rounded" />
+          <div className="h-5 w-16 bg-muted rounded" />
         </div>
-        <div className="h-1.5 bg-white/10 rounded" />
+        <div className="h-1.5 bg-muted rounded" />
       </CardContent>
     </Card>
   )

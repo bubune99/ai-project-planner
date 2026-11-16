@@ -36,12 +36,12 @@ interface IdeaListProps {
 }
 
 const lifecycleFilters: { value: IdeaLifecycle | null; label: string; icon: typeof Sparkles; color: string }[] = [
-  { value: null, label: "All", icon: LayoutGrid, color: "text-gray-400" },
+  { value: null, label: "All", icon: LayoutGrid, color: "text-muted-foreground" },
   { value: "seed", label: "Seeds", icon: Sparkles, color: "text-yellow-400" },
   { value: "exploring", label: "Exploring", icon: Compass, color: "text-blue-400" },
   { value: "refined", label: "Refined", icon: CheckCircle2, color: "text-green-400" },
   { value: "promoted", label: "Promoted", icon: Rocket, color: "text-purple-400" },
-  { value: "archived", label: "Archived", icon: Archive, color: "text-gray-400" },
+  { value: "archived", label: "Archived", icon: Archive, color: "text-muted-foreground" },
 ]
 
 export function IdeaList({
@@ -80,13 +80,13 @@ export function IdeaList({
         {/* Filter skeleton */}
         <div className="flex flex-wrap gap-2">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="h-9 w-24 bg-white/5 rounded-lg animate-pulse" />
+            <div key={i} className="h-9 w-24 bg-muted rounded-lg animate-pulse" />
           ))}
         </div>
         {/* Grid skeleton */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card key={i} className="border-white/10 bg-black/40 h-48 animate-pulse" />
+            <Card key={i} className="border-border bg-muted/40 h-48 animate-pulse" />
           ))}
         </div>
       </div>
@@ -110,17 +110,17 @@ export function IdeaList({
                 variant={isSelected ? "default" : "outline"}
                 size="sm"
                 className={cn(
-                  "border-white/10",
+                  "border-border",
                   isSelected
-                    ? "bg-white/10 text-white"
-                    : "bg-transparent hover:bg-white/5"
+                    ? "bg-muted text-foreground"
+                    : "bg-transparent hover:bg-muted"
                 )}
                 onClick={() => onLifecycleChange?.(filter.value)}
               >
                 <Icon className={cn("h-4 w-4 mr-2", filter.color)} />
                 {filter.label}
                 {counts && (
-                  <Badge variant="outline" className="ml-2 text-xs border-white/10">
+                  <Badge variant="outline" className="ml-2 text-xs border-border">
                     {count}
                   </Badge>
                 )}
@@ -132,19 +132,19 @@ export function IdeaList({
         {/* Search & View Toggle */}
         <div className="flex items-center gap-2">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search ideas..."
-              className="pl-9 w-64 bg-black/40 border-white/10"
+              className="pl-9 w-64 bg-muted/40 border-border"
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
             />
           </div>
-          <div className="flex items-center border border-white/10 rounded-lg">
+          <div className="flex items-center border border-border rounded-lg">
             <Button
               variant="ghost"
               size="icon"
-              className={cn("h-9 w-9 rounded-r-none", viewMode === "grid" && "bg-white/10")}
+              className={cn("h-9 w-9 rounded-r-none", viewMode === "grid" && "bg-muted")}
               onClick={() => setViewMode("grid")}
             >
               <LayoutGrid className="h-4 w-4" />
@@ -152,7 +152,7 @@ export function IdeaList({
             <Button
               variant="ghost"
               size="icon"
-              className={cn("h-9 w-9 rounded-l-none", viewMode === "list" && "bg-white/10")}
+              className={cn("h-9 w-9 rounded-l-none", viewMode === "list" && "bg-muted")}
               onClick={() => setViewMode("list")}
             >
               <List className="h-4 w-4" />
@@ -163,9 +163,9 @@ export function IdeaList({
 
       {/* Ideas Grid/List */}
       {ideas.length === 0 ? (
-        <Card className="border-white/10 bg-black/40">
+        <Card className="border-border bg-muted/40">
           <CardContent className="pt-6">
-            <div className="text-center py-12 text-gray-400">
+            <div className="text-center py-12 text-muted-foreground">
               {searchQuery ? (
                 <>
                   <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />

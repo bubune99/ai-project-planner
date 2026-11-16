@@ -237,7 +237,7 @@ export function CrossLinkPanel({
             value={newRel.toId}
             onChange={(e) => setNewRel({ ...newRel, toId: e.target.value })}
             placeholder="target UUID"
-            style={{ ...inputStyle, width: "100%", marginBottom: 8, fontFamily: "inherit", fontSize: 11 }}
+            style={{ ...inputStyle, width: "100%", marginBottom: 8, fontFamily: "inherit", fontSize: 12 }}
           />
           {searchResults.length > 0 && (
             <div style={{ marginBottom: 8, maxHeight: 200, overflowY: "auto" }}>
@@ -250,7 +250,7 @@ export function CrossLinkPanel({
                   }}
                   style={resultRow}
                 >
-                  <span style={{ color: "var(--j-muted, #94a3b8)", fontSize: 10 }}>{r.entity_type}</span>
+                  <span style={{ color: "var(--j-muted, #94a3b8)", fontSize: 12 }}>{r.entity_type}</span>
                   <span style={{ marginLeft: 8, color: "var(--j-text, #e2e8f0)" }}>{r.title}</span>
                 </div>
               ))}
@@ -310,14 +310,14 @@ function RelationRow({
 }) {
   return (
     <div style={rowStyle}>
-      <span style={{ color: "var(--j-muted, #94a3b8)", fontSize: 10, fontFamily: "inherit" }}>
+      <span style={{ color: "var(--j-muted, #94a3b8)", fontSize: 12, fontFamily: "inherit" }}>
         {direction === "out" ? rel.relationType : `← ${rel.relationType}`}
       </span>
       <ArrowRight size={10} style={{ color: "var(--j-muted, #94a3b8)" }} />
-      <span style={{ fontSize: 11, color: "var(--j-text, #e2e8f0)" }}>
+      <span style={{ fontSize: 12, color: "var(--j-text, #e2e8f0)" }}>
         {direction === "out" ? rel.toType : rel.fromType}
       </span>
-      <code style={{ fontSize: 10, color: "var(--j-muted, #94a3b8)" }}>
+      <code style={{ fontSize: 12, color: "var(--j-muted, #94a3b8)" }}>
         {(direction === "out" ? rel.toId : rel.fromId).slice(0, 8)}
       </code>
       <button
@@ -340,7 +340,7 @@ const btnStyle: React.CSSProperties = {
   border: "1px solid var(--j-border, #334155)",
   borderRadius: 4,
   color: "var(--j-text, #e2e8f0)",
-  fontSize: 11,
+  fontSize: 12,
   cursor: "pointer",
   justifyContent: "center",
 }
@@ -352,7 +352,7 @@ const selectStyle: React.CSSProperties = {
   borderRadius: 4,
   padding: "4px 6px",
   color: "var(--j-text, #e2e8f0)",
-  fontSize: 11,
+  fontSize: 12,
 }
 
 const inputStyle: React.CSSProperties = {
@@ -361,7 +361,7 @@ const inputStyle: React.CSSProperties = {
   borderRadius: 4,
   padding: "6px 8px",
   color: "var(--j-text, #e2e8f0)",
-  fontSize: 11,
+  fontSize: 12,
 }
 
 const addCardStyle: React.CSSProperties = {
@@ -384,7 +384,7 @@ const rowStyle: React.CSSProperties = {
 }
 
 const sectionLabel: React.CSSProperties = {
-  fontSize: 9,
+  fontSize: 12,
   textTransform: "uppercase",
   letterSpacing: 1,
   color: "var(--j-muted, #94a3b8)",
@@ -392,7 +392,7 @@ const sectionLabel: React.CSSProperties = {
 }
 
 const emptyStyle: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: 12,
   color: "var(--j-muted, #94a3b8)",
   textAlign: "center",
   padding: 16,
@@ -408,14 +408,14 @@ const alertStyle: React.CSSProperties = {
   border: "1px solid rgba(220, 38, 38, 0.4)",
   borderRadius: 4,
   color: "#fca5a5",
-  fontSize: 11,
+  fontSize: 12,
 }
 
 const resultRow: React.CSSProperties = {
   padding: "4px 8px",
   cursor: "pointer",
   borderRadius: 3,
-  fontSize: 11,
+  fontSize: 12,
   marginBottom: 2,
   background: "var(--j-surface, #0f172a)",
   border: "1px solid var(--j-border, #1e293b)",

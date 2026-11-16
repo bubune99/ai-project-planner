@@ -324,7 +324,7 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
             style={menuItem}
           >
             <span style={{ fontWeight: 600 }}>Give feedback on this</span>
-            <span style={{ display: "block", fontSize: 11, color: "#8b93a7", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <span style={{ display: "block", fontSize: 12, color: "#8b93a7", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {describe(menu.el)}
             </span>
           </button>
@@ -376,7 +376,7 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
           {target ? (
             <div
               style={{
-                fontSize: 11,
+                fontSize: 12,
                 color: "#8b93a7",
                 marginBottom: 10,
                 padding: "6px 8px",
@@ -390,7 +390,7 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
               <div style={{ opacity: 0.7, marginTop: 2 }}>{target.selector}</div>
             </div>
           ) : (
-            <div style={{ fontSize: 11, color: "#8b93a7", marginBottom: 10 }}>
+            <div style={{ fontSize: 12, color: "#8b93a7", marginBottom: 10 }}>
               No element attached (general feedback)
             </div>
           )}

@@ -15,28 +15,28 @@ import { prepareRichText } from "@/lib/rich-text"
 
 export function RichText({ text, maxWidth = "72ch" }: { text: string; maxWidth?: string }) {
   return (
-    <div style={{ fontSize: 14, lineHeight: 1.7, color: "oklch(0.88 0 0)", maxWidth }} data-slot="rich-text">
+    <div style={{ fontSize: 14, lineHeight: 1.7, color: "var(--opx-ink)", maxWidth }} data-slot="rich-text">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
           p: ({ children }) => <p style={{ margin: "0 0 0.9em" }}>{children}</p>,
-          strong: ({ children }) => <strong style={{ color: "oklch(0.985 0 0)", fontWeight: 600 }}>{children}</strong>,
-          h1: ({ children }) => <h3 style={{ fontSize: 16, fontWeight: 600, margin: "1.2em 0 0.5em", color: "oklch(0.985 0 0)" }}>{children}</h3>,
-          h2: ({ children }) => <h3 style={{ fontSize: 15, fontWeight: 600, margin: "1.2em 0 0.5em", color: "oklch(0.985 0 0)" }}>{children}</h3>,
-          h3: ({ children }) => <h4 style={{ fontSize: 14, fontWeight: 600, margin: "1em 0 0.4em", color: "oklch(0.985 0 0)" }}>{children}</h4>,
+          strong: ({ children }) => <strong style={{ color: "var(--opx-ink)", fontWeight: 600 }}>{children}</strong>,
+          h1: ({ children }) => <h3 style={{ fontSize: 16, fontWeight: 600, margin: "1.2em 0 0.5em", color: "var(--opx-ink)" }}>{children}</h3>,
+          h2: ({ children }) => <h3 style={{ fontSize: 15, fontWeight: 600, margin: "1.2em 0 0.5em", color: "var(--opx-ink)" }}>{children}</h3>,
+          h3: ({ children }) => <h4 style={{ fontSize: 14, fontWeight: 600, margin: "1em 0 0.4em", color: "var(--opx-ink)" }}>{children}</h4>,
           ul: ({ children }) => <ul style={{ margin: "0 0 0.9em", paddingLeft: "1.3em", listStyle: "disc" }}>{children}</ul>,
           ol: ({ children }) => <ol style={{ margin: "0 0 0.9em", paddingLeft: "1.4em", listStyle: "decimal" }}>{children}</ol>,
           li: ({ children }) => <li style={{ margin: "0.25em 0" }}>{children}</li>,
           blockquote: ({ children }) => (
-            <blockquote style={{ margin: "0 0 0.9em", padding: "2px 0 2px 12px", borderLeft: "2px solid var(--j-ring)", color: "oklch(0.75 0 0)" }}>{children}</blockquote>
+            <blockquote style={{ margin: "0 0 0.9em", padding: "2px 0 2px 12px", borderLeft: "2px solid var(--j-ring)", color: "var(--opx-muted)" }}>{children}</blockquote>
           ),
           code: ({ children, className }) =>
             className ? (
-              <pre style={{ margin: "0 0 0.9em", padding: 12, borderRadius: 8, background: "oklch(0.18 0 0)", overflowX: "auto", fontSize: 12.5 }}>
+              <pre style={{ margin: "0 0 0.9em", padding: 12, borderRadius: 8, background: "var(--opx-soft)", overflowX: "auto", fontSize: 12.5 }}>
                 <code>{children}</code>
               </pre>
             ) : (
-              <code style={{ fontSize: "0.9em", padding: "1px 5px", borderRadius: 4, background: "oklch(0.24 0 0)" }}>{children}</code>
+              <code style={{ fontSize: "0.9em", padding: "1px 5px", borderRadius: 4, background: "var(--opx-soft)" }}>{children}</code>
             ),
           a: ({ children, href }) =>
             href?.startsWith("#ref:") ? (
@@ -48,7 +48,7 @@ export function RichText({ text, maxWidth = "72ch" }: { text: string; maxWidth?:
                 ↗ {children}
               </span>
             ) : (
-              <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: "oklch(0.75 0.12 250)", textDecoration: "underline" }}>
+              <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: "inherit", textDecoration: "underline" }}>
                 {children}
               </a>
             ),

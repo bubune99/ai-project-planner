@@ -19,7 +19,7 @@ const COLUMNS: IdeaColumnDef[] = [
   { id: "exploring", label: "Exploring", color: "var(--j-info)" },
   { id: "refined", label: "Refined", color: "var(--j-pos)" },
   { id: "promoted", label: "Promoted", color: "var(--j-biz)" },
-  { id: "archived", label: "Archived", color: "oklch(0.556 0 0)" },
+  { id: "archived", label: "Archived", color: "var(--opx-muted)" },
 ]
 
 // ── Main kanban component ──────────────────────────────────────────────────
@@ -166,7 +166,7 @@ export function IdeasKanban({
                 width: w,
                 height: 36,
                 borderRadius: 8,
-                background: "oklch(1 0 0 / 0.05)",
+                background: "var(--opx-soft)",
                 animation: "j-pulse 1.4s ease-in-out infinite",
               }}
             />
@@ -188,7 +188,7 @@ export function IdeasKanban({
                 flex: "1 1 0",
                 height: 360,
                 borderRadius: 12,
-                background: "oklch(1 0 0 / 0.03)",
+                background: "var(--opx-soft)",
                 animation: "j-pulse 1.4s ease-in-out infinite",
               }}
             />
@@ -225,7 +225,7 @@ export function IdeasKanban({
             display: "flex",
             alignItems: "center",
             gap: 8,
-            background: "oklch(1 0 0 / 0.04)",
+            background: "var(--opx-soft)",
             boxShadow: "0 0 0 1px var(--j-ring)",
             borderRadius: 8,
             padding: "6px 10px",
@@ -234,7 +234,7 @@ export function IdeasKanban({
             maxWidth: 340,
           }}
         >
-          <Search size={13} style={{ color: "oklch(0.556 0 0)", flexShrink: 0 }} />
+          <Search size={13} style={{ color: "var(--opx-muted)", flexShrink: 0 }} />
           <input
           aria-label="Search ideas"
             value={search}
@@ -246,7 +246,7 @@ export function IdeasKanban({
               border: "none",
               outline: "none",
               fontSize: 13,
-              color: "oklch(0.860 0 0)",
+              color: "var(--opx-ink)",
               fontFamily: "inherit",
             }}
           />
@@ -258,7 +258,7 @@ export function IdeasKanban({
                 border: "none",
                 cursor: "pointer",
                 padding: 0,
-                color: "oklch(0.556 0 0)",
+                color: "var(--opx-muted)",
               }}
             >
               <X size={13} />
@@ -272,13 +272,13 @@ export function IdeasKanban({
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
           style={{
-            background: "oklch(1 0 0 / 0.04)",
+            background: "var(--opx-soft)",
             boxShadow: "0 0 0 1px var(--j-ring)",
             border: "none",
             borderRadius: 8,
             padding: "7px 10px",
             fontSize: 13,
-            color: categoryFilter ? "oklch(0.860 0 0)" : "oklch(0.556 0 0)",
+            color: categoryFilter ? "var(--opx-ink)" : "var(--opx-muted)",
             fontFamily: "inherit",
             outline: "none",
             cursor: "pointer",
@@ -304,7 +304,7 @@ export function IdeasKanban({
               <Tag size={12} />
               Tags
               {tagFilter.length > 0 && (
-                <span className="j-pill j-proj" style={{ padding: "1px 6px", fontSize: 10 }}>
+                <span className="j-pill j-proj" style={{ padding: "1px 6px", fontSize: 12 }}>
                   {tagFilter.length}
                 </span>
               )}
@@ -344,7 +344,7 @@ export function IdeasKanban({
                       fontSize: 12,
                       color: tagFilter.includes(tag)
                         ? "var(--j-accent)"
-                        : "oklch(0.860 0 0)",
+                        : "var(--opx-ink)",
                       cursor: "pointer",
                       textAlign: "left",
                       fontFamily: "inherit",

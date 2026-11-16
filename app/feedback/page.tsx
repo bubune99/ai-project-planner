@@ -143,7 +143,7 @@ export default function FeedbackInboxPage() {
                     <strong style={{ fontSize: 14 }}>{it.title || it.comment.slice(0, 60)}</strong>
                     <span
                       style={{
-                        fontSize: 11,
+                        fontSize: 12,
                         color: STATUS_COLOR[it.status],
                         border: `1px solid ${STATUS_COLOR[it.status]}`,
                         borderRadius: 999,
@@ -157,7 +157,7 @@ export default function FeedbackInboxPage() {
                   {it.title && (
                     <p style={{ fontSize: 13, color: "#cfd6e6", margin: "6px 0" }}>{it.comment}</p>
                   )}
-                  <div style={{ fontSize: 11, color: "#8b93a7", marginTop: 6, lineHeight: 1.7 }}>
+                  <div style={{ fontSize: 12, color: "#8b93a7", marginTop: 6, lineHeight: 1.7 }}>
                     <span>{it.route || it.url}</span>
                     {it.selector && (
                       <>
@@ -186,7 +186,7 @@ export default function FeedbackInboxPage() {
                           border: "1px solid #2a3142",
                           borderRadius: 6,
                           padding: "4px 9px",
-                          fontSize: 11,
+                          fontSize: 12,
                           cursor: it.status === s ? "default" : "pointer",
                           fontWeight: it.status === s ? 700 : 400,
                         }}

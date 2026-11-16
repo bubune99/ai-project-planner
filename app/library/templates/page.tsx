@@ -175,8 +175,8 @@ export default function TemplatesPage() {
 
   const textareaStyle: React.CSSProperties = {
     width: "100%",
-    background: "oklch(1 0 0 / 0.04)",
-    color: "oklch(0.985 0 0)",
+    background: "var(--opx-soft)",
+    color: "var(--opx-ink)",
     border: "none",
     boxShadow: "0 0 0 1px var(--j-ring)",
     borderRadius: 8,
@@ -194,11 +194,11 @@ export default function TemplatesPage() {
           <div className="j-col" style={{ gap: 2 }}>
             <div className="j-row" style={{ gap: 8 }}>
               <span className="j-muted" style={{ fontSize: 13 }}>
-                <a href="/library" style={{ color: "oklch(0.556 0 0)", textDecoration: "none" }}>Library</a>
+                <a href="/library" style={{ color: "var(--opx-muted)", textDecoration: "none" }}>Library</a>
                 {" / "}
               </span>
               <h1 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Templates</h1>
-              <span className="j-pill j-ghost" style={{ fontSize: 11 }}>{counts.total}</span>
+              <span className="j-pill j-ghost" style={{ fontSize: 12 }}>{counts.total}</span>
             </div>
           </div>
           <button className="j-btn j-btn-primary" onClick={() => { setShowNew(true); setErr(null) }}>
@@ -324,16 +324,16 @@ export default function TemplatesPage() {
                     </p>
                     <div className="j-row j-wrap" style={{ gap: 4 }}>
                       {tmpl.category && (
-                        <span className="j-pill j-proj" style={{ fontSize: 10 }}>{tmpl.category}</span>
+                        <span className="j-pill j-proj" style={{ fontSize: 12 }}>{tmpl.category}</span>
                       )}
-                      <span className={`j-pill ${STATUS_PILL[tmpl.status]}`} style={{ fontSize: 10 }}>
+                      <span className={`j-pill ${STATUS_PILL[tmpl.status]}`} style={{ fontSize: 12 }}>
                         {tmpl.status}
                       </span>
-                      <span className="j-pill j-ghost" style={{ fontSize: 10 }}>
+                      <span className="j-pill j-ghost" style={{ fontSize: 12 }}>
                         {tmpl.steps.length} steps
                       </span>
                       {tmpl.usageCount > 0 && (
-                        <span className="j-pill j-ghost" style={{ fontSize: 10 }}>×{tmpl.usageCount}</span>
+                        <span className="j-pill j-ghost" style={{ fontSize: 12 }}>×{tmpl.usageCount}</span>
                       )}
                     </div>
                   </div>
@@ -381,16 +381,16 @@ export default function TemplatesPage() {
                     )}
                     <div className="j-row j-wrap" style={{ gap: 6 }}>
                       {selected.category && (
-                        <span className="j-pill j-proj" style={{ fontSize: 11 }}>{selected.category}</span>
+                        <span className="j-pill j-proj" style={{ fontSize: 12 }}>{selected.category}</span>
                       )}
-                      <span className={`j-pill ${STATUS_PILL[selected.status]}`} style={{ fontSize: 11 }}>
+                      <span className={`j-pill ${STATUS_PILL[selected.status]}`} style={{ fontSize: 12 }}>
                         {selected.status}
                       </span>
-                      <span className="j-pill j-ghost" style={{ fontSize: 11 }}>v{selected.version}</span>
-                      <span className="j-pill j-ghost" style={{ fontSize: 11 }}>
+                      <span className="j-pill j-ghost" style={{ fontSize: 12 }}>v{selected.version}</span>
+                      <span className="j-pill j-ghost" style={{ fontSize: 12 }}>
                         {selected.insertionStrategy}
                       </span>
-                      <span className="j-pill j-ghost" style={{ fontSize: 11 }}>
+                      <span className="j-pill j-ghost" style={{ fontSize: 12 }}>
                         Updated {formatDistanceToNow(new Date(selected.updatedAt), { addSuffix: true })}
                       </span>
                     </div>
@@ -406,9 +406,9 @@ export default function TemplatesPage() {
 
                 {/* Stats */}
                 <div className="j-row j-wrap" style={{ gap: 8, marginTop: 10 }}>
-                  <span className="j-pill j-ghost" style={{ fontSize: 11 }}>Used: {selected.usageCount}</span>
-                  <span className="j-pill j-pos" style={{ fontSize: 11 }}>Success: {selected.successCount}</span>
-                  <span className={`j-pill ${selected.failureCount > 0 ? "j-neg" : "j-ghost"}`} style={{ fontSize: 11 }}>
+                  <span className="j-pill j-ghost" style={{ fontSize: 12 }}>Used: {selected.usageCount}</span>
+                  <span className="j-pill j-pos" style={{ fontSize: 12 }}>Success: {selected.successCount}</span>
+                  <span className={`j-pill ${selected.failureCount > 0 ? "j-neg" : "j-ghost"}`} style={{ fontSize: 12 }}>
                     Failures: {selected.failureCount}
                   </span>
                 </div>
@@ -418,11 +418,11 @@ export default function TemplatesPage() {
                 {/* Description inline edit */}
                 <div className="j-col" style={{ gap: 4 }}>
                   <div className="j-row j-between">
-                    <label style={{ fontSize: 11, fontWeight: 600, color: "oklch(0.556 0 0)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--opx-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                       Description
                     </label>
                     {editField !== "description" && (
-                      <button className="j-btn j-btn-ghost" style={{ padding: "2px 8px", fontSize: 11 }}
+                      <button className="j-btn j-btn-ghost" style={{ padding: "2px 8px", fontSize: 12 }}
                         onClick={() => { setEditField("description"); setEditValue(selected.description) }}>
                         <Icon name="cog" size={11} /> Edit
                       </button>
@@ -453,7 +453,7 @@ export default function TemplatesPage() {
                 {/* Steps */}
                 {selected.steps.length > 0 && (
                   <div className="j-col" style={{ gap: 6, marginTop: 14 }}>
-                    <label style={{ fontSize: 11, fontWeight: 600, color: "oklch(0.556 0 0)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--opx-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                       Steps ({selected.steps.length})
                     </label>
                     {selected.steps
@@ -465,14 +465,14 @@ export default function TemplatesPage() {
                           style={{ boxShadow: "0 0 0 1px var(--j-ring)", borderRadius: 8, padding: "10px 12px" }}
                         >
                           <div className="j-row j-wrap" style={{ gap: 8 }}>
-                            <span className="j-pill j-ghost" style={{ fontSize: 10 }}>#{step.order ?? i + 1}</span>
+                            <span className="j-pill j-ghost" style={{ fontSize: 12 }}>#{step.order ?? i + 1}</span>
                             <p style={{ margin: 0, fontSize: 13, fontWeight: 500 }}>{step.title}</p>
                             {step.skill_ref && (
-                              <span className="j-pill j-proj" style={{ fontSize: 10 }}>{step.skill_ref}</span>
+                              <span className="j-pill j-proj" style={{ fontSize: 12 }}>{step.skill_ref}</span>
                             )}
                           </div>
                           {step.acceptance && (
-                            <p style={{ margin: "6px 0 0", fontSize: 12, color: "oklch(0.556 0 0)" }}>
+                            <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--opx-muted)" }}>
                               Acceptance: {step.acceptance}
                             </p>
                           )}
@@ -486,7 +486,7 @@ export default function TemplatesPage() {
                   <div className="j-row j-wrap" style={{ gap: 4, marginTop: 10 }}>
                     <span className="j-muted" style={{ fontSize: 12 }}>Required skills:</span>
                     {selected.requiredSkills.map(s => (
-                      <span key={s} className="j-pill j-proj" style={{ fontSize: 11 }}>{s}</span>
+                      <span key={s} className="j-pill j-proj" style={{ fontSize: 12 }}>{s}</span>
                     ))}
                   </div>
                 )}
@@ -494,7 +494,7 @@ export default function TemplatesPage() {
                 {/* Default prompts */}
                 {selected.defaultPrompts.length > 0 && (
                   <div className="j-col" style={{ gap: 6, marginTop: 14 }}>
-                    <label style={{ fontSize: 11, fontWeight: 600, color: "oklch(0.556 0 0)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--opx-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                       Default prompts ({selected.defaultPrompts.length})
                     </label>
                     {selected.defaultPrompts.map((prompt, i) => (
@@ -506,9 +506,9 @@ export default function TemplatesPage() {
                         >
                           <div className="j-row" style={{ gap: 8 }}>
                             {prompt.trigger_event && (
-                              <span className="j-pill j-warn" style={{ fontSize: 10 }}>{prompt.trigger_event}</span>
+                              <span className="j-pill j-warn" style={{ fontSize: 12 }}>{prompt.trigger_event}</span>
                             )}
-                            <span style={{ fontSize: 13, color: "oklch(0.860 0 0)" }}>
+                            <span style={{ fontSize: 13, color: "var(--opx-ink)" }}>
                               Prompt {i + 1}
                               {prompt.version ? ` (v${prompt.version})` : ""}
                             </span>
@@ -517,7 +517,7 @@ export default function TemplatesPage() {
                         </button>
                         {promptsOpen[i] && prompt.body && (
                           <div style={{ padding: "0 12px 12px", borderTop: "1px solid var(--j-ring)" }}>
-                            <pre style={{ margin: "10px 0 0", fontSize: 12, whiteSpace: "pre-wrap", lineHeight: 1.6, color: "oklch(0.860 0 0)", fontFamily: "inherit" }}>
+                            <pre style={{ margin: "10px 0 0", fontSize: 12, whiteSpace: "pre-wrap", lineHeight: 1.6, color: "var(--opx-ink)", fontFamily: "inherit" }}>
                               {prompt.body}
                             </pre>
                           </div>

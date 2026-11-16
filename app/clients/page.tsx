@@ -277,7 +277,7 @@ export default function ClientsPage() {
                 placeholder="Notes…" value={form.notes} rows={3}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                 style={{
-                  width: "100%", background: "oklch(1 0 0 / 0.04)", color: "oklch(0.985 0 0)",
+                  width: "100%", background: "var(--opx-soft)", color: "var(--opx-ink)",
                   border: "none", boxShadow: "0 0 0 1px var(--j-ring)", borderRadius: 8,
                   padding: 12, fontSize: 13, resize: "vertical",
                 }}
@@ -371,7 +371,7 @@ export default function ClientsPage() {
                           </div>
 
                           {showSched && (
-                            <div className="j-card" style={{ background: "oklch(1 0 0 / 0.02)" }}>
+                            <div className="j-card" style={{ background: "var(--opx-soft)" }}>
                               <div className="j-col" style={{ gap: 8 }}>
                                 <input className="j-search" placeholder="Service title * (e.g. Monthly site upkeep)"
                                   value={schedForm.title}

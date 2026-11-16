@@ -106,7 +106,7 @@ function layoutNodes(
           color: colors.text,
           padding: "6px 10px",
           borderRadius: 8,
-          fontSize: 11,
+          fontSize: 12,
           maxWidth: 180,
           fontFamily: "inherit",
         },
@@ -124,7 +124,7 @@ function layoutNodes(
       source: d.from_surface_id,
       target: d.to_surface_id,
       label: d.kind,
-      labelStyle: { fontSize: 9, fill: "#94a3b8", fontFamily: "inherit" },
+      labelStyle: { fontSize: 12, fill: "#94a3b8", fontFamily: "inherit" },
       labelBgPadding: [4, 2] as [number, number],
       labelBgBorderRadius: 3,
       labelBgStyle: { fill: "rgba(15, 23, 42, 0.7)" },
@@ -211,7 +211,7 @@ function NodeDetailPanel({ surface, onClose }: { surface: Surface; onClose: () =
       flexShrink: 0,
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <span style={{ fontSize: 10, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 1 }}>
+        <span style={{ fontSize: 12, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 1 }}>
           {surface.kind}
         </span>
         <button onClick={onClose} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", padding: 2 }}>
@@ -222,14 +222,14 @@ function NodeDetailPanel({ surface, onClose }: { surface: Surface; onClose: () =
         {surface.canonical_id}
       </code>
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 10 }}>
-        <span style={{ padding: "2px 7px", borderRadius: 10, fontSize: 10, background: "rgba(148,163,184,0.15)", color: "#94a3b8", border: "1px solid #334155" }}>
+        <span style={{ padding: "2px 7px", borderRadius: 10, fontSize: 12, background: "rgba(148,163,184,0.15)", color: "#94a3b8", border: "1px solid #334155" }}>
           {surface.status}
         </span>
       </div>
       {loc.file_path && (
         <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 10, color: "#64748b", marginBottom: 3 }}>FILE</div>
-          <code style={{ fontSize: 11, fontFamily: "inherit", color: "#60a5fa", wordBreak: "break-all" }}>
+          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 3 }}>FILE</div>
+          <code style={{ fontSize: 12, fontFamily: "inherit", color: "#60a5fa", wordBreak: "break-all" }}>
             {loc.file_path as string}
           </code>
         </div>
@@ -245,8 +245,8 @@ function NodeDetailPanel({ surface, onClose }: { surface: Surface; onClose: () =
         >
           Open in catalog
         </a>
-        <div style={{ fontSize: 10, color: "#64748b", marginTop: 4 }}>
-          ID: <code style={{ fontSize: 10 }}>{surface.id.slice(0, 12)}…</code>
+        <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+          ID: <code style={{ fontSize: 12 }}>{surface.id.slice(0, 12)}…</code>
         </div>
       </div>
     </div>
@@ -268,7 +268,7 @@ const inputStyle: React.CSSProperties = {
 }
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 10, textTransform: "uppercase", letterSpacing: 1, color: "#94a3b8", marginBottom: 6,
+  fontSize: 12, textTransform: "uppercase", letterSpacing: 1, color: "#94a3b8", marginBottom: 6,
 }
 
 function chipStyle(active: boolean, accent?: string): React.CSSProperties {
@@ -276,7 +276,7 @@ function chipStyle(active: boolean, accent?: string): React.CSSProperties {
     padding: "3px 8px", background: active ? "rgba(30,41,59,0.9)" : "transparent",
     border: `1px solid ${active ? accent ?? "#3b82f6" : "#334155"}`,
     borderRadius: 12, color: active ? accent ?? "#3b82f6" : "#94a3b8",
-    fontSize: 10, cursor: "pointer", fontFamily: "inherit",
+    fontSize: 12, cursor: "pointer", fontFamily: "inherit",
   }
 }
 
@@ -418,7 +418,7 @@ export default function ImpactGraphPage() {
           </span>
         )}
         {focusCanonical && (
-          <span style={{ fontSize: 11, color: "#60a5fa", fontFamily: "inherit", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: 12, color: "#60a5fa", fontFamily: "inherit", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             focus: {focusCanonical}
           </span>
         )}

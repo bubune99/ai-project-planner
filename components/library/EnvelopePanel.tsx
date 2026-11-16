@@ -133,7 +133,7 @@ export function EnvelopePanel({ envelope, onSave }: EnvelopePanelProps) {
             <div className="j-col" style={{ gap: 8 }}>
               {DIMS.map(dim => (
                 <div key={dim.key} className="j-col" style={{ gap: 3 }}>
-                  <label style={{ fontSize: 11, fontWeight: 600, color: "oklch(0.556 0 0)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--opx-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                     {dim.label}
                   </label>
                   <textarea
@@ -143,8 +143,8 @@ export function EnvelopePanel({ envelope, onSave }: EnvelopePanelProps) {
                     onChange={e => setForm(f => ({ ...f, [dim.key]: e.target.value }))}
                     style={{
                       width: "100%",
-                      background: "oklch(1 0 0 / 0.04)",
-                      color: "oklch(0.985 0 0)",
+                      background: "var(--opx-soft)",
+                      color: "var(--opx-ink)",
                       border: "none",
                       boxShadow: "0 0 0 1px var(--j-ring)",
                       borderRadius: 8,
@@ -183,11 +183,11 @@ export function EnvelopePanel({ envelope, onSave }: EnvelopePanelProps) {
                     }}
                   >
                     <div className="j-row" style={{ gap: 6, marginBottom: 4 }}>
-                      <span className={`j-pill ${dim.color}`} style={{ fontSize: 10, padding: "1px 7px" }}>
+                      <span className={`j-pill ${dim.color}`} style={{ fontSize: 12, padding: "1px 7px" }}>
                         {dim.label}
                       </span>
                     </div>
-                    <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5, color: text ? "oklch(0.860 0 0)" : "oklch(0.556 0 0)" }}>
+                    <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5, color: text ? "var(--opx-ink)" : "var(--opx-muted)" }}>
                       {text || "(not provided)"}
                     </p>
                   </div>

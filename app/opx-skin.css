@@ -1112,3 +1112,5 @@ input[type=date].opx-rowsel { min-width: 128px; }
 .dark .j-pill.j-warn { color: #f0c38a; }
 .j-pill.j-pos { color: #1d6243; }
 .dark .j-pill.j-pos { color: #7fd4ab; }
+/* A grid that fits as many columns as its room allows (replaces fixed three-column grids that cut off on a tablet). */
+.opx-fit { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }

@@ -43,7 +43,7 @@ const lifecycleConfig: Record<IdeaLifecycle, { icon: typeof Sparkles; color: str
   exploring: { icon: Compass, color: "text-blue-400", label: "Exploring", bgColor: "bg-blue-500/20" },
   refined: { icon: CheckCircle2, color: "text-green-400", label: "Refined", bgColor: "bg-green-500/20" },
   promoted: { icon: Rocket, color: "text-purple-400", label: "Promoted", bgColor: "bg-purple-500/20" },
-  archived: { icon: Archive, color: "text-gray-400", label: "Archived", bgColor: "bg-gray-500/20" },
+  archived: { icon: Archive, color: "text-muted-foreground", label: "Archived", bgColor: "bg-gray-500/20" },
 }
 
 const visibilityConfig: Record<string, { icon: typeof Eye; label: string }> = {
@@ -61,7 +61,7 @@ export function IdeaCard({ idea, onClick, onEdit, onDelete, onArchive, onPromote
   return (
     <Card
       className={cn(
-        "border-white/10 bg-black/40 hover:bg-black/50 transition-all cursor-pointer group",
+        "border-border bg-muted/40 hover:bg-muted transition-all cursor-pointer group",
         idea.lifecycle === "archived" && "opacity-60"
       )}
       onClick={() => onClick?.(idea)}
@@ -72,11 +72,11 @@ export function IdeaCard({ idea, onClick, onEdit, onDelete, onArchive, onPromote
             <Icon className={cn("h-5 w-5", lifecycle.color)} />
           </div>
           <div className="min-w-0 flex-1">
-            <CardTitle className="text-sm font-medium text-white truncate">
+            <CardTitle className="text-sm font-medium text-foreground truncate">
               {idea.title}
             </CardTitle>
             {idea.category && (
-              <p className="text-xs text-gray-500 mt-1">{idea.category}</p>
+              <p className="text-xs text-muted-foreground mt-1">{idea.category}</p>
             )}
           </div>
         </div>
@@ -85,12 +85,12 @@ export function IdeaCard({ idea, onClick, onEdit, onDelete, onArchive, onPromote
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-gray-400 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
             >
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="bg-black/90 border-white/10">
+          <DropdownMenuContent align="end" className="bg-background border-border">
             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit?.(idea) }}>
               Edit Idea
             </DropdownMenuItem>
@@ -122,7 +122,7 @@ export function IdeaCard({ idea, onClick, onEdit, onDelete, onArchive, onPromote
       </CardHeader>
       <CardContent>
         {idea.description && (
-          <p className="text-sm text-gray-400 line-clamp-2 mb-3">
+          <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
             {idea.description}
           </p>
         )}
@@ -134,14 +134,14 @@ export function IdeaCard({ idea, onClick, onEdit, onDelete, onArchive, onPromote
               <Badge
                 key={tag}
                 variant="outline"
-                className="text-xs border-white/10 text-gray-400"
+                className="text-xs border-border text-muted-foreground"
               >
                 <Tag className="h-3 w-3 mr-1" />
                 {tag}
               </Badge>
             ))}
             {idea.tags.length > 3 && (
-              <Badge variant="outline" className="text-xs border-white/10 text-gray-400">
+              <Badge variant="outline" className="text-xs border-border text-muted-foreground">
                 +{idea.tags.length - 3}
               </Badge>
             )}
@@ -150,7 +150,7 @@ export function IdeaCard({ idea, onClick, onEdit, onDelete, onArchive, onPromote
 
         {/* Stats & Status */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 text-xs text-gray-500">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
             {(idea.branchCount ?? 0) > 0 && (
               <div className="flex items-center gap-1">
                 <GitBranch className="h-3 w-3" />
@@ -171,7 +171,7 @@ export function IdeaCard({ idea, onClick, onEdit, onDelete, onArchive, onPromote
             )}
           </div>
           <div className="flex items-center gap-2">
-            <VisibilityIcon className="h-3 w-3 text-gray-500" />
+            <VisibilityIcon className="h-3 w-3 text-muted-foreground" />
             <Badge variant="outline" className={cn("text-xs border-transparent", lifecycle.bgColor, lifecycle.color)}>
               {lifecycle.label}
             </Badge>
@@ -180,7 +180,7 @@ export function IdeaCard({ idea, onClick, onEdit, onDelete, onArchive, onPromote
 
         {/* Promoted Project Link */}
         {idea.promotedToProjectId && idea.projectName && (
-          <div className="mt-3 pt-3 border-t border-white/10">
+          <div className="mt-3 pt-3 border-t border-border">
             <div className="flex items-center gap-2 text-xs text-purple-400">
               <Rocket className="h-3 w-3" />
               <span>Promoted to: {idea.projectName}</span>
