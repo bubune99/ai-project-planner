@@ -525,7 +525,7 @@ aria-label="Id of the part to focus on" placeholder="Id of a part, or press a bo
                   onClick={() => { setHops(n); syncQS({ hops: String(n) }) }}
                   aria-label={`Show ${n} step${n === 1 ? "" : "s"} away`}
                   aria-pressed={hops === n}
-                  style={chipStyle(hops === n)}
+                  style={{ ...chipStyle(hops === n), minWidth: 30, minHeight: 28, justifyContent: "center" }}
                 >
                   {n}
                 </button>
