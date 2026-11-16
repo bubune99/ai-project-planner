@@ -145,14 +145,15 @@ function PhaseStrip({ strip }: { strip: { phases: StripPhase[]; outside: number 
         </div>
       </div>
       <div style={{ position: "relative", padding: "4px 0 8px" }}>
-        <div style={{ position: "absolute", top: 18, left: 18, right: 18, height: 2, background: "var(--j-hairline)" }} />
-        <div style={{ position: "absolute", top: 18, left: 18, width: `calc(${fillPct}% - 18px)`, height: 2, background: "var(--j-accent)" }} />
-        <div className="j-row" style={{ justifyContent: "space-between", alignItems: "flex-start", position: "relative" }}>
+        <div className="phase-rail" style={{ position: "absolute", top: 18, left: 18, right: 18, height: 2, background: "var(--j-hairline)" }} />
+        <div className="phase-rail" style={{ position: "absolute", top: 18, left: 18, width: `calc(${fillPct}% - 18px)`, height: 2, background: "var(--j-accent)" }} />
+        {/* On a phone the phases stack, one row each (owner, 440px, 2026-11-16: "These are very squished on mobile"). */}
+        <div className="j-row phase-row" style={{ justifyContent: "space-between", alignItems: "flex-start", position: "relative" }}>
           {phases.map((ph) => {
             const d = ph.status === "done"
             const a = ph.status === "active"
             return (
-              <div key={ph.number} data-phase={ph.number} className="j-col" style={{ alignItems: "center", flex: 1, minWidth: 0, gap: 6, padding: "0 6px" }}>
+              <div key={ph.number} data-phase={ph.number} className="j-col phase-item" style={{ alignItems: "center", flex: 1, minWidth: 0, gap: 6, padding: "0 6px" }}>
                 <div aria-hidden style={{
                   width: 28, height: 28, borderRadius: 14,
                   background: a ? "var(--j-accent)" : d ? "var(--j-pos)" : "oklch(0.180 0 0)",
@@ -163,10 +164,12 @@ function PhaseStrip({ strip }: { strip: { phases: StripPhase[]; outside: number 
                 }}>
                   {d ? <Check className="h-3.5 w-3.5" /> : ph.number}
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 500, textAlign: "center", lineHeight: 1.3 }}>{ph.name}</div>
-                <span className="j-muted" style={{ fontSize: 12, textAlign: "center" }}>
-                  Phase {ph.number} · {d ? "done" : a ? "in progress" : "not started"}{ph.total > 1 ? ` · ${ph.done} of ${ph.total} tasks` : ""}
-                </span>
+                <div className="phase-text" style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.3 }}>{ph.name}</div>
+                  <span className="j-muted" style={{ fontSize: 12 }}>
+                    Phase {ph.number} · {d ? "done" : a ? "in progress" : "not started"}{ph.total > 1 ? ` · ${ph.done} of ${ph.total} tasks` : ""}
+                  </span>
+                </div>
               </div>
             )
           })}

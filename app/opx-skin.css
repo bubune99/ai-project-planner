@@ -740,7 +740,7 @@ a.opx-mt:hover b { text-decoration: underline; }
 .opx-pf-shead { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .opx-pf-num { width: 22px; height: 22px; border-radius: 999px; background: var(--opx-card); display: inline-grid; place-items: center; font-size: 12px; font-weight: 700; margin-right: 4px; flex: none; }
 .opx-pf-tag { background: var(--opx-card); border-radius: 999px; padding: 1px 9px; font-size: 12px; }
-.opx-pf-pick { max-width: 100%; width: 100%; border: 1px solid var(--opx-line); background: var(--opx-card); color: var(--opx-ink); border-radius: 9px; padding: 5px 8px; font: inherit; font-size: 13px; } .opx-pf-top .opx-pf-pick, .opx-pf-ways .opx-pf-pick { width: auto; max-width: 420px; } .dark .opx-pf-pick { color-scheme: dark; }
+.opx-pf-pick { max-width: 100%; width: 100%; border: 1px solid var(--opx-line); background: var(--opx-card); color: var(--opx-ink); border-radius: 9px; padding: 5px 8px; font: inherit; font-size: 13px; } .opx-pf-top .opx-pf-pick, .opx-pf-ways .opx-pf-pick { width: auto; max-width: min(420px, 100%); min-width: 0; } .dark .opx-pf-pick { color-scheme: dark; }
 .opx-pf-tools { display: flex; gap: 4px; flex-wrap: wrap; } .opx-pf-tools button, .opx-pf-x { border: 0; background: var(--opx-card); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 12px; color: inherit; cursor: pointer; } .opx-pf-tools button:disabled { opacity: .4; cursor: default; }
 .opx-pf-state { display: flex; align-items: center; gap: 7px; font-size: 12.5px; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--opx-line); }
 .opx-pf-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--opx-muted); flex: none; } .opx-pf-dot.ok { background: var(--opx-good); } .opx-pf-dot.bad { background: var(--opx-hot); } .opx-pf-dot.warn { background: var(--opx-warn); } .opx-pf-dot.gap { background: none; box-shadow: inset 0 0 0 2px var(--opx-muted); }
@@ -1202,3 +1202,19 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
 .opx-pf-waystep { display: grid; gap: 4px; padding: 6px 0; border-top: 1px solid var(--opx-line, rgba(127,127,127,.2)); }
 .opx-ucf-end { display: grid; place-content: center; gap: 4px; text-align: center; border-radius: 14px; border: 1.5px dashed var(--opx-line, rgba(127,127,127,.5)); background: var(--opx-card); padding: 10px; font-size: 14px; }
 .opx-ucf-end b { font-size: 15px; }
+
+/* Project Overview phase strip: across on a wide screen, one row per phase on a phone (owner, 440px, 2026-11-16). */
+[data-testid="phase-strip"] .phase-text { text-align: center; }
+@media (max-width: 640px) {
+  [data-testid="phase-strip"] .phase-rail { display: none; }
+  [data-testid="phase-strip"] .phase-row { flex-direction: column; gap: 12px; }
+  [data-testid="phase-strip"] .phase-item { flex-direction: row; align-items: center; gap: 12px; padding: 0; }
+  [data-testid="phase-strip"] .phase-item > :first-child { flex-shrink: 0; }
+  [data-testid="phase-strip"] .phase-text { text-align: left; gap: 2px; }
+}
+
+/* People and flows "Who it is for": on a phone the people are a list, one full-width row each (owner, 440px, 2026-11-16: "This is too squished"). */
+@media (max-width: 640px) {
+  .opx-pf-who .opx-seg { flex-direction: column; align-items: stretch; width: 100%; border-radius: 12px; padding: 4px; }
+  .opx-pf-who .opx-seg > button { display: flex; justify-content: space-between; align-items: center; text-align: left; min-height: 44px; border-radius: 9px; padding: 8px 14px; width: 100%; }
+}
