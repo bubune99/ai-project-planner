@@ -649,7 +649,7 @@ export default function CatalogPage() {
 
   return (
     <DashboardLayout>
-      <div className="j-content">
+      <div className="j-content opx-mdc">
         {/* Header */}
         <div className="j-row j-between j-wrap" style={{ gap: 12 }}>
           <div className="j-row" style={{ gap: 8 }}>
@@ -699,7 +699,7 @@ export default function CatalogPage() {
         {err && <div className="j-pill j-neg" style={{ alignSelf: "flex-start" }}>{err}</div>}
 
         {/* Master + Detail */}
-        <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+        <div className={`opx-md${selected ? " has-sel" : ""}`}>
           {/* Master pane */}
           <div style={{ width: 360, flexShrink: 0 }}>
             {loading ? (

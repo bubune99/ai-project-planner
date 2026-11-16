@@ -174,7 +174,7 @@ export default function SkillsPage() {
 
   return (
     <DashboardLayout>
-      <div className="j-content">
+      <div className="j-content opx-mdc">
         {/* Header */}
         <div className="j-row j-between j-wrap" style={{ gap: 12 }}>
           <div className="j-col" style={{ gap: 2 }}>
@@ -277,7 +277,7 @@ export default function SkillsPage() {
         )}
 
         {/* Master + Detail layout */}
-        <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+        <div className={`opx-md${selected ? " has-sel" : ""}`}>
           {/* Master list */}
           <div style={{ width: 340, flexShrink: 0 }}>
             {loading ? (

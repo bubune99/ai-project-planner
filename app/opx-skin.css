@@ -1126,3 +1126,18 @@ input[type=date].opx-rowsel { min-width: 128px; }
 /* Press targets found small by the measuring pass, 2026-11-15. */
 button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; align-items: center; }
 @media (max-width: 760px) { .opx-plain-list a, a.opx-agr, button.opx-link { min-height: 44px; } }
+/* A list beside the details of the chosen item. In a narrow room only one of the two is shown: the list until
+   something is chosen, then its details (their own Close button goes back). The list had a fixed width, so on a
+   phone the details were left a strip about 50 pixels wide. */
+.opx-mdc { container-type: inline-size; }
+.opx-md { display: flex; gap: 14px; align-items: flex-start; }
+.opx-md > :nth-child(2) { flex: 1; min-width: 0; }
+@container (max-width: 760px) {
+  .opx-md > :first-child { width: 100% !important; }
+  .opx-md.has-sel > :first-child { display: none; }
+  .opx-md:not(.has-sel) > :nth-child(2) { display: none; }
+}
+@container (max-width: 760px) {
+  .opx-md.has-sel > :nth-child(2) button[aria-label="Close"], .opx-md.has-sel > :nth-child(2) button[title="Close"] { width: auto; padding: 0 14px; gap: 6px; border-radius: 999px; }
+  .opx-md.has-sel > :nth-child(2) button[aria-label="Close"]::after, .opx-md.has-sel > :nth-child(2) button[title="Close"]::after { content: "Back to the list"; font-size: 13px; }
+}
