@@ -1,7 +1,7 @@
 import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
-import { getAuthContext } from '@/lib/auth/auth-utils'
+import { getAuthContext, verifyProjectWriteAccess } from '@/lib/auth/auth-utils'
 
 export const dynamic = "force-dynamic"
 
@@ -85,9 +85,15 @@ export async function POST(request: NextRequest) {
         400
       )
     }
+    // A document names a project only the caller may write to (Docs & files check, 2026-11-15).
+    if (project_id && !(await verifyProjectWriteAccess(project_id, authContext.userId))) {
+      return errorResponse(ErrorCodes.NOT_FOUND, 'Project not found', 404)
+    }
 
+    // user_id is required by the table; without it every insert here failed (Docs & files check, 2026-11-15).
     const result = await sql`
       INSERT INTO documents (
+        user_id,
         project_id,
         title,
         description,
@@ -97,6 +103,7 @@ export async function POST(request: NextRequest) {
         blob_key,
         metadata
       ) VALUES (
+        ${authContext.userId},
         ${project_id || null}, -- Global docs might not have project_id
         ${title},
         ${description || 'No description'},

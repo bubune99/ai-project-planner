@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
-import { deleteFromR2 } from "@/lib/storage/r2-client";
 import { getAuthContext } from "@/lib/auth/auth-utils";
 import { mergeEnvelopeForPatch, envelopeForSql } from "@/lib/api/envelope-helpers";
 import { decodeTitleEntities, decodeMarkdownAmpEntities } from "@/lib/text/decode-entities";
@@ -120,16 +119,8 @@ export async function DELETE(
 
     const document = docResult[0];
 
-    // Delete from Cloudflare R2
-    if (document.blob_key) {
-      try {
-        await deleteFromR2(document.blob_key);
-      } catch (r2Error) {
-        console.error("R2 deletion error:", r2Error);
-        // Continue with database deletion even if R2 deletion fails
-      }
-    }
-
+    // The stored file is kept: a delete can be undone for a day (POST ./restore). Removing the
+    // stored copies of documents deleted longer ago is upkeep, not this request's job.
     // Soft delete in database
     await sql`
       UPDATE documents

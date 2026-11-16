@@ -58,7 +58,8 @@ export default function RootLayout({
             </StackTheme>
           </StackProvider>
         </ThemeProvider>
-        <Toaster position="top-center" theme="system" richColors />
+        {/* Notices open below the top bar, never over it (Docs & files check, 2026-11-15). */}
+        <Toaster position="top-center" theme="system" richColors offset="72px" />
         <Analytics />
         <ServiceWorkerRegister />
         <FeedbackWidget source="ai-project-planner" />

@@ -1218,3 +1218,6 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
   .opx-pf-who .opx-seg { flex-direction: column; align-items: stretch; width: 100%; border-radius: 12px; padding: 4px; }
   .opx-pf-who .opx-seg > button { display: flex; justify-content: space-between; align-items: center; text-align: left; min-height: 44px; border-radius: 9px; padding: 8px 14px; width: 100%; }
 }
+
+/* Notices sit below the top bar on a phone too (sonner pins them 20px from the top under 600px). */
+@media (max-width: 600px) { [data-sonner-toaster][data-y-position="top"] { top: 72px !important; } }

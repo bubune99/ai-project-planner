@@ -7,7 +7,7 @@
  * that doesn't exist yet, so that section says so instead of pretending.
  */
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { Failed, Loading, Md, ago, askAssistant, unwrap, useJson } from "./shared"
 import { fillSlots, type Doc } from "./doc-slots"
@@ -29,6 +29,8 @@ export function DocsTab({ projectId, coreDocs }: { projectId: string; coreDocs?:
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState("")
   const [saving, setSaving] = useState(false)
+  const [renaming, setRenaming] = useState<string | null>(null)
+  useEffect(() => setRenaming(null), [open])
 
   if (loading && !data) return <Loading what="documents" />
   if (error) return <Failed what="documents" error={error} retry={reload} />
@@ -69,13 +71,48 @@ export function DocsTab({ projectId, coreDocs }: { projectId: string; coreDocs?:
     setUploading(0)
     if (ok) { toast.success(`Uploaded ${ok} file${ok > 1 ? "s" : ""}`); reload() }
   }
+  const patchDoc = async (id: string, body: Record<string, string>) => {
+    const r = await fetch(`/api/documents/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j?.error?.message || j?.error || `HTTP ${r.status}`) }
+  }
+  const rename = async () => {
+    if (!cur || renaming == null) return
+    const title = renaming.trim()
+    if (!title || title === cur.title) { setRenaming(null); return }
+    try { await patchDoc(cur.id, { title }); setRenaming(null); reload() }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't rename it") }
+  }
+  /** Deletes a document or file and offers Undo for a while (the server keeps it for a day). */
+  const remove = async (d: Doc) => {
+    const r = await fetch(`/api/documents/${d.id}`, { method: "DELETE" }).catch(() => null)
+    if (!r?.ok) { toast.error(`Couldn't delete "${d.title}"`); return }
+    if (open === d.id) { setOpen(null); setEditing(false) }
+    reload()
+    toast(`Deleted "${d.title.slice(0, 40)}"`, {
+      duration: 10000,
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          const back = await fetch(`/api/documents/${d.id}/restore`, { method: "POST" }).catch(() => null)
+          if (!back?.ok) toast.error("Couldn't bring it back")
+          reload()
+        },
+      },
+    })
+  }
   const saveDoc = async () => {
     if (!cur) return
     setSaving(true)
     try {
-      const r = await fetch(`/api/documents/${cur.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: draft }) })
-      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j?.error?.message || j?.error || `HTTP ${r.status}`) }
-      toast.success("Saved"); setEditing(false); reload()
+      const before = cur.content || ""
+      const id = cur.id
+      await patchDoc(id, { content: draft })
+      setEditing(false); reload()
+      // A save can be taken back: Undo puts the text as it was (Docs & files check, 2026-11-15).
+      toast.success("Saved", {
+        duration: 10000,
+        action: { label: "Undo", onClick: () => { patchDoc(id, { content: before }).then(() => { toast("Put back as it was"); reload() }, (e) => toast.error(e instanceof Error ? e.message : "Couldn't undo")) } },
+      })
     } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't save") }
     finally { setSaving(false) }
   }
@@ -127,11 +164,23 @@ export function DocsTab({ projectId, coreDocs }: { projectId: string; coreDocs?:
                     <button className="opx-btn" onClick={() => setEditing(false)} disabled={saving}>Cancel</button>
                     <button className="opx-btn primary" onClick={saveDoc} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
                   </>
-                ) : <button className="opx-btn" onClick={() => { setDraft(cur.content || ""); setEditing(true) }}>Edit</button>}
+                ) : (
+                  <>
+                    <button className="opx-btn" onClick={() => setRenaming(cur.title)}>Rename</button>
+                    <button className="opx-btn" onClick={() => remove(cur)}>Delete</button>
+                    <button className="opx-btn" onClick={() => { setDraft(cur.content || ""); setEditing(true) }}>Edit</button>
+                  </>
+                )}
               </span>
             </div>
             <div className="opx-muted" style={{ fontSize: 12.5 }}>{cur.category || ""} · updated {ago(cur.updated_at)}</div>
-            <h2 style={{ fontSize: 26, margin: "6px 0 14px", fontWeight: 600 }}>{cur.title}</h2>
+            {renaming != null ? (
+              <form style={{ display: "flex", gap: 6, margin: "6px 0 14px", flexWrap: "wrap" }} onSubmit={(e) => { e.preventDefault(); rename() }}>
+                <input autoFocus className="opx-input" style={{ flex: "1 1 240px", fontSize: 18 }} aria-label="Document title" value={renaming} onChange={(e) => setRenaming(e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") setRenaming(null) }} />
+                <button type="submit" className="opx-btn primary">Save title</button>
+                <button type="button" className="opx-btn" onClick={() => setRenaming(null)}>Cancel</button>
+              </form>
+            ) : <h2 style={{ fontSize: 26, margin: "6px 0 14px", fontWeight: 600 }}>{cur.title}</h2>}
             {editing
               ? <textarea className="opx-input" value={draft} onChange={(e) => setDraft(e.target.value)} rows={28} aria-label="Document text (Markdown)" />
               : <Md text={cur.content || "_Empty document._"} />}
@@ -151,13 +200,16 @@ export function DocsTab({ projectId, coreDocs }: { projectId: string; coreDocs?:
             {files.length > 0 && (
               <div className="opx-fgrid">
                 {files.map((f) => (
-                  <a key={f.id} className="opx-file" href={`/api/documents/${f.id}/file`} target="_blank" rel="noreferrer">
-                    {f.file_type?.startsWith("image/")
-                      ? <span className="opx-thumb" style={{ backgroundImage: `url(/api/documents/${f.id}/file)` }} />
-                      : <span className="opx-thumb opx-ext">{(f.title.split(".").pop() || "file").slice(0, 4).toUpperCase()}</span>}
-                    <b>{f.title}</b>
-                    <small className="opx-muted">{f.file_size ? `${Math.max(1, Math.round(f.file_size / 1024))} KB · ` : ""}{ago(f.created_at)}</small>
-                  </a>
+                  <div key={f.id} data-file={f.id} style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+                    <a className="opx-file" href={`/api/documents/${f.id}/file`} target="_blank" rel="noreferrer">
+                      {f.file_type?.startsWith("image/")
+                        ? <span className="opx-thumb" style={{ backgroundImage: `url(/api/documents/${f.id}/file)` }} />
+                        : <span className="opx-thumb opx-ext">{(f.title.split(".").pop() || "file").slice(0, 4).toUpperCase()}</span>}
+                      <b>{f.title}</b>
+                      <small className="opx-muted">{f.file_size ? `${Math.max(1, Math.round(f.file_size / 1024))} KB · ` : ""}{ago(f.created_at)}</small>
+                    </a>
+                    <button type="button" className="opx-link" style={{ alignSelf: "flex-start", fontSize: 12.5, minHeight: 32, padding: 0 }} aria-label={`Remove the file ${f.title}`} onClick={() => remove(f)}>Remove</button>
+                  </div>
                 ))}
               </div>
             )}
