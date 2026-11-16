@@ -404,7 +404,7 @@ export default function ImpactGraphPage() {
   }, [allSurfaces])
 
   return (
-    <div style={{ height: "100%", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: "var(--opx-bg)" }}>
+    <div className="opx-graphpage" style={{ height: "100%", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: "var(--opx-bg)" }}>
       {/* Header */}
       <div style={{
         padding: "14px 20px", borderBottom: "1px solid var(--opx-line)",

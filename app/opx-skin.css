@@ -1151,3 +1151,8 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
 /* The danger button's words read at 3.4 to 1 on the page; these read above 4.5 in both themes. */
 .opx-btn.danger { color: #a3261a; }
 .dark .opx-btn.danger { color: #ff9c8f; }
+/* The graph pages: the small map takes the theme's colors, and on a phone it is left out (it covered a third of the canvas). */
+.opx-graphpage .react-flow__minimap { background: var(--opx-card); }
+.opx-graphpage .react-flow__controls button { background: var(--opx-card); color: var(--opx-ink); border-color: var(--opx-line); }
+.opx-graphpage .react-flow__controls button svg { fill: currentColor; }
+@media (max-width: 640px) { .opx-graphpage .react-flow__minimap { display: none; } }

@@ -30,7 +30,18 @@ const PAGE_META: Record<string, { title: string; sub: string; jump?: false }> = 
   "/finance": { title: "Finance", sub: "Money across your projects" },
   "/chat": { title: "Assistant", sub: "Talk to the planner" },
   "/settings": { title: "Settings", sub: "Preferences and configuration" },
+  // Pages that are in no menu: listing them here gives each its title and a way in from the jump box.
+  "/graph": { title: "Knowledge graph", sub: "How ideas, tasks and documents connect" },
+  "/impact": { title: "Impact graph", sub: "What depends on what in the code" },
+  "/feedback": { title: "Feedback", sub: "Comments left by pointing at a screen" },
 }
+/** A page under another one (an idea, a Library section) carries that page's title rather than the product's name. */
+const PARENT_META: [string, { title: string; sub: string }][] = [
+  ["/project/", { title: "Project", sub: "" }],
+  ["/ideas/", { title: "Ideas", sub: "" }],
+  ["/library/", { title: "Library", sub: "" }],
+  ["/chat/", { title: "Assistant", sub: "" }],
+]
 /** The pages the jump box offers for what has been typed: every word typed must appear in the name or its line. */
 const jumpTo = (typed: string) => {
   const words = typed.toLowerCase().split(/\s+/).filter(Boolean)
@@ -92,7 +103,7 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
     return () => { alive = false }
   }, [pathname])
 
-  const meta = PAGE_META[pathname] || (pathname.startsWith("/project/") ? { title: "Project", sub: "" } : { title: "Planner", sub: "" })
+  const meta = PAGE_META[pathname] || PARENT_META.find(([p]) => pathname.startsWith(p))?.[1] || { title: "Planner", sub: "" }
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
