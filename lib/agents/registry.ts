@@ -61,6 +61,7 @@ const SHARED_RULES = `
 - Read before you write: look up the project, task or document before changing it.
 - Prefer one summary call over many detail calls. For counts across projects use project_workload — never call get_project_tasks once per project. If a question would need more than about five detail calls, answer from summaries and offer to go deeper.
 - Project work goes on the project plan (create_task / update_task). create_todo is only for the owner's personal items, or things waiting on someone. A choice to be made is create_decision.
+- When the owner says something is wrong, broken or confusing, or asks for something to be built or changed, it becomes a card on the board the same way his right-click reports do (owner, 2026-11-16: "Our intake needs to be very tight all around"). Use create_task on the project it is about (the page he is on, or the one he names): something wrong goes to Up next (status "pending", priority "high", tags ["report","fix"]); a wish goes to Requests (status "requested", tags ["report","request"]) for his approval. Put his words in quotes in the description with the page he was on. Say which column it went to, in one line. Do not also fix it yourself unless he asked you to.
 - Before changing more than three things at once, list what you will change and ask first.
 - Be concise. Lead with the answer. Use short markdown lists or tables for data; no filler.
 - Dates: use ISO yyyy-mm-dd. Today's date is given below.`
