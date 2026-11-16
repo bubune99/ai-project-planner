@@ -967,6 +967,14 @@ function ValidationsTab({ ideaId }: { ideaId: string }) {
 // Refinements tab
 function RefinementsTab({ ideaId }: { ideaId: string }) {
   const [refinements, setRefinements] = useState<IdeaRefinement[]>([])
+  // The project a refinement came from is chosen by name. The form asked a person to type the project's UUID.
+  const [projectChoices, setProjectChoices] = useState<{ id: string; name: string }[]>([])
+  useEffect(() => {
+    fetch("/api/projects").then((r) => r.json()).then((j) => {
+      const list = Array.isArray(j?.data) ? j.data : Array.isArray(j) ? j : []
+      setProjectChoices(list.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })))
+    }).catch(() => setProjectChoices([]))
+  }, [])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showNew, setShowNew] = useState(false)
@@ -1085,8 +1093,8 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
               },
               {
                 key: "sourceProjectId",
-                label: "Source project ID *",
-                placeholder: "UUID of the project this feedback came from",
+                label: "Project it came from *",
+                placeholder: "",
                 type: "input",
               },
             ].map(({ key, label, placeholder }) => (
@@ -1102,7 +1110,19 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
                 >
                   {label}
                 </label>
+                {key === "sourceProjectId" ? (
+                  <select
+                    className="opx-input"
+                    aria-label="Project it came from"
+                    value={form.sourceProjectId}
+                    onChange={(e) => setForm((f) => ({ ...f, sourceProjectId: e.target.value }))}
+                  >
+                    <option value="">Choose a project</option>
+                    {projectChoices.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                ) : (
                 <input
+                  aria-label={label.replace(" *", "")}
                   value={form[key as keyof typeof form]}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, [key]: e.target.value }))
@@ -1121,6 +1141,7 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
                     width: "100%",
                   }}
                 />
+                )}
               </div>
             ))}
 
@@ -1425,6 +1446,7 @@ function DocumentsTab({ ideaId }: { ideaId: string }) {
                 Type
               </label>
               <select
+                aria-label="Kind of document"
                 value={form.documentType}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, documentType: e.target.value }))
