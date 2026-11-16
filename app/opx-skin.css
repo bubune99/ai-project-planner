@@ -1141,3 +1141,7 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
   .opx-md.has-sel > :nth-child(2) button[aria-label="Close"], .opx-md.has-sel > :nth-child(2) button[title="Close"] { width: auto; padding: 0 14px; gap: 6px; border-radius: 999px; }
   .opx-md.has-sel > :nth-child(2) button[aria-label="Close"]::after, .opx-md.has-sel > :nth-child(2) button[title="Close"]::after { content: "Back to the list"; font-size: 13px; }
 }
+/* Where a value or a list will be, before it is known. Still, not blinking: it must not startle. */
+.opx-wait { display: inline-block; vertical-align: -0.08em; height: 0.82em; min-width: 1.2ch; border-radius: 6px; background: color-mix(in srgb, currentColor 14%, transparent); }
+.opx-wait-rows { display: block; }
+.opx-wait-rows > i { display: block; border-radius: 12px; margin-bottom: 8px; background: color-mix(in srgb, var(--opx-ink) 7%, transparent); }

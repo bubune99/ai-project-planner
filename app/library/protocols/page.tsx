@@ -277,6 +277,7 @@ export default function ProtocolsPage() {
                   onChange={e => setNewForm(f => ({ ...f, triggerEvent: e.target.value }))}
                 />
                 <select
+                  aria-label="Severity when broken"
                   className="j-search"
                   value={newForm.violationSeverity}
                   onChange={e => setNewForm(f => ({ ...f, violationSeverity: e.target.value as Protocol["violationSeverity"] }))}

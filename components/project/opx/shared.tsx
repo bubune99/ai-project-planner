@@ -108,6 +108,24 @@ export function Seg<T extends string>({ value, options, onChange, label }: { val
   )
 }
 
+/**
+ * A quiet block where a value will be, for the moment before it is known. A figure must never read 0, and a list
+ * must never say it is empty, before the answer has arrived (owner, 2026-11-15: "the zero flash to something else
+ * ... something else to show that the values are loading but doesn't briefly startle me"). Three states, always told
+ * apart: not known yet (this), known to be none (the empty message), and loaded. On a refresh the last value stays.
+ */
+export function Wait({ w = "2.2ch", h }: { w?: string | number; h?: string | number }) {
+  return <span className="opx-wait" style={{ width: w, height: h }} role="status" aria-label="Loading" />
+}
+/** Rows where a list will be. */
+export function WaitRows({ n = 4, h = 44 }: { n?: number; h?: number }) {
+  return <div className="opx-wait-rows" role="status" aria-label="Loading">{Array.from({ length: n }, (_, i) => <i key={i} style={{ height: h }} />)}</div>
+}
+/** A figure, or its placeholder while it is not known. `value` null or undefined means not known yet. */
+export function Figure({ value, w }: { value: number | string | null | undefined; w?: string | number }) {
+  return value === null || value === undefined ? <Wait w={w} /> : <>{value}</>
+}
+
 export function Loading({ what }: { what: string }) {
   return <div className="opx-empty">Loading {what}…</div>
 }

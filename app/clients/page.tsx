@@ -271,7 +271,7 @@ export default function ClientsPage() {
                   onChange={e => setForm(f => ({ ...f, contactEmail: e.target.value }))} />
                 <input className="j-search" style={{ flex: 1 }} aria-label="Phone" placeholder="Phone" value={form.contactPhone}
                   onChange={e => setForm(f => ({ ...f, contactPhone: e.target.value }))} />
-                <select className="j-search" value={form.status}
+                <select className="j-search" aria-label="Status" value={form.status}
                   onChange={e => setForm(f => ({ ...f, status: e.target.value as Client["status"] }))}>
                   {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
