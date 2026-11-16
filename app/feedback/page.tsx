@@ -52,12 +52,15 @@ export default function FeedbackInboxPage() {
   const [meta, setMeta] = useState<{ openCount?: number; total?: number }>({});
   const [filter, setFilter] = useState<string>("");
   // ?mine=1 (from the inbox): only the reports this person sent.
-  const [mine, setMine] = useState<boolean>(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mine") === "1");
+  const [mine, setMine] = useState<boolean | null>(null);
+  // Read once mounted: after an in-app link the address can change after the first render.
+  useEffect(() => { setMine(new URLSearchParams(window.location.search).get("mine") === "1"); }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [shot, setShot] = useState<string | null>(null);
 
   const load = useCallback(async (quiet?: boolean) => {
+    if (mine === null) return;
     if (!quiet) setLoading(true);
     try {
       const p = new URLSearchParams();
