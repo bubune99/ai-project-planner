@@ -298,6 +298,17 @@ export function WorkCalendar({ refreshKey = 0, toolbar }: { refreshKey?: number;
         : patchJson(`/api/projects/${(e.item as any).projectId}/steps/${e.item.id}`, { start_date: p.start, end_date: p.due || p.start })}
       groupOf={(e) => (e.item as any).projectName || "Personal"}
       extras={extras}
+      canRemoveExtra={(x) => x.type === "event"}
+      removeExtra={async (x) => {
+        // An event's id here is "event-<uuid>". Removing can be undone from the line that says it was removed.
+        const id = x.id.replace(/^event-/, "")
+        const r = await fetch(`/api/calendar/${id}`, { method: "DELETE" })
+        if (!r.ok) { toast.error("The event was not removed"); return }
+        agendaQ.reload()
+        toast(`Removed "${x.title}"`, { duration: 10000, action: { label: "Undo", onClick: async () => {
+          try { await patchJson(`/api/calendar/${id}`, { restore: true }); agendaQ.reload() } catch { toast.error("Couldn't bring it back") }
+        } } })
+      }}
       toolbar={toolbar}
     />
   )

@@ -214,7 +214,7 @@ export function AddEventDialog({
             <div className="space-y-2">
               <Label>Category</Label>
               <Select value={categoryId} onValueChange={setCategoryId}>
-                <SelectTrigger>
+                <SelectTrigger aria-label="Category">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -243,10 +243,12 @@ export function AddEventDialog({
                   key={c}
                   type="button"
                   onClick={() => setColor(c)}
+                  aria-label={`Color ${PRESET_COLORS.indexOf(c) + 1} of ${PRESET_COLORS.length}`}
+                  aria-pressed={c === color}
                   className="h-7 w-7 rounded-full border-2 transition-transform hover:scale-110"
                   style={{
                     backgroundColor: c,
-                    borderColor: c === color ? "white" : "transparent",
+                    borderColor: c === color ? "var(--opx-ink)" : "transparent",
                     boxShadow: c === color ? `0 0 0 2px ${c}` : "none",
                   }}
                 />

@@ -97,6 +97,17 @@ export async function PATCH(
     const { id } = await params
     const body = await request.json()
 
+    // { restore: true } takes back a delete: the calendar offers Undo right after one. Own events only.
+    if (body?.restore === true) {
+      const back = await sql`
+        UPDATE calendar_events SET deleted_at = NULL, updated_at = NOW()
+        WHERE id = ${id} AND user_id = ${userId} AND deleted_at IS NOT NULL
+        RETURNING id
+      `
+      if (back.length === 0) return errorResponse(ErrorCodes.NOT_FOUND, 'Event not found', 404)
+      return successResponse({ id, restored: true })
+    }
+
     // Verify ownership
     const existing = await sql`
       SELECT * FROM calendar_events

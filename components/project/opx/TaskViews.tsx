@@ -187,13 +187,16 @@ interface PlanCalendarProps {
   saveRange: (e: Item, p: PlannedRange) => Promise<void>
   groupOf: (e: Item) => string
   extras?: CalExtra[]
+  /** When given, an entry it accepts gets a Remove button in the day's list (an event added by mistake could not be taken off). */
+  removeExtra?: (x: CalExtra) => void
+  canRemoveExtra?: (x: CalExtra) => boolean
   toolbar?: ReactNode
 }
 
 const EXTRA_LABEL: Record<string, string> = { event: "Events", milestone: "Milestones", bill: "Bills" }
 
 /** The calendar itself: month grid, day panel, Plan mode. Data and writes come from the wrapper. */
-export function PlanCalendar({ items, loading, error, reload, markDone, saveRange, groupOf, extras = [], toolbar }: PlanCalendarProps) {
+export function PlanCalendar({ items, loading, error, reload, markDone, saveRange, groupOf, extras = [], toolbar, removeExtra, canRemoveExtra }: PlanCalendarProps) {
   const now = dayOf(new Date())!
   const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1, 12))
   const [sel, setSel] = useState<Date>(now)
@@ -342,7 +345,9 @@ export function PlanCalendar({ items, loading, error, reload, markDone, saveRang
                     <div key={e.item.id} title={e.item.title}
                       className={`opx-ce${e.planned ? " pl" : ""}${e.first ? "" : " cont"}${e.last ? " end" : ""}`}
                       style={{ ["--c" as string]: e.kind === "todo" ? "var(--opx-violet)" : STATUS_COLOR[e.item.status || ""] || "#8a94a3" }}>
-                      {e.first ? e.item.title : " "}
+                      {/* A day the bar only passes through keeps the bar's full height: a plain space collapsed it to a
+                          4px sliver, so a task running for weeks read as "Sundays only". */}
+                      {e.first ? e.item.title : "\u00a0"}
                     </div>
                   ))}
                   {ex.slice(0, Math.max(0, 3 - list.length)).map((x) => (
@@ -413,6 +418,7 @@ export function PlanCalendar({ items, loading, error, reload, markDone, saveRang
                 <div key={x.id} className="opx-dpi">
                   <i className="opx-dot" style={{ background: x.color || "var(--opx-accent)", marginTop: 6 }} />
                   <div style={{ flex: 1, minWidth: 0 }}><b>{x.title}</b><small>{EXTRA_LABEL[x.type]?.replace(/s$/, "") || x.type}</small></div>
+                  {removeExtra && (canRemoveExtra ? canRemoveExtra(x) : true) && <button type="button" className="opx-btn sm" aria-label={`Remove ${x.title} from the calendar`} onClick={() => removeExtra(x)}>Remove</button>}
                 </div>
               ))}
             </div>
