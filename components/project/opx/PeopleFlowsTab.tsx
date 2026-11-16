@@ -16,6 +16,7 @@ import { shotAt, type Checklist, type Result, type View } from "@/lib/gates/gate
 import { KIND_WORD, LENS, SHIP_FLOOR, handledBy, lowScores, type Coverage, type StoredWalk } from "@/lib/walks/walk-model"
 import { Shots, type Piece } from "./ChecksTab"
 import { stableUrls, type Kept } from "@/lib/gates/stable-urls"
+import { UseCaseFlow } from "./UseCaseFlow"
 import { Failed, Loading, Seg, ago, useJson } from "./shared"
 
 interface LogEntry { version: number; actor: "owner" | "agent"; lines: string[]; at: string }
@@ -94,6 +95,10 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
   const [saving, setSaving] = useState<"" | "saving" | "saved">("")
   const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState<"flow" | "page">("flow")
+  // A use case's steps as cards (to edit) or as a drawing (to see the whole of it). Owner, 2026-11-16: "people and
+  // flows also needs the same react flow ability for visualization ... along with the pictures that are there".
+  const [stepsAs, setStepsAs] = useState<"cards" | "drawing">("cards")
+  const stepsRow = useRef<HTMLDivElement>(null)
   const [personId, setPersonId] = useState<string | null>(null)
   const [flowId, setFlowId] = useState<string | null>(null)
   const [personaId, setPersonaId] = useState<string | null>(null)
@@ -290,7 +295,15 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
               </div>
             )}
           </div>
-          <div className="opx-pf-steps">
+          <div className="opx-row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8, margin: "10px 0 6px" }}>
+            <Seg value={stepsAs} label="How to show the steps" options={[["cards", "Steps as cards"], ["drawing", "Steps as a drawing"]]} onChange={setStepsAs} />
+            {stepsAs === "drawing" && <small className="opx-muted">Press a step to open its card. Steps are changed on the cards.</small>}
+          </div>
+          {stepsAs === "drawing" && (
+            <UseCaseFlow name={flow.name} steps={flow.steps.map((s, i) => ({ id: s.id, does: s.does, expects: s.expects, state: STEP_WORD[states[i]], dot: DOT[states[i]], picture: pictureOf(s.ref, 264, 132), noPicture: states[i] === "unbuilt" ? "Not built yet" : states[i] === "missing" ? "Not in the latest scan" : "No screenshot of this step yet", tag: span && i === span[0] ? "Starts here" : span && i === span[1] ? "Usually stops here" : null, out: !!span && (i < span[0] || i > span[1]) }))}
+              onOpen={(i) => { setStepsAs("cards"); window.setTimeout(() => { const el = stepsRow.current?.children[i] as HTMLElement | undefined; el?.scrollIntoView({ block: "center", inline: "center", behavior: "instant" as ScrollBehavior }); el?.focus?.() }, 60) }} />
+          )}
+          <div className="opx-pf-steps" ref={stepsRow} hidden={stepsAs !== "cards"}>
             {flow.steps.map((s, i) => {
               const st = states[i], pic = pictureOf(s.ref), out = !!span && (i < span[0] || i > span[1])
               const set = (k: "does" | "expects" | "data") => (v: string) => inFlow((steps) => { steps[i][k] = v })
