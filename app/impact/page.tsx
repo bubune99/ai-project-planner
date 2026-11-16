@@ -212,7 +212,7 @@ function NodeDetailPanel({ surface, onClose }: { surface: Surface; onClose: () =
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <span style={{ fontSize: 12, color: "var(--opx-muted)", textTransform: "uppercase", letterSpacing: 1 }}>
-          {surface.kind}
+          {words(surface.kind)}
         </span>
         <button onClick={onClose} aria-label="Close the details" style={{ background: "none", border: "none", color: "var(--opx-muted)", cursor: "pointer", padding: 6, minWidth: 28, minHeight: 28 }}>
           <X size={14} />
