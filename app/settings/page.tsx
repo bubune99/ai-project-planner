@@ -547,16 +547,27 @@ export default function SettingsPage() {
   const user = useUser()
   const [activeTab, setActiveTab] = useState<Tab>(() => (typeof window !== "undefined" && TABS.some((x) => x.id === new URLSearchParams(window.location.search).get("tab")) ? (new URLSearchParams(window.location.search).get("tab") as Tab) : "profile"))
 
+  const pickTab = (id: Tab) => { setActiveTab(id); const u = new URL(window.location.href); u.searchParams.set("tab", id); window.history.replaceState(null, "", u) }
+
   return (
     <DashboardLayout>
       <div className="j-content j-col j-gap-4">
+        {/* On a narrow screen seven tabs do not fit and the ones past the edge gave no sign they were there: a picker
+            names every section instead. Owner, 2026-11-15: "Chips that are more than 3 options or cause the need to be
+            stacked is not ideal". */}
+        <label className="opx-setpick">
+          <span className="j-muted" style={{ fontSize: 13 }}>Section</span>
+          <select className="opx-input" aria-label="Settings section" value={activeTab} onChange={(e) => pickTab(e.target.value as Tab)}>
+            {TABS.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+          </select>
+        </label>
         {/* Tab bar */}
-        <div className="j-row" role="tablist" aria-label="Settings" style={{ gap: 4, borderBottom: "1px solid var(--j-hairline)", paddingBottom: 0, marginBottom: -4, overflowX: "auto", scrollbarWidth: "none" }}>
+        <div className="j-row opx-settabs" role="tablist" aria-label="Settings" style={{ gap: 4, borderBottom: "1px solid var(--j-hairline)", paddingBottom: 0, marginBottom: -4, overflowX: "auto", scrollbarWidth: "none" }}>
           {TABS.map(t => (
             <button
               key={t.id}
               role="tab" aria-selected={activeTab === t.id}
-              onClick={() => { setActiveTab(t.id); const u = new URL(window.location.href); u.searchParams.set("tab", t.id); window.history.replaceState(null, "", u) }}
+              onClick={() => pickTab(t.id)}
               style={{
                 background: "none", border: "none", fontFamily: "inherit", cursor: "pointer",
                 fontSize: 13, fontWeight: activeTab === t.id ? 500 : 400,
