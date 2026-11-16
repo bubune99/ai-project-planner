@@ -833,7 +833,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         projectId: z.string().optional().describe("Project ID (uses active project if not specified)"),
         title: z.string().describe("Task title"),
         description: z.string().optional(),
-        status: z.string().optional().describe("Status key (default 'pending'; built-in or custom project status)"),
+        status: z.string().optional().describe("Board column. Default 'requested' (Requests: nobody works on it until the owner moves it to action). Use 'pending' (Up next) only when the owner asked for it now, and 'in-progress' with update_task claimedBy when you are taking it yourself."),
         // 'urgent' was missing here while create_todo accepted it, so urgent
         // project work could not be expressed as a task at all — a quiet reason
         // agents routed 492 items to todos instead. Allowed by migration 056.
@@ -851,7 +851,9 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           if (!resolvedId) return mcpError(error!)
           await requireMcpProjectWriteAccess(resolvedId)
 
-          const statusKey = status || "pending"
+          // Owner, 2026-11-16: "I don't think all 84 of those should be in up next rightnow". Up next means in line for
+          // an agent now, so a new card waits in Requests unless it is asked for now.
+          const statusKey = status || "requested"
           const BUILTIN = ["requested", "pending", "in-progress", "completed", "blocked", "paused", "failed"]
           if (!BUILTIN.includes(statusKey)) {
             const custom = await sql`

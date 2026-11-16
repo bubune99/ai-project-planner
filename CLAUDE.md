@@ -168,20 +168,25 @@ Rules that have each cost something:
 - **One right-click menu at a time.** The feedback menu (`components/feedback/FeedbackWidget.tsx`) stays out of the way when a page has handled the right-click itself.
 - **Whole-document saves carry the version they started from** and are refused if it changed underneath (People and flows).
 
-## Two work-item stores — write to the right one
+## One board — the owner sees everything agents do
 
-`project_steps` is the project plan: every task/kanban/gantt/roadmap/progress view
-reads it, and only it supports dependencies, phases and subtasks. `todos` is a
-personal list with an optional project link.
+Owner, 2026-11-16: "It feels like you and the agents have a separate task list that you abide by than the one that I
+see in the UI and that is wrong." Since migration 071 (main d7019fe) the project board is the one list.
 
-- Project work → **`create_task`** (or `/api/projects/:id/steps`)
-- Owner-only actions, waiting-on-someone, cross-domain → **`create_todo`**
-- A choice to be made → **`create_decision`**
-
-A project-linked todo does **not** appear in that project's views. `create_todo`
-returns a warning saying so when given a `projectId`. Migrations 056–058
-reconciled 432 pre-existing todos into steps; `project_steps.source_todo_id` and
-`todos.step_id` record the provenance.
+- **`project_steps` is the board.** Columns are its `status`: `requested` (Requests: nobody works on it yet), `pending`
+  (Up next: in line for an agent now), `in-progress` (only while an agent holds it: `claimed_by_id`), `blocked`,
+  `completed`. `work_kind` says what a card is: `task`, `initiative` (a campaign, phase or sprint holding tasks) or
+  `upkeep` (an agent's maintenance). Rules: `lib/work/pipeline.ts`.
+- **New cards wait in Requests** (`create_task` default). Up next only when the owner asked for it now.
+- **The owner's moves send work**: a card he moves into Up next or In progress becomes an `agent_jobs` row
+  (`input.kind = "work"`, `input.stepId`) that the far-gates hook hands to the project's session (`lib/work/send.ts`).
+- **Take a card** with `update_task {status: "in-progress", claimedBy}` (or `gates queue start <id>`); finish with
+  proof or put it back with a note. Never leave one in progress when you stop.
+- **Features are proposed** with `propose_feature` (goal, what, deliverable, proof, why) into Requests; nothing is built
+  before the owner approves it.
+- **`todos` is the owner's own list**: only actions only he can do. Migrations 056–058 copied 432 to-dos into steps
+  (`project_steps.source_todo_id`, `todos.step_id`); those copies are being taken off his list (card 5e494913).
+- The `feature_requests` table (0 rows) is an older attempt and is not used by the board.
 
 Note the Decisions tab reads `architecture_decisions` (ADRs, 8 rows) while
 `create_decision` writes `mlp_why_decisions` (80 rows) — they are different
