@@ -61,6 +61,8 @@ t("a date from another year carries its year", () => {
   assert.match(whenLabel("2026-10-01T12:00:00Z", now), /^Oct 1$/)
   assert.match(whenLabel("2025-11-21T12:00:00Z", now), /^Nov 21, 2025$/)
   assert.equal(whenLabel("garbage", now), "Unknown")
+  // The server's clock a few seconds ahead of this device's.
+  assert.equal(whenLabel("2026-11-15T18:00:20Z", now), "Just now")
 })
 
 console.log(`\n${n} jobs-view checks passed`)

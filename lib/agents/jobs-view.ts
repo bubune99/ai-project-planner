@@ -69,7 +69,9 @@ export function whenLabel(timestamp: string | null | undefined, now: Date): stri
   if (!timestamp) return "Never"
   const date = new Date(timestamp)
   if (Number.isNaN(date.getTime())) return "Unknown"
-  const diff = now.getTime() - date.getTime()
+  // A server clock a little ahead of this device's makes "now" look like the future: still "Just now".
+  const raw = now.getTime() - date.getTime()
+  const diff = raw < 0 && raw > -5 * 60000 ? 0 : raw
   const mins = Math.floor(diff / 60000), hours = Math.floor(diff / 3600000), days = Math.floor(diff / DAY)
   if (diff >= 0) {
     if (mins < 1) return "Just now"
