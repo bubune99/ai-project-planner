@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/search
- * Global search across all domains: projects, ideas, todos, transactions, decisions
+ * Global search across all domains: projects, ideas, todos, transactions, decisions, tasks (board cards), documents
  *
  * Query params:
  * - q: string (required) - search query
@@ -276,6 +276,33 @@ export async function GET(request: NextRequest) {
           )
       `
       counts.decisions = parseInt(decisionCount[0]?.count || '0')
+    }
+
+    // Board cards on the user's projects (the top search box: walk 2026-11-16 needed board search plus the assistant).
+    if (domains.includes('tasks')) {
+      const rows = await sql`
+        SELECT s.id, s.title, s.status, s.project_id, p.name AS project_name, s.updated_at
+          FROM project_steps s JOIN projects p ON p.id = s.project_id
+         WHERE p.user_id = ${userId} AND p.deleted_at IS NULL AND s.deleted_at IS NULL
+           AND (s.title ILIKE ${searchPattern} OR s.description ILIKE ${searchPattern})
+         ORDER BY (s.title ILIKE ${searchPattern}) DESC, s.updated_at DESC
+         LIMIT ${limit}
+      `
+      results.tasks = rows.map((r: any) => ({ type: 'task', id: r.id, title: r.title, status: r.status, projectId: r.project_id, projectName: r.project_name, url: `/project/${r.project_id}?tab=tasks&step=${r.id}` }))
+      counts.tasks = rows.length
+    }
+
+    if (domains.includes('documents')) {
+      const rows = await sql`
+        SELECT d.id, d.title, d.category, d.project_id, p.name AS project_name, d.updated_at
+          FROM documents d LEFT JOIN projects p ON p.id = d.project_id
+         WHERE d.user_id = ${userId} AND d.deleted_at IS NULL
+           AND (d.title ILIKE ${searchPattern} OR d.content ILIKE ${searchPattern})
+         ORDER BY (d.title ILIKE ${searchPattern}) DESC, d.updated_at DESC
+         LIMIT ${limit}
+      `
+      results.documents = rows.map((r: any) => ({ type: 'document', id: r.id, title: r.title, category: r.category, projectId: r.project_id, projectName: r.project_name, url: r.project_id ? `/project/${r.project_id}?tab=docs&doc=${r.id}` : `/library` }))
+      counts.documents = rows.length
     }
 
     // Calculate total matches

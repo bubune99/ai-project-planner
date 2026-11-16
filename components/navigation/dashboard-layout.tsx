@@ -11,6 +11,7 @@ import { AppSidebar, OPEN_POPOUT_EVENT } from "./app-sidebar"
 import { Icon } from "@/components/jarvis/icons"
 import { DOCK_STATE_EVENT, DOCK_TOGGLE_EVENT } from "@/components/ade/AssistantDock"
 import { REPORT_EVENT } from "@/lib/chat/events"
+import { SearchPalette } from "./SearchPalette"
 
 /**
  * Every page, by address: its name in the top bar, and its line in the jump box. Kept in step with the menu
@@ -82,9 +83,6 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
   useEffect(() => { setThemeReady(true); setIsMac(/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) }, [])
   const [collapsed, setCollapsed] = useState(false)
   const [cmdOpen, setCmdOpen] = useState(false)
-  const [jump, setJump] = useState("")
-  // The jump box opens empty each time.
-  useEffect(() => { if (!cmdOpen) setJump("") }, [cmdOpen])
   const [mobileOpen, setMobileOpen] = useState(false)
   // The assistant dock takes the left of the screen: the planner nav folds to its icon rail beside it.
   const [dockOpen, setDockOpen] = useState(false)
@@ -233,10 +231,10 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
             <button
               className="j-search"
               onClick={() => setCmdOpen(true)}
-              aria-label="Open command palette"
+              aria-label="Search the planner"
             >
               <Icon name="search" size={14} />
-              <span>Jump to a page…</span>
+              <span>Search…</span>
               <span className="j-kbd">{isMac ? "⌘K" : "Ctrl K"}</span>
             </button>
             <button
@@ -326,66 +324,8 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
         </nav>
       )}
 
-      {/* Command palette overlay */}
-      {cmdOpen && (
-        <div
-          onClick={() => setCmdOpen(false)}
-          style={{
-            position: "fixed", inset: 0, background: "oklch(0 0 0 / 0.6)",
-            backdropFilter: "blur(4px)", zIndex: 50,
-            display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: "15vh",
-          }}
-        >
-          <div
-            className="j-cmdk"
-            onClick={e => e.stopPropagation()}
-            style={{
-              width: "min(560px, 94vw)", background: "oklch(0.155 0 0)", borderRadius: 14,
-              boxShadow: "0 0 0 1px oklch(1 0 0 / 0.12), 0 24px 48px -12px oklch(0 0 0 / 0.6)",
-              overflow: "hidden",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: "1px solid oklch(1 0 0 / 0.06)" }}>
-              <Icon name="search" size={16} />
-              <input
-                autoFocus
-                // It jumps to pages. It does not search projects or todos, so it does not say it does.
-                placeholder="Jump to a page…"
-                aria-label="Jump to a page"
-                value={jump}
-                onChange={(e) => setJump(e.target.value)}
-                onKeyDown={(e) => { const first = jumpTo(jump)[0]; if (e.key === "Enter" && first) { setCmdOpen(false); window.location.assign(first[0]) } }}
-                style={{
-                  flex: 1, background: "transparent", border: "none", outline: "none",
-                  color: "oklch(0.985 0 0)", fontSize: 14, fontFamily: "inherit",
-                }}
-              />
-              <span className="j-kbd">ESC</span>
-            </div>
-            <div style={{ padding: 8 }}>
-              {jumpTo(jump).length === 0 && <div style={{ padding: "12px 10px", color: "oklch(0.7 0 0)", fontSize: 13 }}>No page is called that. This box jumps to pages; to find a project, a task or a note, ask the assistant.</div>}
-              {jumpTo(jump).map(([href, m]) => (
-                <a
-                  key={href}
-                  href={href}
-                  onClick={() => setCmdOpen(false)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    padding: "9px 10px", borderRadius: 7, textDecoration: "none",
-                    color: "oklch(0.860 0 0)", fontSize: 13,
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "oklch(1 0 0 / 0.05)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                >
-                  <Icon name="arrow" size={14} />
-                  <span style={{ flex: 1 }}>{m.title}</span>
-                  <span style={{ fontSize: 12, color: "oklch(0.556 0 0)" }}>{m.sub}</span>
-                </a>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* The top search: pages, projects, tasks, documents, and a row that asks the assistant (SearchPalette). */}
+      {cmdOpen && <SearchPalette onClose={() => setCmdOpen(false)} pagesFor={jumpTo} />}
     </div>
   )
 }

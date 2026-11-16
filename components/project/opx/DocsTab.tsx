@@ -23,7 +23,8 @@ export function DocsTab({ projectId, coreDocs }: { projectId: string; coreDocs?:
   const [newTitle, setNewTitle] = useState<string | null>(null)
   const [cat, setCat] = useState<string>("all")
   const [needTitle, setNeedTitle] = useState(false)
-  const [open, setOpen] = useState<string | null>(null)
+  // ?doc=<id> (from the top search) opens that document.
+  const [open, setOpen] = useState<string | null>(() => (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("doc")))
   const [q, setQ] = useState("")
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState("")

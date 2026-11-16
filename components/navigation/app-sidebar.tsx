@@ -36,6 +36,8 @@ const NAV_SECTIONS: NavSection[] = [
       { title: "Dashboard", href: "/dashboard", icon: "grid" },
       { title: "Projects", href: "/projects", icon: "folder" },
       { title: "Today", href: "/todos", icon: "target" },
+      // Every project's cards on one board (walk 2026-11-16: it was only reachable from inside My work).
+      { title: "All work", href: "/todos?view=board", icon: "list" },
       { title: "Inbox", href: "/inbox", icon: "bell" },
       { title: "Calendar", href: "/calendar", icon: "cal" },
     ],
