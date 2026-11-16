@@ -138,7 +138,7 @@ export default function LibraryPage() {
     })
   }
   const newMap = async () => {
-    const res = await fetch("/api/sops", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: "How we build: from plan to proven", category: "How we work", status: "active", content: writeMapBlock("Who does what, in order, from a plan to a page proved to work: the lanes, the gates and the loops. Double-click a stage to open the loop inside it; right-click anything to change it.", seedMap()) }) })
+    const res = await fetch("/api/sops", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: "How we build: from plan to proven", category: "How we work", status: "active", content: writeMapBlock("Who does what, in order, from a plan to a page proved to work: the lanes, the gates and the loops. Double-click a stage to open the loop inside it; press anything, then Change (right-click works too).", seedMap()) }) })
     const json = await res.json().catch(() => null)
     if (!res.ok || !json?.success) { toast.error(json?.error?.message || "Could not create the map"); return }
     await fetchSops()
