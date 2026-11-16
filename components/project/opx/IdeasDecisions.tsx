@@ -42,13 +42,26 @@ export function IdeasDecisions({ projectId, projectName }: { projectId: string; 
   const ideasQ = useJson(`/api/ideas`)
   const stepsQ = useJson(`/api/projects/${projectId}/steps`)
   const docsQ = useJson(`/api/projects/${projectId}/documents`)
-  const [mode, setMode] = useState<"pipeline" | "timeline">("pipeline")
+  // The view is kept in the address (?dview=timeline), so a reload or a shared link opens the same one.
+  const [mode, setModeState] = useState<"pipeline" | "timeline">(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("dview") === "timeline" ? "timeline" : "pipeline")
+  const setMode = (m: "pipeline" | "timeline") => {
+    setModeState(m)
+    try {
+      const u = new URL(window.location.href)
+      if (m === "timeline") u.searchParams.set("dview", "timeline"); else u.searchParams.delete("dview")
+      window.history.replaceState(window.history.state, "", u.toString())
+    } catch { /* the view still changes */ }
+  }
+  const [attachId, setAttachId] = useState("")
   const [openIdea, setOpenIdea] = useState<string | null>(null)
   const [openDec, setOpenDec] = useState<string | null>(null)
   const [answered, setAnswered] = useState<Record<string, string>>({})
   const { tipProps, node } = useHoverTip()
 
-  const decisions = useMemo(() => (unwrap<Decision[]>(why.data) || []).slice().sort((a, b) => +new Date(b.createdAt || 0) - +new Date(a.createdAt || 0)), [why.data])
+  // Decisions deleted a moment ago wait out their Undo hidden from the page.
+  const [hiddenDec, setHiddenDec] = useState<Set<string>>(() => new Set())
+  const decisions = useMemo(() => (unwrap<Decision[]>(why.data) || []).filter((d) => !hiddenDec.has(d.id)).slice().sort((a, b) => +new Date(b.createdAt || 0) - +new Date(a.createdAt || 0)), [why.data, hiddenDec])
   const questions = useMemo(() => (unwrap<Question[]>(inbox.data) || []).filter((q) => q.projectId === projectId), [inbox.data, projectId])
   const ideas = useMemo(() => ideasForProject(unwrap<Idea[]>(ideasQ.data) || [], projectId, projectName), [ideasQ.data, projectId, projectName])
   const steps = useMemo(() => unwrap<Step[]>(stepsQ.data, "steps") || [], [stepsQ.data])
@@ -57,10 +70,21 @@ export function IdeasDecisions({ projectId, projectName }: { projectId: string; 
   if (why.loading && !why.data) return <Loading what="ideas and decisions" />
   if (why.error) return <Failed what="decisions" error={why.error} retry={why.reload} />
 
-  if (openIdea) return <IdeaPage id={openIdea} onBack={() => setOpenIdea(null)} onChanged={ideasQ.reload} />
+  if (openIdea) return <IdeaPage id={openIdea} projectId={projectId} onBack={() => setOpenIdea(null)} onChanged={ideasQ.reload} />
   if (openDec) {
     const d = decisions.find((x) => x.id === openDec)
-    if (d) return <DecisionPage decision={d} steps={linkedSteps(d, steps)} onBack={() => setOpenDec(null)} />
+    if (d) return <DecisionPage decision={d} steps={linkedSteps(d, steps)} onBack={() => setOpenDec(null)} onChanged={why.reload} onDeleted={() => setOpenDec(null)}
+      onHide={(id, hidden) => setHiddenDec((s) => { const n = new Set(s); if (hidden) n.add(id); else n.delete(id); return n })} />
+  }
+
+  /** Ties one of the account's ideas to this project (Ideas & decisions check, 2026-11-15). */
+  const attach = async (id: string) => {
+    if (!id) return
+    try {
+      const r = await fetch(`/api/ideas/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectId }) })
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j?.error?.message || j?.error || `HTTP ${r.status}`) }
+      setAttachId(""); ideasQ.reload(); toast.success("Added to this project")
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't add the idea") }
   }
 
   const answer = async (q: Question, option: string) => {
@@ -68,7 +92,20 @@ export function IdeasDecisions({ projectId, projectName }: { projectId: string; 
     try {
       const r = await fetch(`/api/inbox/${q.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ option }) })
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j?.error?.message || j?.error || `HTTP ${r.status}`) }
-      toast.success(`Answered: ${option}`)
+      // An answer given here can be taken back here, as it can in the inbox.
+      toast.success(`Answered: ${option}`, {
+        duration: 10000,
+        action: {
+          label: "Change my answer",
+          onClick: async () => {
+            const back = await fetch(`/api/inbox/${q.id}`, { method: "DELETE" }).catch(() => null)
+            if (!back?.ok) { toast.error("Couldn't take the answer back"); return }
+            setAnswered((a) => { const { [q.id]: _, ...rest } = a; return rest })
+            announceInbox(1)
+            inbox.reload()
+          },
+        },
+      })
       announceInbox(-1)
       inbox.reload()
     } catch (e) {
@@ -134,7 +171,19 @@ export function IdeasDecisions({ projectId, projectName }: { projectId: string; 
           )
         }))}
       </div>
-      <p className="opx-muted" style={{ fontSize: 12.5, margin: 0 }}>Ideas are matched to this project by its name until ideas can be linked to projects. Task counts on decisions are matched by title.</p>
+      {(() => {
+        const others = (unwrap<Idea[]>(ideasQ.data) || []).filter((i) => !ideas.some((x) => x.id === i.id) && i.lifecycle !== "archived")
+        return others.length > 0 && (
+          <div className="opx-row" style={{ gap: 8, flexWrap: "wrap" }}>
+            <select className="opx-input" style={{ maxWidth: 420 }} aria-label="An idea to add to this project" value={attachId} onChange={(e) => setAttachId(e.target.value)}>
+              <option value="">Add one of your ideas to this project…</option>
+              {others.map((i) => <option key={i.id} value={i.id}>{i.title}</option>)}
+            </select>
+            <button className="opx-btn" disabled={!attachId} onClick={() => attach(attachId)}>Add</button>
+          </div>
+        )
+      })()}
+      <p className="opx-muted" style={{ fontSize: 12.5, margin: 0 }}>An idea shows here when you add it, or when its title names this project. Task counts on decisions are matched by title.</p>
       {node}
     </div>
   )
@@ -207,7 +256,7 @@ function ChangeLog({ decisions, steps, ideas, docs, questions, switcher, onOpenD
 
 // ─── Idea page ──────────────────────────────────────────────────────────────
 
-function IdeaPage({ id, onBack, onChanged }: { id: string; onBack: () => void; onChanged: () => void }) {
+function IdeaPage({ id, projectId, onBack, onChanged }: { id: string; projectId: string; onBack: () => void; onChanged: () => void }) {
   const q = useJson(`/api/ideas/${id}`)
   const [saving, setSaving] = useState(false)
   if (q.loading && !q.data) return <Loading what="the idea" />
@@ -228,9 +277,20 @@ function IdeaPage({ id, onBack, onChanged }: { id: string; onBack: () => void; o
     finally { setSaving(false) }
   }
   const ask = (what: string) => askAssistant(`For the idea "${idea.title}" (idea ${id}): ${what}`)
+  /** Takes an idea that was added to this project off it again; Undo puts it back. */
+  const detach = async () => {
+    const put = (pid: string | null) => fetch(`/api/ideas/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectId: pid }) })
+    const r = await put(null).catch(() => null)
+    if (!r?.ok) { toast.error("Couldn't take it off this project"); return }
+    onChanged(); onBack()
+    toast(`Took "${String(idea.title || "the idea").slice(0, 40)}" off this project`, { duration: 10000, action: { label: "Undo", onClick: () => { void put(projectId).then(() => onChanged()) } } })
+  }
   return (
     <div className="opx-col" style={{ gap: 12 }}>
-      <button className="opx-link opx-act" style={{ alignSelf: "flex-start" }} onClick={onBack}>‹ Ideas & decisions</button>
+      <span className="opx-row" style={{ gap: 10 }}>
+        <button className="opx-link opx-act" style={{ alignSelf: "flex-start" }} onClick={onBack}>‹ Ideas & decisions</button>
+        {idea.promotedToProjectId === projectId && <button className="opx-btn sm" style={{ marginLeft: "auto" }} onClick={detach}>Take off this project</button>}
+      </span>
       <section className="opx-sec">
         <div className="opx-row" style={{ alignItems: "flex-start", gap: 14 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -294,10 +354,43 @@ function IdeaPage({ id, onBack, onChanged }: { id: string; onBack: () => void; o
 
 // ─── Decision page ──────────────────────────────────────────────────────────
 
-function DecisionPage({ decision, steps, onBack }: { decision: Decision; steps: Step[]; onBack: () => void }) {
+function DecisionPage({ decision, steps, onBack, onChanged, onDeleted, onHide }: { decision: Decision; steps: Step[]; onBack: () => void; onChanged: () => void; onDeleted: () => void; onHide: (id: string, hidden: boolean) => void }) {
   const q = useJson(`/api/memory/why/${decision.id}`)
   const [draft, setDraft] = useState<{ criteria: string[]; options: DecisionOption[] } | null>(null)
   const [saving, setSaving] = useState(false)
+  // The decision's own words can be changed, and the decision removed (Ideas & decisions check, 2026-11-15).
+  const [edit, setEdit] = useState<{ title: string; summary: string } | null>(null)
+  const saveWords = async () => {
+    if (!edit) return
+    if (!edit.title.trim()) { toast.error("A decision needs a title"); return }
+    setSaving(true)
+    try {
+      const r = await fetch(`/api/memory/why/${decision.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: edit.title.trim(), summary: edit.summary }) })
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j?.error?.message || j?.error || `HTTP ${r.status}`) }
+      setEdit(null); onChanged(); q.reload()
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't save") }
+    finally { setSaving(false) }
+  }
+  /** Removing a decision cannot be undone on the server (it takes its history with it), so it waits: the decision
+   *  leaves the page at once and is deleted only when the Undo notice closes without Undo being pressed. */
+  const remove = () => {
+    let settled = false
+    const commitDelete = async () => {
+      if (settled) return
+      settled = true
+      const r = await fetch(`/api/memory/why/${decision.id}`, { method: "DELETE" }).catch(() => null)
+      if (!r?.ok) { toast.error("The decision could not be deleted"); onHide(decision.id, false) }
+      onChanged()
+    }
+    onHide(decision.id, true)
+    onDeleted()
+    toast(`Deleted the decision "${decision.title.slice(0, 40)}"`, {
+      duration: 10000,
+      action: { label: "Undo", onClick: () => { settled = true; onHide(decision.id, false) } },
+      onAutoClose: () => { void commitDelete() },
+      onDismiss: () => { void commitDelete() },
+    })
+  }
   if (q.loading && !q.data) return <Loading what="the decision" />
   const d = unwrap<any>(q.data) || {}
   const nodes: { reasoning: string; alternatives: DecisionOption[]; constraints: string[]; createdAt: string }[] = d.nodes || []
@@ -315,18 +408,49 @@ function DecisionPage({ decision, steps, onBack }: { decision: Decision; steps: 
         body: JSON.stringify({ reasoning: `Options compared on ${new Date().toLocaleDateString("en-US")}`, alternatives: opts, constraints: draft.criteria.filter((c) => c.trim()) }),
       })
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j?.error?.message || j?.error || `HTTP ${r.status}`) }
-      toast.success("Options saved"); setDraft(null); q.reload()
+      // Saving adds a new set; Undo puts the previous set back on top (it stays in History either way).
+      const before = latest ? { alternatives: latest.alternatives, constraints: latest.constraints } : null
+      setDraft(null); q.reload()
+      toast.success("Options saved", before ? { duration: 10000, action: { label: "Undo", onClick: () => { void restoreSet(before, "Put back the options as they were") } } } : undefined)
     } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't save the options") }
     finally { setSaving(false) }
+  }
+  /** Makes an earlier set of options the current one again, as a new entry in History. */
+  async function restoreSet(set: { alternatives: DecisionOption[]; constraints: string[] }, reasoning: string) {
+    const r = await fetch(`/api/memory/why/${decision.id}/nodes`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reasoning, alternatives: set.alternatives, constraints: set.constraints || [] }),
+    }).catch(() => null)
+    if (!r?.ok) { toast.error("Couldn't put those options back"); return }
+    q.reload(); toast(reasoning)
   }
   const lines = (s: string) => s.split("\n").map((x) => x.trim()).filter(Boolean)
   return (
     <div className="opx-col" style={{ gap: 12 }}>
       <button className="opx-link opx-act" style={{ alignSelf: "flex-start" }} onClick={onBack}>‹ Ideas & decisions</button>
       <section className="opx-sec">
-        <div className="opx-muted" style={{ fontSize: 12.5 }}>Decided {fmtDate(decision.createdAt, { month: "long", day: "numeric", year: "numeric" })}{decision.status ? ` · ${decision.status}` : ""}</div>
-        <h1 style={{ fontSize: 30, margin: "6px 0 10px", fontWeight: 600 }}>{decision.title}</h1>
-        {decision.summary && <Md text={decision.summary} />}
+        <div className="opx-row" style={{ gap: 8, flexWrap: "wrap" }}>
+          <span className="opx-muted" style={{ fontSize: 12.5 }}>Decided {fmtDate(decision.createdAt, { month: "long", day: "numeric", year: "numeric" })}{decision.status ? ` · ${decision.status}` : ""}</span>
+          {!edit && <span className="opx-row" style={{ gap: 6, marginLeft: "auto" }}>
+            <button className="opx-btn sm" onClick={() => setEdit({ title: decision.title, summary: decision.summary || "" })}>Edit</button>
+            <button className="opx-btn sm" onClick={remove}>Delete</button>
+          </span>}
+        </div>
+        {edit ? (
+          <form style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }} onSubmit={(e) => { e.preventDefault(); void saveWords() }}>
+            <input className="opx-input" style={{ fontSize: 18 }} aria-label="Decision title" value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} autoFocus />
+            <textarea className="opx-input" rows={5} aria-label="What was decided and why" value={edit.summary} onChange={(e) => setEdit({ ...edit, summary: e.target.value })} style={{ resize: "none" }} />
+            <span className="opx-row" style={{ gap: 8 }}>
+              <button type="submit" className="opx-btn primary" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+              <button type="button" className="opx-btn" onClick={() => setEdit(null)}>Cancel</button>
+            </span>
+          </form>
+        ) : (
+          <>
+            <h1 style={{ fontSize: 30, margin: "6px 0 10px", fontWeight: 600 }}>{decision.title}</h1>
+            {decision.summary && <Md text={decision.summary} />}
+          </>
+        )}
         {criteria.length > 0 && <div className="opx-row" style={{ gap: 6, flexWrap: "wrap", marginTop: 10 }}><span className="opx-muted" style={{ fontSize: 12.5 }}>Judged on</span>{criteria.map((c) => <span key={c} className="opx-chip">{c}</span>)}</div>}
       </section>
 
@@ -387,7 +511,7 @@ function DecisionPage({ decision, steps, onBack }: { decision: Decision; steps: 
       {nodes.length > 1 && (
         <section className="opx-sec">
           <div className="opx-sech"><h2>History</h2><span className="opx-n">{nodes.length}</span></div>
-          {[...nodes].reverse().map((n, i) => <div key={i} className="opx-row" style={{ padding: "6px 0", borderTop: i ? "1px solid var(--opx-line)" : 0, fontSize: 13.5 }}><span className="opx-muted" style={{ width: 120 }}>{fmtDate(n.createdAt, { month: "short", day: "numeric", year: "numeric" })}</span><span>{n.reasoning}</span>{n.alternatives?.length ? <span className="opx-muted">· {n.alternatives.length} options</span> : null}</div>)}
+          {[...nodes].reverse().map((n, i) => <div key={i} className="opx-row" style={{ padding: "6px 0", borderTop: i ? "1px solid var(--opx-line)" : 0, fontSize: 13.5 }}><span className="opx-muted" style={{ width: 120 }}>{fmtDate(n.createdAt, { month: "short", day: "numeric", year: "numeric" })}</span><span>{n.reasoning}</span>{n.alternatives?.length ? <span className="opx-muted">· {n.alternatives.length} options</span> : null}{i > 0 && n.alternatives?.length ? <button className="opx-link" style={{ marginLeft: "auto", fontSize: 12.5, minHeight: 32, padding: 0 }} onClick={() => restoreSet({ alternatives: n.alternatives, constraints: n.constraints }, `Restored the options from ${fmtDate(n.createdAt)}`)}>Use these again</button> : null}</div>)}
         </section>
       )}
     </div>

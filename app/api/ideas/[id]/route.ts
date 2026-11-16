@@ -1,7 +1,7 @@
 import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
-import { getAuthContext } from '@/lib/auth/auth-utils'
+import { getAuthContext, verifyProjectWriteAccess } from '@/lib/auth/auth-utils'
 import type { IdeaLifecycle } from '@/lib/db/schema'
 import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
 
@@ -292,6 +292,17 @@ export async function PATCH(
     if (metadata !== undefined) {
       updates.push(`metadata = $${paramIndex++}`)
       values.push(JSON.stringify(metadata))
+    }
+    // Attach the idea to a project, or take it off (null). Ideas & decisions check, 2026-11-15: an idea showed on a
+    // project only by a word in its title, and nothing on the page could tie it to one. Only to a project the
+    // caller can write to.
+    if (Object.prototype.hasOwnProperty.call(body, 'projectId')) {
+      const pid = body.projectId
+      if (pid !== null && (typeof pid !== 'string' || !(await verifyProjectWriteAccess(pid, userId)))) {
+        return errorResponse(ErrorCodes.NOT_FOUND, 'Project not found', 404)
+      }
+      updates.push(`promoted_to_project_id = $${paramIndex++}`)
+      values.push(pid)
     }
 
     if (updates.length === 0) {
