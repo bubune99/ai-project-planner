@@ -983,7 +983,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         title: z.string().optional(),
         description: z.string().optional(),
         status: z.string().optional().describe("Status key (built-in or custom project status)"),
-        priority: z.enum(["low", "medium", "high"]).nullable().optional(),
+        priority: z.enum(["low", "medium", "high", "urgent"]).nullable().optional(),
         progress: z.number().min(0).max(100).optional(),
         tags: z.array(z.string()).optional().describe("Replaces the full tag list"),
         dueDate: z.string().nullable().optional(),

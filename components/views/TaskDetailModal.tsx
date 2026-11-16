@@ -409,8 +409,11 @@ export function TaskDetailModal({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  {/* The same four levels and names the board shows (adapt.ts toBoardPriority). Urgent was missing,
+                      so the 96 urgent cards opened with a blank Priority (walk, 2026-11-16). */}
+                  <SelectItem value="urgent">Urgent</SelectItem>
                   <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="medium">Normal</SelectItem>
                   <SelectItem value="low">Low</SelectItem>
                   <SelectItem value={NONE}>None</SelectItem>
                 </SelectContent>

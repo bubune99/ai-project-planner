@@ -173,10 +173,11 @@ export async function PATCH(
         }
       }
     }
-    const rawPriority = body.priority === "critical" ? "high" : body.priority;
-    if (rawPriority != null && !["low", "medium", "high"].includes(rawPriority)) {
+    // Urgent is a stored level (migration 056) and the board shows it; refusing it here meant no card could be set to it.
+    const rawPriority = body.priority === "critical" ? "urgent" : body.priority;
+    if (rawPriority != null && !["low", "medium", "high", "urgent"].includes(rawPriority)) {
       return NextResponse.json(
-        { error: `Invalid priority: ${body.priority}. Allowed: low, medium, high` },
+        { error: `Invalid priority: ${body.priority}. Allowed: low, medium, high, urgent` },
         { status: 400 }
       );
     }
