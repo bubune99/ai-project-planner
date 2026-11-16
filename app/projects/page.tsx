@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { Wait } from "@/components/project/opx/shared"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { DashboardLayout } from "@/components/navigation"
@@ -367,7 +368,7 @@ export default function ProjectsPage() {
             <div key={s.label} className="j-card j-tight" style={{ padding: "12px 16px" }}>
               <div className="j-eyebrow">{s.label}</div>
               <div className={`j-num ${s.cls}`} style={{ fontSize: 24, fontWeight: 600, marginTop: 4, letterSpacing: "-0.02em" }}>
-                {s.value}
+                {loading && everything.length === 0 ? <Wait w="3ch" /> : s.value}
               </div>
             </div>
           ))}

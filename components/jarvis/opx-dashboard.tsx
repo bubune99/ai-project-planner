@@ -12,7 +12,7 @@ import { useState } from "react"
 import { useUser } from "@stackframe/stack"
 import { toast } from "sonner"
 import { DitherBanner } from "./DitherBanner"
-import { Section, ago, askAssistant, unwrap, useJson } from "@/components/project/opx/shared"
+import { Section, Wait, ago, askAssistant, unwrap, useJson } from "@/components/project/opx/shared"
 import { ScrollRow } from "@/components/project/opx/ScrollRow"
 
 interface Project { id: string; name: string; description?: string | null; status?: string | null; progress?: number | null; updated_at?: string | null; updatedAt?: string | null }
@@ -44,7 +44,8 @@ export function OpxDashboard() {
   const overdue = focus.overdue || [], blocked = focus.blocked || []
   const ideas = unwrap<Idea[]>(ideasQ.data) || []
   const counts = (todosQ.data as any)?.meta?.counts || {}
-  const n = (v: unknown, loading: boolean) => (typeof v === "number" ? v : loading ? "…" : "–")
+  // Not known yet is a quiet placeholder, never a zero (an empty list has length 0 before its answer arrives).
+  const n = (v: unknown, loading: boolean) => (loading ? <Wait /> : typeof v === "number" ? v : "–")
 
   const hour = new Date().getHours()
   const greet = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"
@@ -72,16 +73,16 @@ export function OpxDashboard() {
           <div className="opx-muted">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</div>
           <h1 style={{ fontSize: 40 }}>{greet}{first ? `, ${first}` : ""}</h1>
           <div className="opx-muted" style={{ fontSize: 15 }}>
-            {n(questions.length, inboxQ.loading)} decisions waiting on you · {n(moving.length, projectsQ.loading)} projects moving · {n(counts.overdue, todosQ.loading)} overdue
+            {n(questions.length, inboxQ.loading && inboxQ.data == null)} decisions waiting on you · {n(moving.length, projectsQ.loading && projectsQ.data == null)} projects moving · {n(counts.overdue, todosQ.loading && todosQ.data == null)} overdue
           </div>
         </div>
         {/* Each figure opens the list it counts: they were plain tiles that led nowhere (owner, phone comment b143e615). */}
         <div className="opx-stats">
-          <Link href="/projects" className="opx-stat"><b>{n(moving.length, projectsQ.loading)}</b><span>Active projects</span></Link>
-          <Link href="/inbox" className="opx-stat"><b>{n(questions.length, inboxQ.loading)}</b><span>Waiting on you</span></Link>
-          <Link href="/todos" className="opx-stat"><b>{n(counts.active, todosQ.loading)}</b><span>Open todos</span></Link>
-          <Link href="/todos" className={`opx-stat${counts.overdue ? " hot" : ""}`}><b>{n(counts.overdue, todosQ.loading)}</b><span>Overdue</span></Link>
-          <Link href="/ideas" className="opx-stat"><b>{n(ideas.length, ideasQ.loading)}</b><span>Ideas</span></Link>
+          <Link href="/projects" className="opx-stat"><b>{n(moving.length, projectsQ.loading && projectsQ.data == null)}</b><span>Active projects</span></Link>
+          <Link href="/inbox" className="opx-stat"><b>{n(questions.length, inboxQ.loading && inboxQ.data == null)}</b><span>Waiting on you</span></Link>
+          <Link href="/todos" className="opx-stat"><b>{n(counts.active, todosQ.loading && todosQ.data == null)}</b><span>Open todos</span></Link>
+          <Link href="/todos" className={`opx-stat${counts.overdue ? " hot" : ""}`}><b>{n(counts.overdue, todosQ.loading && todosQ.data == null)}</b><span>Overdue</span></Link>
+          <Link href="/ideas" className="opx-stat"><b>{n(ideas.length, ideasQ.loading && ideasQ.data == null)}</b><span>Ideas</span></Link>
         </div>
       </header>
 

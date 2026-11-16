@@ -206,7 +206,7 @@ export default function LibraryPage() {
             <div className="opx-muted" style={{ fontSize: 12, fontWeight: 600, margin: "0 0 8px 4px" }}>SOPs</div>
             <Seg label="Status" value={status} onChange={(v) => { setStatus(v); setCat("all"); setOpen(null) }} options={[["active", "Active"], ["draft", "Draft"], ["archived", "Archived"], ["all", "All"]]} />
             <div style={{ height: 10 }} />
-            <button className={`opx-dc${cat === "all" ? " on" : ""}`} onClick={() => { setCat("all"); setOpen(null) }}>All SOPs <em>{byStatus.length}</em></button>
+            <button className={`opx-dc${cat === "all" ? " on" : ""}`} onClick={() => { setCat("all"); setOpen(null) }}>All SOPs <em><Figure value={loading && !sops.length ? null : byStatus.length} /></em></button>
             {cats.map(([c, n]) => (
               <button key={c} className={`opx-dc${cat === c ? " on" : ""}`} onClick={() => { setCat(c); setOpen(null) }}>{c} <em>{n}</em></button>
             ))}

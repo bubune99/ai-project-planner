@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
+import { Wait } from "@/components/project/opx/shared"
 import Link from "next/link"
 import { toast } from "sonner"
 import { DashboardLayout } from "@/components/navigation"
@@ -226,7 +227,7 @@ export default function AgentsPage() {
           {stats.map(s => (
             <div key={s.l} className="j-card j-tight" style={{ padding: 16 }}>
               <div className="j-eyebrow">{s.l}</div>
-              <div className="j-amount-lg" style={{ marginTop: 8 }}>{loading ? "–" : s.v}</div>
+              <div className="j-amount-lg" style={{ marginTop: 8 }}>{loading ? <Wait w="2ch" /> : s.v}</div>
               <div className="opx-muted" style={{ fontSize: 12, marginTop: 4 }}>{s.s}</div>
             </div>
           ))}
@@ -280,7 +281,7 @@ export default function AgentsPage() {
         {/* Jobs table */}
         <div className="j-card" style={{ padding: 0 }}>
           <div className="j-row j-between j-wrap" style={{ padding: 16, gap: 10 }}>
-            <h3 className="j-card-title">Jobs <span className="opx-muted" style={{ fontWeight: 400, fontSize: 13 }}>{filtered ? `${jobs.length} of ${allJobs.length}` : allJobs.length}</span></h3>
+            <h3 className="j-card-title">Jobs <span className="opx-muted" style={{ fontWeight: 400, fontSize: 13 }}>{loading && allJobs.length === 0 ? <Wait /> : filtered ? `${jobs.length} of ${allJobs.length}` : allJobs.length}</span></h3>
             <div className="j-row j-gap-2 j-wrap">
               <select className="opx-input opx-afilter" aria-label="Filter by status" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
                 <option value="all">Status: all</option>
