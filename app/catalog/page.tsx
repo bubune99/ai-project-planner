@@ -7,7 +7,7 @@
  * surfaces with filter/search, and a detail pane with deps + scan events.
  */
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useState, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { DashboardLayout } from "@/components/navigation"
 import { Icon } from "@/components/jarvis/icons"
@@ -603,7 +603,10 @@ export default function CatalogPage() {
     }
   }, [searchParams, surfaces, selected])
 
+  const listSeq = useRef(0)
   const fetchSurfaces = useCallback(async () => {
+    // Only the newest request may fill the list: an older answer arriving late must not replace it.
+    const mine = ++listSeq.current
     setLoading(true)
     setErr(null)
     try {
@@ -615,6 +618,7 @@ export default function CatalogPage() {
       sp.set("limit", "200")
       const res = await fetch(`/api/catalog/surfaces?${sp.toString()}`)
       const json = await res.json()
+      if (mine !== listSeq.current) return
       if (!res.ok || !json.success) throw new Error(json?.error?.message ?? "Failed to load catalog")
       setSurfaces(Array.isArray(json.data) ? json.data : [])
       setTotal(json.meta?.total ?? 0)
@@ -720,7 +724,7 @@ export default function CatalogPage() {
               <div className="j-card j-col" style={{ alignItems: "center", gap: 10, padding: 32 }}>
                 <Icon name="layers" size={24} />
                 <p className="j-muted" style={{ textAlign: "center", fontSize: 13 }}>
-                  No surfaces match the current filters.
+                  {kinds.length > 0 || status || staleOnly || search.trim() ? "No surfaces match these filters." : "Nothing has been cataloged yet. Entries appear here after a scan of the code."}
                 </p>
               </div>
             ) : (

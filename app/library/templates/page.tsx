@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { toast } from "sonner"
 import { DashboardLayout } from "@/components/navigation"
 import { Icon } from "@/components/jarvis/icons"
@@ -82,7 +82,10 @@ export default function TemplatesPage() {
   const [editValue, setEditValue] = useState("")
   const [fieldSaving, setFieldSaving] = useState(false)
 
+  const listSeq = useRef(0)
   const fetchTemplates = useCallback(async () => {
+    // Only the newest request may fill the list: an older answer arriving late must not replace it.
+    const mine = ++listSeq.current
     try {
       setLoading(true)
       const qs = new URLSearchParams()
@@ -90,6 +93,7 @@ export default function TemplatesPage() {
       if (search.trim()) qs.set("search", search.trim())
       const res = await fetch(`/api/feature-templates?${qs.toString()}`)
       const json = await res.json()
+      if (mine !== listSeq.current) return
       if (!res.ok || !json.success) throw new Error(json?.error?.message || "Failed to load templates")
       setTemplates(json.data || [])
       if (json.meta?.counts) setCounts(json.meta.counts)

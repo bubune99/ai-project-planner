@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { toast } from "sonner"
 import { DashboardLayout } from "@/components/navigation"
 import { Icon } from "@/components/jarvis/icons"
@@ -86,7 +86,10 @@ export default function ClientsPage() {
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([])
   const [sops, setSops] = useState<{ id: string; title: string }[]>([])
 
+  const listSeq = useRef(0)
   const fetchClients = useCallback(async () => {
+    // Only the newest request may fill the list: an older answer arriving late must not replace it.
+    const mine = ++listSeq.current
     try {
       setLoading(true)
       const qs = new URLSearchParams()
@@ -94,6 +97,7 @@ export default function ClientsPage() {
       if (search.trim()) qs.set("search", search.trim())
       const res = await fetch(`/api/clients?${qs.toString()}`)
       const json = await res.json()
+      if (mine !== listSeq.current) return
       if (!res.ok || !json.success) throw new Error(json?.error?.message || "Failed to load clients")
       setClients(json.data || [])
       if (json.meta?.counts) setCounts(json.meta.counts)
