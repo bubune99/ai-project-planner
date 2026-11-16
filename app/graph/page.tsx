@@ -8,6 +8,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { ringOrder, ringRadii } from "@/lib/graph/ring-layout"
 import {
   ReactFlow,
   Background,
@@ -84,11 +85,13 @@ const RELATION_TYPES = [
 
 // ── Layout: concentric circles by type, scattered angle ────────────────────
 function layoutNodes(graph: GraphResponse): { nodes: Node[]; edges: Edge[] } {
-  const typeKeys = Object.keys(graph.counts.byType).sort(
-    (a, b) => graph.counts.byType[b] - graph.counts.byType[a]
-  )
+  // Fewest innermost, and each ring large enough for its boxes: see lib/graph/ring-layout.ts.
+  const drawn: Record<string, number> = {}
+  for (const n of graph.nodes) drawn[n.type] = (drawn[n.type] || 0) + 1
+  const typeKeys = ringOrder(drawn)
   const typeIndex: Record<string, number> = {}
   typeKeys.forEach((t, i) => (typeIndex[t] = i))
+  const radii = ringRadii(typeKeys.map((t) => drawn[t]))
 
   // Group nodes by type
   const byType: Record<string, GraphNode[]> = {}
@@ -103,7 +106,7 @@ function layoutNodes(graph: GraphResponse): { nodes: Node[]; edges: Edge[] } {
 
   for (const [type, group] of Object.entries(byType)) {
     const ring = typeIndex[type] ?? 0
-    const r = baseRadius + ring * ringStep
+    const r = radii[ring] ?? baseRadius + ring * ringStep
     const angleStep = (2 * Math.PI) / Math.max(group.length, 1)
     group.forEach((n, i) => {
       const angle = i * angleStep
