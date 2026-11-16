@@ -1163,3 +1163,11 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
 /* A wide before or after picture scrolls sideways inside its box at a size that can be read. */
 .opx-ch-pair a[data-wide] { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .opx-ch-pair a[data-wide]::after { content: "Swipe sideways to see all of it. Press to open it at full size."; display: block; position: sticky; left: 0; padding: 6px 10px; font-size: 12px; color: var(--opx-muted); }
+/* Swipe down to refresh (phone). The indicator sits above the page and comes down with the finger. */
+.opx-pull { position: fixed; top: 0; left: 50%; z-index: 60; display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 999px; background: var(--opx-card); color: var(--opx-ink); box-shadow: 0 6px 20px rgba(0,0,0,.28), inset 0 0 0 1px var(--opx-line); font-size: 13px; font-weight: 600; white-space: nowrap; opacity: 0; pointer-events: none; }
+.opx-pull.on, .opx-pull.busy { opacity: 1; }
+.opx-pull:not(.on) { transition: transform .18s ease, opacity .18s ease; }
+.opx-pull.busy svg { animation: opx-pull-spin .8s linear infinite; }
+@keyframes opx-pull-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .opx-pull, .opx-pull:not(.on) { transition: none; } .opx-pull.busy svg { animation: none; } }
+.opx-pull-note { position: fixed; top: 64px; left: 16px; right: 16px; z-index: 60; padding: 12px 14px; border-radius: 12px; background: var(--opx-card); color: var(--opx-ink); box-shadow: 0 6px 20px rgba(0,0,0,.28), inset 0 0 0 1px var(--opx-line); font-size: 14px; line-height: 1.4; }

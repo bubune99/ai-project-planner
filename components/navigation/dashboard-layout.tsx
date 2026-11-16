@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
+import { PullToRefresh } from "./PullToRefresh"
 import { useTheme } from "next-themes"
 import { Moon, Sun } from "lucide-react"
 import { AppSidebar, OPEN_POPOUT_EVENT } from "./app-sidebar"
@@ -95,6 +96,17 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
   // Deterministic on first render (SSR + hydration); corrected on mount.
   const [vp, setVp] = useState<Viewport>("desktop")
   const pathname = usePathname()
+  // Swipe down to refresh (phone): the page is mounted again, so it reads everything again, and the server parts are
+  // asked for again. No full reload: the shell, the theme and the assistant stay as they are.
+  const router = useRouter()
+  const [refreshN, setRefreshN] = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
+  const refreshPage = useCallback(() => {
+    setRefreshing(true)
+    setRefreshN((n) => n + 1)
+    router.refresh()
+    window.setTimeout(() => setRefreshing(false), 900)
+  }, [router])
   // How many things wait on the owner: shown on the phone's Inbox tab.
   const [waitingCount, setWaitingCount] = useState(0)
   useEffect(() => {
@@ -278,8 +290,9 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
           ? { flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }
           : { flex: 1, overflowY: "auto" }
         }>
-          {children}
+          <div key={refreshN} style={{ display: "contents" }}>{children}</div>
         </main>
+        {vp === "mobile" && !pathname.startsWith("/chat") && <PullToRefresh onRefresh={refreshPage} busy={refreshing} />}
       </div>
 
       {vp === "mobile" && !pathname.startsWith("/chat") && (
