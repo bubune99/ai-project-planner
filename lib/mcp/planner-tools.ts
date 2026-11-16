@@ -843,7 +843,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         dueDate: z.string().optional().describe("Due date, ISO 8601"),
         estimatedHours: z.number().optional(),
         phase: z.string().optional(),
-        workKind: z.enum(["task", "initiative", "upkeep"]).optional().describe("'initiative' for a campaign, phase or sprint whose tasks sit under it (never in progress itself; its tasks are); 'upkeep' for an agent's maintenance work; default 'task'."),
+        workKind: z.enum(["task", "initiative", "upkeep", "owner"]).optional().describe("'owner' for something only the owner can do (keys, dashboards, accounts, payments): shown as Needs you and never sent to an agent. 'initiative' for a campaign, phase or sprint whose tasks sit under it (never in progress itself; its tasks are); 'upkeep' for an agent's maintenance work; default 'task'."),
       },
       async ({ projectId, title, description, status, priority, parentTaskId, tags, dueDate, estimatedHours, phase, workKind }) => {
         try {
@@ -987,7 +987,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         progress: z.number().min(0).max(100).optional(),
         tags: z.array(z.string()).optional().describe("Replaces the full tag list"),
         dueDate: z.string().nullable().optional(),
-        workKind: z.enum(["task", "initiative", "upkeep"]).optional().describe("Change what kind of card it is. An initiative is never in progress itself."),
+        workKind: z.enum(["task", "initiative", "upkeep", "owner"]).optional().describe("'owner' for something only the owner can do (keys, dashboards, accounts, payments): shown as Needs you and never sent to an agent. Change what kind of card it is. An initiative is never in progress itself."),
         claimedBy: z.string().max(80).optional().describe("Your agent name. With status 'in-progress' it marks you as holding the card, so the board shows who has it. Moving it out of in-progress lets go."),
       },
       async ({ taskId, title, description, status, priority, progress, tags, dueDate, claimedBy, workKind }) => {

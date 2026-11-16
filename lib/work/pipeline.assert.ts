@@ -63,6 +63,10 @@ ok("Start puts a card in Up next and sends it; never makes an unheld In Progress
   assert.equal(startMove(r({ status: "completed" })).send, false)
   assert.equal(startMove(r({ work_kind: "initiative" })).send, false)
   for (const s of ["requested", "pending", "blocked", "paused"]) assert.notEqual(startMove(r({ status: s })).to, "in-progress")
+  assert.equal(startMove(r({ work_kind: "owner" })).send, false)
+  assert.match(startMove(r({ work_kind: "owner" })).why!, /Only you/)
+  assert.equal(sendsOnMove("requested", "pending", "owner"), false)
+  assert.equal(sendsOnMove("requested", "in-progress", "owner"), false)
 })
 
 console.log(`\n${n} pipeline checks passed`)

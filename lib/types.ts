@@ -223,7 +223,7 @@ export interface BoardStep {
   updated_at: string
   completed_at: string | null
   /** What the card is (migration 071) and which agent holds it while in progress. */
-  work_kind?: "task" | "initiative" | "upkeep"
+  work_kind?: "task" | "initiative" | "upkeep" | "owner"
   claimed_by_id?: string | null
   claimed_at?: string | null
 }

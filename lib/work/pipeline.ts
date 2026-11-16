@@ -18,7 +18,8 @@
  *   completed    done, with proof
  * The owner's own actions stay on their to-do list. Pure; checked in pipeline.assert.ts.
  */
-export type Kind = "task" | "initiative" | "upkeep"
+/** owner (migration 075): only the owner can do it (keys, dashboards, accounts, payments); never sent to an agent. */
+export type Kind = "task" | "initiative" | "upkeep" | "owner"
 export type InitiativeType = "campaign" | "phase" | "sprint"
 export interface WorkRow {
   id: string; title: string; status: string; priority?: string | null; parent_task_id?: string | null; order_index?: number | null
@@ -34,7 +35,7 @@ export const isDone = (r: WorkRow) => r.status === "completed" || r.status === "
 const GO = new Set(["pending", "in-progress"])
 /** Does moving a card from one column to another send it to an agent? Initiatives are never sent; their tasks are. */
 export function sendsOnMove(from: string | null, to: string, kind: Kind): boolean {
-  return kind !== "initiative" && GO.has(to) && !GO.has(from ?? "")
+  return kind !== "initiative" && kind !== "owner" && GO.has(to) && !GO.has(from ?? "")
 }
 
 /*
@@ -46,6 +47,7 @@ export function sendsOnMove(from: string | null, to: string, kind: Kind): boolea
 export type StartMove = { to: "pending" | null; send: boolean; why?: string }
 export function startMove(r: WorkRow): StartMove {
   if (kindOf(r) === "initiative") return { to: null, send: false, why: "Start one of its tasks; an initiative is never sent itself." }
+  if (kindOf(r) === "owner") return { to: null, send: false, why: "Only you can do this one, so it is not sent to an agent. It is listed under Waiting on you." }
   if (isDone(r)) return { to: null, send: false, why: "It is finished. Reopen it first." }
   if (r.status === "in-progress") return { to: null, send: false, why: r.claimed_by_id ? `${r.claimed_by_id} is already working on it.` : "It is already with an agent." }
   return { to: r.status === "pending" ? null : "pending", send: true }

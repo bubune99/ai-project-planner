@@ -434,7 +434,7 @@ export default function ProjectDashboardPage() {
    * saw no urgent work on production). Read the full step list instead.
    */
   const stepsQ = useJson(projectId ? `/api/projects/${projectId}/steps` : null)
-  const waiting = useNeedsYou(projectId)
+  const waiting = useNeedsYou(projectId, stepsQ.data)
 
   const fetchProjectData = useCallback(async (silent = false) => {
     try {

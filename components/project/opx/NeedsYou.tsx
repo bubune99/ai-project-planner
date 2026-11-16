@@ -11,22 +11,26 @@ import { useMemo, useState } from "react"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import type { InboxItem } from "@/lib/inbox"
 import { KIND_WORD, findingKey, type StoredWalk } from "@/lib/walks/walk-model"
-import { needsYou, needsYouLine, type WaitingChange } from "@/lib/project/needs-you"
+import { needsYou, needsYouLine, type CardRow, type WaitingChange } from "@/lib/project/needs-you"
+import Link from "next/link"
 import { QuestionCard } from "@/components/inbox/QuestionCard"
 import { useJson } from "./shared"
 
 const label: React.CSSProperties = { fontSize: 12.5, fontWeight: 600, color: "var(--opx-muted)", margin: 0 }
 const row: React.CSSProperties = { display: "flex", gap: 12, alignItems: "baseline", padding: "10px 0", borderTop: "1px solid var(--opx-line)" }
 
-export function useNeedsYou(projectId: string) {
+/** steps: the project's step list as the page already has it (cards only the owner can do are taken from it). */
+export function useNeedsYou(projectId: string, steps?: unknown) {
   const inbox = useJson<any>("/api/inbox")
   const changes = useJson<{ changes: WaitingChange[] }>(`/api/projects/${projectId}/gates/changes`)
   const walks = useJson<{ walks: StoredWalk[] }>(`/api/projects/${projectId}/gates/walks`)
   const [answered, setAnswered] = useState<string[]>([])
   const value = useMemo(() => {
     const items: InboxItem[] = (Array.isArray(inbox.data) ? inbox.data : inbox.data?.data ?? []).filter((q: InboxItem) => !answered.includes(q.id))
-    return needsYou(projectId, { inbox: items, changes: changes.data?.changes ?? [], walks: walks.data?.walks ?? [] })
-  }, [projectId, inbox.data, changes.data, walks.data, answered])
+    const s: any = steps
+    const cards: CardRow[] = Array.isArray(s) ? s : Array.isArray(s?.steps) ? s.steps : Array.isArray(s?.data) ? s.data : Array.isArray(s?.data?.steps) ? s.data.steps : []
+    return needsYou(projectId, { inbox: items, changes: changes.data?.changes ?? [], walks: walks.data?.walks ?? [], cards })
+  }, [projectId, inbox.data, changes.data, walks.data, answered, steps])
   /** The owner's call on a finding that was theirs. Their own session only; the server refuses anyone else. */
   const settle = async (key: string, call: "do" | "leave" | null): Promise<string | null> => {
     const res = await fetch(`/api/projects/${projectId}/gates/walks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "settle", key, call }) })
@@ -35,11 +39,11 @@ export function useNeedsYou(projectId: string) {
     walks.reload()
     return null
   }
-  return { value, loading: inbox.loading || changes.loading || walks.loading, markAnswered: (id: string) => setAnswered((a) => [...a, id]), unmark: (id: string) => setAnswered((a) => a.filter((x) => x !== id)), reload: inbox.reload, settle }
+  return { projectId, value, loading: inbox.loading || changes.loading || walks.loading, markAnswered: (id: string) => setAnswered((a) => [...a, id]), unmark: (id: string) => setAnswered((a) => a.filter((x) => x !== id)), reload: inbox.reload, settle }
 }
 
 export function NeedsYou({ state, onOpenTab }: { state: ReturnType<typeof useNeedsYou>; onOpenTab: (tab: string) => void }) {
-  const { value: y, loading, markAnswered, unmark, settle } = state
+  const { projectId, value: y, loading, markAnswered, unmark, settle } = state
   // Answered here: stays with what was chosen and Change my answer (walk 2026-11-16).
   const [just, setJust] = useState<{ item: InboxItem; answer: string }[]>([])
   const [allYours, setAllYours] = useState(false)
@@ -86,6 +90,18 @@ export function NeedsYou({ state, onOpenTab }: { state: ReturnType<typeof useNee
                     onAnswered={(a) => { if (a !== undefined) setJust((j) => [{ item: q, answer: a }, ...j]); markAnswered(q.id) }} />
                 ))}
               </div>
+            </div>
+          )}
+
+          {y.cards.length > 0 && (
+            <div>
+              <p style={label}>Only you can do</p>
+              {y.cards.map((c) => (
+                <div key={c.id} className="opx-waiting-row" style={row}>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 14 }}>{c.title}</span>
+                  <Link className="opx-link" style={{ textDecoration: "underline" }} href={`/project/${projectId}?tab=tasks&step=${c.id}`} aria-label={`Open the card: ${c.title}`}>Open the card</Link>
+                </div>
+              ))}
             </div>
           )}
 

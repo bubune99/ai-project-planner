@@ -431,6 +431,23 @@ export function TaskDetailModal({
               </Select>
             </div>
 
+            {/* Who does it. "Only you" cards are listed under Waiting on you and never sent to an agent (migration 075). */}
+            {step.work_kind !== "initiative" && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-muted-foreground">Who does it</span>
+                <Select value={step.work_kind === "owner" ? "owner" : step.work_kind === "upkeep" ? "upkeep" : "task"} onValueChange={(v) => patch({ work_kind: v })}>
+                  <SelectTrigger className="h-7 w-[120px] text-xs" aria-label="Who does it">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="task">An agent</SelectItem>
+                    <SelectItem value="upkeep">Agent upkeep</SelectItem>
+                    <SelectItem value="owner">Only you</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs text-muted-foreground">Agent</span>
               <Select

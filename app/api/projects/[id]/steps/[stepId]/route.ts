@@ -195,8 +195,8 @@ export async function PATCH(
 
     // A card's kind: task, initiative (holds tasks) or upkeep (an agent's maintenance). Migration 071.
     const workKind = has("work_kind") ? body.work_kind : null;
-    if (workKind !== null && !["task", "initiative", "upkeep"].includes(workKind)) {
-      return NextResponse.json({ error: `Invalid work_kind: ${workKind}. Allowed: task, initiative, upkeep` }, { status: 400 });
+    if (workKind !== null && !["task", "initiative", "upkeep", "owner"].includes(workKind)) {
+      return NextResponse.json({ error: `Invalid work_kind: ${workKind}. Allowed: task, initiative, upkeep, owner` }, { status: 400 });
     }
     // An agent taking a card names itself, so the board shows who holds it (only an agent's key may claim).
     const claimedBy = authType !== "session" && typeof body.claimed_by === "string" && body.claimed_by.trim() ? body.claimed_by.trim().slice(0, 80) : null;

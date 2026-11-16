@@ -31,4 +31,13 @@ const none = needsYou("p9", { inbox: [], changes: [], walks: [] })
 assert.equal(none.count, 0)
 assert.equal(needsYouLine(none), "Nothing is waiting on you.")
 assert.equal(needsYouLine(needsYou("p1", { inbox: [q("a", "p1", "x")], changes: [], walks: [] })), "1 question to answer.")
-console.log("needs-you: 5 groups of checks pass")
+// 6. cards only the owner can do: open ones listed and counted, finished and other kinds left out
+const withCards = needsYou("p1", { inbox: [], changes: [], walks: [], cards: [
+  { id: "k1", title: "Add the Stripe key", status: "pending", work_kind: "owner" },
+  { id: "k2", title: "Done already", status: "completed", work_kind: "owner" },
+  { id: "k3", title: "Agent work", status: "pending", work_kind: "task" },
+] })
+assert.deepEqual(withCards.cards, [{ id: "k1", title: "Add the Stripe key" }])
+assert.equal(withCards.count, 1)
+assert.equal(needsYouLine(withCards), "1 thing only you can do.")
+console.log("needs-you: 6 groups of checks pass")
