@@ -353,14 +353,14 @@ export function PlanCalendar({ items, loading, error, reload, markDone, saveRang
                   {ex.slice(0, Math.max(0, 3 - list.length)).map((x) => (
                     <div key={x.id} title={x.title} className="opx-ce ev" style={{ ["--c" as string]: x.color || "var(--opx-accent)" }}>{x.title}</div>
                   ))}
-                  {total > 3 && <div className="opx-muted" style={{ fontSize: 11.5 }}>+{total - 3} more</div>}
+                  {total > 3 && <div className="opx-muted" style={{ fontSize: 12 }}>+{total - 3} more</div>}
                 </div>
               )
             })}
           </div>
         </section>
         <aside className="opx-sec opx-sticky opx-dp">
-          <div className="opx-muted" style={{ fontSize: 11.5 }}>{fmtDate(sel, { month: "long", year: "numeric" }).toUpperCase()}{isToday ? " · TODAY" : ""}</div>
+          <div className="opx-muted" style={{ fontSize: 12 }}>{fmtDate(sel, { month: "long", year: "numeric" }).toUpperCase()}{isToday ? " · TODAY" : ""}</div>
           <div className="opx-row" style={{ alignItems: "baseline" }}>
             <h2 style={{ fontSize: 28, fontWeight: 600, margin: 0 }}>{isToday ? "Today" : fmtDate(sel, { weekday: "long" })}</h2>
             <span style={{ marginLeft: "auto", textAlign: "right", color: "var(--opx-muted)", fontSize: 14 }}>
