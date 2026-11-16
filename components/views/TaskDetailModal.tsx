@@ -202,7 +202,9 @@ export function TaskDetailModal({
         onOpenAutoFocus={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => {
           const a = document.activeElement
-          if (document.querySelector("[data-card-overlay]") || (a && (a.tagName === "TEXTAREA" || a.tagName === "INPUT"))) e.preventDefault()
+          // Esc first closes a picture shown large, then leaves a field being typed in; the next Esc closes the card.
+          if (document.querySelector("[data-card-overlay]")) return e.preventDefault()
+          if (a instanceof HTMLElement && (a.tagName === "TEXTAREA" || a.tagName === "INPUT")) { e.preventDefault(); a.blur() }
         }}
       >
        <div className="flex-1 min-h-0 overflow-y-auto">
@@ -218,14 +220,17 @@ export function TaskDetailModal({
             </button>
           )}
           <DialogTitle asChild>
-            <Input
+            <Textarea
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              rows={1}
+              aria-label="Title"
+              onChange={(e) => setTitle(e.target.value.replace(/\n/g, " "))}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur() } }}
               onBlur={() => {
                 const t = title.trim()
                 if (t && t !== step.title) patch({ title: t })
               }}
-              className="text-xl md:text-xl font-semibold border-transparent bg-transparent shadow-none hover:border-input focus-visible:border-input px-2 -mx-2 h-auto py-1 mr-8"
+              className="min-h-0 resize-none overflow-hidden [field-sizing:content] text-xl md:text-xl font-semibold leading-snug border-transparent bg-transparent shadow-none hover:border-input focus-visible:border-input px-2 -mx-2 py-1 mr-8"
             />
           </DialogTitle>
           <div className="flex items-center gap-2 pr-8">

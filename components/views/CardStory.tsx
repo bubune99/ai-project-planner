@@ -55,7 +55,7 @@ export function CardPath({ step, statusLabel, siblings, onOpenStep }: {
         {holder && <span className="ml-2 text-foreground/80" title={holder.title}>· {holder.label}</span>}
       </span>
       <span className="flex-1" />
-      {i >= 0 && siblings.length > 1 && <span className="tabular-nums">{i + 1} of {siblings.length}</span>}
+      {i >= 0 && siblings.length > 1 && <span className="hidden sm:inline whitespace-nowrap tabular-nums">{i + 1} of {siblings.length}</span>}
       <button type="button" className={nav} disabled={!prev} onClick={() => prev && onOpenStep(prev)} title={prev ? `Previous: ${prev.title}` : "First in this column"} aria-label="Previous card">
         <ChevronLeft className="w-4 h-4" />
       </button>
