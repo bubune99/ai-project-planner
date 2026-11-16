@@ -9,7 +9,7 @@ import { KanbanView } from "@/components/views/KanbanView"
 import { phaseStrip, type StripPhase } from "@/lib/project/phase-strip"
 import { Check } from "lucide-react"
 import { ActivityFeed } from "@/components/project/activity-feed"
-import { Seg, unwrap, useJson } from "@/components/project/opx/shared"
+import { Figure, Seg, unwrap, useJson } from "@/components/project/opx/shared"
 import { TaskList, TaskTimeline, TaskCalendar } from "@/components/project/opx/TaskViews"
 import { DocsTab } from "@/components/project/opx/DocsTab"
 import { ChecksTab } from "@/components/project/opx/ChecksTab"
@@ -488,6 +488,7 @@ export default function ProjectDashboardPage() {
 
   const { project, steps } = projectData
   const allSteps: any[] = unwrap<any[]>(stepsQ.data, "steps") || steps || []
+  const stepsKnown = stepsQ.data != null
   const top = allSteps.filter((s: any) => !s.is_subtask && !s.parent_task_id && !s.deleted_at)
   const counted = ui.progressCountsSubtasks ? allSteps.filter((s: any) => !s.deleted_at) : top
   const doneN = counted.filter((s: any) => s.status === "completed").length
@@ -515,10 +516,12 @@ export default function ProjectDashboardPage() {
           </div>
         </div>
         <div className="opx-stats">
-          <div className="opx-stat"><b>{pct}%</b><span>{doneN} of {counted.length} done{ui.progressCountsSubtasks ? " (with subtasks)" : ""}</span></div>
-          <div className="opx-stat"><b>{inProg}</b><span>In progress</span></div>
-          <div className={`opx-stat${urgent ? " hot" : ""}`}><b>{urgent}</b><span>Urgent to do</span></div>
-          <div className={`opx-stat${blocked ? " hot" : ""}`}><b>{blocked}</b><span>Blocked</span></div>
+          {/* Until the full step list arrives the figures are not known: the project record's own list has no
+              priorities, so Urgent read 0 and then 3 (flash watch, 2026-11-16). */}
+          <div className="opx-stat"><b><Figure value={stepsKnown ? `${pct}%` : null} w="3ch" /></b><span>{stepsKnown ? `${doneN} of ${counted.length} done${ui.progressCountsSubtasks ? " (with subtasks)" : ""}` : "Done"}</span></div>
+          <div className="opx-stat"><b><Figure value={stepsKnown ? inProg : null} /></b><span>In progress</span></div>
+          <div className={`opx-stat${stepsKnown && urgent ? " hot" : ""}`}><b><Figure value={stepsKnown ? urgent : null} /></b><span>Urgent to do</span></div>
+          <div className={`opx-stat${stepsKnown && blocked ? " hot" : ""}`}><b><Figure value={stepsKnown ? blocked : null} /></b><span>Blocked</span></div>
         </div>
       </header>
 

@@ -20,7 +20,7 @@ import { announceInbox } from "@/lib/inbox/live"
 import { toast } from "sonner"
 import { parseIdeaPlan, ideaStage, ideasForProject } from "@/lib/project-views/ideas"
 import { TIMELINE_KINDS, KIND_COLOR, buildTimeline, byMonth, type TimelineKind } from "@/lib/project-views/timeline"
-import { Failed, Loading, Md, Seg, ago, askAssistant, fmtDate, unwrap, useHoverTip, useJson } from "./shared"
+import { Failed, Figure, Loading, Md, Seg, WaitRows, ago, askAssistant, fmtDate, unwrap, useHoverTip, useJson } from "./shared"
 
 interface Decision { id: string; title: string; summary?: string | null; status?: string | null; tags?: string[] | null; createdAt?: string | null; nodeCount?: number }
 interface Idea { id: string; title: string; description?: string | null; category?: string | null; lifecycle?: string | null; createdAt?: string | null; updatedAt?: string | null; facetCount?: number; promotedToProjectId?: string | null }
@@ -83,6 +83,7 @@ export function IdeasDecisions({ projectId, projectName }: { projectId: string; 
     return <ChangeLog decisions={decisions} steps={steps} ideas={ideas} docs={docs} questions={questions} switcher={switcher} onOpenDecision={setOpenDec} onOpenIdea={setOpenIdea} />
   }
 
+  const ideasKnown = ideasQ.data != null
   const seed = ideas.filter((i) => ideaStage(i.lifecycle) === "idea")
   const exploring = ideas.filter((i) => ideaStage(i.lifecycle) === "exploring")
   const ideaCard = (i: Idea) => (
@@ -91,11 +92,12 @@ export function IdeasDecisions({ projectId, projectName }: { projectId: string; 
       <span className="opx-meta"><span>{i.category || "idea"}</span>{i.facetCount ? <span>{i.facetCount} notes</span> : null}<span>{ago(i.createdAt)}</span></span>
     </button>
   )
-  const col = (title: string, hint: string, color: string, n: number, body: React.ReactNode) => (
+  // A column whose data has not arrived shows a placeholder, never 0 and "Nothing here." (flash watch, 2026-11-16).
+  const col = (title: string, hint: string, color: string, n: number | null, body: React.ReactNode) => (
     <div className="opx-pcol">
-      <div className="opx-row" style={{ fontWeight: 600, fontSize: 15 }}><i className="opx-dot" style={{ background: color }} />{title}<span className="opx-n">{n}</span></div>
+      <div className="opx-row" style={{ fontWeight: 600, fontSize: 15 }}><i className="opx-dot" style={{ background: color }} />{title}<span className="opx-n"><Figure value={n} /></span></div>
       <div className="opx-muted" style={{ fontSize: 12.5, margin: "2px 0 10px" }}>{hint}</div>
-      {body}
+      {n === null ? <WaitRows n={2} /> : body}
       {n === 0 && <p className="opx-muted" style={{ fontSize: 13 }}>Nothing here.</p>}
     </div>
   )
@@ -104,9 +106,9 @@ export function IdeasDecisions({ projectId, projectName }: { projectId: string; 
     <div className="opx-col" style={{ gap: 12 }}>
       <div className="opx-row"><span className="opx-muted" style={{ fontSize: 13 }}>An idea moves right as it firms up: explore it, answer the question, record the decision, then turn it into tasks.</span><span style={{ marginLeft: "auto" }}>{switcher}</span></div>
       <div className="opx-pipe">
-        {col("Ideas", "Raw thoughts, nothing committed", "#8a94a3", seed.length, seed.map(ideaCard))}
-        {col("Exploring", "Being researched or shaped", "var(--opx-accent)", exploring.length, exploring.map(ideaCard))}
-        {col("Waiting on you", "A choice only you can make", "var(--opx-warn)", questions.length, questions.map((q) => (
+        {col("Ideas", "Raw thoughts, nothing committed", "#8a94a3", ideasKnown ? seed.length : null, seed.map(ideaCard))}
+        {col("Exploring", "Being researched or shaped", "var(--opx-accent)", ideasKnown ? exploring.length : null, exploring.map(ideaCard))}
+        {col("Waiting on you", "A choice only you can make", "var(--opx-warn)", inbox.data != null ? questions.length : null, questions.map((q) => (
           <div key={q.id} className="opx-pcard" style={{ cursor: "default" }}>
             <b>{q.question}</b>
             {q.context && <p className="opx-muted" style={{ margin: "6px 0 0", fontSize: 12.5 }}>{q.context.replace(/\[[a-z-]+:[^\]]+\]/g, "").slice(0, 220)}</p>}
