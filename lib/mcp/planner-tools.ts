@@ -3696,6 +3696,39 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
     )
 
     server.tool(
+      "get_card",
+      "One card in full: title, description, column, kind, priority, holder, project, parent, its steps (subtasks) and its comments, oldest first. Use this to read a card before working it.",
+      { cardId: z.string().describe("The card (step) id") },
+      async ({ cardId }) => {
+        try {
+          const userId = getMcpUserId()
+          const [c] = (await sql`
+            SELECT s.id, s.title, s.description, s.status, s.priority, s.work_kind, s.claimed_by_id, s.tags, s.parent_task_id,
+                   s.progress, s.created_at, s.updated_at, p.id AS project_id, p.name AS project_name
+              FROM project_steps s JOIN projects p ON p.id = s.project_id AND p.deleted_at IS NULL
+             WHERE s.id = ${cardId} AND s.deleted_at IS NULL AND p.user_id = ${userId}
+          `) as any[]
+          if (!c) return mcpError("Card not found")
+          const steps = (await sql`
+            SELECT id, title, status FROM project_steps WHERE parent_task_id = ${cardId} AND deleted_at IS NULL ORDER BY order_index, created_at
+          `) as any[]
+          const comments = (await sql`
+            SELECT body, author_label, created_at FROM step_comments WHERE step_id = ${cardId} AND deleted_at IS NULL ORDER BY created_at
+          `) as any[]
+          return mcpResponse({
+            id: c.id, title: c.title, description: c.description, column: c.status, priority: c.priority, kind: c.work_kind,
+            heldBy: c.claimed_by_id, tags: c.tags || [], progress: c.progress, parentId: c.parent_task_id,
+            project: { id: c.project_id, name: c.project_name }, createdAt: c.created_at, updatedAt: c.updated_at,
+            steps: steps.map((s) => ({ id: s.id, title: s.title, column: s.status })),
+            comments: comments.map((m) => ({ by: m.author_label || "owner", at: m.created_at, body: m.body })),
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
       "list_reports",
       "The owner's reports from the feedback form: what he said, the page, status, and the card each became. Filter by status (open, fixed, ...) or source.",
       {
