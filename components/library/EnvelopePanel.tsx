@@ -150,7 +150,7 @@ export function EnvelopePanel({ envelope, onSave }: EnvelopePanelProps) {
                       borderRadius: 8,
                       padding: "8px 10px",
                       fontSize: 13,
-                      resize: "vertical",
+                      resize: "none",
                       fontFamily: "inherit",
                     }}
                   />

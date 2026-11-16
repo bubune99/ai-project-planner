@@ -261,7 +261,7 @@ export function CrossLinkPanel({
             onChange={(e) => setNewRel({ ...newRel, rationale: e.target.value })}
             placeholder="Why this link? (optional but recommended)"
             rows={2}
-            style={{ ...inputStyle, width: "100%", marginBottom: 8, resize: "vertical" }}
+            style={{ ...inputStyle, width: "100%", marginBottom: 8, resize: "none" }}
           />
           <button onClick={createRelation} style={{ ...btnStyle, width: "100%" }}>
             Create link

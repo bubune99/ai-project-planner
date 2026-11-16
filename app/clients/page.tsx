@@ -286,7 +286,7 @@ export default function ClientsPage() {
                 style={{
                   width: "100%", background: "var(--opx-soft)", color: "var(--opx-ink)",
                   border: "none", boxShadow: "0 0 0 1px var(--j-ring)", borderRadius: 8,
-                  padding: 12, fontSize: 13, resize: "vertical",
+                  padding: 12, fontSize: 13, resize: "none",
                 }}
               />
               {err && <div className="j-pill j-neg" style={{ alignSelf: "flex-start" }}>{err}</div>}

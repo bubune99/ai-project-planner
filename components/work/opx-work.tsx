@@ -140,7 +140,18 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
    * filters when we can have drop downs in relation to a column. I will choose the column every time.").
    */
   const [q, setQ] = useState("")
-  const [cols, setCols] = useState<WorkColumns>(NO_FILTER)
+  // The dashboard links here with ?due=overdue (the Overdue tile) or ?item=<id> (one row of "Overdue and blocked").
+  const [cols, setCols] = useState<WorkColumns>(() => {
+    if (typeof window === "undefined") return NO_FILTER
+    const due = new URLSearchParams(window.location.search).get("due")
+    return due === "overdue" || due === "week" || due === "nodate" ? { ...NO_FILTER, due } : NO_FILTER
+  })
+  const [focusId] = useState<string | null>(() => (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("item")))
+  useLayoutEffect(() => {
+    if (!focusId || !work) return
+    const el = document.querySelector(`[data-work-id="${CSS.escape(focusId)}"]`)
+    if (el) el.scrollIntoView({ block: "center" })
+  }, [focusId, work])
   const counts = useMemo(() => filterCounts(work?.items || [], new Date()), [work])
   const shown = useMemo(() => { const now = new Date(); return (work?.items || []).filter((x) => passesColumns(x, cols, now) && matchesQuery(x, q.trim())) }, [work, cols, q])
   const only = cols.status
@@ -206,7 +217,7 @@ export function WorkList({ refreshKey = 0, onEditTodo }: { refreshKey?: number; 
             const due = dayOf(w.dueDate)
             const late = due && due < today && !done
             return (
-              <div key={w.id} className={`opx-lv opx-lvp${done ? " dn" : ""}`} {...tipProps(w.description)}>
+              <div key={w.id} data-work-id={w.id} className={`opx-lv opx-lvp${done ? " dn" : ""}`} style={focusId === w.id ? { background: "var(--opx-accent-soft, rgba(80,130,255,.14))" } : undefined} {...tipProps(w.description)}>
                 {picking
                   ? <label className="opx-pick"><input type="checkbox" aria-label={`Select ${w.title}`} checked={sel.has(w.id)} onChange={(e) => pick([w.id], e.target.checked)} /></label>
                   : <button className={`opx-ck${done ? " on" : ""}`} aria-label={done ? `Reopen ${w.title}` : `Mark ${w.title} done`} onClick={() => toggle(w)} />}

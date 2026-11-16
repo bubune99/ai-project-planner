@@ -79,6 +79,8 @@ export async function GET(request: NextRequest) {
       WHERE p.user_id = ${userId}
         AND p.deleted_at IS NULL
         AND ps.status = 'blocked'
+        -- Deleted cards were listed here (the walk saw five removed 'Untitled task' cards as blocked).
+        AND ps.deleted_at IS NULL
       ORDER BY ps.updated_at DESC
       LIMIT 5
     `
@@ -134,6 +136,7 @@ export async function GET(request: NextRequest) {
         AND p.deleted_at IS NULL
         AND p.status = 'in-progress'
         AND ps.status = 'in-progress'
+        AND ps.deleted_at IS NULL
       ORDER BY
         CASE ps.priority
           WHEN 'critical' THEN 1

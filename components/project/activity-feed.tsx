@@ -122,7 +122,7 @@ export function ActivityFeed({ projectId }: { projectId: string }) {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) post() }}
-          style={{ resize: "vertical", height: "auto", padding: 10 }}
+          style={{ resize: "none", height: "auto", padding: 10 }}
         />
         {draft.trim() && (
           <div className="j-row" style={{ gap: 8, alignItems: "center" }}>

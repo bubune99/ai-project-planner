@@ -234,7 +234,7 @@ export default function IdeasPage() {
                   padding: "8px 12px",
                   color: "var(--opx-ink)",
                   fontSize: 13,
-                  resize: "vertical",
+                  resize: "none",
                   fontFamily: "inherit",
                   outline: "none",
                 }}

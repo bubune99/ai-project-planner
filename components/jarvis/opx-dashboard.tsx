@@ -26,7 +26,7 @@ const active = (s?: string | null) => /progress|active/.test(s || "")
 
 /** Where a row in "Overdue and blocked" leads: a blocked step to its project's tasks, an overdue todo to Today. */
 function attentionHref(t: FocusItem & { blocked: boolean }): string {
-  return t.blocked && t.project?.id ? `/project/${t.project.id}?tab=tasks&step=${t.id}` : "/todos"
+  return t.blocked && t.project?.id ? `/project/${t.project.id}?tab=tasks&step=${t.id}` : `/todos?item=${encodeURIComponent(t.id)}`
 }
 
 export function OpxDashboard() {
@@ -37,6 +37,9 @@ export function OpxDashboard() {
   const ideasQ = useJson("/api/ideas")
   const todosQ = useJson("/api/todos?status=open&limit=1")
   const [answered, setAnswered] = useState<Record<string, string>>({})
+  // Questions answered here stay in place with what was chosen and a way to change it (walk 2026-11-16: the answer
+  // vanished with no way back; "Change my answer" lived only in the inbox).
+  const [justAnswered, setJustAnswered] = useState<Record<string, { q: Question; option: string }>>({})
 
   const projects = (unwrap<Project[]>(projectsQ.data) || []).filter((p) => p.status !== "archived")
   const moving = projects.filter((p) => active(p.status))
@@ -58,10 +61,22 @@ export function OpxDashboard() {
     try {
       const r = await fetch(`/api/inbox/${q.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ option }) })
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j?.error?.message || j?.error || `HTTP ${r.status}`) }
-      toast.success(`Answered: ${option}`); announceInbox(-1); inboxQ.reload()
+      setJustAnswered((m) => ({ ...m, [q.id]: { q, option } }))
+      announceInbox(-1); inboxQ.reload()
     } catch (e) {
       setAnswered((a) => { const { [q.id]: _, ...rest } = a; return rest })
       toast.error(e instanceof Error ? e.message : "Couldn't save the answer")
+    }
+  }
+  const takeBack = async (id: string) => {
+    try {
+      const r = await fetch(`/api/inbox/${id}`, { method: "DELETE" })
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j?.error?.message || j?.error || `HTTP ${r.status}`) }
+      setJustAnswered((m) => { const { [id]: _, ...rest } = m; return rest })
+      setAnswered((a) => { const { [id]: _, ...rest } = a; return rest })
+      announceInbox(1); inboxQ.reload()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't take the answer back")
     }
   }
   const late = (d?: string | null) => { if (!d) return ""; const days = Math.floor((Date.now() - new Date(d).getTime()) / 86_400_000); return days > 0 ? `${days} day${days > 1 ? "s" : ""} late` : "" }
@@ -83,7 +98,7 @@ export function OpxDashboard() {
           <Link href="/projects" className="opx-stat"><b>{n(moving.length, projectsQ.loading && projectsQ.data == null)}</b><span>Active projects</span></Link>
           <Link href="/inbox" className="opx-stat"><b>{n(questions.length, inboxQ.loading && inboxQ.data == null)}</b><span>Waiting on you</span></Link>
           <Link href="/todos" className="opx-stat"><b>{n(counts.active, todosQ.loading && todosQ.data == null)}</b><span>Open todos</span></Link>
-          <Link href="/todos" className={`opx-stat${counts.overdue ? " hot" : ""}`}><b>{n(counts.overdue, todosQ.loading && todosQ.data == null)}</b><span>Overdue</span></Link>
+          <Link href="/todos?due=overdue" className={`opx-stat${counts.overdue ? " hot" : ""}`}><b>{n(counts.overdue, todosQ.loading && todosQ.data == null)}</b><span>Overdue</span></Link>
           <Link href="/ideas" className="opx-stat"><b>{n(ideas.length, ideasQ.loading && ideasQ.data == null)}</b><span>Ideas</span></Link>
         </div>
       </header>
@@ -99,15 +114,26 @@ export function OpxDashboard() {
         <Section title="Needs you" count={n(questions.length, inboxQ.loading && inboxQ.data == null)} action={<Link className="opx-link opx-act" href="/inbox">Open inbox ›</Link>}>
           {inboxQ.loading && !inboxQ.data && <p className="opx-muted">Loading…</p>}
           {!inboxQ.loading && questions.length === 0 && <p className="opx-muted" style={{ margin: 0 }}>Nothing is waiting on you.</p>}
-          {questions.slice(0, 3).map((q) => (
+          {Object.values(justAnswered).map(({ q, option }) => (
+            <div key={q.id} className="opx-card" data-answered style={{ marginBottom: 8 }}>
+              <div className="opx-muted" style={{ fontSize: 12.5 }}>{q.projectName || "Planner"}</div>
+              <b style={{ display: "block", fontSize: 15, margin: "2px 0" }}>{q.question}</b>
+              <span className="opx-row" style={{ gap: 10, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <span>You answered <b>{option}</b>.</span>
+                <button className="opx-btn sm" onClick={() => void takeBack(q.id)}>Change my answer</button>
+              </span>
+            </div>
+          ))}
+          {questions.filter((q) => !justAnswered[q.id]).slice(0, 3).map((q) => (
             <div key={q.id} className="opx-card" style={{ marginBottom: 8 }}>
               <div className="opx-muted" style={{ fontSize: 12.5 }}>{q.projectName || "Planner"}</div>
               <b style={{ display: "block", fontSize: 15, margin: "2px 0" }}>{q.question}</b>
               {q.context && <p className="opx-muted" style={{ margin: "4px 0 0", fontSize: 13 }}>{q.context.replace(/\[[a-z-]+:[^\]]+\]/g, "").slice(0, 190)}</p>}
               <QuestionPictures pictures={q.pictures} small />
               <span className="opx-row" style={{ gap: 6, marginTop: 10, flexWrap: "wrap" }}>
-                {q.options.slice(0, 4).map((o, k) => (
-                  <button key={o} className={`opx-btn sm${k === 0 ? " primary" : ""}`} disabled={!!answered[q.id]} onClick={() => answer(q, o)}>{answered[q.id] === o ? `✓ ${o}` : o}</button>
+                {q.options.slice(0, 4).map((o) => (
+                  // All answers drawn alike: a filled first one read as already chosen (walk 2026-11-16).
+                  <button key={o} className="opx-btn sm" disabled={!!answered[q.id]} onClick={() => answer(q, o)}>{o}</button>
                 ))}
               </span>
             </div>

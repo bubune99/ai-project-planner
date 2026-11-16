@@ -1,4 +1,5 @@
 "use client"
+import { usePageTitle } from "@/lib/hooks/use-page-title"
 
 import { useRoomBelow } from "@/lib/layout/use-room-below"
 import { useState, useEffect, useMemo, useCallback } from "react"
@@ -421,6 +422,7 @@ export default function ProjectDashboardPage() {
   const setActiveTab = useCallback((tab: string) => setUrl({ tab, view: null, step: null }), [setUrl])
   const setTaskView  = useCallback((view: TaskView) => setUrl({ tab: "tasks", view, step: null }), [setUrl])
   const [projectData, setProjectData] = useState<ProjectData | null>(null)
+  usePageTitle(projectData?.project?.name)
   const [loading, setLoading]         = useState(true)
   const [error, setError]             = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)

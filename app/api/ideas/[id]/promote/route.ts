@@ -202,7 +202,7 @@ export async function POST(
 
     // Get step count for response
     const stepCount = await sql`
-      SELECT COUNT(*) as count FROM project_steps WHERE project_id = ${project.id}
+      SELECT COUNT(*) as count FROM project_steps WHERE project_id = ${project.id} AND deleted_at IS NULL
     `
 
     return successResponse({

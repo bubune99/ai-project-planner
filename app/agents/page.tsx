@@ -435,7 +435,7 @@ export default function AgentsPage() {
             </label>
             <label>
               <span style={fieldLabel}>Description</span>
-              <textarea className="opx-input" value={createForm.description} onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })} placeholder="Describe what this job should accomplish" rows={3} style={{ resize: "vertical" }} />
+              <textarea className="opx-input" value={createForm.description} onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })} placeholder="Describe what this job should accomplish" rows={3} style={{ resize: "none" }} />
             </label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <label>

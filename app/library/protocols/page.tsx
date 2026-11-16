@@ -196,7 +196,7 @@ export default function ProtocolsPage() {
     borderRadius: 8,
     padding: 10,
     fontSize: 13,
-    resize: "vertical",
+    resize: "none",
     fontFamily: "inherit",
   }
 

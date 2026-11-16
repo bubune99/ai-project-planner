@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
       const depsResult = await sql`
         SELECT ps.* FROM project_steps ps
         JOIN step_dependencies sd ON ps.id = sd.depends_on_step_id
-        WHERE sd.step_id = ${stepId} AND ps.project_id = ${projectId} AND ps.status = 'completed'
+        WHERE sd.step_id = ${stepId} AND ps.project_id = ${projectId} AND ps.status = 'completed' AND ps.deleted_at IS NULL
       `
 
       promptData.hasDependencies = depsResult.length > 0
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
       // Generate phase-specific prompt
       const stepsResult = await sql`
         SELECT * FROM project_steps 
-        WHERE project_id = ${projectId} AND phase = ${searchParams.get("phase")}
+        WHERE project_id = ${projectId} AND phase = ${searchParams.get("phase")} AND deleted_at IS NULL
         ORDER BY order_index
       `
       prompt = generatePhasePrompt(project, stepsResult, businessContext, techStackResult)

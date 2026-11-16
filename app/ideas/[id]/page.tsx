@@ -1,4 +1,5 @@
 "use client"
+import { usePageTitle } from "@/lib/hooks/use-page-title"
 import { AlertTriangle } from "lucide-react"
 
 import {
@@ -361,7 +362,7 @@ function OverviewTab({
                 borderRadius: 8,
                 padding: "8px 10px",
                 fontSize: 13,
-                resize: "vertical",
+                resize: "none",
                 fontFamily: "inherit",
                 lineHeight: 1.6,
               }}
@@ -1212,7 +1213,7 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
                   borderRadius: 8,
                   padding: "8px 10px",
                   fontSize: 13,
-                  resize: "vertical",
+                  resize: "none",
                   fontFamily: "inherit",
                 }}
               />
@@ -1531,7 +1532,7 @@ function DocumentsTab({ ideaId }: { ideaId: string }) {
                   borderRadius: 8,
                   padding: "8px 10px",
                   fontSize: 13,
-                  resize: "vertical",
+                  resize: "none",
                   fontFamily: "inherit",
                 }}
               />
@@ -1743,6 +1744,7 @@ export default function IdeaDetailPage() {
   const user = useUser()
 
   const [idea, setIdea] = useState<IdeaDetail | null>(null)
+  usePageTitle(idea?.title)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 

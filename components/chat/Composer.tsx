@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useRef, useState } from "react"
-import { ArrowUp, BookMarked, Check, Lightbulb, Paperclip, Plug, Plus, Wrench, X } from "lucide-react"
+import { BookMarked, Check, Lightbulb, Paperclip, Plug, Plus, Wrench, X } from "lucide-react"
 import { SOON_LABEL, plusItems, type PlusItemId } from "@/lib/chat/view"
 import { HoldToTalk } from "./HoldToTalk"
 import type { ChatModel } from "./useAssistantChat"
@@ -138,7 +138,7 @@ export function Composer({ model }: { model: ChatModel; compact?: boolean }) {
           {model.busy ? (
             <button type="button" className="opx-chat-send" data-ui="chat.stop" aria-label="Stop" title="Stop" onClick={model.stop}><span className="opx-chat-stop" aria-hidden /></button>
           ) : (
-            <button type="submit" className="opx-chat-send" data-ui="chat.send" aria-label="Send" title="Send" disabled={!model.input.trim()}><ArrowUp size={18} strokeWidth={2} aria-hidden /></button>
+            <button type="submit" className="opx-chat-send" data-ui="chat.send" disabled={!model.input.trim()}>Send</button>
           )}
         </div>
       </div>
