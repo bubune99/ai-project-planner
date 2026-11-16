@@ -7,7 +7,7 @@
  * so every write merges onto the current metadata first).
  */
 
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { formatMoney, moneyTotals } from "@/lib/project-views/money"
 import { toast } from "sonner"
 import { projectMetrics, medianLabel } from "@/lib/project-views/metrics"
@@ -243,13 +243,41 @@ const normStatus = (s: string) => s.replace(/_/g, "-")
 export function SettingsTab({ projectId, project, onChange }: { projectId: string; project: any; onChange: () => void }) {
   const ui = uiOf(project)
   const [sec, setSec] = useState<SettingKey>("general")
-  const [f, setF] = useState(() => ({
+  const fromProject = () => ({
     name: project.name || "", description: project.description || "", status: normStatus(project.status || "planning"), priority: project.priority || "medium",
     due_date: (project.due_date || "").slice(0, 10), github_repo_url: project.github_repo_url || "", liveUrl: ui.liveUrl || "", stagingUrl: ui.stagingUrl || "",
     defaultTab: ui.defaultTab || "overview", defaultTaskView: ui.defaultTaskView || "board", decisionsView: ui.decisionsView || "pipeline",
-    progressCountsSubtasks: !!ui.progressCountsSubtasks, coreDocs: ui.coreDocs || CORE_SLOTS.map((s) => s.name),
-  }))
+    progressCountsSubtasks: !!ui.progressCountsSubtasks, coreDocs: (ui.coreDocs || CORE_SLOTS.map((s) => s.name)) as string[],
+    tags: (Array.isArray(project.tags) ? project.tags : []) as string[],
+  })
+  // Unsaved changes are never lost without a word (Settings check, 2026-11-15): the form is marked as changed, a draft
+  // is kept for this browser tab so leaving Settings and coming back keeps it, and closing the page asks first.
+  const draftKey = `planner:settings-draft:${projectId}`
+  const [base, setBase] = useState(() => JSON.stringify(fromProject()))
+  const [restored, setRestored] = useState(false)
+  const [f, setF] = useState(() => {
+    try {
+      const d = typeof window !== "undefined" ? window.sessionStorage.getItem(draftKey) : null
+      if (d && d !== JSON.stringify(fromProject())) { return { ...fromProject(), ...JSON.parse(d) } as ReturnType<typeof fromProject> }
+    } catch { /* no storage: start from the saved project */ }
+    return fromProject()
+  })
+  const dirty = JSON.stringify(f) !== base
+  useEffect(() => {
+    try { if (dirty) window.sessionStorage.setItem(draftKey, JSON.stringify(f)); else window.sessionStorage.removeItem(draftKey) } catch { /* ignore */ }
+  }, [dirty, f, draftKey])
+  useEffect(() => {
+    if (!dirty) return
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = "" }
+    window.addEventListener("beforeunload", warn)
+    return () => window.removeEventListener("beforeunload", warn)
+  }, [dirty])
+  useEffect(() => { setRestored(JSON.stringify(f) !== base) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const discard = () => { setF(JSON.parse(base)); setRestored(false) }
   const [newDoc, setNewDoc] = useState("")
+  const [docNeed, setDocNeed] = useState(false)
+  const [newTag, setNewTag] = useState("")
+  const invites = useJson(sec === "people" ? `/api/projects/${projectId}/invites` : null)
   const [saving, setSaving] = useState(false)
   const team = useJson(sec === "people" ? `/api/projects/${projectId}/collaborators` : null)
   const set = (patch: Partial<typeof f>) => setF((x) => ({ ...x, ...patch }))
@@ -260,8 +288,9 @@ export function SettingsTab({ projectId, project, onChange }: { projectId: strin
     setSaving(true)
     try {
       await saveProject(projectId, project,
-        { name: f.name.trim(), description: f.description, status: f.status, priority: f.priority, due_date: f.due_date || null, github_repo_url: f.github_repo_url.trim() },
+        { name: f.name.trim(), description: f.description, status: f.status, priority: f.priority, due_date: f.due_date || null, github_repo_url: f.github_repo_url.trim(), tags: f.tags },
         { liveUrl: f.liveUrl.trim(), stagingUrl: f.stagingUrl.trim(), defaultTab: f.defaultTab, defaultTaskView: f.defaultTaskView, decisionsView: f.decisionsView as PlannerUi["decisionsView"], progressCountsSubtasks: f.progressCountsSubtasks, coreDocs: f.coreDocs })
+      setBase(JSON.stringify(f)); setRestored(false)
       toast.success("Saved"); onChange()
     } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't save") }
     finally { setSaving(false) }
@@ -269,7 +298,11 @@ export function SettingsTab({ projectId, project, onChange }: { projectId: strin
   const archive = async () => {
     if (!window.confirm(`Move "${project.name}" to On hold? It leaves the active list and everything is kept. You can set the status back under General.`)) return
     // The form on General must learn the new status too, or its next Save would quietly put the old one back.
-    try { await saveProject(projectId, project, { status: ON_HOLD }); set({ status: ON_HOLD }); toast.success("Moved to On hold"); onChange() }
+    try {
+      await saveProject(projectId, project, { status: ON_HOLD }); set({ status: ON_HOLD })
+      setBase((b) => JSON.stringify({ ...JSON.parse(b), status: ON_HOLD }))
+      toast.success("Moved to On hold"); onChange()
+    }
     catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't archive") }
   }
 
@@ -297,7 +330,18 @@ export function SettingsTab({ projectId, project, onChange }: { projectId: strin
           {fld("Status", "status", pills("status", STATUSES.some(([k]) => k === f.status) ? STATUSES : [...STATUSES, [f.status, f.status]], f.status, (v) => set({ status: v }), "Status"))}
           {fld("Priority", "priority", pills("priority", PRIORITIES, f.priority, (v) => set({ priority: v }), "Priority"))}
           {fld("Target date", "ps-due", <input id="ps-due" type="date" className="opx-input" style={{ maxWidth: 220 }} value={f.due_date} onChange={(e) => set({ due_date: e.target.value })} />, f.due_date ? undefined : "Not set. Leave it empty rather than guess.")}
-          {fld("Tags", "tags", <div className="opx-row" style={{ gap: 6, flexWrap: "wrap" }}>{(project.tags || []).map((t: string) => <span key={t} className="opx-chip">{t}</span>)}{!(project.tags || []).length && <span className="opx-muted">None</span>}</div>, "Tags are set by agents for now.")}
+          {fld("Tags", "ps-tag", <div className="opx-row" style={{ gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            {f.tags.map((t) => (
+              <span key={t} className="opx-chip" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>{t}
+                <button type="button" className="opx-link" aria-label={`Remove the tag ${t}`} style={{ minWidth: 28, minHeight: 28, padding: 0 }} onClick={() => set({ tags: f.tags.filter((x) => x !== t) })}>×</button>
+              </span>
+            ))}
+            {!f.tags.length && <span className="opx-muted">None</span>}
+            <form className="opx-row" style={{ gap: 6 }} onSubmit={(e) => { e.preventDefault(); const n = newTag.trim(); if (n && !f.tags.includes(n)) set({ tags: [...f.tags, n] }); setNewTag("") }}>
+              <input id="ps-tag" className="opx-input" style={{ maxWidth: 180 }} placeholder="Add a tag" value={newTag} onChange={(e) => setNewTag(e.target.value)} />
+              <button className="opx-btn sm" disabled={!newTag.trim()}>Add</button>
+            </form>
+          </div>)}
         </>}
         {sec === "code" && <>
           {fld("Repository", "ps-repo", <input id="ps-repo" className="opx-input" placeholder="https://github.com/owner/repo" value={f.github_repo_url} onChange={(e) => set({ github_repo_url: e.target.value })} />, project.github_repo_url ? undefined : "Not linked yet.")}
@@ -311,7 +355,22 @@ export function SettingsTab({ projectId, project, onChange }: { projectId: strin
             {(collab.collaborators || []).map((c: any) => <div key={c.id || c.email} className="opx-li"><span className="opx-av" /><div><b>{c.name || c.email}</b><small>{c.role || "Collaborator"}</small></div></div>)}
             {!(collab.collaborators || []).length && <p className="opx-muted">No collaborators yet.</p>}
             <InviteLink projectId={projectId} />
-            {collab.pendingInvitationsCount ? <p className="opx-muted">{collab.pendingInvitationsCount} invitation(s) pending.</p> : null}
+            {(() => {
+              const list: any[] = unwrap<any>(invites.data)?.invitations || []
+              if (!list.length) return null
+              return (
+                <div style={{ marginTop: 14 }}>
+                  <b style={{ fontSize: 14 }}>Waiting to be accepted</b>
+                  {list.map((iv) => (
+                    <div key={iv.id} className="opx-li" data-invite={iv.id}>
+                      <div><b>{iv.invitee_email || "Invite link"}</b>
+                        <small>{iv.role === "editor" ? "Can edit" : iv.role === "viewer" ? "Can view" : iv.role} · {iv.max_uses ? `${iv.current_uses || 0} of ${iv.max_uses} used · ` : ""}expires {fmtDate(iv.expires_at, { month: "short", day: "numeric" })}</small>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
             <p className="opx-muted" style={{ fontSize: 12.5, marginTop: 16 }}>Agents connected with your key can read and update this project. Per-project agent limits aren't built yet.</p>
           </>}
         </>}
@@ -322,9 +381,18 @@ export function SettingsTab({ projectId, project, onChange }: { projectId: strin
               <button className={`opx-sw${f.coreDocs.includes(n) ? " on" : ""}`} role="switch" aria-checked={f.coreDocs.includes(n)} aria-label={n} onClick={() => set({ coreDocs: f.coreDocs.includes(n) ? f.coreDocs.filter((x) => x !== n) : [...f.coreDocs, n] })} />
             </div>
           ))}
-          <form className="opx-row" style={{ gap: 8, marginTop: 10 }} onSubmit={(e) => { e.preventDefault(); const n = newDoc.trim(); if (n && !f.coreDocs.includes(n)) set({ coreDocs: [...f.coreDocs, n] }); setNewDoc("") }}>
-            <input className="opx-input" style={{ maxWidth: 280 }} placeholder="Add your own, e.g. Pricing model" value={newDoc} onChange={(e) => setNewDoc(e.target.value)} aria-label="New core document" />
+          <form className="opx-row" style={{ gap: 8, marginTop: 10, flexWrap: "wrap" }} onSubmit={(e) => {
+            e.preventDefault()
+            const n = newDoc.trim()
+            if (!n) { setDocNeed(true); return }
+            setDocNeed(false)
+            if (f.coreDocs.includes(n)) toast(`"${n}" is already on the list`)
+            else set({ coreDocs: [...f.coreDocs, n] })
+            setNewDoc("")
+          }}>
+            <input className="opx-input" style={{ maxWidth: 280 }} placeholder="Add your own, e.g. Pricing model" value={newDoc} onChange={(e) => { setNewDoc(e.target.value); if (docNeed) setDocNeed(false) }} aria-label="New core document" />
             <button className="opx-btn">Add</button>
+            {docNeed && <span role="alert" className="opx-ch-need">Type the document's name first, then press Add.</span>}
           </form>
         </>}
         {sec === "views" && <>
@@ -337,9 +405,11 @@ export function SettingsTab({ projectId, project, onChange }: { projectId: strin
           <div className="opx-dz"><div><b>Move to On hold</b><small className="opx-muted">Takes it out of the active list. Everything is kept.</small></div><button className="opx-btn" onClick={archive}>On hold</button></div>
           <div className="opx-dz" style={{ boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--opx-hot) 35%, transparent)" }}><div><b>Delete this project</b><small className="opx-muted">Deleting is done from the Projects page, where it asks you to confirm by name.</small></div><a className="opx-btn danger" href="/projects">Go to Projects</a></div>
         </>}
-        {canSave && (
-          <div className="opx-row" style={{ justifyContent: "flex-end", gap: 8, marginTop: 18, borderTop: "1px solid var(--opx-line)", paddingTop: 14 }}>
-            <button className="opx-btn primary" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save changes"}</button>
+        {(canSave || dirty) && (
+          <div className="opx-row" data-settings-save style={{ justifyContent: "flex-end", alignItems: "center", gap: 8, marginTop: 18, borderTop: "1px solid var(--opx-line)", paddingTop: 14, flexWrap: "wrap" }}>
+            {dirty && <span role="status" style={{ marginRight: "auto", fontSize: 13, color: "var(--opx-warn)" }}>{restored ? "Unsaved changes from earlier, kept for you" : "Unsaved changes"}</span>}
+            {dirty && <button className="opx-btn" onClick={discard} disabled={saving}>Discard</button>}
+            <button className="opx-btn primary" onClick={save} disabled={saving || !dirty}>{saving ? "Saving…" : "Save changes"}</button>
           </div>
         )}
       </section>
