@@ -1190,3 +1190,8 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
 .opx-qpics img { display: block; width: 100%; height: auto; max-height: 360px; object-fit: contain; }
 .opx-qpics figcaption { font-size: 12.5px; color: var(--opx-muted); margin-top: 4px; line-height: 1.35; }
 .opx-qpics.small { grid-template-columns: repeat(auto-fit, minmax(110px, 160px)); } .opx-qpics.small img { max-height: 120px; }
+/* What changed between a before and an after picture, outlined on both. */
+.opx-ch-frame { position: relative; display: block; }
+.opx-ch-mark { position: absolute; border-radius: 6px; box-shadow: 0 0 0 2px #e8590c, 0 0 0 4px rgba(232, 89, 12, .28); background: rgba(232, 89, 12, .10); pointer-events: none; }
+.opx-ch-diff { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; }
+@media (prefers-reduced-motion: no-preference) { .opx-ch-mark { transition: opacity .15s ease; } }

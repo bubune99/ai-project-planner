@@ -9,6 +9,7 @@
  */
 
 import { useState, useEffect, useRef } from "react"
+import { ChangePair } from "./ChangePair"
 import { readableWidth } from "@/lib/gates/picture-fit"
 import { ThumbsDown, ThumbsUp } from "lucide-react"
 import { STAGE_WORD, type Lessons, type StoredChange } from "@/lib/gates/change-model"
@@ -33,9 +34,10 @@ export function ChangesTab({ projectId }: { projectId: string }) {
     screenshot". Measured: 45 of 48 pictures were over 2,400 pixels wide; shrunk to a phone they were about 150 tall.
   */
   const onPictureLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget, box = img.parentElement?.clientWidth ?? 0
+    const img = e.currentTarget, link = img.closest("a"), box = link?.clientWidth ?? 0
     const w = readableWidth(img.naturalWidth, box)
-    if (w) { img.style.width = `${w}px`; img.style.maxWidth = "none"; img.parentElement?.setAttribute("data-wide", "") }
+    // The frame around the picture takes its width, so the marks of what changed stay on it.
+    if (w) { img.style.width = `${w}px`; img.style.maxWidth = "none"; if (img.parentElement) img.parentElement.style.width = `${w}px`; link?.setAttribute("data-wide", "") }
   }
   const onPictureError = () => { if (Date.now() - refetched.current > 60_000) { refetched.current = Date.now(); reload() } }
   /** "See before and after" in Waiting on you names one change: show the list it is in, bring it into view and mark it. */
@@ -104,14 +106,7 @@ export function ChangesTab({ projectId }: { projectId: string }) {
             <div><h3>{c.title}</h3><p className="opx-muted">{c.why}</p></div>
             <small className="opx-muted">{STAGE_WORD[c.stage]}{c.build ? ` · ${c.build}` : ""}{c.route ? ` · ${c.route}` : ""} · {ago(c.at)}</small>
           </div>
-          <div className="opx-ch-pair">
-            {([["Before", c.before], ["After", c.after]] as const).map(([label, src]) => (
-              <figure key={label}>
-                <figcaption>{label}</figcaption>
-                {src ? <a href={src} target="_blank" rel="noreferrer" aria-label={`Open the ${label.toLowerCase()} picture at full size`}><img src={src} alt={`${label}: ${c.title}`} loading="lazy" onLoad={onPictureLoad} onError={onPictureError} /></a> : <div className="opx-empty">The picture is not available.</div>}
-              </figure>
-            ))}
-          </div>
+          <ChangePair projectId={projectId} id={c.id} title={c.title} before={c.before} after={c.after} onPictureLoad={onPictureLoad} onPictureError={onPictureError} />
           {c.verdict ? (
             <p className="opx-ch-said"><span className={`opx-pf-dot ${c.verdict === "good" ? "ok" : "bad"}`} /><b>You said: {c.verdict === "good" ? "a good change" : "not a good change"}.</b> {c.note}{data.canJudge && <button type="button" className="opx-pf-add" onClick={() => judge(c.id, c.verdict === "good" ? "bad" : "good")} disabled={c.verdict === "good" && !(notes[c.id] ?? "").trim()} title={c.verdict === "good" ? "Write what was wrong below first" : undefined}>Change my answer</button>}</p>
           ) : null}
