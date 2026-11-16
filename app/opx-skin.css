@@ -1032,4 +1032,4 @@ a.opx-stat:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 /* Settings: tabs on a wide screen, one picker on a narrow one. */
 .opx-setpick { display: none; align-items: center; gap: 10px; }
 .opx-setpick select { flex: 1; }
-@media (max-width: 760px) { .opx-setpick { display: flex; } .opx-settabs { display: none !important; } }
+@media (max-width: 1000px) { .opx-setpick { display: flex; } .opx-settabs { display: none !important; } }
