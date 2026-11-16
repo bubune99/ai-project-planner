@@ -192,8 +192,9 @@ function McpTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newKeyName.trim(), scopes: ["read", "write"], expiresIn: newKeyExpiry }),
       })
-      if (!res.ok) throw new Error("Failed to create key")
-      const data = await res.json()
+      const data = await res.json().catch(() => null)
+      // The server says why (for one, "Maximum of 10 active API keys allowed"). The page used to hide that.
+      if (!res.ok) throw new Error(data?.error || "The key was not made")
       const made = data?.apiKey?.key
       if (!made) throw new Error("The key was made but not returned")
       setRevealedKey(made)
@@ -201,8 +202,8 @@ function McpTab() {
       setNewKeyName("")
       setNewKeyExpiry("never")
       fetchKeys()
-    } catch {
-      toast.error("Failed to create API key")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "The key was not made")
     } finally {
       setIsCreating(false)
     }
@@ -358,7 +359,7 @@ function McpTab() {
                 {key.isActive && (
                   <button
                     className="j-btn j-btn-ghost"
-                    style={{ fontSize: 12, color: "var(--j-neg)", flexShrink: 0 }}
+                    style={{ fontSize: 12, color: "color-mix(in srgb, var(--opx-hot) 55%, var(--opx-ink))", flexShrink: 0 }}
                     onClick={() => revokeKey(key.id, key.name)}
                   >
                     Revoke
