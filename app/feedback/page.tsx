@@ -8,6 +8,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { DashboardLayout } from "@/components/navigation";
 
 interface FeedbackItem {
@@ -30,141 +31,126 @@ interface FeedbackItem {
 }
 
 const STATUSES = ["open", "in_progress", "fixed", "wont_fix", "duplicate"];
-const STATUS_COLOR: Record<string, string> = {
-  open: "#f59e0b",
-  in_progress: "#3b82f6",
-  fixed: "#22c55e",
-  wont_fix: "#6b7280",
-  duplicate: "#6b7280",
+// Every status has a word a person reads; the key is never printed.
+const STATUS_LABEL: Record<string, string> = {
+  open: "Open",
+  in_progress: "In progress",
+  fixed: "Fixed",
+  wont_fix: "Won't fix",
+  duplicate: "Duplicate",
 };
+const label = (s: string) => STATUS_LABEL[s] || s.replace(/_/g, " ");
 
 export default function FeedbackInboxPage() {
   const [items, setItems] = useState<FeedbackItem[]>([]);
   const [meta, setMeta] = useState<{ openCount?: number; total?: number }>({});
   const [filter, setFilter] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [shot, setShot] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const qs = filter ? `?status=${filter}` : "";
-    const r = await fetch(`/api/feedback${qs}`, { credentials: "include" });
-    const j = await r.json();
-    setItems(j?.data || []);
-    setMeta(j?.meta || {});
-    setLoading(false);
+  const load = useCallback(async (quiet?: boolean) => {
+    if (!quiet) setLoading(true);
+    try {
+      const qs = filter ? `?status=${filter}` : "";
+      const r = await fetch(`/api/feedback${qs}`, { credentials: "include" });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j) throw new Error(j?.error?.message || "The feedback could not be loaded");
+      setItems(j.data || []);
+      setMeta(j.meta || {});
+      setError("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The feedback could not be loaded");
+    } finally {
+      setLoading(false);
+    }
   }, [filter]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const setStatus = async (id: string, status: string) => {
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, status } : i)));
-    await fetch(`/api/feedback/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ status }),
-    });
-    load();
+  // The picture viewer closes with Esc as well as a press.
+  useEffect(() => {
+    if (!shot) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setShot(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [shot]);
+
+  const setStatus = async (it: FeedbackItem, status: string) => {
+    const was = it.status;
+    if (status === was) return;
+    setItems((prev) => prev.map((i) => (i.id === it.id ? { ...i, status } : i)));
+    try {
+      const r = await fetch(`/api/feedback/${it.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status }),
+      });
+      if (!r.ok) throw new Error("not saved");
+      toast(`Marked ${label(status).toLowerCase()}`, { action: { label: "Undo", onClick: () => setStatus({ ...it, status }, was) } });
+    } catch {
+      // Put back what the screen showed before: a status that was not saved must not look saved.
+      setItems((prev) => prev.map((i) => (i.id === it.id ? { ...i, status: was } : i)));
+      toast.error("The status was not saved. Try again.");
+    }
+    load(true);
   };
 
   return (
     <DashboardLayout>
-      <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700 }}>Feedback</h1>
-          <span style={{ fontSize: 13, color: "#8b93a7" }}>
+      <div className="opx-page" style={{ maxWidth: 1100, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Feedback</h1>
+          <span className="opx-muted" style={{ fontSize: 13 }}>
             {meta.openCount ?? 0} open · {meta.total ?? items.length} total
           </span>
         </div>
-        <p style={{ fontSize: 13, color: "#8b93a7", marginBottom: 16 }}>
-          In-app point-and-annotate reports, with captured environment. Check off fixes here.
+        <p className="opx-muted" style={{ fontSize: 13, marginBottom: 16 }}>
+          Comments made by pointing at a part of a screen, with the device and screen size they were made on. Set each one&apos;s status here.
         </p>
 
-        <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
-          {["", ...STATUSES].map((s) => (
-            <button
-              key={s || "all"}
-              onClick={() => setFilter(s)}
-              style={{
-                background: filter === s ? "#2563eb" : "#141a28",
-                color: filter === s ? "#fff" : "#cfd6e6",
-                border: "1px solid #2a3142",
-                borderRadius: 999,
-                padding: "5px 12px",
-                fontSize: 12,
-                cursor: "pointer",
-              }}
-            >
-              {s || "all"}
-            </button>
-          ))}
+        <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+          <select className="opx-input opx-afilter" aria-label="Filter by status" value={filter} onChange={(e) => setFilter(e.target.value)}>
+            <option value="">Status: all</option>
+            {STATUSES.map((s) => <option key={s} value={s}>{label(s)}</option>)}
+          </select>
+          {filter && <button className="opx-btn sm" onClick={() => setFilter("")}>Show everything</button>}
+          {filter && !loading && <span className="opx-muted" style={{ fontSize: 13 }}>{items.length} shown</span>}
         </div>
 
-        {loading ? (
-          <p style={{ color: "#8b93a7" }}>Loading…</p>
+        {error ? (
+          <p role="alert">{error}. <button className="opx-btn sm" onClick={() => load()}>Try again</button></p>
+        ) : loading ? (
+          <p className="opx-muted">Loading…</p>
         ) : items.length === 0 ? (
-          <p style={{ color: "#8b93a7" }}>No feedback yet. Use the ✦ button on any page to add some.</p>
+          <p className="opx-muted">{filter ? `No feedback is ${label(filter).toLowerCase()}.` : "No feedback yet. Use the feedback button on any page to add some."}</p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {items.map((it) => (
-              <div
-                key={it.id}
-                style={{
-                  background: "#0e131f",
-                  border: "1px solid #222b3d",
-                  borderRadius: 10,
-                  padding: 14,
-                  display: "grid",
-                  gridTemplateColumns: it.screenshot ? "120px 1fr" : "1fr",
-                  gap: 14,
-                }}
-              >
+              <div key={it.id} className="opx-sec opx-fbrow">
                 {it.screenshot && (
-                  <img
-                    src={it.screenshot}
-                    alt="capture"
-                    onClick={() => setShot(it.screenshot)}
-                    style={{
-                      width: 120,
-                      height: 90,
-                      objectFit: "cover",
-                      borderRadius: 6,
-                      border: "1px solid #222b3d",
-                      cursor: "zoom-in",
-                      background: "#fff",
-                    }}
-                  />
+                  <button type="button" className="opx-fbshot" onClick={() => setShot(it.screenshot)} aria-label={`Open the picture for: ${(it.title || it.comment).slice(0, 60)}`}>
+                    <img src={it.screenshot} alt="" />
+                  </button>
                 )}
-                <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                    <strong style={{ fontSize: 14 }}>{it.title || it.comment.slice(0, 60)}</strong>
-                    <span
-                      style={{
-                        fontSize: 12,
-                        color: STATUS_COLOR[it.status],
-                        border: `1px solid ${STATUS_COLOR[it.status]}`,
-                        borderRadius: 999,
-                        padding: "1px 8px",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {it.status}
-                    </span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
+                    <strong style={{ fontSize: 14, overflowWrap: "anywhere", flex: "1 1 240px" }}>{it.title || it.comment}</strong>
+                    <label className="opx-fbstatus">
+                      <select className="opx-rowsel" aria-label={`Status of: ${(it.title || it.comment).slice(0, 60)}`} value={it.status} onChange={(e) => setStatus(it, e.target.value)}>
+                        {STATUSES.map((s) => <option key={s} value={s}>{label(s)}</option>)}
+                      </select>
+                    </label>
                   </div>
                   {it.title && (
-                    <p style={{ fontSize: 13, color: "#cfd6e6", margin: "6px 0" }}>{it.comment}</p>
+                    <p style={{ fontSize: 13, margin: "6px 0", overflowWrap: "anywhere" }}>{it.comment}</p>
                   )}
-                  <div style={{ fontSize: 12, color: "#8b93a7", marginTop: 6, lineHeight: 1.7 }}>
+                  <div className="opx-muted" style={{ fontSize: 12, marginTop: 6, lineHeight: 1.7, overflowWrap: "anywhere" }}>
                     <span>{it.route || it.url}</span>
-                    {it.selector && (
-                      <>
-                        {" · "}
-                        <code style={{ color: "#9db4e8" }}>{it.selector}</code>
-                      </>
-                    )}
+                    {it.selector && <>{" · "}<span>{it.selector}</span></>}
                     <br />
                     {it.env?.deviceType} · {it.env?.viewport?.w}×{it.env?.viewport?.h} @{it.env?.devicePixelRatio}x
                     {it.env?.colorScheme ? ` · ${it.env.colorScheme}` : ""}
@@ -174,27 +160,6 @@ export default function FeedbackInboxPage() {
                     {new Date(it.createdAt).toLocaleString()}
                     {it.commitSha ? ` · ${String(it.commitSha).slice(0, 7)}` : ""}
                   </div>
-                  <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
-                    {STATUSES.map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => setStatus(it.id, s)}
-                        disabled={it.status === s}
-                        style={{
-                          background: it.status === s ? STATUS_COLOR[s] : "#141a28",
-                          color: it.status === s ? "#06121f" : "#cfd6e6",
-                          border: "1px solid #2a3142",
-                          borderRadius: 6,
-                          padding: "4px 9px",
-                          fontSize: 12,
-                          cursor: it.status === s ? "default" : "pointer",
-                          fontWeight: it.status === s ? 700 : 400,
-                        }}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               </div>
             ))}
@@ -202,21 +167,9 @@ export default function FeedbackInboxPage() {
         )}
 
         {shot && (
-          <div
-            onClick={() => setShot(null)}
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(0,0,0,.8)",
-              zIndex: 9999,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 40,
-              cursor: "zoom-out",
-            }}
-          >
-            <img src={shot} alt="capture" style={{ maxWidth: "90%", maxHeight: "90%", background: "#fff", borderRadius: 8 }} />
+          <div role="dialog" aria-label="Picture" className="opx-fbview" onClick={() => setShot(null)}>
+            <button type="button" className="opx-btn" onClick={() => setShot(null)} style={{ position: "absolute", top: 16, right: 16 }}>Close</button>
+            <img src={shot} alt="The screen as it was when the comment was made" onClick={(e) => e.stopPropagation()} />
           </div>
         )}
       </div>

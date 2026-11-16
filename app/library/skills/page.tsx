@@ -167,7 +167,7 @@ export default function SkillsPage() {
           <div className="j-col" style={{ gap: 2 }}>
             <div className="j-row" style={{ gap: 8 }}>
               <span className="j-muted" style={{ fontSize: 13 }}>
-                <a href="/library" style={{ color: "var(--opx-muted)", textDecoration: "none" }}>Library</a>
+                <a href="/library" style={{ color: "var(--opx-muted)", textDecoration: "underline", display: "inline-flex", alignItems: "center", minHeight: 28, padding: "0 4px" }}>Library</a>
                 {" / "}
               </span>
               <h1 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Skills</h1>
@@ -181,17 +181,14 @@ export default function SkillsPage() {
 
         {/* Filters */}
         <div className="j-row j-wrap" style={{ gap: 8 }}>
-          <div className="j-tabs">
-            <span className={`j-tab${filter === "" ? " j-active" : ""}`} onClick={() => setFilter("")}>All</span>
-            {STATUSES.map(s => (
-              <span key={s} className={`j-tab${filter === s ? " j-active" : ""}`} onClick={() => setFilter(s)}>
-                {s[0].toUpperCase() + s.slice(1)}
-              </span>
-            ))}
-          </div>
+          <select className="opx-input opx-afilter" aria-label="Filter by status" value={filter} onChange={e => setFilter(e.target.value as typeof filter)}>
+            <option value="">Status: all</option>
+            {STATUSES.map(s => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}
+          </select>
           <input
             className="j-search"
             style={{ minWidth: 220 }}
+            aria-label="Search skills"
             placeholder="Search skills…"
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -286,6 +283,7 @@ export default function SkillsPage() {
                   <div
                     key={skill.id}
                     className="j-card j-tight"
+                    role="button" tabIndex={0} onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); e.currentTarget.click() } }}
                     style={{
                       cursor: "pointer",
                       boxShadow: selected?.id === skill.id

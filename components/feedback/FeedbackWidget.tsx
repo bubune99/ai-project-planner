@@ -332,7 +332,7 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
             General feedback
           </button>
           {!menu.touch && (
-            <div style={{ fontSize: 10.5, color: "#6b7388", padding: "4px 10px 2px" }}>
+            <div style={{ fontSize: 12, color: "#6b7388", padding: "4px 10px 2px" }}>
               Shift + right-click for the browser menu
             </div>
           )}

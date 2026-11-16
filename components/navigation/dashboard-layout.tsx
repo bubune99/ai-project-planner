@@ -349,7 +349,7 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
                 >
                   <Icon name="arrow" size={14} />
                   <span style={{ flex: 1 }}>{m.title}</span>
-                  <span style={{ fontSize: 11, color: "oklch(0.556 0 0)" }}>{m.sub}</span>
+                  <span style={{ fontSize: 12, color: "oklch(0.556 0 0)" }}>{m.sub}</span>
                 </a>
               ))}
             </div>

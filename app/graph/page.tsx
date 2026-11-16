@@ -227,7 +227,7 @@ export default function KnowledgeGraphPage() {
           Knowledge Graph
         </h1>
         {graph && (
-          <span style={{ fontSize: 12, color: "var(--j-muted, #94a3b8)" }}>
+          <span style={{ fontSize: 12, color: "var(--opx-muted)" }}>
             {graph.counts.nodes} nodes · {graph.counts.edges} edges
           </span>
         )}
@@ -393,7 +393,7 @@ export default function KnowledgeGraphPage() {
               <div style={{ marginTop: 12, fontSize: 12 }}>
                 {Object.entries(selectedNode.metadata).map(([k, v]) => (
                   <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
-                    <span style={{ color: "var(--j-muted, #94a3b8)" }}>{k}</span>
+                    <span style={{ color: "var(--opx-muted)" }}>{k}</span>
                     <span style={{ color: "var(--j-text, #e2e8f0)", fontFamily: "inherit" }}>
                       {String(v ?? "")}
                     </span>

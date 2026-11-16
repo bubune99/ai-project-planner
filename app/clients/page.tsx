@@ -238,7 +238,7 @@ export default function ClientsPage() {
           <input
             className="j-search"
             style={{ minWidth: 220 }}
-            placeholder="Search clients…"
+            aria-label="Search clients" placeholder="Search clients…"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />

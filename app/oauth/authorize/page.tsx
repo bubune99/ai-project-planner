@@ -232,7 +232,7 @@ const styles: Record<string, CSSProperties> = {
     color: "#e7e7ea",
     boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
   },
-  kicker: { fontSize: 11, letterSpacing: "0.14em", color: "#8b8b93", marginBottom: 14, fontWeight: 600 },
+  kicker: { fontSize: 12, letterSpacing: "0.14em", color: "#8b8b93", marginBottom: 14, fontWeight: 600 },
   h1: { fontSize: 22, lineHeight: 1.3, margin: "0 0 8px", fontWeight: 650 },
   accent: { color: "#7c9cff" },
   sub: { fontSize: 14, color: "#a1a1aa", margin: "0 0 20px" },

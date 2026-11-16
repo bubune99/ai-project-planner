@@ -145,7 +145,7 @@ export function Attention() {
                 padding: "10px 12px", fontSize: 13, lineHeight: 1.45, boxShadow: "0 12px 30px rgba(0,0,0,.5)",
               }}
             >
-              {shown?.step && <div style={{ fontSize: 11, color: "var(--opx-muted)", marginBottom: 4 }}>{shown.step.n} of {shown.step.of}</div>}
+              {shown?.step && <div style={{ fontSize: 12, color: "var(--opx-muted)", marginBottom: 4 }}>{shown.step.n} of {shown.step.of}</div>}
               <div>{shown?.caption}</div>
               {mode === "spotlight" && (
                 <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>

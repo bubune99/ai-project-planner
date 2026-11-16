@@ -410,7 +410,7 @@ export default function ImpactGraphPage() {
         padding: "14px 20px", borderBottom: "1px solid #1f2937",
         background: "#0f172a", display: "flex", alignItems: "center", gap: 14, flexShrink: 0,
       }}>
-        <a href="/catalog" style={{ color: "#64748b", fontSize: 12, textDecoration: "none" }}>← Catalog</a>
+        <a href="/catalog" style={{ color: "#cbd5e1", fontSize: 13, textDecoration: "none", display: "inline-flex", alignItems: "center", minHeight: 32, padding: "0 8px", border: "1px solid #334155", borderRadius: 999 }}>← Catalog</a>
         <h1 style={{ fontSize: 16, margin: 0, fontWeight: 600, color: "#e2e8f0" }}>Impact Graph</h1>
         {!loading && (
           <span style={{ fontSize: 12, color: "#94a3b8" }}>

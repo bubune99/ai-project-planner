@@ -550,6 +550,7 @@ function FacetsTab({
                 Type
               </label>
               <select
+                aria-label="Type"
                 value={newType}
                 onChange={(e) => setNewType(e.target.value)}
                 style={{
@@ -1120,6 +1121,7 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
                 Type
               </label>
               <select
+                aria-label="Refinement type"
                 value={form.refinementType}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, refinementType: e.target.value }))
@@ -1883,13 +1885,8 @@ export default function IdeaDetailPage() {
       <div className="j-content j-col j-gap-4">
         {/* ── Back + Header ──────────────────────────────────────── */}
         <div>
-          <Link href="/ideas">
-            <button
-              className="j-btn j-btn-ghost"
-              style={{ marginBottom: 14, fontSize: 12 }}
-            >
-              ← Ideas
-            </button>
+          <Link href="/ideas" className="opx-btn sm" style={{ marginBottom: 14, minHeight: 32, textDecoration: "none" }}>
+            ← Ideas
           </Link>
 
           <div
@@ -1978,15 +1975,7 @@ export default function IdeaDetailPage() {
                 >
                   Archive
                 </button>
-                <button
-                  className="j-btn j-btn-ghost"
-                  style={{
-                    fontSize: 12,
-                    color: "var(--j-neg)",
-                    boxShadow: "0 0 0 1px oklch(0.577 0.245 27 / 0.35)",
-                  }}
-                  onClick={deleteIdea}
-                >
+                <button className="opx-btn sm danger" onClick={deleteIdea}>
                   Delete
                 </button>
               </div>

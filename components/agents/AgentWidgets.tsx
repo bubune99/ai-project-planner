@@ -31,7 +31,7 @@ const btn: React.CSSProperties = {
   padding: "6px 12px", minHeight: 36, fontSize: 12, color: "var(--j-accent)", cursor: "pointer", fontFamily: "inherit",
   textDecoration: "none", display: "inline-flex", alignItems: "center", touchAction: "manipulation", whiteSpace: "nowrap",
 }
-const sub: React.CSSProperties = { fontSize: 11.5, color: "var(--opx-muted)", marginTop: 2 }
+const sub: React.CSSProperties = { fontSize: 12, color: "var(--opx-muted)", marginTop: 2 }
 
 function fmtDue(d?: string | null): string | null {
   if (!d) return null

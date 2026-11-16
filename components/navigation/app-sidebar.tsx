@@ -334,7 +334,7 @@ export function AppSidebar({
               <div className="j-avatar">{initials}</div>
               <div style={{ flex: 1, minWidth: 0, lineHeight: 1.25 }}>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{user.displayName || "User"}</div>
-                <div style={{ fontSize: 11.5, color: "var(--opx-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.primaryEmail}</div>
+                <div style={{ fontSize: 12, color: "var(--opx-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.primaryEmail}</div>
               </div>
               <button type="button" onClick={() => user.signOut()} className="j-btn j-btn-ghost" style={{ fontSize: 12 }}>Sign out</button>
             </div>

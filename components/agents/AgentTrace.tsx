@@ -78,7 +78,7 @@ export function AgentTrace({ spans, nowMs, title }: { spans: AgentSpan[]; nowMs?
         <span aria-hidden style={{ width: 7, height: 7, borderRadius: 99, background: running ? "var(--j-accent)" : "var(--opx-muted)" }} />
         <span style={{ fontFamily: "inherit", fontWeight: 500 }}>{title ?? "Agent run"}</span>
         <span className="j-muted">{rows.length} steps · {formatMs(total)}</span>
-        <span className="j-pill j-ghost" style={{ marginLeft: "auto", fontSize: 10.5 }}>{running ? "Running" : "Completed"}</span>
+        <span className="j-pill j-ghost" style={{ marginLeft: "auto", fontSize: 12 }}>{running ? "Running" : "Completed"}</span>
       </div>
 
       <div style={{ position: "relative" }}>
@@ -87,7 +87,7 @@ export function AgentTrace({ spans, nowMs, title }: { spans: AgentSpan[]; nowMs?
           <div style={{ width: GUTTER, flexShrink: 0 }} />
           <div style={{ position: "relative", flex: 1, cursor: "ew-resize" }} onPointerDown={(e) => seek(e.clientX, e.currentTarget)}>
             {ticks.map((tk) => (
-              <span key={tk} className="j-muted" style={{ position: "absolute", top: 6, left: `${(tk / total) * 100}%`, transform: "translateX(-50%)", fontSize: 10, fontFamily: "inherit" }}>
+              <span key={tk} className="j-muted" style={{ position: "absolute", top: 6, left: `${(tk / total) * 100}%`, transform: "translateX(-50%)", fontSize: 12, fontFamily: "inherit" }}>
                 {tk < 1000 ? `${tk}ms` : `${tk / 1000}s`}
               </span>
             ))}
@@ -123,7 +123,7 @@ export function AgentTrace({ spans, nowMs, title }: { spans: AgentSpan[]; nowMs?
                       <span style={{ position: "absolute", inset: 0, background: fill, transformOrigin: "left", transform: `scaleX(${p})` }} />
                     </span>
                   </span>
-                  <span style={{ width: META, flexShrink: 0, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 4, fontFamily: "inherit", fontSize: 11, opacity: state === "queued" ? 0 : 1 }}>
+                  <span style={{ width: META, flexShrink: 0, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 4, fontFamily: "inherit", fontSize: 12, opacity: state === "queued" ? 0 : 1 }}>
                     {r.status === "error" && <CircleAlert aria-hidden size={12} style={{ color: "var(--j-neg)" }} />}
                     <span style={{ color: r.status === "error" ? "var(--j-neg)" : "var(--opx-muted)" }}>{formatMs(dur * p)}</span>
                   </span>
@@ -169,7 +169,7 @@ export function AgentTrace({ spans, nowMs, title }: { spans: AgentSpan[]; nowMs?
             <span style={{ position: "absolute", inset: 0, background: "var(--j-accent)", transformOrigin: "left", transform: `scaleX(${head / total})` }} />
           </span>
         </div>
-        <span className="j-muted" style={{ fontFamily: "inherit", fontSize: 11, minWidth: 92, textAlign: "right" }}>
+        <span className="j-muted" style={{ fontFamily: "inherit", fontSize: 12, minWidth: 92, textAlign: "right" }}>
           {formatMs(head)} / {formatMs(total)}
         </span>
       </div>

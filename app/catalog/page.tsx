@@ -514,25 +514,32 @@ function DetailPane({ surface, onClose, onNavigate, onRefresh }: DetailPaneProps
 
 // ── Master list row ──────────────────────────────────────────────────────────
 
+/** A key such as "needs_revalidation" as words a person reads. */
+const words = (s: string) => { const w = String(s).replace(/[_-]+/g, " "); return w.charAt(0).toUpperCase() + w.slice(1) }
+
 function SurfaceRow({ surface, selected, onClick }: { surface: Surface; selected: boolean; onClick: () => void }) {
   return (
     <div
       className="j-card j-tight"
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick() } }}
       style={{
         cursor: "pointer",
         boxShadow: selected ? "0 0 0 2px var(--j-accent)" : undefined,
       }}
       onClick={onClick}
     >
-      <code style={{ fontSize: 11.5, fontFamily: "inherit", display: "block", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <code style={{ fontSize: 12, fontFamily: "inherit", display: "block", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {surface.canonical_id}
       </code>
       <div className="j-row j-wrap" style={{ gap: 4 }}>
         <span className={`j-pill ${KIND_PILL[surface.kind] ?? "j-ghost"}`} style={{ fontSize: 12 }}>
-          {surface.kind}
+          {words(surface.kind)}
         </span>
         <span className={`j-pill ${STATUS_PILL[surface.status]}`} style={{ fontSize: 12 }}>
-          {surface.status}
+          {words(surface.status)}
         </span>
         {surface.last_verified_at && (
           <span className="j-pill j-ghost" style={{ fontSize: 12 }}>
@@ -639,9 +646,6 @@ export default function CatalogPage() {
     }
   }, [surfaces])
 
-  const toggleKind = (k: SurfaceKind) => {
-    setKinds(prev => prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k])
-  }
 
   return (
     <DashboardLayout>
@@ -667,52 +671,25 @@ export default function CatalogPage() {
 
         {/* Filters */}
         <div className="j-col" style={{ gap: 8 }}>
-          {/* Kind chips */}
-          <div className="j-row j-wrap" style={{ gap: 5 }}>
-            {(SURFACE_KINDS as readonly string[]).map(k => (
-              <button
-                key={k}
-                onClick={() => toggleKind(k as SurfaceKind)}
-                style={{
-                  padding: "2px 8px",
-                  background: kinds.includes(k as SurfaceKind) ? "color-mix(in srgb, var(--opx-accent) 22%, transparent)" : "transparent",
-                  border: `1px solid ${kinds.includes(k as SurfaceKind) ? "var(--opx-accent)" : "var(--j-hairline)"}`,
-                  borderRadius: 12,
-                  color: kinds.includes(k as SurfaceKind) ? "var(--opx-ink)" : "var(--opx-muted)",
-                  fontSize: 12,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                {k}
-              </button>
-            ))}
-          </div>
-
-          {/* Status + search row */}
+          {/* One dropdown per column (owner, 2026-11-15). Kinds were chips that could be chosen several at a time, but
+              with two or more chosen the page sent no kind at all and listed everything: one kind at a time is what
+              the server answers. "Stale only" repeated the Stale status and is now just that status. */}
           <div className="j-row j-wrap" style={{ gap: 8 }}>
-            <div className="j-tabs">
-              {["", "fresh", "needs_revalidation", "stale", "deprecated"].map(s => (
-                <span
-                  key={s}
-                  className={`j-tab${status === s && !staleOnly ? " j-active" : ""}`}
-                  onClick={() => { setStatus(s); setStaleOnly(false) }}
-                >
-                  {s || "All"}
-                </span>
-              ))}
-            </div>
-            <button
-              className={`j-btn ${staleOnly ? "j-btn-primary" : "j-btn-ghost"}`}
-              style={{ fontSize: 12, padding: "5px 12px" }}
-              onClick={() => { setStaleOnly(v => !v); setStatus("") }}
-            >
-              Stale only
-            </button>
+            <select className="opx-input opx-afilter" aria-label="Filter by kind" value={kinds[0] ?? ""} onChange={e => setKinds(e.target.value ? [e.target.value as SurfaceKind] : [])}>
+              <option value="">Kind: all</option>
+              {(SURFACE_KINDS as readonly string[]).map(k => <option key={k} value={k}>{words(k)}</option>)}
+            </select>
+            <select className="opx-input opx-afilter" aria-label="Filter by status" value={staleOnly ? "stale" : status} onChange={e => { setStatus(e.target.value); setStaleOnly(false) }}>
+              <option value="">Status: all</option>
+              {["fresh", "needs_revalidation", "stale", "deprecated"].map(s => <option key={s} value={s}>{words(s)}</option>)}
+            </select>
+            {(kinds.length > 0 || status || staleOnly || search) && (
+              <button className="opx-btn sm" onClick={() => { setKinds([]); setStatus(""); setStaleOnly(false); setSearch("") }}>Show everything</button>
+            )}
             <input
               className="j-search"
               style={{ minWidth: 220 }}
-              placeholder="Search canonical_id…"
+              aria-label="Search the catalog" placeholder="Search canonical_id…"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />

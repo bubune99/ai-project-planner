@@ -43,7 +43,7 @@ export function RichText({ text, maxWidth = "72ch" }: { text: string; maxWidth?:
               <span
                 className="j-pill j-ghost"
                 title={`Reference: ${decodeURIComponent(href.slice(5))}`}
-                style={{ fontSize: 11.5, verticalAlign: "1px", whiteSpace: "nowrap" }}
+                style={{ fontSize: 12, verticalAlign: "1px", whiteSpace: "nowrap" }}
               >
                 ↗ {children}
               </span>

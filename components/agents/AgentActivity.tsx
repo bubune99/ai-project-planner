@@ -83,7 +83,7 @@ export function AgentActivity({ spans, live = true }: { spans: AgentSpan[]; live
           <ChevronDown aria-hidden size={13} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
         </button>
         {steps.length > 0 && (
-          <button type="button" onClick={() => setTimeline(true)} className="j-btn j-btn-ghost" style={{ fontSize: 11.5, padding: "2px 8px" }}>
+          <button type="button" onClick={() => setTimeline(true)} className="j-btn j-btn-ghost" style={{ fontSize: 12, padding: "2px 8px" }}>
             Timeline
           </button>
         )}
@@ -110,7 +110,7 @@ export function AgentActivity({ spans, live = true }: { spans: AgentSpan[]; live
                 {s.detail && (
                   <span style={{ color: s.status === "error" ? "var(--j-neg)" : "var(--opx-muted)", fontSize: 12, whiteSpace: "nowrap" }}>{s.detail}</span>
                 )}
-                <span style={{ marginLeft: "auto", color: "var(--opx-muted)", fontSize: 11, fontFamily: "inherit", flexShrink: 0 }}>
+                <span style={{ marginLeft: "auto", color: "var(--opx-muted)", fontSize: 12, fontFamily: "inherit", flexShrink: 0 }}>
                   {formatMs(Math.max(0, dur))}
                 </span>
               </li>
