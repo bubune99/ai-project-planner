@@ -42,7 +42,7 @@ const openRadix = (b: HTMLElement) => {
 };
 /** What was pointed at, in words: the visible text and what kind of thing it is, never a code path. */
 const pickedWords = (t: { snapshot: { tag: string; text?: string } }) => {
-  const kinds: Record<string, string> = { button: "button", a: "link", input: "field", textarea: "text box", select: "list", img: "picture", h1: "heading", h2: "heading", h3: "heading", h4: "heading" }
+  const kinds: Record<string, string> = { button: "button", a: "link", input: "field", textarea: "text box", select: "list", img: "picture", h1: "heading", h2: "heading", p: "text", span: "text", li: "item", label: "label", h3: "heading", h4: "heading" }
   const what = kinds[String(t.snapshot.tag || "").toLowerCase()] || "part of the page"
   const text = String(t.snapshot.text || "").replace(/\s+/g, " ").trim().slice(0, 50)
   return text ? `the ${what} "${text}"` : `a ${what}`
@@ -335,7 +335,7 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
               </button>
               {cardActions(menu.el) && (
                 <button role="menuitem" data-fbw="menu-card-actions" onClick={() => { const b = cardActions(menu.el)!; setMenu(null); setTimeout(() => openRadix(b), 0); }} style={menuItem}>
-                  Card actions: duplicate, move, delete
+                  Card actions: copy, duplicate, delete
                 </button>
               )}
             </>
