@@ -222,7 +222,7 @@ export default function AgentsPage() {
         )}
 
         {/* Stats strip */}
-        <div className="opx-agrid">
+        <div className="opx-agrid opx-astats">
           {stats.map(s => (
             <div key={s.l} className="j-card j-tight" style={{ padding: 16 }}>
               <div className="j-eyebrow">{s.l}</div>
