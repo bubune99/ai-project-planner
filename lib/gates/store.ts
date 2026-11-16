@@ -233,7 +233,9 @@ export async function sweepGateImages(now: Date, projectId: string, route?: stri
     const currentId = list.find((r) => r.version === current)!.checklist_id
     const results = await resultsOf(currentId)
     const images: StoredImage[] = list.map((r) => ({ id: r.id, kind: r.kind, version: r.version, key: r.ref_key, capturedAt: iso(r.captured_at) }))
-    const ids = new Set(imagesToExpire(images, current, (key) => checkState(results, key), now))
+    // The screenshots the current version still shows are kept, whatever version took them (see imagesToExpire).
+    const shown = await shownKeys(currentId)
+    const ids = new Set(imagesToExpire(images, current, (key) => checkState(results, key), now, undefined, (key) => shown.has(key)))
     expire.push(...list.filter((r) => ids.has(r.id)))
   }
   if (!expire.length) return { checked: rows.length, expired: 0, bytesFreed: 0 }
@@ -245,6 +247,12 @@ export async function sweepGateImages(now: Date, projectId: string, route?: stri
     SELECT COALESCE(SUM(byte_size), 0)::int AS bytes FROM gone
   `) as { bytes: number }[]
   return { checked: rows.length, expired: expire.length, bytesFreed: freed.bytes }
+}
+
+/** The view@shot keys a checklist version shows: what its pictures are looked up by. */
+async function shownKeys(checklistId: string): Promise<Set<string>> {
+  const [row] = (await sql`SELECT doc FROM gate_checklists WHERE id = ${checklistId}`) as { doc: Checklist }[]
+  return new Set((row?.doc?.views ?? []).flatMap((v) => (v.shots ?? []).map((s) => `${v.key}@${s.id}`)))
 }
 
 /** Every page of a project that has a checklist: its latest version and where it stands. */
@@ -262,9 +270,16 @@ export async function listPages(projectId: string) {
 /** One page's checklist with its verdicts, its pictures (short-lived links) and what changed since the version before. */
 export async function loadPage(row: ChecklistRow) {
   const results = await resultsOf(row.id)
+  // This version's pictures, and for the screenshots it carried forward from an earlier scan of the same page, the
+  // picture that scan took. Found 2026-11-16: a close-up rescan kept page@s0 in its list, but the picture stayed with
+  // the version before, so use case steps on that page showed no screenshot.
+  const shown = Array.from(new Set(row.doc.views.flatMap((v) => (v.shots ?? []).map((s) => `${v.key}@${s.id}`))))
   const images = (await sql`
-    SELECT DISTINCT ON (kind, ref_key) id, kind, ref_key, blob_key, captured_at FROM gate_images
-    WHERE checklist_id = ${row.id} AND deleted_at IS NULL ORDER BY kind, ref_key, captured_at DESC
+    SELECT DISTINCT ON (i.kind, i.ref_key) i.id, i.kind, i.ref_key, i.blob_key, i.captured_at FROM gate_images i
+    JOIN gate_checklists c ON c.id = i.checklist_id
+    WHERE i.deleted_at IS NULL AND c.project_id = ${row.project_id} AND c.route = ${row.route} AND c.version <= ${row.version}
+      AND (i.checklist_id = ${row.id} OR (i.kind = 'view' AND i.ref_key = ANY(${shown}::text[])))
+    ORDER BY i.kind, i.ref_key, c.version DESC, i.captured_at DESC
   `) as { id: string; kind: StoredImage["kind"]; ref_key: string; blob_key: string; captured_at: string }[]
   const { getSignedDownloadUrl, isR2Configured } = await import("@/lib/storage/r2-client")
   const extracts = images.filter((i) => i.kind === "extract").map((i) => i.ref_key)

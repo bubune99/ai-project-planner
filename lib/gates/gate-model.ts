@@ -462,9 +462,18 @@ export const EVIDENCE_DAYS = 3
  *   Evidence: only the newest picture per check. It is kept while the check is
  *   failed or disputed, and for EVIDENCE_DAYS after it was taken otherwise.
  *   Evidence from older versions goes.
+ *   A view picture the current version still shows (inUse) is kept whatever version took it: a close-up rescan
+ *   carries the page's screenshots forward in its list without taking them again. Only the newest per key is kept.
  */
-export function imagesToExpire(images: StoredImage[], currentVersion: number, stateOf: (key: string) => CheckState, now: Date, viewKeyOf: (img: StoredImage) => string = (i) => i.key ?? ""): string[] {
+export function imagesToExpire(images: StoredImage[], currentVersion: number, stateOf: (key: string) => CheckState, now: Date, viewKeyOf: (img: StoredImage) => string = (i) => i.key ?? "", inUse?: (key: string) => boolean): string[] {
   const gone: string[] = []
+  // The newest picture of each key the current version shows, across every version.
+  const carried = new Map<string, StoredImage>()
+  if (inUse) for (const img of images) {
+    if (img.kind !== "view" || !img.key || !inUse(img.key)) continue
+    const cur = carried.get(img.key)
+    if (!cur || img.version > cur.version || (img.version === cur.version && img.capturedAt > cur.capturedAt)) carried.set(img.key, img)
+  }
   const newest = new Map<string, StoredImage>()
   for (const img of images) {
     const slot = [img.kind, img.version, viewKeyOf(img)].join(SEP)
@@ -474,6 +483,7 @@ export function imagesToExpire(images: StoredImage[], currentVersion: number, st
   const cutoff = now.getTime() - EVIDENCE_DAYS * 86400_000
   for (const img of images) {
     const slot = [img.kind, img.version, viewKeyOf(img)].join(SEP)
+    if (inUse && img.kind === "view" && img.key && inUse(img.key)) { if (carried.get(img.key) !== img) gone.push(img.id); continue }
     if (newest.get(slot) !== img) { gone.push(img.id); continue }
     if (img.kind !== "evidence") { if (img.version < currentVersion - 1) gone.push(img.id); continue }
     if (img.version !== currentVersion) { gone.push(img.id); continue }

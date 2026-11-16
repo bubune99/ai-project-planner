@@ -132,6 +132,22 @@ ok("pictures: view pictures stay for this version and the one before; evidence i
   assert.deepEqual(imagesToExpire([], 1, state, now), [])
 })
 
+ok("pictures: a screenshot the current version still shows is kept, whatever version it was taken in", () => {
+  // Found 2026-11-16: a close-up rescan makes a new version that keeps the page's screenshots (page@s0, page@s1) in its
+  // list, but their pictures belong to the version that took them. Two rescans later the rule deleted them, and 24 of
+  // 32 planner and Finance pages had no screenshot left for their use case steps.
+  const now = new Date("2026-11-16T12:00:00Z")
+  const at = (d: number) => new Date(now.getTime() - d * 86400_000).toISOString()
+  const img = (id: string, version: number, key: string, age: number): StoredImage => ({ id, kind: "view", version, key, capturedAt: at(age) })
+  const images = [img("s0-v1", 1, "page@s0", 3), img("s1-v1", 1, "page@s1", 3), img("t-v2", 2, "page@tx", 2), img("t-v3", 3, "page@ty", 1), img("gone-v1", 1, "page@s9", 3)]
+  const inUse = (key: string) => ["page@s0", "page@s1", "page@tx", "page@ty"].includes(key)
+  assert.deepEqual(imagesToExpire(images, 3, () => "passed", now, undefined, inUse).sort(), ["gone-v1"])
+  // Without the new argument the old rule stands: older than the version before is deleted.
+  assert.deepEqual(imagesToExpire(images, 3, () => "passed", now).sort(), ["gone-v1", "s0-v1", "s1-v1"])
+  // A screenshot taken again in a newer version replaces the older picture of the same key.
+  assert.deepEqual(imagesToExpire([...images, img("s0-v3", 3, "page@s0", 0)], 3, () => "passed", now, undefined, inUse).sort(), ["gone-v1", "s0-v1"])
+})
+
 ok("a menu is asked how it closes, and an editor is asked whether it is complete", () => {
   const ids = (kind: string) => intakeQuestions(kind).map((q) => q.id)
   assert.deepEqual(ids("Menu"), ["purpose", "who", "flow", "closes", "reach"])
