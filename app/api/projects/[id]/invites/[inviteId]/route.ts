@@ -3,7 +3,7 @@ import { sql } from "@/lib/db/client";
 import { successResponse, errorResponse } from "@/lib/api-utils";
 import { getAuthContext } from "@/lib/auth/auth-utils";
 import { getProjectAccess } from "@/lib/auth/collaboration-access";
-import { logActivity } from "@/lib/collaboration";
+import { generateInviteToken, logActivity } from "@/lib/collaboration";
 
 export const dynamic = "force-dynamic"
 
@@ -157,5 +157,44 @@ export async function DELETE(
   } catch (error) {
     console.error("Error revoking invitation:", error);
     return errorResponse("INTERNAL_ERROR", "Failed to revoke invitation", 500);
+  }
+}
+
+/**
+ * PATCH /api/projects/[id]/invites/[inviteId]  { action: "new-link" }
+ * A pending invite's link again (owner, 2026-11-16: "Yes, all three", inbox question 74ef893a). Only the hash of a
+ * link is stored, so the link cannot be read back; this issues a fresh one for the same invite and the old one stops
+ * working. Owner or admin only, pending invites only.
+ */
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string; inviteId: string }> }
+) {
+  try {
+    const authContext = await getAuthContext();
+    if (!authContext) return errorResponse("UNAUTHORIZED", "Authentication required", 401);
+    const { id: projectId, inviteId } = await params;
+    const access = await getProjectAccess(projectId, authContext.userId);
+    if (!access) return errorResponse("NOT_FOUND", "Project not found", 404);
+    if (!access.isOwner && access.role !== "admin") return errorResponse("FORBIDDEN", "Only the project owner or an admin can do this", 403);
+    const body = await request.json().catch(() => null);
+    if (body?.action !== "new-link") return errorResponse("VALIDATION_ERROR", 'action must be "new-link"', 400);
+    const { token, hash } = generateInviteToken();
+    const rows = (await sql`
+      UPDATE project_invitations SET token_hash = ${hash}, updated_at = NOW()
+       WHERE id = ${inviteId} AND project_id = ${projectId} AND status = 'pending' AND expires_at > NOW()
+      RETURNING id
+    `) as { id: string }[];
+    if (!rows.length) return errorResponse("NOT_FOUND", "No pending invite with that id", 404);
+    await logActivity({
+      projectId, actorId: authContext.userId, actorRole: access.isOwner ? "owner" : access.role,
+      actionType: "link_generated", description: "Issued a new link for a pending invitation (the old link stopped working)",
+      targetType: "invitation", targetId: inviteId, newValue: { reissued: true },
+    });
+    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/invite/${token}`;
+    return successResponse({ id: inviteId, inviteUrl });
+  } catch (error) {
+    console.error("Error reissuing invitation link:", error);
+    return errorResponse("INTERNAL_ERROR", "Failed to make a new link", 500);
   }
 }

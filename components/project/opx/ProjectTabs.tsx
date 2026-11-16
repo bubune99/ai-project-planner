@@ -195,7 +195,7 @@ export function MoneyTab({ projectId, project, onChange }: { projectId: string; 
   )
 }
 
-function InviteLink({ projectId }: { projectId: string }) {
+function InviteLink({ projectId, onMade }: { projectId: string; onMade?: () => void }) {
   const [role, setRole] = useState<"viewer" | "editor">("viewer")
   const [url, setUrl] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -206,6 +206,7 @@ function InviteLink({ projectId }: { projectId: string }) {
       const j = await r.json().catch(() => null)
       if (!r.ok) throw new Error(j?.error?.message || j?.error || `HTTP ${r.status}`)
       setUrl(j?.data?.inviteUrl || j?.inviteUrl || null)
+      onMade?.()
     } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't create the invite") }
     finally { setBusy(false) }
   }
@@ -278,6 +279,30 @@ export function SettingsTab({ projectId, project, onChange }: { projectId: strin
   const [docNeed, setDocNeed] = useState(false)
   const [newTag, setNewTag] = useState("")
   const invites = useJson(sec === "people" ? `/api/projects/${projectId}/invites` : null)
+  // Remove a collaborator, withdraw an invite, or issue a fresh link (owner, 2026-11-16: "Yes, all three").
+  const [confirming, setConfirming] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [links, setLinks] = useState<Record<string, string>>({})
+  const act = async (id: string, url: string, method: string, done: string, after: () => void) => {
+    setBusyId(id)
+    try {
+      const r = await fetch(url, { method })
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j?.error?.message || j?.error || `HTTP ${r.status}`) }
+      toast.success(done); setConfirming(null); after()
+    } catch (e) { toast.error(e instanceof Error ? e.message : "That didn't work") }
+    finally { setBusyId(null) }
+  }
+  const newLink = async (id: string) => {
+    setBusyId(id)
+    try {
+      const r = await fetch(`/api/projects/${projectId}/invites/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "new-link" }) })
+      const j = await r.json().catch(() => null)
+      if (!r.ok) throw new Error(j?.error?.message || j?.error || `HTTP ${r.status}`)
+      const url = j?.data?.inviteUrl || j?.inviteUrl
+      if (url) { setLinks((m) => ({ ...m, [id]: url })); toast("A new link is ready. The old one no longer works.") }
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't make a new link") }
+    finally { setBusyId(null) }
+  }
   const [saving, setSaving] = useState(false)
   const team = useJson(sec === "people" ? `/api/projects/${projectId}/collaborators` : null)
   const set = (patch: Partial<typeof f>) => setF((x) => ({ ...x, ...patch }))
@@ -352,9 +377,20 @@ export function SettingsTab({ projectId, project, onChange }: { projectId: strin
         {sec === "people" && <>
           {team.loading && !team.data ? <Loading what="people" /> : team.error ? <Failed what="people" error={team.error} retry={team.reload} /> : <>
             {collab.owner && <div className="opx-li"><span className="opx-av" style={{ backgroundImage: collab.owner.avatar_url ? `url("${collab.owner.avatar_url}")` : undefined }} /><div><b>{collab.owner.name}</b><small>Owner</small></div></div>}
-            {(collab.collaborators || []).map((c: any) => <div key={c.id || c.email} className="opx-li"><span className="opx-av" /><div><b>{c.name || c.email}</b><small>{c.role || "Collaborator"}</small></div></div>)}
+            {(collab.collaborators || []).map((c: any) => (
+              <div key={c.id || c.email} className="opx-li" data-collaborator={c.id}>
+                <span className="opx-av" /><div style={{ flex: 1, minWidth: 0 }}><b>{c.name || c.email}</b><small>{c.role || "Collaborator"}</small></div>
+                {confirming === `c:${c.id}` ? (
+                  <span className="opx-row" style={{ gap: 6, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 13 }}>They lose access.</span>
+                    <button className="opx-btn danger" disabled={busyId === c.id} onClick={() => act(c.id, `/api/projects/${projectId}/collaborators/${c.id}`, "DELETE", `Removed ${c.name || c.email}`, team.reload)}>Remove</button>
+                    <button className="opx-btn" onClick={() => setConfirming(null)}>Keep</button>
+                  </span>
+                ) : <button className="opx-btn" aria-label={`Remove ${c.name || c.email} from this project`} onClick={() => setConfirming(`c:${c.id}`)}>Remove</button>}
+              </div>
+            ))}
             {!(collab.collaborators || []).length && <p className="opx-muted">No collaborators yet.</p>}
-            <InviteLink projectId={projectId} />
+            <InviteLink projectId={projectId} onMade={invites.reload} />
             {(() => {
               const list: any[] = unwrap<any>(invites.data)?.invitations || []
               if (!list.length) return null
@@ -362,10 +398,30 @@ export function SettingsTab({ projectId, project, onChange }: { projectId: strin
                 <div style={{ marginTop: 14 }}>
                   <b style={{ fontSize: 14 }}>Waiting to be accepted</b>
                   {list.map((iv) => (
-                    <div key={iv.id} className="opx-li" data-invite={iv.id}>
-                      <div><b>{iv.invitee_email || "Invite link"}</b>
-                        <small>{iv.role === "editor" ? "Can edit" : iv.role === "viewer" ? "Can view" : iv.role} · {iv.max_uses ? `${iv.current_uses || 0} of ${iv.max_uses} used · ` : ""}expires {fmtDate(iv.expires_at, { month: "short", day: "numeric" })}</small>
+                    <div key={iv.id} data-invite={iv.id}>
+                      <div className="opx-li" style={{ flexWrap: "wrap" }}>
+                        <div style={{ flex: 1, minWidth: 0 }}><b>{iv.invitee_email || "Invite link"}</b>
+                          <small>{iv.role === "editor" ? "Can edit" : iv.role === "viewer" ? "Can view" : iv.role} · {iv.max_uses ? `${iv.current_uses || 0} of ${iv.max_uses} used · ` : ""}expires {fmtDate(iv.expires_at, { month: "short", day: "numeric" })}</small>
+                        </div>
+                        {confirming === `i:${iv.id}` ? (
+                          <span className="opx-row" style={{ gap: 6, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: 13 }}>The link stops working.</span>
+                            <button className="opx-btn danger" disabled={busyId === iv.id} onClick={() => act(iv.id, `/api/projects/${projectId}/invites/${iv.id}`, "DELETE", "Invite withdrawn", invites.reload)}>Withdraw</button>
+                            <button className="opx-btn" onClick={() => setConfirming(null)}>Keep</button>
+                          </span>
+                        ) : (
+                          <span className="opx-row" style={{ gap: 6 }}>
+                            {iv.invitation_type === "link" && <button className="opx-btn" disabled={busyId === iv.id} onClick={() => newLink(iv.id)}>New link</button>}
+                            <button className="opx-btn" aria-label={`Withdraw the invite ${iv.invitee_email || "link"}`} onClick={() => setConfirming(`i:${iv.id}`)}>Withdraw</button>
+                          </span>
+                        )}
                       </div>
+                      {links[iv.id] && (
+                        <div className="opx-row" style={{ gap: 8, margin: "0 0 10px" }}>
+                          <input className="opx-input" readOnly value={links[iv.id]} aria-label="New invite link" onFocus={(e) => e.target.select()} />
+                          <button className="opx-btn" onClick={() => navigator.clipboard?.writeText(links[iv.id]).then(() => toast.success("Copied"), () => toast.error("Couldn't copy: select the link and copy it"))}>Copy</button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
