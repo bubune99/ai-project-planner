@@ -1,6 +1,7 @@
 "use client"
 
 import dynamic from "next/dynamic"
+import { Figure } from "@/components/project/opx/shared"
 import { parseMapBlock, seedMap, stripMapBlock, writeMapBlock, type Layer } from "@/lib/sops/process-map"
 
 /*
@@ -194,9 +195,9 @@ export default function LibraryPage() {
             <div className="opx-muted">How things get done: your SOPs, plus the skills, templates and protocols agents work from.</div>
           </div>
           <div className="opx-stats">
-            <div className="opx-stat"><b>{sops.length}</b><span>SOPs</span></div>
-            <div className="opx-stat"><b>{count("active")}</b><span>Active</span></div>
-            <div className="opx-stat"><b>{count("draft")}</b><span>Draft</span></div>
+            <div className="opx-stat"><b><Figure value={loading && !sops.length ? null : sops.length} /></b><span>SOPs</span></div>
+            <div className="opx-stat"><b><Figure value={loading && !sops.length ? null : count("active")} /></b><span>Active</span></div>
+            <div className="opx-stat"><b><Figure value={loading && !sops.length ? null : count("draft")} /></b><span>Draft</span></div>
           </div>
         </header>
 

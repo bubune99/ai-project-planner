@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import { Figure } from "@/components/project/opx/shared"
 import { toast } from "sonner"
 import { DashboardLayout } from "@/components/navigation"
 import { Icon } from "@/components/jarvis/icons"
@@ -63,7 +64,7 @@ const emptyNew = {
 
 export default function ProtocolsPage() {
   const [protocols, setProtocols] = useState<Protocol[]>([])
-  const [counts, setCounts] = useState<Counts>({ draft: 0, active: 0, deprecated: 0, total: 0 })
+  const [counts, setCounts] = useState<Counts | null>(null)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState("")
   const [search, setSearch] = useState("")
@@ -211,7 +212,7 @@ export default function ProtocolsPage() {
                 {" / "}
               </span>
               <h1 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Protocols</h1>
-              <span className="j-pill j-ghost" style={{ fontSize: 12 }}>{counts.total}</span>
+              <span className="j-pill j-ghost" style={{ fontSize: 12 }}><Figure value={counts?.total} /></span>
             </div>
           </div>
           <button className="j-btn j-btn-primary" onClick={() => { setShowNew(true); setErr(null) }}>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import { Figure } from "@/components/project/opx/shared"
 import { toast } from "sonner"
 import { DashboardLayout } from "@/components/navigation"
 import { Icon } from "@/components/jarvis/icons"
@@ -68,7 +69,7 @@ function dueClass(date: string | null): string {
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([])
-  const [counts, setCounts] = useState<Counts>({ active: 0, paused: 0, churned: 0, prospect: 0, total: 0 })
+  const [counts, setCounts] = useState<Counts | null>(null)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState("")
   const [search, setSearch] = useState("")
@@ -226,9 +227,9 @@ export default function ClientsPage() {
         {/* Vitals + new */}
         <div className="j-row j-between j-wrap" style={{ gap: 12 }}>
           <div className="j-row" style={{ gap: 8 }}>
-            <span className="j-tab" style={{ cursor: "default" }}>Clients <b style={{ marginLeft: 6 }}>{counts.total}</b></span>
-            <span className="j-tab" style={{ cursor: "default" }}>Active <b style={{ marginLeft: 6 }}>{counts.active}</b></span>
-            <span className="j-tab" style={{ cursor: "default" }}>Prospects <b style={{ marginLeft: 6 }}>{counts.prospect}</b></span>
+            <span className="j-tab" style={{ cursor: "default" }}>Clients <b style={{ marginLeft: 6 }}><Figure value={counts?.total} /></b></span>
+            <span className="j-tab" style={{ cursor: "default" }}>Active <b style={{ marginLeft: 6 }}><Figure value={counts?.active} /></b></span>
+            <span className="j-tab" style={{ cursor: "default" }}>Prospects <b style={{ marginLeft: 6 }}><Figure value={counts?.prospect} /></b></span>
           </div>
           <button className="j-btn j-btn-primary" onClick={openCreate}>
             <Icon name="plus" size={14} /> New Client

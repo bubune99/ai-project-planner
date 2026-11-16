@@ -8,6 +8,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { Figure } from "@/components/project/opx/shared"
 import { toast } from "sonner";
 import { DashboardLayout } from "@/components/navigation";
 
@@ -105,7 +106,7 @@ export default function FeedbackInboxPage() {
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Feedback</h1>
           <span className="opx-muted" style={{ fontSize: 13 }}>
-            {meta.openCount ?? 0} open · {meta.total ?? items.length} total
+            <Figure value={loading && meta.openCount === undefined ? null : meta.openCount ?? 0} /> open · <Figure value={loading && meta.total === undefined ? null : meta.total ?? items.length} /> total
           </span>
         </div>
         <p className="opx-muted" style={{ fontSize: 13, marginBottom: 16 }}>
