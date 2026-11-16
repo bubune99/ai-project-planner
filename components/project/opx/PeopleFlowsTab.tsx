@@ -14,6 +14,7 @@ import {
 } from "@/lib/people/people-model"
 import { shotAt, type Checklist, type Result, type View } from "@/lib/gates/gate-model"
 import { KIND_WORD, LENS, SHIP_FLOOR, handledBy, lensLaws, lowScores, type Coverage, type StoredWalk } from "@/lib/walks/walk-model"
+import { pagesToLoad } from "@/lib/people/pages-to-load"
 import { Shots, type Piece } from "./ChecksTab"
 import { stableUrls, type Kept } from "@/lib/gates/stable-urls"
 import { UseCaseFlow } from "./UseCaseFlow"
@@ -41,10 +42,11 @@ function useFresh(projectId: string) {
 }
 
 /** Every scanned page of the project, by route: its checklist, its verdicts and its screenshots. */
-function usePages(projectId: string, pages: FlowsData["pages"] | undefined) {
+function usePages(projectId: string, pages: FlowsData["pages"] | undefined, doc: FlowDoc | undefined, route: string | null) {
   const [byRoute, setByRoute] = useState<Record<string, PageData>>({})
   const kept = useRef<Record<string, Kept>>({})
-  const ids = (pages ?? []).slice(0, 8).map((p) => p.id).join(",")
+  // Every page a step links to, else its steps read "nothing behind them" (lib/people/pages-to-load).
+  const ids = pagesToLoad(pages, doc, route).join(",")
   useEffect(() => {
     if (!ids) return
     let off = false
@@ -87,7 +89,6 @@ const PERSON_FIELDS: [keyof Person, string][] = [
 
 export function PeopleFlowsTab({ projectId }: { projectId: string }) {
   const flows = useJson<FlowsData>(`/api/projects/${projectId}/people`)
-  const pagesByRoute = usePages(projectId, flows.data?.pages)
   const fresh = useFresh(projectId)
   const walked = useJson<{ walks: (StoredWalk & { line: string })[]; coverage: Coverage[] }>(`/api/projects/${projectId}/gates/walks`)
   const [walkOpen, setWalkOpen] = useState<string | null>(null)
@@ -104,6 +105,7 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
   const [flowId, setFlowId] = useState<string | null>(null)
   const [personaId, setPersonaId] = useState<string | null>(null)
   const [route, setRoute] = useState<string | null>(null)
+  const pagesByRoute = usePages(projectId, flows.data?.pages, doc ?? flows.data?.doc, route)
   const [removing, setRemoving] = useState<string | null>(null)
   const docRef = useRef<FlowDoc | null>(null), versionRef = useRef(-1), chain = useRef<Promise<void>>(Promise.resolve())
   /** The document as it was before each change made on this visit, newest last: what Undo goes back to. */
