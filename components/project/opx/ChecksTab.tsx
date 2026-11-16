@@ -321,6 +321,9 @@ export function ChecksTab({ projectId }: { projectId: string }) {
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<"extract" | "picture" | "wire" | null>(null)
   const [planTick, setPlanTick] = useState(0)
+  // Finding a control in a long list (Checks check, 2026-11-15: a page with a few hundred controls had no search).
+  const [find, setFind] = useState("")
+  const [only, setOnly] = useState<"all" | "open" | "failed" | "flagged" | "cleared">("all")
 
   // Checks clear while an agent works: refresh while the tab is in view.
   const reloadPage = page.reload, reloadPages = pages.reload
@@ -357,6 +360,24 @@ export function ChecksTab({ projectId }: { projectId: string }) {
       body: JSON.stringify({ action: "verdict", keys: [key], status, note: text }),
     })
     if (!res.ok) { setError((await res.json().catch(() => null))?.error ?? "Could not save that"); return }
+    setSettle(null); setNote(""); page.reload(); pages.reload()
+  }
+  /** Whether a control passes the list's search box and status dropdown. */
+  const matches = (c: View["controls"][number]) => {
+    const q = find.trim().toLowerCase()
+    if (q && !(String(c.n) === q || c.label.toLowerCase().includes(q))) return false
+    if (only === "all" || !data) return true
+    const p = controlProgress(c, data.results)
+    return only === "cleared" ? p.cleared === p.total : only === "open" ? p.cleared < p.total : p.worst === only
+  }
+  /** The owner's own verdict goes; the check shows again what the agents' checks say (Checks check, 2026-11-15). */
+  async function clearVerdict(key: string) {
+    if (!data) return
+    setError(null)
+    const res = await fetch(`/api/projects/${projectId}/gates/${data.id}`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "clear", keys: [key] }),
+    })
+    if (!res.ok) { setError((await res.json().catch(() => null))?.error ?? "Could not take it back"); return }
     setSettle(null); setNote(""); page.reload(); pages.reload()
   }
 
@@ -419,10 +440,23 @@ export function ChecksTab({ projectId }: { projectId: string }) {
         <div className="opx-ck-split">
           <section className="opx-sec opx-ck-list" aria-label="Controls">
             <h3 className="opx-ck-h3">Controls on {data.route}</h3>
-            {data.checklist.views.map((v, vi) => (
+            <div className="opx-row" style={{ gap: 6, margin: "0 0 10px", flexWrap: "wrap" }}>
+              <input className="opx-input" style={{ flex: "1 1 140px", minWidth: 0 }} placeholder="Find a control or its number" aria-label="Find a control" value={find} onChange={(e) => setFind(e.target.value)} />
+              <select className="opx-input" style={{ flex: "0 0 auto" }} aria-label="Show controls" value={only} onChange={(e) => setOnly(e.target.value as typeof only)}>
+                <option value="all">All</option>
+                <option value="open">Still open</option>
+                <option value="failed">Failing</option>
+                <option value="flagged">Flagged by the scan</option>
+                <option value="cleared">Cleared</option>
+              </select>
+            </div>
+            {data.checklist.views.map((v, vi) => {
+              const shown = v.controls.filter(matches)
+              if (!shown.length) return null
+              return (
               <div key={v.key}>
                 {vi > 0 && <h4 className="opx-ck-h4">{v.name}</h4>}
-                {v.controls.map((c) => {
+                {shown.map((c) => {
                   const p = controlProgress(c, data.results)
                   return (
                     <button key={c.n} type="button" className={`opx-ck-row${chosen.c.n === c.n ? " on" : ""}`} aria-current={chosen.c.n === c.n ? "true" : undefined} onClick={() => { setPick(c.n); setSettle(null) }}>
@@ -434,7 +468,9 @@ export function ChecksTab({ projectId }: { projectId: string }) {
                   )
                 })}
               </div>
-            ))}
+              )
+            })}
+            {(find.trim() || only !== "all") && data.checklist.views.every((v) => !v.controls.some(matches)) && <p className="opx-muted" style={{ fontSize: 13 }}>No control matches.</p>}
           </section>
 
           <section className={`opx-sec opx-ck-detail${chosen.v.w < 700 ? " narrow" : ""}`}>
@@ -524,6 +560,9 @@ export function ChecksTab({ projectId }: { projectId: string }) {
                               {/* Never dimmed: a dimmed button with only a placeholder to explain it told nobody why. Pressed with no note, it asks for one. */}
                               <button type="button" onClick={() => { if (note.trim()) { verdict(key, "failed"); return } setError("Say what went wrong first, then press It fails.") }}>It fails</button>
                               <button type="button" onClick={() => verdict(key, "waived")}>Waive it</button>
+                              {data.results.some((r) => r.key === key && r.actor === "owner") && (
+                                <button type="button" onClick={() => clearVerdict(key)}>Take my verdict back</button>
+                              )}
                               {error && <p className="opx-ck-note" role="alert">{error}</p>}
                             </div>
                           )}

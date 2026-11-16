@@ -164,6 +164,17 @@ export async function recordResults(a: { checklist: ChecklistRow; userId: string
   return progress(a.checklist, await resultsOf(a.checklist.id))
 }
 
+/**
+ * Takes the owner's own verdict on these checks back (Checks check, 2026-11-15: a verdict could not be returned to
+ * "not checked" from the page). Only the owner's rows go; what the agents recorded stays, so the check shows again
+ * whatever the work itself says. Callers have checked this is the owner.
+ */
+export async function clearOwnerVerdict(a: { checklist: ChecklistRow; keys: string[] }) {
+  if (!a.keys.length) throw new GateError("Pass at least one check key")
+  await sql`DELETE FROM gate_results WHERE checklist_id = ${a.checklist.id} AND actor = 'owner' AND check_key = ANY(${a.keys}::text[])`
+  return progress(a.checklist, await resultsOf(a.checklist.id))
+}
+
 export function imageType(raw: Buffer): "webp" | "jpeg" | "png" | null {
   if (raw.subarray(0, 4).toString("ascii") === "RIFF" && raw.subarray(8, 12).toString("ascii") === "WEBP") return "webp"
   if (raw[0] === 0xff && raw[1] === 0xd8) return "jpeg"

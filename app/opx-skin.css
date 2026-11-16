@@ -1001,6 +1001,11 @@ a.opx-stat:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
   .opx-board-tools input { min-height: 44px; font-size: 16px; }
   .opx-board-tools > div:has(> input) { max-width: none; flex-basis: 100%; }
 }
+/* And on a tablet (owner, 2026-11-16, inbox question 5b916f73: "Yes, 44px on tablets too"). */
+@media (min-width: 701px) and (max-width: 1023px) {
+  .opx-board button, .opx-board-tools button, .opx-board-tools [role="combobox"] { min-height: 44px; min-width: 44px; }
+  .opx-board-tools input { min-height: 44px; }
+}
 
 /* Menus and pickers on a phone: each row is 44 high (they were 24 to 28). */
 @media (max-width: 700px) {
@@ -1227,4 +1232,13 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
 @media (min-width: 701px) and (max-width: 1023px) {
   .opx-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
   .opx-stats > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+
+/* Checks wireframe: words too small to read are not drawn (on a phone they came out at 8px). The boxes, the numbered
+   pins and the list still say which control is which (Checks check, 2026-11-15). */
+.opx-ck-wire { container-type: inline-size; }
+@container (max-width: 760px) { .opx-ck-wire span { color: transparent; } }
+/* The pins keep their look but take a 44px press on a phone, like everything else pressed there. */
+@media (max-width: 700px) {
+  .opx-ck-pin::before { content: ""; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); border-radius: 999px; }
 }

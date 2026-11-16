@@ -116,7 +116,7 @@ export function KanbanToolbar({
 
       {/* Group by */}
       <Select value={groupBy} onValueChange={(v) => onGroupByChange(v as GroupBy)}>
-        <SelectTrigger className="w-[150px] h-8">
+        <SelectTrigger className="w-auto min-w-[150px] h-8">
           <Layers className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
           <SelectValue />
         </SelectTrigger>
@@ -130,7 +130,7 @@ export function KanbanToolbar({
 
       {/* Sort */}
       <Select value={sortBy} onValueChange={(v) => onSortByChange(v as SortBy)}>
-        <SelectTrigger className="w-[150px] h-8">
+        <SelectTrigger className="w-auto min-w-[150px] h-8">
           <ArrowUpDown className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
           <SelectValue />
         </SelectTrigger>

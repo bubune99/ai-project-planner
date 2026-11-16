@@ -748,7 +748,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
                 ) : (
                   <Button
                     variant="ghost"
-                    className="w-full justify-start h-9 max-[700px]:h-11 text-muted-foreground text-sm border border-dashed border-border/70"
+                    className="w-full justify-start h-9 max-[1023px]:h-11 text-muted-foreground text-sm border border-dashed border-border/70"
                     onClick={() => setAddingGroup(true)}
                   >
                     <Plus className="w-4 h-4 mr-1.5" /> Add group

@@ -634,3 +634,8 @@ body.ade-open{padding-left:var(--ade-w,0px)}
   bottom right corner"). A box grows with what is typed instead.
 */
 textarea { resize: none; }
+
+/* A card's text wraps inside it, even a long file path or link, and a row's parts may shrink to the card
+   (owner comment 96a95f61, 2026-11-16, at 440px: "Goes outside card and box"). */
+.j-card { overflow-wrap: anywhere; }
+.j-card .j-row > * { min-width: 0; }

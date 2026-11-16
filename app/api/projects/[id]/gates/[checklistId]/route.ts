@@ -11,7 +11,7 @@
  */
 import { type NextRequest, NextResponse } from "next/server"
 import { getAuthContext, verifyProjectOwnerOnly, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
-import { GateError, attachExtract, attachImage, getChecklist, loadPage, recordResults } from "@/lib/gates/store"
+import { GateError, attachExtract, attachImage, clearOwnerVerdict, getChecklist, loadPage, recordResults } from "@/lib/gates/store"
 
 export const dynamic = "force-dynamic"
 
@@ -61,6 +61,14 @@ export async function POST(request: NextRequest, { params }: Ctx) {
       if (!asOwner && said.length < 2) return NextResponse.json({ error: "Relay the owner's own reply in said" }, { status: 400 })
       const relayed = asOwner ? note : `Answered by the owner in Claude Code: "${said}"${note ? ` ${note}` : ""}`
       return NextResponse.json(await recordResults({ checklist, userId: auth.userId, keys, actor: "owner", status: body.status, note: relayed }))
+    }
+    // { action: "clear", keys }: the owner takes their own verdict back. Signed in as the owner only; an agent
+    // saving through the owner's tab (agent: true) may not.
+    if (body?.action === "clear") {
+      if (!(await verifyProjectOwnerOnly(projectId, auth.userId)) || auth.authType !== "session" || body.agent === true) {
+        return NextResponse.json({ error: "Only the project owner can take back their own verdict" }, { status: 403 })
+      }
+      return NextResponse.json(await clearOwnerVerdict({ checklist, keys }))
     }
     if (body?.action === "check") {
       if (!["passed", "failed"].includes(body.status)) return NextResponse.json({ error: "status must be passed or failed" }, { status: 400 })
