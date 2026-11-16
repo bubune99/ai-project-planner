@@ -46,7 +46,8 @@ function Inner({ steps, onOpen, name }: { steps: FlowStep[]; onOpen: (index: num
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
-  const perRow = Math.min(4, perRowFor(room - 40, W))
+  // The drawing is fitted to its room, so a step may be drawn down to 70% of its size before a row gives one up.
+  const perRow = Math.min(4, perRowFor((room - 24) / 0.7, W))
   const { nodes, edges, height } = useMemo(() => {
     const lay = flowLayout(steps.length, { perRow, w: W, h: H })
     const nodes: Node<StepData>[] = lay.boxes.map((b) => ({ id: steps[b.index].id, type: "step", position: { x: b.x, y: b.y }, data: { ...steps[b.index], n: b.index + 1 }, draggable: false, connectable: false }))
