@@ -31,9 +31,12 @@ export function cardPictures(metadata: Record<string, unknown> | null | undefine
   return out
 }
 
-/** The description without its pictures (they are shown in the pictures row, larger). */
+/** The description with each picture replaced by a pointer to it (the pictures are shown below, larger). */
 export function withoutPictures(description: string | null | undefined): string {
-  return (description ?? "").replace(IMG_MD, "").replace(/\n{3,}/g, "\n\n").trim()
+  return (description ?? "")
+    .replace(IMG_MD, (_m, cap: string, url: string) => (/^https:\/\//.test(url) ? `*(Picture below${cap.trim() ? `: ${cap.trim()}` : ""})*` : ""))
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
 }
 
 /** The card's pictures after adding one, keeping the rest of its metadata. */

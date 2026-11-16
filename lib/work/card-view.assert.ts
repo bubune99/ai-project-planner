@@ -7,7 +7,8 @@ const A = "https://r2.example.com/a.png", B = "https://r2.example.com/b.png"
 const md = `Before:\n\n![The board before](${B})\n\n![dup](${A})\n\nAfter text ![x](http://insecure/x.png) ![y](javascript:alert(1))`
 const pics = cardPictures({ pictures: [{ url: A, caption: "Kept" }, "nope", { url: "data:image/png;base64,x" }] }, md)
 assert.deepEqual(pics, [{ url: A, caption: "Kept" }, { url: B, caption: "The board before" }])
-assert.equal(withoutPictures(`One\n\n![p](${A})\n\n\nTwo`), "One\n\nTwo")
+assert.equal(withoutPictures(`One\n\n![p](${A})\n\n\nTwo`), "One\n\n*(Picture below: p)*\n\nTwo")
+assert.equal(withoutPictures(`A ![](${A}) ![x](http://bad/x.png)`), "A *(Picture below)*")
 // Adding keeps the rest of the card's metadata (the send record), never twice, removing takes one away.
 const m = addPicture({ work: { jobId: "j" } }, { url: A, caption: " Board " })
 assert.deepEqual(m, { work: { jobId: "j" }, pictures: [{ url: A, caption: "Board" }] })

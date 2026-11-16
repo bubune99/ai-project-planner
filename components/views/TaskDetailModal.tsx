@@ -225,7 +225,7 @@ export function TaskDetailModal({
                 const t = title.trim()
                 if (t && t !== step.title) patch({ title: t })
               }}
-              className="text-xl font-semibold border-transparent bg-transparent shadow-none hover:border-input focus-visible:border-input px-2 -mx-2 h-auto py-1 mr-8"
+              className="text-xl md:text-xl font-semibold border-transparent bg-transparent shadow-none hover:border-input focus-visible:border-input px-2 -mx-2 h-auto py-1 mr-8"
             />
           </DialogTitle>
           <div className="flex items-center gap-2 pr-8">
@@ -235,10 +235,6 @@ export function TaskDetailModal({
                 className="w-[170px] h-8 border-0 font-medium"
                 style={{ backgroundColor: (current?.color ?? "#87909e") + "26", color: current?.color ?? "#87909e" }}
               >
-                <span
-                  className="w-2 h-2 rounded-full mr-1.5 shrink-0"
-                  style={{ backgroundColor: current?.color ?? "#87909e" }}
-                />
                 <SelectValue placeholder={step.status} />
               </SelectTrigger>
               <SelectContent>
