@@ -587,7 +587,7 @@ function FacetsTab({
               <input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="e.g. Competitive analysis"
+                aria-label="E.g. Competitive analysis" placeholder="e.g. Competitive analysis"
                 style={{
                   background: "var(--opx-soft)",
                   border: "none",
@@ -1164,7 +1164,7 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, description: e.target.value }))
                 }
-                placeholder="Describe the refinement in detail…"
+                aria-label="Describe the refinement in detail" placeholder="Describe the refinement in detail…"
                 style={{
                   width: "100%",
                   background: "var(--opx-soft)",
@@ -1197,7 +1197,7 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, rationale: e.target.value }))
                 }
-                placeholder="Why does this refinement matter?"
+                aria-label="Why does this refinement matter?" placeholder="Why does this refinement matter?"
                 style={{
                   background: "var(--opx-soft)",
                   border: "none",
@@ -1449,7 +1449,7 @@ function DocumentsTab({ ideaId }: { ideaId: string }) {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, title: e.target.value }))
                 }
-                placeholder="Document title"
+                aria-label="Document title" placeholder="Document title"
                 style={{
                   background: "var(--opx-soft)",
                   border: "none",
@@ -1482,7 +1482,7 @@ function DocumentsTab({ ideaId }: { ideaId: string }) {
                 onChange={(e) =>
                   setForm((f) => ({ ...f, content: e.target.value }))
                 }
-                placeholder="Document body (markdown supported)…"
+                aria-label="Document body (markdown supported)" placeholder="Document body (markdown supported)…"
                 style={{
                   width: "100%",
                   background: "var(--opx-soft)",

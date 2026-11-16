@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { toast } from "sonner"
 import { DashboardLayout } from "@/components/navigation"
 import { Icon } from "@/components/jarvis/icons"
 import { EnvelopePanel } from "@/components/library/EnvelopePanel"
@@ -141,20 +142,32 @@ export default function SkillsPage() {
 
   const saveField = async (field: string, value: string) => {
     if (!selected) return
-    await patchSkill(selected.id, { [field]: value })
-    setEditField(null)
+    try {
+      await patchSkill(selected.id, { [field]: value })
+      setEditField(null)
+    } catch (e: unknown) {
+      // The field stays open with what was typed, and the reason is said.
+      toast.error(e instanceof Error ? e.message : "The change was not saved")
+    }
   }
 
   const deprecate = async () => {
     if (!selected) return
     if (!confirm(`Deprecate skill "${selected.title}"?`)) return
-    await patchSkill(selected.id, { status: "deprecated" })
+    try {
+      await patchSkill(selected.id, { status: "deprecated" })
+      toast.success("Deprecated")
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "The change was not saved")
+    }
   }
 
   const deleteSkill = async () => {
     if (!selected) return
     if (!confirm(`Permanently delete skill "${selected.title}"? This cannot be undone.`)) return
-    await fetch(`/api/skills/${selected.id}`, { method: "DELETE" })
+    const res = await fetch(`/api/skills/${selected.id}`, { method: "DELETE" }).catch(() => null)
+    if (!res || !res.ok) { toast.error("The skill was not deleted"); return }
+    toast.success("Deleted")
     setSelected(null)
     await fetchSkills()
   }
@@ -200,7 +213,7 @@ export default function SkillsPage() {
           <div className="j-card">
             <div className="j-card-head">
               <p className="j-card-title">New Skill</p>
-              <button className="j-btn j-btn-icon j-btn-ghost" onClick={() => setShowNew(false)}>
+              <button className="j-btn j-btn-icon j-btn-ghost" aria-label="Close" onClick={() => setShowNew(false)}>
                 <Icon name="x" size={14} />
               </button>
             </div>
@@ -209,42 +222,43 @@ export default function SkillsPage() {
                 <input
                   className="j-search"
                   style={{ flex: 1, minWidth: 180 }}
-                  placeholder="Slug name * (e.g. drizzle-migration)"
+                  aria-label="Slug name" placeholder="Slug name * (e.g. drizzle-migration)"
                   value={newForm.name}
                   onChange={e => setNewForm(f => ({ ...f, name: e.target.value }))}
                 />
                 <input
                   className="j-search"
                   style={{ flex: 1, minWidth: 180 }}
-                  placeholder="Display title *"
+                  aria-label="Display title" placeholder="Display title *"
                   value={newForm.title}
                   onChange={e => setNewForm(f => ({ ...f, title: e.target.value }))}
                 />
               </div>
               <textarea
-                placeholder="Description * — what this skill covers"
+                aria-label="Description" placeholder="Description * — what this skill covers"
                 value={newForm.description}
                 rows={2}
                 onChange={e => setNewForm(f => ({ ...f, description: e.target.value }))}
                 style={textareaStyle}
               />
               <textarea
-                placeholder="Rationale * — why this skill should exist in the library"
+                aria-label="Rationale" placeholder="Rationale * — why this skill should exist in the library"
                 value={newForm.rationale}
                 rows={2}
                 onChange={e => setNewForm(f => ({ ...f, rationale: e.target.value }))}
-                style={{ ...textareaStyle, boxShadow: "0 0 0 1px oklch(0.820 0.135 73 / 0.5)" }}
+                style={{ ...textareaStyle, boxShadow: "0 0 0 1px color-mix(in srgb, var(--opx-warn) 50%, transparent)" }}
               />
               <div className="j-row j-wrap" style={{ gap: 8 }}>
                 <input
                   className="j-search"
                   style={{ flex: 1, minWidth: 140 }}
-                  placeholder="Category (e.g. database, api, auth)"
+                  aria-label="Category" placeholder="Category (e.g. database, api, auth)"
                   value={newForm.category}
                   onChange={e => setNewForm(f => ({ ...f, category: e.target.value }))}
                 />
                 <select
                   className="j-search"
+                  aria-label="Status"
                   value={newForm.status}
                   onChange={e => setNewForm(f => ({ ...f, status: e.target.value as Skill["status"] }))}
                 >
@@ -364,6 +378,7 @@ export default function SkillsPage() {
                   <div className="j-row" style={{ gap: 6 }}>
                     <button
                       className="j-btn j-btn-icon j-btn-ghost"
+                      aria-label="Close"
                       onClick={() => setSelected(null)}
                       title="Close detail"
                     >

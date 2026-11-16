@@ -196,14 +196,14 @@ function MarkStaleDialog({
       <div className="j-card" style={{ width: 400, maxWidth: "90vw" }}>
         <div className="j-card-head">
           <p className="j-card-title">Mark as stale</p>
-          <button className="j-btn j-btn-icon j-btn-ghost" onClick={onCancel}><Icon name="x" size={14} /></button>
+          <button className="j-btn j-btn-icon j-btn-ghost" aria-label="Close" onClick={onCancel}><Icon name="x" size={14} /></button>
         </div>
         <div className="j-col" style={{ gap: 10 }}>
           <p className="j-muted" style={{ fontSize: 12 }}>
             Surface: <code style={{ fontFamily: "inherit" }}>{surface.canonical_id}</code>
           </p>
           <textarea
-            placeholder="Reason (optional)"
+            aria-label="Reason (optional)" placeholder="Reason (optional)"
             value={reason}
             rows={3}
             onChange={e => setReason(e.target.value)}

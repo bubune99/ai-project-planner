@@ -255,26 +255,26 @@ export default function ClientsPage() {
             </div>
             <div className="j-col" style={{ gap: 10 }}>
               <div className="j-row" style={{ gap: 8 }}>
-                <input className="j-search" style={{ flex: 1 }} placeholder="Contact name *" value={form.name}
+                <input className="j-search" style={{ flex: 1 }} aria-label="Contact name" placeholder="Contact name *" value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-                <input className="j-search" style={{ flex: 1 }} placeholder="Company" value={form.company}
+                <input className="j-search" style={{ flex: 1 }} aria-label="Company" placeholder="Company" value={form.company}
                   onChange={e => setForm(f => ({ ...f, company: e.target.value }))} />
               </div>
               <div className="j-row" style={{ gap: 8 }}>
-                <input className="j-search" style={{ flex: 1 }} placeholder="Email" value={form.contactEmail}
+                <input className="j-search" style={{ flex: 1 }} aria-label="Email" placeholder="Email" value={form.contactEmail}
                   onChange={e => setForm(f => ({ ...f, contactEmail: e.target.value }))} />
-                <input className="j-search" style={{ flex: 1 }} placeholder="Phone" value={form.contactPhone}
+                <input className="j-search" style={{ flex: 1 }} aria-label="Phone" placeholder="Phone" value={form.contactPhone}
                   onChange={e => setForm(f => ({ ...f, contactPhone: e.target.value }))} />
                 <select className="j-search" value={form.status}
                   onChange={e => setForm(f => ({ ...f, status: e.target.value as Client["status"] }))}>
                   {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
-              <input className="j-search" placeholder="Billing reference (Finance income stream name)"
+              <input className="j-search" aria-label="Billing reference (Finance income stream name)" placeholder="Billing reference (Finance income stream name)"
                 value={form.billingReference}
                 onChange={e => setForm(f => ({ ...f, billingReference: e.target.value }))} />
               <textarea
-                placeholder="Notes…" value={form.notes} rows={3}
+                aria-label="Notes" placeholder="Notes…" value={form.notes} rows={3}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                 style={{
                   width: "100%", background: "var(--opx-soft)", color: "var(--opx-ink)",
@@ -373,7 +373,7 @@ export default function ClientsPage() {
                           {showSched && (
                             <div className="j-card" style={{ background: "var(--opx-soft)" }}>
                               <div className="j-col" style={{ gap: 8 }}>
-                                <input className="j-search" placeholder="Service title * (e.g. Monthly site upkeep)"
+                                <input className="j-search" aria-label="Service title" placeholder="Service title * (e.g. Monthly site upkeep)"
                                   value={schedForm.title}
                                   onChange={e => setSchedForm(f => ({ ...f, title: e.target.value }))} />
                                 <div className="j-row" style={{ gap: 8 }}>
@@ -383,7 +383,7 @@ export default function ClientsPage() {
                                   </select>
                                   <input className="j-search" type="date" value={schedForm.nextOccurrence}
                                     onChange={e => setSchedForm(f => ({ ...f, nextOccurrence: e.target.value }))} />
-                                  <input className="j-search" style={{ width: 110 }} placeholder="Fee"
+                                  <input className="j-search" style={{ width: 110 }} aria-label="Fee" placeholder="Fee"
                                     value={schedForm.amount}
                                     onChange={e => setSchedForm(f => ({ ...f, amount: e.target.value }))} />
                                 </div>

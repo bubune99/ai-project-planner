@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { toast } from "sonner"
 import { DashboardLayout } from "@/components/navigation"
 import { Icon } from "@/components/jarvis/icons"
 import { EnvelopePanel } from "@/components/library/EnvelopePanel"
@@ -151,20 +152,32 @@ export default function ProtocolsPage() {
 
   const saveField = async (field: string, value: string) => {
     if (!selected) return
-    await patchProtocol(selected.id, { [field]: value })
-    setEditField(null)
+    try {
+      await patchProtocol(selected.id, { [field]: value })
+      setEditField(null)
+    } catch (e: unknown) {
+      // The field stays open with what was typed, and the reason is said.
+      toast.error(e instanceof Error ? e.message : "The change was not saved")
+    }
   }
 
   const deprecate = async () => {
     if (!selected) return
     if (!confirm(`Deprecate protocol "${selected.title}"?`)) return
-    await patchProtocol(selected.id, { status: "deprecated" })
+    try {
+      await patchProtocol(selected.id, { status: "deprecated" })
+      toast.success("Deprecated")
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "The change was not saved")
+    }
   }
 
   const deleteProtocol = async () => {
     if (!selected) return
     if (!confirm(`Delete protocol "${selected.title}"?`)) return
-    await fetch(`/api/protocols/${selected.id}`, { method: "DELETE" })
+    const res = await fetch(`/api/protocols/${selected.id}`, { method: "DELETE" }).catch(() => null)
+    if (!res || !res.ok) { toast.error("The protocol was not deleted"); return }
+    toast.success("Deleted")
     setSelected(null)
     await fetchProtocols()
   }
@@ -223,7 +236,7 @@ export default function ProtocolsPage() {
           <div className="j-card">
             <div className="j-card-head">
               <p className="j-card-title">New Protocol</p>
-              <button className="j-btn j-btn-icon j-btn-ghost" onClick={() => setShowNew(false)}>
+              <button className="j-btn j-btn-icon j-btn-ghost" aria-label="Close" onClick={() => setShowNew(false)}>
                 <Icon name="x" size={14} />
               </button>
             </div>
@@ -232,20 +245,20 @@ export default function ProtocolsPage() {
                 <input
                   className="j-search"
                   style={{ flex: 1, minWidth: 180 }}
-                  placeholder="Slug name * (e.g. always-validate-migration-safety)"
+                  aria-label="Slug name" placeholder="Slug name * (e.g. always-validate-migration-safety)"
                   value={newForm.name}
                   onChange={e => setNewForm(f => ({ ...f, name: e.target.value }))}
                 />
                 <input
                   className="j-search"
                   style={{ flex: 1, minWidth: 180 }}
-                  placeholder="Display title *"
+                  aria-label="Display title" placeholder="Display title *"
                   value={newForm.title}
                   onChange={e => setNewForm(f => ({ ...f, title: e.target.value }))}
                 />
               </div>
               <textarea
-                placeholder="Description * — what this protocol enforces"
+                aria-label="Description" placeholder="Description * — what this protocol enforces"
                 value={newForm.description}
                 rows={2}
                 onChange={e => setNewForm(f => ({ ...f, description: e.target.value }))}
@@ -255,7 +268,7 @@ export default function ProtocolsPage() {
                 <input
                   className="j-search"
                   style={{ flex: 1, minWidth: 180 }}
-                  placeholder="Trigger event * (e.g. before_migration, before_deploy)"
+                  aria-label="Trigger event" placeholder="Trigger event * (e.g. before_migration, before_deploy)"
                   value={newForm.triggerEvent}
                   onChange={e => setNewForm(f => ({ ...f, triggerEvent: e.target.value }))}
                 />
@@ -268,29 +281,30 @@ export default function ProtocolsPage() {
                 </select>
               </div>
               <textarea
-                placeholder="Rule body * — the enforcement text / prompt that fires at trigger_event"
+                aria-label="Rule body" placeholder="Rule body * — the enforcement text / prompt that fires at trigger_event"
                 value={newForm.ruleBody}
                 rows={4}
                 onChange={e => setNewForm(f => ({ ...f, ruleBody: e.target.value }))}
                 style={{ ...textareaStyle, fontFamily: "inherit" }}
               />
               <textarea
-                placeholder="Rationale * — why this protocol is in the library"
+                aria-label="Rationale" placeholder="Rationale * — why this protocol is in the library"
                 value={newForm.rationale}
                 rows={2}
                 onChange={e => setNewForm(f => ({ ...f, rationale: e.target.value }))}
-                style={{ ...textareaStyle, boxShadow: "0 0 0 1px oklch(0.820 0.135 73 / 0.5)" }}
+                style={{ ...textareaStyle, boxShadow: "0 0 0 1px color-mix(in srgb, var(--opx-warn) 50%, transparent)" }}
               />
               <div className="j-row j-wrap" style={{ gap: 8 }}>
                 <input
                   className="j-search"
                   style={{ flex: 1, minWidth: 140 }}
-                  placeholder="Category (e.g. security, data-integrity, deployment)"
+                  aria-label="Category" placeholder="Category (e.g. security, data-integrity, deployment)"
                   value={newForm.category}
                   onChange={e => setNewForm(f => ({ ...f, category: e.target.value }))}
                 />
                 <select
                   className="j-search"
+                  aria-label="Status"
                   value={newForm.status}
                   onChange={e => setNewForm(f => ({ ...f, status: e.target.value as Protocol["status"] }))}
                 >
