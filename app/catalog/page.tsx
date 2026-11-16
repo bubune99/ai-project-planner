@@ -8,6 +8,7 @@
  */
 
 import { useCallback, useEffect, useState, useRef } from "react"
+import { Figure } from "@/components/project/opx/shared"
 import { useRouter, useSearchParams } from "next/navigation"
 import { DashboardLayout } from "@/components/navigation"
 import { Icon } from "@/components/jarvis/icons"
@@ -670,13 +671,13 @@ export default function CatalogPage() {
         <div className="j-row j-between j-wrap" style={{ gap: 12 }}>
           <div className="j-row" style={{ gap: 8 }}>
             <h1 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Catalog</h1>
-            <span className="j-pill j-ghost" style={{ fontSize: 12 }}>{total}</span>
+            <span className="j-pill j-ghost" style={{ fontSize: 12 }}><Figure value={loading && surfaces.length === 0 ? null : total} /></span>
             {lastScan && (
               <div className="j-row" style={{ gap: 6 }}>
                 <span className="j-muted" style={{ fontSize: 12 }}>
                   Last scan {relTime(lastScan.scanned_at)}
                 </span>
-                <span className="j-pill j-ghost" style={{ fontSize: 12 }}>{lastScan.scan_type}</span>
+                <span className="j-pill j-ghost" style={{ fontSize: 12 }}>{words(lastScan.scan_type)} scan</span>
               </div>
             )}
           </div>
@@ -705,7 +706,7 @@ export default function CatalogPage() {
             <input
               className="j-search"
               style={{ minWidth: 220 }}
-              aria-label="Search the catalog" placeholder="Search canonical_id…"
+              aria-label="Search the catalog" placeholder="Search by id…"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
