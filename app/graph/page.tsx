@@ -65,7 +65,7 @@ const TYPE_COLORS: Record<string, { bg: string; border: string; text: string }> 
   idea_facet: { bg: "rgba(167, 139, 250, 0.18)", border: "#a78bfa", text: "#ede9fe" },
   idea_refinement: { bg: "rgba(192, 132, 252, 0.18)", border: "#c084fc", text: "#f3e8ff" },
   idea_document: { bg: "rgba(216, 180, 254, 0.18)", border: "#d8b4fe", text: "#fae8ff" },
-  default: { bg: "rgba(148, 163, 184, 0.18)", border: "#94a3b8", text: "#e2e8f0" },
+  default: { bg: "rgba(148, 163, 184, 0.18)", border: "var(--opx-muted)", text: "var(--opx-ink)" },
 }
 
 const RELATION_TYPES = [
@@ -133,11 +133,11 @@ function layoutNodes(graph: GraphResponse): { nodes: Node[]; edges: Edge[] } {
     source: e.source,
     target: e.target,
     label: e.type,
-    labelStyle: { fontSize: 12, fill: "#94a3b8", fontFamily: "inherit" },
+    labelStyle: { fontSize: 12, fill: "var(--opx-muted)", fontFamily: "inherit" },
     labelBgPadding: [4, 2],
     labelBgBorderRadius: 3,
     labelBgStyle: { fill: "rgba(15, 23, 42, 0.7)" },
-    style: { stroke: "#475569", strokeWidth: e.confidence },
+    style: { stroke: "var(--opx-muted)", strokeWidth: e.confidence },
     type: "default",
   }))
 
@@ -211,13 +211,13 @@ export default function KnowledgeGraphPage() {
   }, [graph])
 
   return (
-    <div className="j-page" style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+    <div className="j-page" style={{ height: "100%", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       {/* Header */}
       <div
         style={{
           padding: "16px 24px",
-          borderBottom: "1px solid var(--j-border, #1f2937)",
-          background: "var(--j-surface, #0f172a)",
+          borderBottom: "1px solid var(--opx-line)",
+          background: "var(--j-surface)",
           display: "flex",
           alignItems: "center",
           gap: 16,
@@ -245,8 +245,8 @@ export default function KnowledgeGraphPage() {
         <div
           style={{
             padding: "12px 24px",
-            background: "var(--j-surface-elevated, #111827)",
-            borderBottom: "1px solid var(--j-border, #1f2937)",
+            background: "var(--opx-soft)",
+            borderBottom: "1px solid var(--opx-line)",
             display: "flex",
             gap: 24,
             flexWrap: "wrap",
@@ -314,7 +314,7 @@ export default function KnowledgeGraphPage() {
               )}
             </div>
             {focusedEntity && (
-              <div style={{ fontSize: 12, color: "var(--j-muted, #94a3b8)", marginTop: 4 }}>
+              <div style={{ fontSize: 12, color: "var(--opx-muted)", marginTop: 4 }}>
                 Focused: {focusedEntity.type}/{focusedEntity.id.slice(0, 8)} (2-hop view)
               </div>
             )}
@@ -324,7 +324,7 @@ export default function KnowledgeGraphPage() {
 
       {/* Body */}
       <div style={{ flex: 1, display: "flex", position: "relative" }}>
-        <div style={{ flex: 1, background: "#0a0f1c" }}>
+        <div style={{ flex: 1, background: "var(--opx-bg)" }}>
           {loading && (
             <div style={overlayStyle}>
               <RefreshCw size={20} className="j-spin" /> Loading graph…
@@ -338,7 +338,7 @@ export default function KnowledgeGraphPage() {
           {!loading && !error && graph && graph.nodes.length === 0 && (
             <div style={overlayStyle}>
               No entity relations yet. Create one via{" "}
-              <code style={{ background: "#1f2937", padding: "2px 6px", borderRadius: 3 }}>
+              <code style={{ background: "var(--opx-line)", padding: "2px 6px", borderRadius: 3 }}>
                 POST /api/entity-relations
               </code>{" "}
               or via cross-link UI on an idea detail page (Phase 5).
@@ -355,9 +355,9 @@ export default function KnowledgeGraphPage() {
               maxZoom={2}
               proOptions={{ hideAttribution: true }}
             >
-              <Background gap={20} size={1} color="#1e293b" />
+              <Background gap={20} size={1} color="var(--opx-soft)" />
               <Controls />
-              <MiniMap nodeStrokeWidth={2} maskColor="rgba(15, 23, 42, 0.8)" />
+              <MiniMap nodeStrokeWidth={2} maskColor="color-mix(in srgb, var(--opx-bg) 80%, transparent)" />
             </ReactFlow>
           )}
         </div>
@@ -367,25 +367,25 @@ export default function KnowledgeGraphPage() {
           <div
             style={{
               width: 320,
-              background: "var(--j-surface, #0f172a)",
-              borderLeft: "1px solid var(--j-border, #1f2937)",
+              background: "var(--j-surface)",
+              borderLeft: "1px solid var(--opx-line)",
               padding: 16,
               overflowY: "auto",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 12, color: "var(--j-muted, #94a3b8)", textTransform: "uppercase", letterSpacing: 1 }}>
+              <span style={{ fontSize: 12, color: "var(--opx-muted)", textTransform: "uppercase", letterSpacing: 1 }}>
                 {selectedNode.type}
               </span>
               <button onClick={() => setSelectedNode(null)} style={iconBtnStyle}>
                 <X size={14} />
               </button>
             </div>
-            <h3 style={{ margin: "8px 0", fontSize: 14, fontWeight: 600, color: "var(--j-text, #e2e8f0)" }}>
+            <h3 style={{ margin: "8px 0", fontSize: 14, fontWeight: 600, color: "var(--opx-ink)" }}>
               {selectedNode.title}
             </h3>
             {selectedNode.summary && (
-              <p style={{ fontSize: 12, color: "var(--j-muted, #94a3b8)", lineHeight: 1.5 }}>
+              <p style={{ fontSize: 12, color: "var(--opx-muted)", lineHeight: 1.5 }}>
                 {selectedNode.summary}
               </p>
             )}
@@ -394,7 +394,7 @@ export default function KnowledgeGraphPage() {
                 {Object.entries(selectedNode.metadata).map(([k, v]) => (
                   <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0" }}>
                     <span style={{ color: "var(--opx-muted)" }}>{k}</span>
-                    <span style={{ color: "var(--j-text, #e2e8f0)", fontFamily: "inherit" }}>
+                    <span style={{ color: "var(--opx-ink)", fontFamily: "inherit" }}>
                       {String(v ?? "")}
                     </span>
                   </div>
@@ -405,7 +405,7 @@ export default function KnowledgeGraphPage() {
               <button onClick={focusOnSelected} style={{ ...btnStyle, justifyContent: "center" }}>
                 Focus on this node (2-hop)
               </button>
-              <div style={{ fontSize: 12, color: "var(--j-muted, #94a3b8)", marginTop: 4 }}>
+              <div style={{ fontSize: 12, color: "var(--opx-muted)", marginTop: 4 }}>
                 ID: <code>{selectedNode.id}</code>
               </div>
             </div>
@@ -421,10 +421,10 @@ const btnStyle: React.CSSProperties = {
   alignItems: "center",
   gap: 4,
   padding: "6px 10px",
-  background: "var(--j-surface-elevated, #1f2937)",
-  border: "1px solid var(--j-border, #334155)",
+  background: "var(--opx-soft)",
+  border: "1px solid var(--opx-line)",
   borderRadius: 4,
-  color: "var(--j-text, #e2e8f0)",
+  color: "var(--opx-ink)",
   fontSize: 12,
   cursor: "pointer",
 }
@@ -432,7 +432,7 @@ const btnStyle: React.CSSProperties = {
 const iconBtnStyle: React.CSSProperties = {
   background: "none",
   border: "none",
-  color: "var(--j-muted, #94a3b8)",
+  color: "var(--opx-muted)",
   cursor: "pointer",
   padding: 2,
 }
@@ -441,16 +441,16 @@ const labelStyle: React.CSSProperties = {
   fontSize: 12,
   textTransform: "uppercase",
   letterSpacing: 1,
-  color: "var(--j-muted, #94a3b8)",
+  color: "var(--opx-muted)",
   marginBottom: 6,
 }
 
 const inputStyle: React.CSSProperties = {
-  background: "var(--j-surface, #0f172a)",
-  border: "1px solid var(--j-border, #334155)",
+  background: "var(--j-surface)",
+  border: "1px solid var(--opx-line)",
   borderRadius: 4,
   padding: "6px 8px",
-  color: "var(--j-text, #e2e8f0)",
+  color: "var(--opx-ink)",
   fontSize: 12,
   fontFamily: "inherit",
 }
@@ -458,10 +458,10 @@ const inputStyle: React.CSSProperties = {
 function chipStyle(active: boolean, accent?: string): React.CSSProperties {
   return {
     padding: "3px 8px",
-    background: active ? "var(--j-accent-bg, #1e293b)" : "transparent",
-    border: `1px solid ${active ? accent ?? "var(--j-accent, #3b82f6)" : "var(--j-border, #334155)"}`,
+    background: active ? "var(--opx-soft)" : "transparent",
+    border: `1px solid ${active ? accent ?? "var(--j-accent)" : "var(--opx-line)"}`,
     borderRadius: 12,
-    color: active ? accent ?? "var(--j-accent, #3b82f6)" : "var(--j-muted, #94a3b8)",
+    color: active ? accent ?? "var(--j-accent)" : "var(--opx-muted)",
     fontSize: 12,
     cursor: "pointer",
     fontFamily: "inherit",
@@ -475,7 +475,7 @@ const overlayStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   gap: 8,
-  color: "var(--j-muted, #94a3b8)",
+  color: "var(--opx-muted)",
   fontSize: 13,
   flexDirection: "column",
   textAlign: "center",

@@ -40,14 +40,14 @@ const KIND_COLORS: Record<string, { bg: string; border: string; text: string }> 
   nav_link:         { bg: "rgba(96, 165, 250, 0.15)",  border: "#60a5fa", text: "#e0f2fe" },
   env_var:          { bg: "rgba(245, 158, 11, 0.18)",  border: "#f59e0b", text: "#fef3c7" },
   feature_flag:     { bg: "rgba(217, 119, 6, 0.18)",   border: "#d97706", text: "#fde68a" },
-  config_file:      { bg: "rgba(148, 163, 184, 0.15)", border: "#94a3b8", text: "#e2e8f0" },
+  config_file:      { bg: "rgba(148, 163, 184, 0.15)", border: "var(--opx-muted)", text: "var(--opx-ink)" },
   integration:      { bg: "rgba(239, 68, 68, 0.18)",   border: "#ef4444", text: "#fee2e2" },
   webhook_endpoint: { bg: "rgba(220, 38, 38, 0.18)",   border: "#dc2626", text: "#fecaca" },
-  helper:           { bg: "rgba(100, 116, 139, 0.15)", border: "#64748b", text: "#cbd5e1" },
-  type_export:      { bg: "rgba(71, 85, 105, 0.15)",   border: "#475569", text: "#cbd5e1" },
+  helper:           { bg: "rgba(100, 116, 139, 0.15)", border: "var(--opx-muted)", text: "var(--opx-ink)" },
+  type_export:      { bg: "rgba(71, 85, 105, 0.15)",   border: "var(--opx-muted)", text: "var(--opx-ink)" },
   zod_schema:       { bg: "rgba(251, 191, 36, 0.18)",  border: "#fbbf24", text: "#fef3c7" },
   react_hook:       { bg: "rgba(6, 182, 212, 0.18)",   border: "#06b6d4", text: "#cffafe" },
-  default:          { bg: "rgba(148, 163, 184, 0.18)", border: "#94a3b8", text: "#e2e8f0" },
+  default:          { bg: "rgba(148, 163, 184, 0.18)", border: "var(--opx-muted)", text: "var(--opx-ink)" },
 }
 
 // ── Layout: concentric by kind (most-connected first) ───────────────────────
@@ -124,11 +124,11 @@ function layoutNodes(
       source: d.from_surface_id,
       target: d.to_surface_id,
       label: d.kind,
-      labelStyle: { fontSize: 12, fill: "#94a3b8", fontFamily: "inherit" },
+      labelStyle: { fontSize: 12, fill: "var(--opx-muted)", fontFamily: "inherit" },
       labelBgPadding: [4, 2] as [number, number],
       labelBgBorderRadius: 3,
       labelBgStyle: { fill: "rgba(15, 23, 42, 0.7)" },
-      style: { stroke: "#475569", strokeWidth: Math.max(1, (d.confidence ?? 0.5) * 2) },
+      style: { stroke: "var(--opx-muted)", strokeWidth: Math.max(1, (d.confidence ?? 0.5) * 2) },
       type: "default",
     }
   }).filter((e): e is Edge => e !== null)
@@ -204,31 +204,31 @@ function NodeDetailPanel({ surface, onClose }: { surface: Surface; onClose: () =
   return (
     <div style={{
       width: 300,
-      background: "var(--j-surface, #0f172a)",
-      borderLeft: "1px solid var(--j-border, #1f2937)",
+      background: "var(--j-surface)",
+      borderLeft: "1px solid var(--opx-line)",
       padding: 16,
       overflowY: "auto",
       flexShrink: 0,
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <span style={{ fontSize: 12, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 1 }}>
+        <span style={{ fontSize: 12, color: "var(--opx-muted)", textTransform: "uppercase", letterSpacing: 1 }}>
           {surface.kind}
         </span>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", padding: 2 }}>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--opx-muted)", cursor: "pointer", padding: 2 }}>
           <X size={14} />
         </button>
       </div>
-      <code style={{ fontSize: 12, fontFamily: "inherit", display: "block", wordBreak: "break-all", color: "#e2e8f0", marginBottom: 8 }}>
+      <code style={{ fontSize: 12, fontFamily: "inherit", display: "block", wordBreak: "break-all", color: "var(--opx-ink)", marginBottom: 8 }}>
         {surface.canonical_id}
       </code>
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 10 }}>
-        <span style={{ padding: "2px 7px", borderRadius: 10, fontSize: 12, background: "rgba(148,163,184,0.15)", color: "#94a3b8", border: "1px solid #334155" }}>
+        <span style={{ padding: "2px 7px", borderRadius: 10, fontSize: 12, background: "rgba(148,163,184,0.15)", color: "var(--opx-muted)", border: "1px solid var(--opx-line)" }}>
           {surface.status}
         </span>
       </div>
       {loc.file_path && (
         <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 3 }}>FILE</div>
+          <div style={{ fontSize: 12, color: "var(--opx-muted)", marginBottom: 3 }}>FILE</div>
           <code style={{ fontSize: 12, fontFamily: "inherit", color: "#60a5fa", wordBreak: "break-all" }}>
             {loc.file_path as string}
           </code>
@@ -239,13 +239,13 @@ function NodeDetailPanel({ surface, onClose }: { surface: Surface; onClose: () =
           href={`/catalog?focus=${encodeURIComponent(surface.canonical_id)}`}
           style={{
             display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
-            padding: "6px 10px", background: "rgba(255,255,255,0.06)", border: "1px solid #334155",
-            borderRadius: 4, color: "#e2e8f0", fontSize: 12, textDecoration: "none", cursor: "pointer",
+            padding: "6px 10px", background: "rgba(255,255,255,0.06)", border: "1px solid var(--opx-line)",
+            borderRadius: 4, color: "var(--opx-ink)", fontSize: 12, textDecoration: "none", cursor: "pointer",
           }}
         >
           Open in catalog
         </a>
-        <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+        <div style={{ fontSize: 12, color: "var(--opx-muted)", marginTop: 4 }}>
           ID: <code style={{ fontSize: 12 }}>{surface.id.slice(0, 12)}…</code>
         </div>
       </div>
@@ -257,32 +257,32 @@ function NodeDetailPanel({ surface, onClose }: { surface: Surface; onClose: () =
 
 const btnStyle: React.CSSProperties = {
   display: "inline-flex", alignItems: "center", gap: 4, padding: "6px 10px",
-  background: "var(--j-surface-elevated, #1f2937)", border: "1px solid var(--j-border, #334155)",
-  borderRadius: 4, color: "var(--j-text, #e2e8f0)", fontSize: 12, cursor: "pointer",
+  background: "var(--opx-soft)", border: "1px solid var(--opx-line)",
+  borderRadius: 4, color: "var(--opx-ink)", fontSize: 12, cursor: "pointer",
 }
 
 const inputStyle: React.CSSProperties = {
-  background: "var(--j-surface, #0f172a)", border: "1px solid var(--j-border, #334155)",
-  borderRadius: 4, padding: "6px 8px", color: "var(--j-text, #e2e8f0)",
+  background: "var(--j-surface)", border: "1px solid var(--opx-line)",
+  borderRadius: 4, padding: "6px 8px", color: "var(--opx-ink)",
   fontSize: 12, fontFamily: "inherit",
 }
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 12, textTransform: "uppercase", letterSpacing: 1, color: "#94a3b8", marginBottom: 6,
+  fontSize: 12, textTransform: "uppercase", letterSpacing: 1, color: "var(--opx-muted)", marginBottom: 6,
 }
 
 function chipStyle(active: boolean, accent?: string): React.CSSProperties {
   return {
     padding: "3px 8px", background: active ? "rgba(30,41,59,0.9)" : "transparent",
-    border: `1px solid ${active ? accent ?? "#3b82f6" : "#334155"}`,
-    borderRadius: 12, color: active ? accent ?? "#3b82f6" : "#94a3b8",
+    border: `1px solid ${active ? accent ?? "#3b82f6" : "var(--opx-line)"}`,
+    borderRadius: 12, color: active ? accent ?? "#3b82f6" : "var(--opx-muted)",
     fontSize: 12, cursor: "pointer", fontFamily: "inherit",
   }
 }
 
 const overlayStyle: React.CSSProperties = {
   position: "absolute", inset: 0, display: "flex", alignItems: "center",
-  justifyContent: "center", gap: 8, color: "#94a3b8", fontSize: 13,
+  justifyContent: "center", gap: 8, color: "var(--opx-muted)", fontSize: 13,
   flexDirection: "column", textAlign: "center", padding: 24,
 }
 
@@ -404,16 +404,16 @@ export default function ImpactGraphPage() {
   }, [allSurfaces])
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "#0a0f1c" }}>
+    <div style={{ height: "100%", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", background: "var(--opx-bg)" }}>
       {/* Header */}
       <div style={{
-        padding: "14px 20px", borderBottom: "1px solid #1f2937",
-        background: "#0f172a", display: "flex", alignItems: "center", gap: 14, flexShrink: 0,
+        padding: "14px 20px", borderBottom: "1px solid var(--opx-line)",
+        background: "var(--opx-card)", display: "flex", alignItems: "center", gap: 14, flexShrink: 0,
       }}>
-        <a href="/catalog" style={{ color: "#cbd5e1", fontSize: 13, textDecoration: "none", display: "inline-flex", alignItems: "center", minHeight: 32, padding: "0 8px", border: "1px solid #334155", borderRadius: 999 }}>← Catalog</a>
-        <h1 style={{ fontSize: 16, margin: 0, fontWeight: 600, color: "#e2e8f0" }}>Impact Graph</h1>
+        <a href="/catalog" style={{ color: "var(--opx-ink)", fontSize: 13, textDecoration: "none", display: "inline-flex", alignItems: "center", minHeight: 32, padding: "0 8px", border: "1px solid var(--opx-line)", borderRadius: 999 }}>← Catalog</a>
+        <h1 style={{ fontSize: 16, margin: 0, fontWeight: 600, color: "var(--opx-ink)" }}>Impact Graph</h1>
         {!loading && (
-          <span style={{ fontSize: 12, color: "#94a3b8" }}>
+          <span style={{ fontSize: 12, color: "var(--opx-muted)" }}>
             {visibleSurfaces.length} surfaces · {visibleDeps.length} deps
           </span>
         )}
@@ -425,7 +425,7 @@ export default function ImpactGraphPage() {
         <div style={{ flex: 1 }} />
         <button
           onClick={() => setShowConflicts(v => !v)}
-          style={{ ...btnStyle, color: showConflicts ? "#ef4444" : "#e2e8f0", borderColor: showConflicts ? "#ef4444" : "#334155" }}
+          style={{ ...btnStyle, color: showConflicts ? "#ef4444" : "var(--opx-ink)", borderColor: showConflicts ? "#ef4444" : "var(--opx-line)" }}
         >
           Conflicts
         </button>
@@ -441,7 +441,7 @@ export default function ImpactGraphPage() {
       {/* Filters panel */}
       {filtersOpen && (
         <div style={{
-          padding: "12px 20px", background: "#111827", borderBottom: "1px solid #1f2937",
+          padding: "12px 20px", background: "var(--opx-card)", borderBottom: "1px solid var(--opx-line)",
           display: "flex", gap: 20, flexWrap: "wrap", alignItems: "flex-start", flexShrink: 0,
         }}>
           <div>
@@ -555,9 +555,9 @@ export default function ImpactGraphPage() {
               maxZoom={2.5}
               proOptions={{ hideAttribution: true }}
             >
-              <Background gap={20} size={1} color="#1e293b" />
+              <Background gap={20} size={1} color="var(--opx-soft)" />
               <Controls />
-              <MiniMap nodeStrokeWidth={2} maskColor="rgba(10,15,28,0.8)" />
+              <MiniMap nodeStrokeWidth={2} maskColor="color-mix(in srgb, var(--opx-bg) 80%, transparent)" />
             </ReactFlow>
           )}
         </div>
