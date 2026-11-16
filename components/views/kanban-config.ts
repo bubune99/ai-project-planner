@@ -33,7 +33,10 @@ export const NONE_KEY = "__none__"
 
 /** Built-in pipeline, used when a project has no custom statuses. */
 export const DEFAULT_STATUSES: ProjectStatus[] = [
-  { key: "pending", label: "To Do", color: "#87909e", kind: "open" },
+  // Owner, 2026-11-16: one board for the owner and the agents. Requests wait; moving a card into Up next or In
+  // progress sends it to an agent (lib/work/pipeline.ts).
+  { key: "requested", label: "Requests", color: "#8b5cf6", kind: "open" },
+  { key: "pending", label: "Up next", color: "#87909e", kind: "open" },
   { key: "in-progress", label: "In Progress", color: "#3b82f6", kind: "active" },
   { key: "blocked", label: "Blocked", color: "#ef4444", kind: "closed" },
   { key: "paused", label: "Paused", color: "#f59e0b", kind: "open" },

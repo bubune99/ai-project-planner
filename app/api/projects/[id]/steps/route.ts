@@ -5,6 +5,8 @@
  * POST /api/projects/[id]/steps - Create a new step
  */
 
+import { sendIfMoved } from "@/lib/work/send";
+import type { WorkRow } from "@/lib/work/pipeline";
 import { type NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
 import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils";
@@ -12,7 +14,7 @@ import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from
 export const dynamic = "force-dynamic"
 
 // Must mirror the project_steps_status_check / priority CHECK constraints
-const VALID_STATUSES = ["pending", "in-progress", "completed", "blocked", "paused", "failed"];
+const VALID_STATUSES = ["requested", "pending", "in-progress", "completed", "blocked", "paused", "failed"];
 // "urgent" added by migration 056 so tasks can express the same urgency
 // todos always could. Before that, urgent project work literally had no
 // valid task priority, which pushed it into the todo list instead.
@@ -253,6 +255,11 @@ export async function POST(
       )
     `.catch((err) => console.error("Failed to log execution history:", err));
 
+    // A card the owner makes straight into Up next or In progress is sent to an agent, as if moved there.
+    if (authType === "session") {
+      try { const jobId = await sendIfMoved(step as WorkRow, null, projectId, userId); if (jobId) step.sent_job_id = jobId }
+      catch (e) { console.error("sending the new card to the agents failed", e); step.send_error = "The card was made, but it could not be sent to the agents. Move it to retry." }
+    }
     return NextResponse.json({ step }, { status: 201 });
   } catch (error: unknown) {
     console.error("Error creating step:", error);

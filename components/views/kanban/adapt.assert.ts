@@ -241,5 +241,18 @@ eq(
   "done step is struck through",
 )
 
+/* ------------------------------------------------- what a card is and who holds it (2026-11-16) */
+{
+  const NOW = new Date("2026-11-16T12:00:00Z")
+  const at = (m: number) => new Date(NOW.getTime() - m * 60_000).toISOString()
+  const card = (over: Record<string, unknown>) => toKanbanTask({ ...base, ...over } as never, { statusMap, today: NOW })
+  eq(card({ work_kind: "upkeep", tags: ["x"] }).category, "Upkeep", "an upkeep card says so where a tag would be")
+  eq(card({ work_kind: "initiative", metadata: { work: { type: "campaign" } } }).category, "Campaign", "an initiative says which kind")
+  eq(card({ status: "in-progress", claimed_by_id: "claude-code", claimed_at: at(5) }).assignees, [{ name: "claude-code" }], "in progress shows the agent holding it")
+  eq(card({ status: "in-progress", metadata: { work: { sentAt: at(3) } } }).assignees, [{ name: "Sent, waiting for an agent" }], "sent and not yet picked up")
+  eq(card({ status: "in-progress", assigned_agent: null }).assignees, [{ name: "Nobody holds it" }], "in progress with nobody holding it says so")
+  eq(card({ status: "pending", assigned_agent: "claude" }).assignees, [{ name: "claude" }], "elsewhere the assigned agent stays")
+}
+
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)

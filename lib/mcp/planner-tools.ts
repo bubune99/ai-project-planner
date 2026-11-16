@@ -852,7 +852,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           await requireMcpProjectWriteAccess(resolvedId)
 
           const statusKey = status || "pending"
-          const BUILTIN = ["pending", "in-progress", "completed", "blocked", "paused", "failed"]
+          const BUILTIN = ["requested", "pending", "in-progress", "completed", "blocked", "paused", "failed"]
           if (!BUILTIN.includes(statusKey)) {
             const custom = await sql`
               SELECT 1 FROM project_statuses
@@ -908,6 +908,64 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
     )
 
     // ==========================================
+    // Tool: Propose a feature (a card in Requests for the owner to approve)
+    // ==========================================
+    server.tool(
+      "propose_feature",
+      "Propose a feature for the owner to approve. Owner, 2026-11-16: 'I really want to focus on the user flow or the users goals, and then the agent comes up with the details in between. Or at the very least proposes features to me clearly and i can approve them.' Use it when walking a goal or reading code shows something missing between the steps. It files a card in the project's Requests column saying the goal, what it does, what is delivered, how it will be proved and why. The owner approves by moving it to Up next, which sends it to an agent; nothing is built before that. One feature per call; never propose an error fix (errors are fixed, not proposed).",
+      {
+        projectId: z.string().optional().describe("Project ID (uses active project if not specified)"),
+        title: z.string().describe("What the feature does, in a few words: 'Search finds tasks by their words', not 'Improve search'"),
+        goal: z.string().describe("The person's goal it serves, in their words"),
+        useCase: z.string().optional().describe("The use case name in People and flows, when there is one"),
+        what: z.string().describe("What it does, as the person would see it"),
+        deliverable: z.string().describe("What is delivered when it is done"),
+        proof: z.string().describe("What will be seen or run, and where, to prove it works"),
+        why: z.string().describe("What showed it is missing"),
+        foundBy: z.enum(["walk", "reading", "discussion", "scan"]).optional(),
+        parentTaskId: z.string().optional().describe("The initiative or task it belongs under"),
+        priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
+      },
+      async (args) => {
+        try {
+          requireMcpScope("write")
+          const [resolvedId, error] = resolveProjectId(args.projectId)
+          if (!resolvedId) return mcpError(error!)
+          await requireMcpProjectWriteAccess(resolvedId)
+          const { readProposal, proposalText } = await import("@/lib/work/proposal")
+          const { proposal, errors } = readProposal(args as Record<string, unknown>)
+          if (!proposal) return mcpError(`The proposal is not complete: ${errors.join("; ")}`)
+          if (args.parentTaskId) {
+            const [parent] = await sql`SELECT id FROM project_steps WHERE id = ${args.parentTaskId} AND project_id = ${resolvedId} AND deleted_at IS NULL`
+            if (!parent) return mcpError("Parent task not found in this project")
+          }
+          // The same feature proposed twice is one card.
+          const [same] = await sql`
+            SELECT id FROM project_steps WHERE project_id = ${resolvedId} AND deleted_at IS NULL AND status = 'requested' AND lower(title) = lower(${proposal.title})
+          `
+          if (same) return mcpResponse({ created: false, id: same.id, note: "A request with this title is already waiting; add to it rather than proposing it again." })
+          const [maxRow] = await sql`SELECT COALESCE(MAX(order_index), 0) AS max_order FROM project_steps WHERE project_id = ${resolvedId} AND deleted_at IS NULL`
+          const [card] = await sql`
+            INSERT INTO project_steps (project_id, title, description, status, phase, stage, estimated_hours, priority, order_index, parent_task_id, tags, metadata, work_kind)
+            VALUES (
+              ${resolvedId}, ${proposal.title}, ${proposalText(proposal)}, 'requested',
+              COALESCE((SELECT NULLIF(current_phase, '') FROM projects WHERE id = ${resolvedId}), 'planning'), ${"backlog"},
+              0, ${args.priority || null}, ${(maxRow.max_order || 0) + 1}, ${args.parentTaskId || null},
+              ARRAY['proposal']::text[], ${JSON.stringify({ proposal })}::jsonb, 'task'
+            )
+            RETURNING id, title, status
+          `
+          return mcpResponse({
+            created: true, id: card.id, title: card.title, status: card.status,
+            next_actions: ["The owner approves it by moving it to Up next (it is then sent to an agent) or sets it aside. Do not build it before that.", "Propose the next feature the goal needs, one per call."],
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    // ==========================================
     // Tool: Update task
     // ==========================================
     server.tool(
@@ -934,7 +992,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
 
           let statusKind: string | null = null
           if (status) {
-            const BUILTIN = ["pending", "in-progress", "completed", "blocked", "paused", "failed"]
+            const BUILTIN = ["requested", "pending", "in-progress", "completed", "blocked", "paused", "failed"]
             if (!BUILTIN.includes(status)) {
               const custom = await sql`
                 SELECT 1 FROM project_statuses

@@ -6,6 +6,8 @@
  * DELETE /api/projects/[id]/steps/[stepId] - Delete step
  */
 
+import { sendIfMoved } from "@/lib/work/send";
+import type { WorkRow } from "@/lib/work/pipeline";
 import { type NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
 import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils";
@@ -152,7 +154,7 @@ export async function PATCH(
     } = body;
 
     // Validate status: built-in values or a custom project status key
-    const VALID_STATUSES = ["pending", "in-progress", "completed", "blocked", "paused", "failed"];
+    const VALID_STATUSES = ["requested", "pending", "in-progress", "completed", "blocked", "paused", "failed"];
     const status = rawStatus === "review" ? "in-progress" : rawStatus; // legacy clients sent "review"
     let statusKind: string | null = null;
     if (status) {
@@ -190,6 +192,14 @@ export async function PATCH(
     const setTags = has("tags") && Array.isArray(body.tags);
     const tags = setTags ? body.tags.map((t: unknown) => String(t).trim()).filter(Boolean).slice(0, 20) : null;
 
+    // A card's kind: task, initiative (holds tasks) or upkeep (an agent's maintenance). Migration 071.
+    const workKind = has("work_kind") ? body.work_kind : null;
+    if (workKind !== null && !["task", "initiative", "upkeep"].includes(workKind)) {
+      return NextResponse.json({ error: `Invalid work_kind: ${workKind}. Allowed: task, initiative, upkeep` }, { status: 400 });
+    }
+    // Where the card was, so a move into Up next or In progress can send it to an agent (lib/work/pipeline.ts).
+    const [before] = (await sql`SELECT status FROM project_steps WHERE id = ${stepId} AND project_id = ${projectId} AND deleted_at IS NULL`) as { status: string }[];
+
     const result = await sql`
       UPDATE project_steps
       SET
@@ -211,6 +221,10 @@ export async function PATCH(
         progress = COALESCE(${progress ?? null}, progress),
         version_id = COALESCE(${version_id || null}, version_id),
         metadata = COALESCE(${metadata ? JSON.stringify(metadata) : null}::jsonb, metadata),
+        work_kind = COALESCE(${workKind}, work_kind),
+        claimed_by_id = CASE WHEN ${status || null}::text IS NOT NULL AND ${status || null}::text <> 'in-progress' THEN NULL ELSE claimed_by_id END,
+        claimed_by_type = CASE WHEN ${status || null}::text IS NOT NULL AND ${status || null}::text <> 'in-progress' THEN NULL ELSE claimed_by_type END,
+        claimed_at = CASE WHEN ${status || null}::text IS NOT NULL AND ${status || null}::text <> 'in-progress' THEN NULL ELSE claimed_at END,
         updated_at = NOW(),
         completed_at = CASE WHEN ${statusKind === "done"} THEN NOW()
                             WHEN ${statusKind !== null && statusKind !== "done"} THEN NULL
@@ -229,6 +243,19 @@ export async function PATCH(
     }
 
     const step = result[0];
+
+    // Owner, 2026-11-16: dragging a card in "should be able to kick you and any of the other agents off to start
+    // working". Only the owner's own moves send work; an agent moving its cards does not wake the others.
+    // In progress only while an agent holds it, so moving a card out of it (above) lets go of it.
+    if (status && authType === "session" && before && before.status !== status) {
+      try {
+        const jobId = await sendIfMoved(step as WorkRow, before.status, projectId, userId);
+        if (jobId) step.sent_job_id = jobId;
+      } catch (e) {
+        console.error("sending the card to the agents failed", e);
+        step.send_error = "The card moved, but it could not be sent to the agents. Move it again to retry.";
+      }
+    }
 
     // Update dependencies if provided
     if (dependencies !== undefined && Array.isArray(dependencies)) {

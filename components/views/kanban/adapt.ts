@@ -10,6 +10,7 @@
  * is small but it is not identity, and the places it is lossy are called out.
  */
 
+import { holding, type WorkRow } from "@/lib/work/pipeline"
 import type { BoardStep, StepPriority } from "@/lib/types"
 import type { ColumnDef, ProjectStatus, StatusKind } from "../kanban-config"
 import { normalizeChecklist, tagColor } from "../kanban-config"
@@ -139,8 +140,20 @@ function kindOf(step: Pick<BoardStep, "status">, statusMap: Record<string, Proje
   return statusMap[step.status]?.kind ?? "open"
 }
 
+const INITIATIVE_WORD = { campaign: "Campaign", phase: "Phase", sprint: "Sprint" } as const
+/** Who has the card: the agent holding it in progress, or that it was sent and not yet picked up (lib/work/pipeline.ts). */
+function holderOf(step: BoardStep, now: Date): Array<{ name: string }> | undefined {
+  const h = holding(step as unknown as WorkRow, now)
+  if (h?.state === "held") return [{ name: h.by }]
+  if (h?.state === "sent") return [{ name: "Sent, waiting for an agent" }]
+  if (h?.state === "nobody") return [{ name: "Nobody holds it" }]
+  return step.assigned_agent ? [{ name: step.assigned_agent }] : undefined
+}
+
 export function toKanbanTask(step: BoardStep, opts: AdaptOptions): KanbanTask {
   const isDone = kindOf(step, opts.statusMap) === "done"
+  const workKind = (step as BoardStep & { work_kind?: string }).work_kind
+  const initiativeType = ((step.metadata as { work?: { type?: keyof typeof INITIATIVE_WORD } } | null)?.work?.type) ?? "phase"
   const { due, dueSoon } = toDue(step, isDone, opts.today)
 
   return {
@@ -151,10 +164,11 @@ export function toKanbanTask(step: BoardStep, opts: AdaptOptions): KanbanTask {
     // The board's `category` chip is one short label. Our steps carry a tag
     // array, so the first tag stands in and the rest are not shown here —
     // lossy on purpose, rather than crowding the card with every tag.
-    category: step.tags?.[0] || undefined,
+    // A card that is an initiative or upkeep says so first; otherwise its first tag.
+    category: workKind === "initiative" ? INITIATIVE_WORD[initiativeType] : workKind === "upkeep" ? "Upkeep" : step.tags?.[0] || undefined,
     // the first tag is already up top as the category chip; show the rest here
     tags: (step.tags ?? []).slice(1).map((label) => ({ label, color: tagColor(label) })),
-    assignees: step.assigned_agent ? [{ name: step.assigned_agent }] : undefined,
+    assignees: holderOf(step, opts.today ?? new Date()),
     due,
     dueSoon,
     progress: toProgress(step, isDone),

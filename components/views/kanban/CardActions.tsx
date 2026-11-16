@@ -31,6 +31,24 @@ export function CardActions({
 }) {
   const dateRef = useRef<HTMLInputElement>(null)
   const flagged = !!(step.metadata && (step.metadata as Record<string, unknown>).flagged)
+  // A request is approved (moved to Up next, which sends it to an agent) or set aside with the owner's reason, which
+  // agents read before proposing the same kind of thing again (lib/work/proposal.ts).
+  if (step.status === "requested") {
+    const word = "rounded-full px-3 min-h-7 text-[13px] font-semibold transition-colors"
+    return (
+      <>
+        <button type="button" className={`${word} bg-[var(--opx-card,#fff)] hover:bg-[var(--opx-ink,#20355b)] hover:text-white`} aria-label={`Approve: ${step.title}`}
+          onClick={(e) => { e.stopPropagation(); onPatch(step.id, { status: "pending" }) }}>Approve</button>
+        <button type="button" className={`${word} text-[var(--opx-muted,#5a687c)] hover:bg-[var(--opx-card,#fff)]`} aria-label={`Not now: ${step.title}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            const why = window.prompt(`Not now: "${step.title}". Why? Agents read this before proposing something like it again.`)
+            if (why === null) return
+            onPatch(step.id, { status: "paused", metadata: { ...(step.metadata || {}), declined: { why: why.trim(), at: new Date().toISOString() } } })
+          }}>Not now</button>
+      </>
+    )
+  }
   return (
     <>
       <button
