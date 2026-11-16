@@ -142,7 +142,7 @@ function kindOf(step: Pick<BoardStep, "status">, statusMap: Record<string, Proje
 
 const INITIATIVE_WORD = { campaign: "Campaign", phase: "Phase", sprint: "Sprint" } as const
 /** Who has the card, in words for its footer: the agent holding it, or that it was sent and not picked up (lib/work/pipeline.ts). */
-function holderLine(step: BoardStep, now: Date): { label: string; title: string } | null {
+export function holderLine(step: BoardStep, now: Date): { label: string; title: string } | null {
   const h = holding(step as unknown as WorkRow, now)
   if (h?.state === "held") return { label: `With ${h.by}`, title: "The agent working on it now" }
   if (h?.state === "sent") return { label: "Sent, waiting for an agent", title: "Sent to the project's agents; it shows who has it once one picks it up" }

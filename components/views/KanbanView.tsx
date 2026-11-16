@@ -708,6 +708,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
             openEdit(step)
           }}
           onOpenStep={(s) => setDetailStepId(s.id)}
+          siblings={detailStep && !detailStep.parent_task_id ? columnSteps(groupKeyOf(detailStep, prefs.groupBy)) : []}
         />
       </div>
 

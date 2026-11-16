@@ -35,6 +35,7 @@ import {
   type ProjectStatus,
 } from "./kanban-config"
 import { StepActivityPanel, StepTimer } from "./StepActivityPanel"
+import { CardDescription, CardPath, CardPictures, CardProposal, CardSteps } from "./CardStory"
 
 interface TaskDetailModalProps {
   step: BoardStep | null
@@ -49,6 +50,8 @@ interface TaskDetailModalProps {
   onDelete: (step: BoardStep) => void
   onEditFull: (step: BoardStep) => void
   onOpenStep: (step: BoardStep) => void
+  /** The cards in the same column, in board order, for the previous / next arrows. */
+  siblings?: BoardStep[]
 }
 
 const NONE = "__none__"
@@ -104,7 +107,9 @@ export function TaskDetailModal({
   onDelete,
   onEditFull,
   onOpenStep,
+  siblings = [],
 }: TaskDetailModalProps) {
+  const [addingChecklist, setAddingChecklist] = useState(false)
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [estimate, setEstimate] = useState("")
@@ -191,8 +196,18 @@ export function TaskDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-5xl max-h-[88vh] overflow-y-auto p-0 gap-0">
-        <DialogHeader className="px-6 pt-5 pb-4 border-b border-border space-y-2">
+      <DialogContent
+        className="sm:max-w-[min(1320px,94vw)] h-[92vh] flex flex-col overflow-hidden p-0 gap-0"
+        data-testid="card-view"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => {
+          const a = document.activeElement
+          if (document.querySelector("[data-card-overlay]") || (a && (a.tagName === "TEXTAREA" || a.tagName === "INPUT"))) e.preventDefault()
+        }}
+      >
+       <div className="flex-1 min-h-0 overflow-y-auto">
+        <DialogHeader className="px-6 pt-4 pb-4 border-b border-border space-y-2">
+          <CardPath step={step} statusLabel={current?.label ?? step.status} siblings={siblings} onOpenStep={onOpenStep} />
           {parent && (
             <button
               onClick={() => onOpenStep(parent)}
@@ -260,68 +275,24 @@ export function TaskDetailModal({
         <div className="grid md:grid-cols-[minmax(0,1fr)_280px] gap-0">
           {/* Main column */}
           <div className="space-y-6 min-w-0 px-6 py-5">
-            {/* Description */}
-            <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
-                Description
-              </h4>
-              <Textarea
-                value={description}
-                rows={7}
-                placeholder="Add a description…"
-                onChange={(e) => setDescription(e.target.value)}
-                onBlur={() => {
-                  if (description !== (step.description ?? "")) patch({ description })
-                }}
-              />
-            </div>
+            <CardDescription text={step.description ?? ""} onSave={(d) => patch({ description: d })} />
+
+            <CardProposal metadata={step.metadata} />
+
+            <CardPictures step={step} onSaveMetadata={(m) => patch({ metadata: m })} />
 
             {/* Subtasks */}
-            <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
-                Subtasks{" "}
-                {subtasks.length > 0 && (
-                  <span className="normal-case font-normal">
-                    · {subtasks.filter((s) => (statusMap[s.status]?.kind ?? "open") === "done").length}/
-                    {subtasks.length}
-                  </span>
-                )}
-              </h4>
-              <div className="space-y-1">
-                {subtasks.map((sub) => {
-                  const subDone = (statusMap[sub.status]?.kind ?? "open") === "done"
-                  return (
-                    <div
-                      key={sub.id}
-                      className="flex items-center gap-2 text-sm group/sub rounded px-1.5 py-1 hover:bg-accent/40"
-                    >
-                      <Checkbox
-                        checked={subDone}
-                        onCheckedChange={(checked) =>
-                          onPatch(sub.id, { status: checked ? doneKeyOf(statuses) : openKeyOf(statuses) })
-                        }
-                      />
-                      <span
-                        className="w-1.5 h-1.5 rounded-full shrink-0"
-                        style={{ backgroundColor: statusMap[sub.status]?.color ?? "#87909e" }}
-                      />
-                      <span className={`flex-1 ${subDone ? "line-through text-muted-foreground" : ""}`}>
-                        {sub.title}
-                      </span>
-                      <button
-                        onClick={() => onOpenStep(sub)}
-                        title="Open subtask"
-                        className="opacity-0 group-hover/sub:opacity-100 text-muted-foreground hover:text-foreground"
-                      >
-                        <ArrowUpRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )
-                })}
+            <CardSteps
+              step={step}
+              allSteps={allSteps}
+              statuses={statuses}
+              onToggle={(s, done) => onPatch(s.id, { status: done ? doneKeyOf(statuses) : openKeyOf(statuses) })}
+              onOpenStep={onOpenStep}
+            >
                 <div className="flex gap-1.5 items-center pt-1">
                   <Input
                     value={newSubtask}
-                    placeholder="Add subtask…"
+                    placeholder={step.work_kind === "initiative" ? "Add a task…" : "Add a step…"}
                     className="h-7 text-sm"
                     onChange={(e) => setNewSubtask(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && addSubtask()}
@@ -330,12 +301,16 @@ export function TaskDetailModal({
                     <Plus className="w-3.5 h-3.5" />
                   </Button>
                 </div>
-              </div>
-            </div>
+            </CardSteps>
 
             {/* Checklist */}
+            {checklist.length === 0 && !addingChecklist ? (
+              <button type="button" onClick={() => setAddingChecklist(true)} className="text-[13px] text-muted-foreground hover:text-foreground min-h-8 px-2 -ml-2 rounded-md hover:bg-accent">
+                + Add a checklist
+              </button>
+            ) : (
             <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+              <h4 className="text-[13px] font-semibold text-muted-foreground mb-1.5">
                 Checklist{" "}
                 {checklist.length > 0 && (
                   <span className="normal-case font-normal">
@@ -372,11 +347,12 @@ export function TaskDetailModal({
                 </div>
               </div>
             </div>
+            )}
 
             {/* Acceptance criteria */}
             {criteria.length > 0 && (
               <div>
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                <h4 className="text-[13px] font-semibold text-muted-foreground mb-1.5">
                   Acceptance criteria
                 </h4>
                 <div className="space-y-1">
@@ -398,7 +374,7 @@ export function TaskDetailModal({
             {/* Dependencies */}
             {deps.length > 0 && (
               <div>
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                <h4 className="text-[13px] font-semibold text-muted-foreground mb-1.5">
                   Waiting on
                 </h4>
                 <div className="flex flex-wrap gap-1.5">
@@ -419,7 +395,7 @@ export function TaskDetailModal({
 
           {/* Meta sidebar */}
           <div className="space-y-3 md:border-l md:border-border px-5 py-5 bg-accent/10">
-            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80 mb-1">
+            <h4 className="text-[13px] font-semibold text-muted-foreground mb-1">
               Details
             </h4>
             <div className="flex items-center justify-between gap-2">
@@ -488,7 +464,7 @@ export function TaskDetailModal({
                 {tags.map((t) => (
                   <span
                     key={t}
-                    className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                    className="inline-flex items-center gap-1 text-[12px] px-1.5 py-0.5 rounded-full font-medium"
                     style={{ backgroundColor: tagColor(t) + "26", color: tagColor(t) }}
                   >
                     {t}
@@ -569,13 +545,14 @@ export function TaskDetailModal({
               />
             </div>
 
-            <div className="pt-2 border-t border-border space-y-1 text-[11px] text-muted-foreground">
+            <div className="pt-2 border-t border-border space-y-1 text-[12px] text-muted-foreground">
               <div>Created {format(new Date(step.created_at), "MMM d, yyyy")}</div>
               {step.completed_at && <div>Completed {format(new Date(step.completed_at), "MMM d, yyyy")}</div>}
               <div>Status: {current?.label ?? step.status}</div>
             </div>
           </div>
         </div>
+       </div>
       </DialogContent>
     </Dialog>
   )
