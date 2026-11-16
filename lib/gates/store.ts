@@ -5,6 +5,8 @@
  * Callers check access first: these functions trust the ids they are given.
  */
 import { sql } from "@/lib/db/client"
+import { checkMarker, failedCheckCard } from "@/lib/intake/check-card"
+import { closeFixCards, upsertFixCard } from "@/lib/intake/check-card-store"
 import {
   alignToPrevious, allChecks, auditLog, checkKey, mergePartial, splitFindings, checkState, diffChecklists, sameCriteria, scanFindings, scorecard, standingKeys,
   hookLine, imagesToExpire, nextCheck, summarize, validateChecklist,
@@ -147,6 +149,18 @@ export async function recordResults(a: { checklist: ChecklistRow; userId: string
     INSERT INTO gate_results (checklist_id, check_key, actor, status, note, created_by)
     SELECT ${a.checklist.id}, k, ${a.actor}, ${a.status}, ${a.note ?? null}, ${a.userId} FROM unnest(${a.keys}::text[]) AS k
   `
+  // A failed check is a bug: it goes straight to Up next as a card; a pass closes that card (owner, 2026-11-16).
+  // The verdict is already recorded; a failure here is logged, never lost or thrown at the caller.
+  try {
+    const c = a.checklist
+    if (a.status === "failed") {
+      for (const key of a.keys) await upsertFixCard(c.project_id, failedCheckCard({ checklistId: c.id, route: c.route, key, note: a.note ?? "", actor: a.actor, build: c.build }))
+    } else if (a.status === "passed") {
+      await closeFixCards(c.project_id, a.keys.map((k) => checkMarker(c.id, k)))
+    }
+  } catch (e) {
+    console.error("[gates] check recorded but its fix card was not made or closed", a.checklist.id, e instanceof Error ? e.message : e)
+  }
   return progress(a.checklist, await resultsOf(a.checklist.id))
 }
 

@@ -3,6 +3,9 @@ import { sql } from "@/lib/db/client"
 import { loadFlows } from "@/lib/people/store"
 import { coverage, findingKey, openFindings, parseWalk, settleIn, walkLine, withoutCalls, type Settled, type StoredWalk, type Walk } from "./walk-model"
 
+import { walkErrorCard } from "@/lib/intake/check-card"
+import { upsertFixCard } from "@/lib/intake/check-card-store"
+
 export class WalkError extends Error {}
 
 export async function listWalks(projectId: string, build?: string) {
@@ -29,7 +32,17 @@ export async function saveWalk(a: { projectId: string; userId: string; raw: unkn
     VALUES (${a.projectId}, ${walk.goal}, ${walk.useCase ?? null}, ${walk.persona ?? null}, ${walk.outcome}, ${walk.env ?? null}, ${walk.build ?? null}, ${JSON.stringify(walk)}::jsonb, ${a.actor}, ${a.userId})
     RETURNING id
   `) as { id: string }[]
-  return { id: row.id, line: walkLine(walk), findings: walk.findings.length }
+  // Errors a walk found are bugs: each goes straight to Up next as a card, once (owner, 2026-11-16).
+  let cards = 0
+  for (const f of walk.findings.filter((x) => x.kind === "error")) {
+    try {
+      await upsertFixCard(a.projectId, walkErrorCard({ key: findingKey(f), what: f.what, goal: walk.goal, suggest: f.suggest, route: (walk as { route?: string }).route ?? null }))
+      cards++
+    } catch (e) {
+      console.error("[walks] walk saved but a fix card was not made", row.id, e instanceof Error ? e.message : e)
+    }
+  }
+  return { id: row.id, line: walkLine(walk), findings: walk.findings.length, cards }
 }
 
 /** The line in a task's description that ties it to a finding the owner said to change. */
