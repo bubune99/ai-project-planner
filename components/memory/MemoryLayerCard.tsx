@@ -45,7 +45,7 @@ export function MemoryLayerCard({
   primaryCount,
   primaryLabel,
   secondaryCounts,
-  compressionLevel = 50,
+  compressionLevel,
   onClick,
 }: MemoryLayerCardProps) {
   const config = layerConfig[layer]
@@ -54,9 +54,11 @@ export function MemoryLayerCard({
   return (
     <Card
       className={cn(
-        "border-border bg-muted/40 hover:bg-muted transition-all cursor-pointer group"
+        // It looks pressable only when pressing it does something.
+        "border-border bg-muted/40 transition-all group", onClick && "hover:bg-muted cursor-pointer"
       )}
       onClick={onClick}
+      {...(onClick ? { role: "button", tabIndex: 0, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick() } } } : {})}
     >
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
         <div className="flex items-center gap-3">
@@ -68,7 +70,7 @@ export function MemoryLayerCard({
             <p className="text-xs text-muted-foreground mt-1">{description}</p>
           </div>
         </div>
-        <ChevronRight className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+        {onClick && <ChevronRight className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />}
       </CardHeader>
       <CardContent>
         {/* Primary Metric */}
@@ -94,7 +96,8 @@ export function MemoryLayerCard({
           </div>
         )}
 
-        {/* Compression Level */}
+        {/* Compression level: shown only when one is set. It used to read 50% whenever none was. */}
+        {typeof compressionLevel === "number" && (
         <div className="space-y-1">
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground">Compression</span>
@@ -102,6 +105,7 @@ export function MemoryLayerCard({
           </div>
           <Progress value={compressionLevel} className="h-1.5" />
         </div>
+        )}
       </CardContent>
     </Card>
   )

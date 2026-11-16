@@ -121,12 +121,12 @@ export default function MemoryPage() {
               [1,2,3,4,5,6].map(i => <MemoryLayerSkeleton key={i} />)
             ) : overview ? (
               <>
-                <MemoryLayerCard layer="where" title="WHERE" description={overview.where.description} primaryCount={overview.where.structures} primaryLabel="structures" compressionLevel={overview.settings?.whereCompression || 50} onClick={() => {}} />
-                <MemoryLayerCard layer="what" title="WHAT" description={overview.what.description} primaryCount={overview.what.modules} primaryLabel="modules" compressionLevel={overview.settings?.whatCompression || 50} onClick={() => {}} />
-                <MemoryLayerCard layer="how" title="HOW" description={overview.how.description} primaryCount={overview.how.implementations} primaryLabel="implementations" compressionLevel={overview.settings?.howCompression || 50} onClick={() => {}} />
-                <MemoryLayerCard layer="why" title="WHY" description={overview.why.description} primaryCount={overview.why.decisions.total} primaryLabel="decisions" secondaryCounts={[{ label: "active", value: overview.why.decisions.active }, { label: "resolved", value: overview.why.decisions.resolved }, { label: "revisit", value: overview.why.decisions.revisit }]} compressionLevel={overview.settings?.whyCompression || 50} onClick={() => {}} />
-                <MemoryLayerCard layer="who" title="WHO" description={overview.who.description} primaryCount={overview.who.collaborators} primaryLabel="collaborators" compressionLevel={overview.settings?.whoCompression || 50} onClick={() => {}} />
-                <MemoryLayerCard layer="when" title="WHEN" description={overview.when.description} primaryCount={overview.when.events} primaryLabel="events" secondaryCounts={[{ label: "milestones", value: overview.when.milestones.total }, { label: "achieved", value: overview.when.milestones.achieved }, { label: "pending", value: overview.when.milestones.pending }]} compressionLevel={overview.settings?.whenCompression || 50} onClick={() => {}} />
+                <MemoryLayerCard layer="where" title="WHERE" description={overview.where.description} primaryCount={overview.where.structures} primaryLabel="structures" compressionLevel={overview.settings?.whereCompression ?? undefined} />
+                <MemoryLayerCard layer="what" title="WHAT" description={overview.what.description} primaryCount={overview.what.modules} primaryLabel="modules" compressionLevel={overview.settings?.whatCompression ?? undefined} />
+                <MemoryLayerCard layer="how" title="HOW" description={overview.how.description} primaryCount={overview.how.implementations} primaryLabel="implementations" compressionLevel={overview.settings?.howCompression ?? undefined} />
+                <MemoryLayerCard layer="why" title="WHY" description={overview.why.description} primaryCount={overview.why.decisions.total} primaryLabel="decisions" secondaryCounts={[{ label: "active", value: overview.why.decisions.active }, { label: "resolved", value: overview.why.decisions.resolved }, { label: "revisit", value: overview.why.decisions.revisit }]} compressionLevel={overview.settings?.whyCompression ?? undefined} />
+                <MemoryLayerCard layer="who" title="WHO" description={overview.who.description} primaryCount={overview.who.collaborators} primaryLabel="collaborators" compressionLevel={overview.settings?.whoCompression ?? undefined} />
+                <MemoryLayerCard layer="when" title="WHEN" description={overview.when.description} primaryCount={overview.when.events} primaryLabel="events" secondaryCounts={[{ label: "milestones", value: overview.when.milestones.total }, { label: "achieved", value: overview.when.milestones.achieved }, { label: "pending", value: overview.when.milestones.pending }]} compressionLevel={overview.settings?.whenCompression ?? undefined} />
               </>
             ) : null}
           </div>
@@ -145,14 +145,14 @@ export default function MemoryPage() {
             <div className="opx-fit" style={{ marginTop: 12 }}>
               <div className="j-col" style={{ gap: 4 }}>
                 <span className="j-eyebrow">Decision retention</span>
-                <span style={{ fontSize: 14 }}>{overview.settings.retentionDecisions ?? 90} days</span>
+                <span style={{ fontSize: 14 }}>{overview.settings.retentionDecisions != null ? `${overview.settings.retentionDecisions} days` : "Not set"}</span>
               </div>
               <div className="j-col" style={{ gap: 4 }}>
                 <span className="j-eyebrow">Activity retention</span>
-                <span style={{ fontSize: 14 }}>{overview.settings.retentionActivity ?? 30} days</span>
+                <span style={{ fontSize: 14 }}>{overview.settings.retentionActivity != null ? `${overview.settings.retentionActivity} days` : "Not set"}</span>
               </div>
               <div className="j-col" style={{ gap: 4 }}>
-                <button className="j-btn j-btn-ghost" onClick={fetchOverview} style={{ alignSelf: "flex-start" }}>↻ Refresh</button>
+                <button className="opx-btn sm" onClick={fetchOverview} style={{ alignSelf: "flex-start" }}>Refresh</button>
               </div>
             </div>
           </div>

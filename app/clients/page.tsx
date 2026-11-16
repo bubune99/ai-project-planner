@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { toast } from "sonner"
 import { DashboardLayout } from "@/components/navigation"
 import { Icon } from "@/components/jarvis/icons"
 
@@ -144,7 +145,7 @@ export default function ClientsPage() {
   }
 
   const saveClient = async () => {
-    if (!form.name.trim()) { setErr("Name is required"); return }
+    if (!form.name.trim()) { setErr("Give the client a name first."); return }
     try {
       setSaving(true)
       const res = await fetch(editing ? `/api/clients/${editing.id}` : "/api/clients", {
@@ -165,14 +166,16 @@ export default function ClientsPage() {
 
   const removeClient = async (c: Client) => {
     if (!confirm(`Delete client "${c.name}"? Linked projects are kept but unlinked.`)) return
-    await fetch(`/api/clients/${c.id}`, { method: "DELETE" })
+    const res = await fetch(`/api/clients/${c.id}`, { method: "DELETE" }).catch(() => null)
+    if (!res || !res.ok) { toast.error("The client was not deleted"); return }
+    toast.success("Client deleted")
     if (expanded === c.id) { setExpanded(null); setDetail(null) }
     await fetchClients()
   }
 
   const addSchedule = async () => {
     if (!detail) return
-    if (!schedForm.title.trim()) { setErr("Service title is required"); return }
+    if (!schedForm.title.trim()) { setErr("Give the service a title first."); return }
     const res = await fetch("/api/service-schedules", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -193,11 +196,13 @@ export default function ClientsPage() {
 
   const performSchedule = async (s: Schedule) => {
     if (!detail) return
-    await fetch(`/api/service-schedules/${s.id}`, {
+    const res = await fetch(`/api/service-schedules/${s.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "perform" }),
-    })
+    }).catch(() => null)
+    if (!res || !res.ok) { toast.error("It was not marked as done"); return }
+    toast.success("Marked as done")
     await openDetailRefresh(detail.id)
     await fetchClients()
   }
@@ -205,7 +210,8 @@ export default function ClientsPage() {
   const removeSchedule = async (s: Schedule) => {
     if (!detail) return
     if (!confirm(`Delete service "${s.title}"?`)) return
-    await fetch(`/api/service-schedules/${s.id}`, { method: "DELETE" })
+    const res = await fetch(`/api/service-schedules/${s.id}`, { method: "DELETE" }).catch(() => null)
+    if (!res || !res.ok) { toast.error("The service was not deleted"); return }
     await openDetailRefresh(detail.id)
     await fetchClients()
   }
@@ -227,14 +233,10 @@ export default function ClientsPage() {
 
         {/* Filters */}
         <div className="j-row j-wrap" style={{ gap: 8 }}>
-          <div className="j-tabs">
-            <span className={`j-tab${filter === "" ? " j-active" : ""}`} onClick={() => setFilter("")}>All</span>
-            {STATUSES.map(s => (
-              <span key={s} className={`j-tab${filter === s ? " j-active" : ""}`} onClick={() => setFilter(s)}>
-                {s[0].toUpperCase() + s.slice(1)}
-              </span>
-            ))}
-          </div>
+          <select className="opx-input opx-afilter" aria-label="Filter by status" value={filter} onChange={e => setFilter(e.target.value)}>
+            <option value="">Status: all</option>
+            {STATUSES.map(s => <option key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</option>)}
+          </select>
           <input
             className="j-search"
             style={{ minWidth: 220 }}
@@ -301,7 +303,7 @@ export default function ClientsPage() {
         ) : clients.length === 0 ? (
           <div className="j-card j-col" style={{ alignItems: "center", gap: 10, padding: 48 }}>
             <Icon name="users" size={28} />
-            <p className="j-muted">No clients yet. Add a client to track ongoing work and retainers.</p>
+            <p className="j-muted">{filter || search.trim() ? "No clients match these filters." : "No clients yet. Add a client to track ongoing work and retainers."}</p>
             <button className="j-btn j-btn-primary" onClick={openCreate}><Icon name="plus" size={14} /> New Client</button>
           </div>
         ) : (
@@ -309,7 +311,7 @@ export default function ClientsPage() {
             {clients.map(c => (
               <div key={c.id} className="j-card">
                 <div className="j-card-head">
-                  <div style={{ minWidth: 0, cursor: "pointer" }} onClick={() => openDetail(c.id)}>
+                  <div style={{ minWidth: 0, cursor: "pointer" }} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDetail(c.id) } }} onClick={() => openDetail(c.id)}>
                     <div className="j-row" style={{ gap: 8 }}>
                       <p className="j-card-title">{c.name}</p>
                       {c.company && <span className="j-pill j-proj">{c.company}</span>}
@@ -324,13 +326,13 @@ export default function ClientsPage() {
                     </p>
                   </div>
                   <div className="j-row" style={{ gap: 6 }}>
-                    <button className="j-btn j-btn-icon j-btn-ghost" onClick={() => openDetail(c.id)} aria-label="Expand">
+                    <button className="j-btn j-btn-icon j-btn-ghost" onClick={() => openDetail(c.id)} aria-label={`${expanded === c.id ? "Close" : "Open"} ${c.name}`} aria-expanded={expanded === c.id}>
                       <Icon name={expanded === c.id ? "chevR" : "list"} size={14} />
                     </button>
-                    <button className="j-btn j-btn-icon j-btn-ghost" onClick={() => openEdit(c)} aria-label="Edit">
+                    <button className="j-btn j-btn-icon j-btn-ghost" onClick={() => openEdit(c)} aria-label={`Edit ${c.name}`}>
                       <Icon name="cog" size={14} />
                     </button>
-                    <button className="j-btn j-btn-icon j-btn-ghost" onClick={() => removeClient(c)} aria-label="Delete">
+                    <button className="j-btn j-btn-icon j-btn-ghost" onClick={() => removeClient(c)} aria-label={`Delete ${c.name}`}>
                       <Icon name="x" size={14} />
                     </button>
                   </div>
