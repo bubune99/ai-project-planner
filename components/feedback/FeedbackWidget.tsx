@@ -426,7 +426,9 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
               You pointed at {pickedWords(target)}
               {target.screenshot && (
                 <img src={target.screenshot} alt={`What you pointed at: ${pickedWords(target)}`}
-                  style={{ display: "block", marginTop: 6, maxWidth: "100%", maxHeight: 120, borderRadius: 4, background: "#fff" }} />
+                  style={{ display: "block", marginTop: 6, maxWidth: "100%", maxHeight: 120, borderRadius: 4, padding: 4, border: "1px solid #2a3142",
+                    // The page's own background, so the picture reads in both themes (white hid light text).
+                    background: typeof document !== "undefined" ? getComputedStyle(document.body).backgroundColor : "#fff" }} />
               )}
             </div>
           ) : (
