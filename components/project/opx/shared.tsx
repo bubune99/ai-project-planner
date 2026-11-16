@@ -83,7 +83,7 @@ export function Md({ text }: { text: string }) {
   )
 }
 
-export function Section({ title, count, action, children, style }: { title?: ReactNode; count?: number | string; action?: ReactNode; children: ReactNode; style?: React.CSSProperties }) {
+export function Section({ title, count, action, children, style }: { title?: ReactNode; count?: ReactNode; action?: ReactNode; children: ReactNode; style?: React.CSSProperties }) {
   return (
     <section className="opx-sec" style={style}>
       {(title || action) && (

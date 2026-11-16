@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { Wait } from "@/components/project/opx/shared"
 import { useUser } from "@stackframe/stack"
 import { DashboardLayout } from "@/components/navigation"
 import { IdeasKanban } from "@/components/ideas"
@@ -143,7 +144,7 @@ export default function IdeasPage() {
         <div className="j-row j-between">
           <div className="j-row j-gap-2">
             <span className="j-pill j-idea" style={{ fontSize: 12 }}>
-              {total} ideas
+              {isLoading && total === 0 ? <Wait w="2ch" /> : total} ideas
             </span>
             {exploringCount > 0 && (
               <span className="j-pill j-warn">{exploringCount} exploring</span>
