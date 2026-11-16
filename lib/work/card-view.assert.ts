@@ -1,6 +1,6 @@
 // npx -y tsx@4.23.15 lib/work/card-view.assert.ts
 import assert from "node:assert/strict"
-import { addPicture, cardPictures, kindLabel, overall, proposalParts, removePicture, stepTree, withoutPictures } from "./card-view"
+import { addPicture, cardPictures, fileUrl, kindLabel, overall, proposalParts, removePicture, stepTree, withoutPictures } from "./card-view"
 
 const A = "https://r2.example.com/a.png", B = "https://r2.example.com/b.png"
 // Pictures from the card and from its description, each once; anything not https is ignored.
@@ -15,6 +15,11 @@ assert.deepEqual(m, { work: { jobId: "j" }, pictures: [{ url: A, caption: "Board
 assert.deepEqual(addPicture(m, { url: A, caption: "again" }), m)
 assert.deepEqual(addPicture(m, { url: "http://x", caption: "" }), m)
 assert.deepEqual(removePicture(m, A), { work: { jobId: "j" }, pictures: [] })
+// An uploaded picture is kept by the planner's own file route (storage is private); other paths are refused.
+const own = fileUrl("0b55c011-80a8-4ca7-b458-05b4756b6a03")
+assert.equal(own, "/api/documents/0b55c011-80a8-4ca7-b458-05b4756b6a03/file")
+assert.deepEqual(addPicture({}, { url: own, caption: "x" }).pictures, [{ url: own, caption: "x" }])
+assert.deepEqual(addPicture({}, { url: "/api/admin/x", caption: "x" }).pictures, [])
 // A proposal reads as its parts, in the order of a decision; a card that is not one has none.
 assert.deepEqual(proposalParts({ proposal: { goal: "G", what: "W", deliverable: "D", proof: "P", why: "Y", useCase: "U" } }).map((p) => p.label + ":" + p.text),
   ["The goal it serves:G (use case: U)", "What it does:W", "What is delivered:D", "How it is proved:P", "Why:Y"])

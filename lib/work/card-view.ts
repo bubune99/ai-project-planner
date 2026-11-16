@@ -11,7 +11,10 @@
 export interface Picture { url: string; caption: string }
 
 const IMG_MD = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g
-const safeUrl = (u: unknown) => (typeof u === "string" && /^https:\/\//.test(u) ? u : null)
+/** The planner's own file route for an uploaded file (it checks who asks, then hands out a short-lived link). */
+const OWN_FILE = /^\/api\/documents\/[0-9a-f-]{36}\/file$/i
+export const fileUrl = (documentId: string) => `/api/documents/${documentId}/file`
+const safeUrl = (u: unknown) => (typeof u === "string" && (/^https:\/\//.test(u) || OWN_FILE.test(u)) ? u : null)
 
 /** Pictures kept on the card (metadata.pictures) and pictures written into its description, each once. */
 export function cardPictures(metadata: Record<string, unknown> | null | undefined, description: string | null | undefined): Picture[] {

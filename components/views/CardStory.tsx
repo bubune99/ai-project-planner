@@ -13,7 +13,7 @@ import { ChevronLeft, ChevronRight, ImagePlus, Pencil, X } from "lucide-react"
 import { toast } from "sonner"
 import type { BoardStep } from "@/lib/types"
 import { RichText } from "@/components/shared/RichText"
-import { addPicture, cardPictures, kindLabel, overall, proposalParts, removePicture, stepTree, withoutPictures, type Picture } from "@/lib/work/card-view"
+import { addPicture, cardPictures, fileUrl, kindLabel, overall, proposalParts, removePicture, stepTree, withoutPictures, type Picture } from "@/lib/work/card-view"
 import { holderLine } from "./kanban/adapt"
 import type { ProjectStatus } from "./kanban-config"
 
@@ -153,7 +153,9 @@ export function CardPictures({ step, onSaveMetadata }: { step: BoardStep; onSave
       fd.append("title", `Card picture: ${step.title}`.slice(0, 200))
       const res = await fetch("/api/upload", { method: "POST", body: fd })
       const j = await res.json().catch(() => ({}))
-      const url = j.blobUrl ?? j.document?.blob_url
+      // Storage is private: the planner's file route checks who asks and hands out a short-lived link.
+      const docId = j.document?.id ?? j.documentId
+      const url = docId ? fileUrl(docId) : null
       if (!res.ok || !url) throw new Error(j.error || `The upload failed (${res.status})`)
       await onSaveMetadata(addPicture(step.metadata, { url, caption: file.name.replace(/\.[a-z0-9]+$/i, "") }))
       toast.success("Picture added")
