@@ -360,7 +360,7 @@ ok("a targeted scan replaces what is inside its region and leaves everything els
 
 console.log(`${n} checks passed in all`)
 
-import { answerState, intakeLine, intakeQuestions, intakeStatus, type Answer } from "./gate-model"
+import { answerState, intakeLine, intakeStatus, type Answer } from "./gate-model"
 
 ok("every planned item is asked why it exists; what else it is asked depends on what it is", () => {
   const ids = (kind?: string) => intakeQuestions(kind).map((q) => q.id)
