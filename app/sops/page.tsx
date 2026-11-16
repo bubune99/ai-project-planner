@@ -66,6 +66,24 @@ export default function LibraryPage() {
   const [open, setOpen] = useState<string | null>(null)
   const [form, setForm] = useState<Form | null>(null) // editing the open SOP, or a new one when open is null
   const [saving, setSaving] = useState(false)
+  // What the form held when it opened, so leaving with changes warns, and a new SOP's words are kept for later
+  // (Library check, 2026-11-15: the form for a new SOP kept nothing if the page was left).
+  const [base, setBase] = useState("")
+  const [keptNote, setKeptNote] = useState(false)
+  const dirty = !!form && JSON.stringify(form) !== base
+  const DRAFT_KEY = "planner:sop-draft:new"
+  const startForm = (f: Form, kept = false) => { setBase(kept ? "" : JSON.stringify(f)); setKeptNote(kept); setForm(f) }
+  const closeForm = () => { if (!open) { try { sessionStorage.removeItem(DRAFT_KEY) } catch {} } setKeptNote(false); setForm(null) }
+  useEffect(() => {
+    if (!form || open || !dirty) return
+    try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(form)) } catch {}
+  }, [form, open, dirty])
+  useEffect(() => {
+    if (!dirty) return
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = "" }
+    window.addEventListener("beforeunload", warn)
+    return () => window.removeEventListener("beforeunload", warn)
+  }, [dirty])
 
   const fetchSops = useCallback(async () => {
     try {
@@ -142,8 +160,9 @@ export default function LibraryPage() {
       const json = await res.json()
       if (!res.ok || !json.success) throw new Error(json?.error?.message || "Save failed")
       toast.success(cur ? "Saved" : "SOP created")
+      if (!cur) { try { sessionStorage.removeItem(DRAFT_KEY) } catch {} }
       if (!cur && json.data?.id) setOpen(json.data.id)
-      setForm(null)
+      setKeptNote(false); setForm(null)
       await fetchSops()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Save failed")
@@ -170,10 +189,11 @@ export default function LibraryPage() {
       <div className="opx-row" style={{ marginBottom: 10 }}>
         <b style={{ fontSize: 16 }}>{cur ? "Edit SOP" : "New SOP"}</b>
         <span className="opx-row" style={{ marginLeft: "auto", gap: 6 }}>
-          <button className="opx-btn" onClick={() => setForm(null)} disabled={saving}>Cancel</button>
+          <button className="opx-btn" onClick={closeForm} disabled={saving}>{dirty ? "Discard" : "Cancel"}</button>
           <button className="opx-btn primary" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
         </span>
       </div>
+      {keptNote && <p className="opx-muted" style={{ fontSize: 13, margin: "0 0 10px" }}>Kept from earlier: what you had typed before leaving. Discard clears it.</p>}
       <div className="opx-col" style={{ gap: 10 }}>
         <input className="opx-input" placeholder="Title" aria-label="SOP title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} autoFocus />
         <div className="opx-row" style={{ gap: 10, flexWrap: "wrap" }}>
@@ -210,7 +230,13 @@ export default function LibraryPage() {
             {cats.map(([c, n]) => (
               <button key={c} className={`opx-dc${cat === c ? " on" : ""}`} onClick={() => { setCat(c); setOpen(null) }}>{c} <em>{n}</em></button>
             ))}
-            <button className="opx-btn primary" style={{ marginTop: 12, width: "100%", justifyContent: "center" }} onClick={() => { setOpen(null); setForm({ title: "", content: "", category: cat === "all" || cat === UNCAT ? "" : cat, status: "active" }) }}>New SOP</button>
+            <button className="opx-btn primary" style={{ marginTop: 12, width: "100%", justifyContent: "center" }} onClick={() => {
+              setOpen(null)
+              let kept: Form | null = null
+              try { const raw = sessionStorage.getItem(DRAFT_KEY); kept = raw ? (JSON.parse(raw) as Form) : null } catch {}
+              if (kept && typeof kept.title === "string") startForm(kept, true)
+              else startForm({ title: "", content: "", category: cat === "all" || cat === UNCAT ? "" : cat, status: "active" })
+            }}>New SOP</button>
             <button className="opx-btn" style={{ marginTop: 6, width: "100%", justifyContent: "center" }} onClick={newMap}>New process map</button>
             <div className="opx-muted" style={{ fontSize: 12, fontWeight: 600, margin: "18px 0 6px 4px", paddingTop: 12, borderTop: "1px solid var(--opx-line)" }}>For agents</div>
             {SHELVES.map((x) => (
@@ -226,7 +252,7 @@ export default function LibraryPage() {
                 <button className="opx-link opx-act" onClick={() => setOpen(null)}>‹ {cat === "all" ? "All SOPs" : cat}</button>
                 <span className="opx-row" style={{ marginLeft: "auto", gap: 6 }}>
                   <button className="opx-btn" onClick={() => remove(cur)}>Delete</button>
-                  <button className="opx-btn" onClick={() => setForm({ title: cur.title, content: stripMapBlock(cur.content), category: cur.category ?? "", status: cur.status })}>{curMap ? "Edit the words" : "Edit"}</button>
+                  <button className="opx-btn" onClick={() => startForm({ title: cur.title, content: stripMapBlock(cur.content), category: cur.category ?? "", status: cur.status })}>{curMap ? "Edit the words" : "Edit"}</button>
                 </span>
               </div>
               <div className="opx-row opx-muted" style={{ fontSize: 12.5, gap: 6 }}>

@@ -70,7 +70,8 @@ function toNodes(layer: Layer, linking: string | null): Node[] {
 type Target =
   | { kind: "node"; id: string } | { kind: "stage"; id: string } | { kind: "lane"; index: number; at?: Point }
   | { kind: "edge"; index: number } | { kind: "pane"; at: Point }
-interface Floating { x: number; y: number; target: Target; form?: { title: string; sub: string; who: string } }
+// fresh: the form names something just made, so saving it joins that change (one act, one Undo).
+interface Floating { x: number; y: number; target: Target; form?: { title: string; sub: string; who: string }; fresh?: boolean }
 const BLANK = { title: "", sub: "", who: "" }
 const targetOf = (n: Node): Target | null => (n.type === "box" ? { kind: "node", id: n.id } : n.type === "stage" ? { kind: "stage", id: n.id.replace(/^stage-/, "") } : n.type === "lane" ? { kind: "lane", index: Number(n.id.replace("lane", "")) } : null)
 
@@ -117,12 +118,14 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
   const pick = pickName != null ? picked : null
 
   /** Every change goes through here, so every change can be undone. */
-  const commit = useCallback((next: Layer) => {
+  // join: this edit finishes the one just made (naming a new lane, stage or step), so it shares that Undo
+  // (Library check, 2026-11-15: adding then naming a lane took two Undo presses).
+  const commit = useCallback((next: Layer, join = false) => {
     if (!onChange || next === map) return
-    setHistory((h) => ({ past: [...h.past.slice(-49), map], future: [] }))
+    setHistory((h) => (join && h.past.length ? { past: h.past, future: [] } : { past: [...h.past.slice(-49), map], future: [] }))
     onChange(next)
   }, [map, onChange])
-  const change = useCallback((fn: (l: Layer) => Layer) => commit(updateAt(map, livePath, fn)), [commit, map, livePath])
+  const change = useCallback((fn: (l: Layer) => Layer, join = false) => commit(updateAt(map, livePath, fn), join), [commit, map, livePath])
   const undo = useCallback(() => { const prev = history.past.at(-1); if (!prev || !onChange) return; setHistory({ past: history.past.slice(0, -1), future: [map, ...history.future] }); onChange(prev) }, [history, map, onChange])
   const redo = useCallback(() => { const next = history.future[0]; if (!next || !onChange) return; setHistory({ past: [...history.past, map], future: history.future.slice(1) }); onChange(next) }, [history, map, onChange])
   const back = useCallback(() => setPath((p) => p.slice(0, -1)), [])
@@ -167,18 +170,18 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
   }
   const saveForm = () => {
     if (!float?.form) return
-    const { target: t, form: f } = float, title = f.title.trim()
-    if (t.kind === "edge") change((l) => setLink(l, t.index, { label: title }))
+    const { target: t, form: f } = float, title = f.title.trim(), join = !!float.fresh
+    if (t.kind === "edge") change((l) => setLink(l, t.index, { label: title }), join)
     else if (!title) return
-    else if (t.kind === "node") change((l) => setNode(l, t.id, { title, sub: f.sub.trim(), ...(lanes ? {} : { who: f.who.trim() }) }))
-    else if (t.kind === "stage") change((l) => setStage(l, t.id, { title, sub: f.sub.trim() }))
-    else if (t.kind === "lane") change((l) => renameLane(l, t.index, title))
+    else if (t.kind === "node") change((l) => setNode(l, t.id, { title, sub: f.sub.trim(), ...(lanes ? {} : { who: f.who.trim() }) }), join)
+    else if (t.kind === "stage") change((l) => setStage(l, t.id, { title, sub: f.sub.trim() }), join)
+    else if (t.kind === "lane") change((l) => renameLane(l, t.index, title), join)
     setFloat(null)
   }
   /** Asks for the words of something just made, where the pointer is (or at the top of the drawing). */
   const nameIt = (target: Target, title: string, where?: { x: number; y: number }) => {
     const r = wrap.current!.getBoundingClientRect()
-    setFloat({ x: where?.x ?? r.width / 2 - 130, y: where?.y ?? 16, target, form: { title, sub: "", who: "" } })
+    setFloat({ x: where?.x ?? r.width / 2 - 130, y: where?.y ?? 16, target, form: { title, sub: "", who: "" }, fresh: true })
   }
   const stepInto = (cell: { stage: string; lane: number }, where?: { x: number; y: number }) => {
     if (!cellFree(layer, cell)) return false
