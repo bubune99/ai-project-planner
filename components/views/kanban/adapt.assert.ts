@@ -251,6 +251,8 @@ eq(
   eq(card({ work_kind: "initiative" }).kind, "Phase", "an initiative's kind is drawn on the card")
   eq(card({ work_kind: "upkeep" }).kind, "Upkeep", "an upkeep card's kind is drawn on the card")
   eq(card({ work_kind: "task", tags: ["x"] }).kind, undefined, "a plain task draws no kind")
+  eq(toKanbanTask({ ...base, project_name: "BYB Society" } as BoardStep, { statusMap: {}, showProject: true }).footnotes?.[0]?.label, "BYB Society", "on the all-projects board a card names its project first")
+  eq((toKanbanTask(base as BoardStep, { statusMap: {} }).footnotes ?? []).some((f) => f.title === "The project this card belongs to"), false, "a project's own board does not repeat the project")
   eq(card({ status: "in-progress", claimed_by_id: "claude-code", claimed_at: at(5) }).assignees, [{ name: "claude-code" }], "in progress shows the agent holding it")
   eq(card({ status: "in-progress", claimed_by_id: "claude-code", claimed_at: at(5) }).footnotes?.[0]?.label, "With claude-code", "and says so in words")
   eq(card({ status: "in-progress", metadata: { work: { sentAt: at(3) } } }).footnotes?.[0]?.label, "Sent, waiting for an agent", "sent and not yet picked up")

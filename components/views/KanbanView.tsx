@@ -70,7 +70,11 @@ function loadPrefs(projectId: string): BoardPrefs {
   }
 }
 
+/** The projectId that turns the board into every project's board at once (owner, 2026-11-16: "Macro task board to micro task board"). */
+export const ALL_PROJECTS = "all"
+
 export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }: KanbanViewProps) {
+  const all = projectId === ALL_PROJECTS
   const [steps, setSteps] = useState<BoardStep[]>([])
   const [customStatuses, setCustomStatuses] = useState<ProjectStatus[]>([])
   const [fetching, setFetching] = useState(true)
@@ -115,6 +119,8 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
 
   const refetchStatuses = useCallback(async (): Promise<ProjectStatus[]> => {
     try {
+      // The all-projects board uses the standard columns; a project's own columns stay on its own board.
+      if (all) { setCustomStatuses([]); return [] }
       const res = await fetch(`/api/projects/${projectId}/statuses`)
       const data = await res.json()
       const rows = Array.isArray(data.statuses) ? data.statuses : []
@@ -128,7 +134,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
   const refetch = useCallback(async () => {
     try {
       const [stepsRes] = await Promise.all([
-        fetch(`/api/projects/${projectId}/steps`),
+        fetch(all ? "/api/steps" : `/api/projects/${projectId}/steps`),
         refetchStatuses(),
       ])
       const data = await stepsRes.json()
@@ -146,6 +152,24 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
   }, [refetch])
 
   const parents = useMemo(() => steps.filter((s) => !s.parent_task_id), [steps])
+  // Each card is saved through its own project (on the all-projects board the cards come from many).
+  const stepsRef = useRef(steps)
+  stepsRef.current = steps
+  const stepUrl = useCallback(
+    (stepId: string) => `/api/projects/${all ? stepsRef.current.find((s) => s.id === stepId)?.project_id ?? projectId : projectId}/steps/${stepId}`,
+    [all, projectId],
+  )
+  const projectsOnBoard = useMemo(() => {
+    if (!all) return undefined
+    const m = new Map<string, { id: string; name: string; count: number }>()
+    for (const s of steps) {
+      if (s.parent_task_id) continue
+      const name = (s as BoardStep & { project_name?: string }).project_name ?? "Project"
+      const cur = m.get(s.project_id) ?? { id: s.project_id, name, count: 0 }
+      m.set(s.project_id, { ...cur, count: cur.count + 1 })
+    }
+    return [...m.values()].sort((a, b) => a.name.localeCompare(b.name))
+  }, [all, steps])
   const subtasksOf = useCallback((stepId: string) => steps.filter((s) => s.parent_task_id === stepId), [steps])
   const phases = useMemo(
     () => Array.from(new Set(steps.map((s) => s.phase).filter((p): p is string => !!p))),
@@ -163,7 +187,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
         prev.map((s) => (s.id === stepId ? ({ ...s, ...patch } as BoardStep) : s))
       )
       try {
-        const res = await fetch(`/api/projects/${projectId}/steps/${stepId}`, {
+        const res = await fetch(stepUrl(stepId), {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(patch),
@@ -367,7 +391,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
       setSteps((cur) => cur.filter((s) => s.id !== step.id && s.parent_task_id !== step.id))
       setDetailStepId((cur) => (cur === step.id ? null : cur))
       try {
-        const res = await fetch(`/api/projects/${projectId}/steps/${step.id}`, { method: "DELETE" })
+        const res = await fetch(stepUrl(step.id), { method: "DELETE" })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         toast.success("Task deleted")
         onRefresh?.()
@@ -399,6 +423,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
       if (filters.agent !== "all" && (s.assigned_agent ?? "none") !== filters.agent) return false
       if (filters.phase !== "all" && (s.phase || "none") !== filters.phase) return false
       if (filters.tag !== "all" && !(Array.isArray(s.tags) && s.tags.includes(filters.tag))) return false
+      if (all && filters.project && filters.project !== "all" && s.project_id !== filters.project) return false
       return true
     })
   }, [parents, searchQuery, filters, prefs.showCompleted, statusMap])
@@ -427,6 +452,8 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
 
   const persistColumnOrder = useCallback(
     async (orderedColumnIds: string[]) => {
+      // Order is kept per project; on the all-projects board a card's place in its column is not saved.
+      if (all) return
       const globalOrder = [...parents].sort((a, b) => a.order_index - b.order_index).map((s) => s.id)
       const inColumn = new Set(orderedColumnIds)
       const queue = [...orderedColumnIds]
@@ -499,7 +526,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
    * array every render would reset it mid-drag.
    */
   const boardColumns = useMemo(
-    () => toKanbanColumns(columns, columnSteps, { statusMap, subtasksOf }),
+    () => toKanbanColumns(columns, columnSteps, { statusMap, subtasksOf, showProject: all }),
     // boardNonce is deliberate: it is how a refused move pulls the board back.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [columns, columnSteps, statusMap, subtasksOf, boardNonce]
@@ -551,10 +578,11 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
           onShowCompletedChange={(showCompleted) => savePrefs({ showCompleted })}
           expandSubtasks={prefs.expandSubtasks}
           onExpandSubtasksChange={(expandSubtasks) => savePrefs({ expandSubtasks })}
-          onCreate={() => {
+          onCreate={all ? undefined : () => {
             setFormStep(null)
             setShowStepForm(true)
           }}
+          projects={projectsOnBoard}
         />
 
         {fetching ? (
@@ -588,7 +616,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
                 what carries the status/priority/phase preset — and open it
                 straight away so the title is the next thing you type.
               */
-              onAddTask={async (columnId) => {
+              onAddTask={all ? undefined : async (columnId) => {
                 const preset = patchForMove(prefs.groupBy, columnId) ?? {}
                 try {
                   const created = await createStep({ title: UNTITLED_TASK, ...preset })
@@ -598,7 +626,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
                 }
               }}
               renderColumnMenu={(col) =>
-                prefs.groupBy === "status" ? (
+                prefs.groupBy === "status" && !all ? (
                   <ColumnMenu
                     column={columns.find((c) => c.key === col.id) ?? { ...col, key: col.id, label: col.name, pillClass: "", dotClass: "" }}
                     kind={statusMap[col.id]?.kind ?? "open"}
@@ -644,7 +672,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
 
             {/* Add group (custom status column). Outside the board because the
                 board owns its own horizontal track. */}
-            {prefs.groupBy === "status" && (
+            {prefs.groupBy === "status" && !all && (
               <div className="mt-2 w-[220px]">
                 {addingGroup ? (
                   <Input
@@ -693,7 +721,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
             draftRef.current = null
             if (draft && detailStep && leftUntouched(draft, detailStep, subtasksOf(detailStep.id).length)) {
               setSteps((cur) => cur.filter((s) => s.id !== draft.id))
-              fetch(`/api/projects/${projectId}/steps/${draft.id}`, { method: "DELETE" })
+              fetch(stepUrl(draft.id), { method: "DELETE" })
                 .then((res) => { if (!res.ok) throw new Error(`HTTP ${res.status}`); toast("Nothing was typed, so the new task was not kept"); onRefresh?.() })
                 .catch(() => { toast.error("The empty task could not be removed"); refetch() })
             }

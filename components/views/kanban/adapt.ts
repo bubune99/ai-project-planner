@@ -95,6 +95,8 @@ export interface AdaptOptions {
   today?: Date
   /** Subtasks of a step, so the card can show a done/total counter. */
   subtasksOf?: (stepId: string) => BoardStep[]
+  /** On the all-projects board each card names its project first (owner, 2026-11-16: "tasks need to have tags or be identified to the project that they belong to"). */
+  showProject?: boolean
 }
 
 function hours(v: BoardStep["estimated_hours"]): number {
@@ -174,7 +176,7 @@ export function toKanbanTask(step: BoardStep, opts: AdaptOptions): KanbanTask {
     due,
     dueSoon,
     progress: toProgress(step, isDone),
-    footnotes: [...(holderLine(step, opts.today ?? new Date()) ? [holderLine(step, opts.today ?? new Date())!] : []), ...toFootnotes(step, opts)],
+    footnotes: [...(opts.showProject ? [{ label: (step as BoardStep & { project_name?: string }).project_name ?? "Project", title: "The project this card belongs to" }] : []), ...(holderLine(step, opts.today ?? new Date()) ? [holderLine(step, opts.today ?? new Date())!] : []), ...toFootnotes(step, opts)],
     done: isDone,
   }
 }

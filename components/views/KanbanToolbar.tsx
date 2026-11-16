@@ -24,6 +24,7 @@ export interface BoardFilters {
   agent: string // "all" | v0|claude|gemini|gpt|none
   phase: string // "all" | <phase> | none
   tag: string // "all" | <tag>
+  project?: string // "all" | <project id>, on the all-projects board
 }
 
 interface KanbanToolbarProps {
@@ -41,7 +42,10 @@ interface KanbanToolbarProps {
   onShowCompletedChange: (v: boolean) => void
   expandSubtasks: boolean
   onExpandSubtasksChange: (v: boolean) => void
-  onCreate: () => void
+  /** Absent on the all-projects board: a card is made on its project's own board. */
+  onCreate?: () => void
+  /** On the all-projects board: the projects to narrow to. */
+  projects?: { id: string; name: string; count: number }[]
 }
 
 export const EMPTY_FILTERS: BoardFilters = { priority: "all", agent: "all", phase: "all", tag: "all" }
@@ -62,6 +66,7 @@ export function KanbanToolbar({
   expandSubtasks,
   onExpandSubtasksChange,
   onCreate,
+  projects,
 }: KanbanToolbarProps) {
   const activeFilterCount = Object.values(filters).filter((v) => v !== "all").length
   const anythingActive = activeFilterCount > 0 || !!searchQuery || !showCompleted
@@ -74,10 +79,27 @@ export function KanbanToolbar({
 
   return (
     <div className="opx-board-tools flex gap-2 items-center flex-wrap mb-4">
-      <Button onClick={onCreate} size="sm">
-        <Plus className="w-4 h-4 mr-1.5" />
-        New step
-      </Button>
+      {onCreate && (
+        <Button onClick={onCreate} size="sm">
+          <Plus className="w-4 h-4 mr-1.5" />
+          New step
+        </Button>
+      )}
+      {projects && (
+        <Select value={filters.project ?? "all"} onValueChange={(v) => onFiltersChange({ ...filters, project: v })}>
+          <SelectTrigger className="h-8 w-[240px]" aria-label="Project">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All projects</SelectItem>
+            {projects.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.name} ({p.count})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
 
       <div className="relative flex-1 min-w-[180px] max-w-[320px]">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -128,7 +150,7 @@ export function KanbanToolbar({
             <ListFilter className="w-3.5 h-3.5 mr-1.5" />
             Filter
             {activeFilterCount > 0 && (
-              <Badge className="ml-1.5 h-4 px-1 text-[10px]" variant="secondary">
+              <Badge className="ml-1.5 h-4 px-1 text-[12px]" variant="secondary">
                 {activeFilterCount}
               </Badge>
             )}

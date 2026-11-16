@@ -25,11 +25,19 @@ import { TodoQuickAdd } from "@/components/todos/TodoQuickAdd"
 import { TodoEditModal } from "@/components/todos/TodoEditModal"
 import { WorkList, WorkCalendar } from "@/components/work/opx-work"
 import { Seg } from "@/components/project/opx/shared"
+import { KanbanView, ALL_PROJECTS } from "@/components/views/KanbanView"
+import { useRoomBelow } from "@/lib/layout/use-room-below"
 import type { Todo, TodoPriority } from "@/lib/types"
 
 interface Project {
   id: string
   name: string
+}
+
+/** The board fills what the page area shows, so one scrollbar moves the page (as on a project's board). */
+function BoardRoom({ children }: { children: React.ReactNode }) {
+  const { ref, height } = useRoomBelow<HTMLDivElement>()
+  return <div ref={ref} data-testid="board-room" style={{ height: height ?? "calc(100vh - 260px)" }}>{children}</div>
 }
 
 export default function TodosPage() {
@@ -40,9 +48,10 @@ export default function TodosPage() {
   const [isAdding, setIsAdding] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   // Same pair as a project's task views: List · Calendar. Kept in the URL so a link or refresh keeps it.
-  const [view, setView] = useState<"list" | "calendar">("list")
-  useEffect(() => { if (new URLSearchParams(window.location.search).get("view") === "calendar") setView("calendar") }, [])
-  const pickView = (v: "list" | "calendar") => {
+  // Board: every project's cards in the same columns (owner, 2026-11-16: "Macro task board to micro task board").
+  const [view, setView] = useState<"list" | "board" | "calendar">("list")
+  useEffect(() => { const v = new URLSearchParams(window.location.search).get("view"); if (v === "calendar" || v === "board") setView(v) }, [])
+  const pickView = (v: "list" | "board" | "calendar") => {
     setView(v)
     const u = new URL(window.location.href); u.searchParams.set("view", v); window.history.replaceState(null, "", u)
   }
@@ -168,14 +177,20 @@ export default function TodosPage() {
             <h1>My work</h1>
             <div className="opx-muted">Every project&apos;s tasks and your own todos, each shown once.</div>
           </div>
-          <Seg label="View" value={view} onChange={pickView} options={[["list", "List"], ["calendar", "Calendar"]]} />
+          <Seg label="View" value={view} onChange={pickView} options={[["list", "List"], ["board", "Board"], ["calendar", "Calendar"]]} />
         </header>
-        <section className="opx-sec">
-          <TodoQuickAdd onAdd={handleAdd} projects={projects} isLoading={isAdding} />
-        </section>
-        {view === "list"
-          ? <WorkList refreshKey={refreshKey} onEditTodo={handleEditTodo} />
-          : <WorkCalendar refreshKey={refreshKey} />}
+        {view !== "board" && (
+          <section className="opx-sec">
+            <TodoQuickAdd onAdd={handleAdd} projects={projects} isLoading={isAdding} />
+          </section>
+        )}
+        {view === "list" && <WorkList refreshKey={refreshKey} onEditTodo={handleEditTodo} />}
+        {view === "calendar" && <WorkCalendar refreshKey={refreshKey} />}
+        {view === "board" && (
+          <BoardRoom>
+            <KanbanView projectId={ALL_PROJECTS} onTaskSelect={() => {}} />
+          </BoardRoom>
+        )}
       </div>
 
       <TodoEditModal
