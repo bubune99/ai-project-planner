@@ -372,7 +372,7 @@ export default function ProjectDashboardPage() {
           {taskView === "calendar" && <TaskCalendar projectId={projectId} />}
         </div>
       )}
-      {activeTab === "docs"      && <DocsTab projectId={projectId} coreDocs={ui.coreDocs} />}
+      {activeTab === "docs"      && <DocsTab projectId={projectId} coreDocs={ui.coreDocs} project={project} onProjectChange={() => fetchProjectData(true)} />}
       {activeTab === "decisions" && <IdeasDecisions projectId={projectId} projectName={project.name} />}
       {activeTab === "metrics"   && <MetricsTab projectId={projectId} />}
       {activeTab === "people"    && <PeopleFlowsTab projectId={projectId} />}

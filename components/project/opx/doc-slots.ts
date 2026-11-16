@@ -22,23 +22,38 @@ export const CORE_SLOTS: { name: string; match: RegExp; category?: string; docTy
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
 
-export function fillSlots<D extends Doc>(docs: D[], names?: string[]): { name: string; doc: D | null }[] {
+/**
+ * chosen: the owner's own pick per slot (owner, 2026-11-16: "Fill automatically, but let me change it"). A document id
+ * fills that slot whatever matches; null keeps the slot empty; a slot not in it fills itself as before. A chosen
+ * document that has since been deleted falls back to the automatic match.
+ */
+export function fillSlots<D extends Doc>(docs: D[], names?: string[], chosen?: Record<string, string | null>): { name: string; doc: D | null; chosen: boolean }[] {
   const slots: { name: string; match: RegExp; category?: string; docType?: string }[] = names
     ? CORE_SLOTS.filter((s) => names.includes(s.name)).concat(names.filter((n) => !CORE_SLOTS.some((s) => s.name === n)).map((n) => ({ name: n, match: new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") })))
     : CORE_SLOTS
   const used = new Set<string>()
   const filled = new Map<string, D>()
+  const picked = new Set<string>()
+  // 0. The owner's own choices.
+  for (const s of slots) {
+    if (!chosen || !Object.prototype.hasOwnProperty.call(chosen, s.name)) continue
+    const id = chosen[s.name]
+    if (id === null) { picked.add(s.name); continue }
+    const d = docs.find((x) => x.id === id)
+    if (d) { used.add(d.id); filled.set(s.name, d); picked.add(s.name) }
+  }
   // 1. A title that is exactly the slot's name.
   for (const s of slots) {
+    if (picked.has(s.name)) continue
     const d = docs.find((x) => !used.has(x.id) && same(x.title, s.name))
     if (d) { used.add(d.id); filled.set(s.name, d) }
   }
   // 2. The looser matches, for slots still empty. A document titled exactly as ANOTHER slot is never taken.
   for (const s of slots) {
-    if (filled.has(s.name)) continue
+    if (filled.has(s.name) || picked.has(s.name)) continue
     const d = docs.find((x) => !used.has(x.id) && !slots.some((o) => o.name !== s.name && same(x.title, o.name)) &&
       ((s.category && (x.category || "").toLowerCase() === s.category) || s.match.test(x.title) || (s.docType && x.doc_type === s.docType)))
     if (d) { used.add(d.id); filled.set(s.name, d) }
   }
-  return slots.map((s) => ({ name: s.name, doc: filled.get(s.name) || null }))
+  return slots.map((s) => ({ name: s.name, doc: filled.get(s.name) || null, chosen: picked.has(s.name) }))
 }

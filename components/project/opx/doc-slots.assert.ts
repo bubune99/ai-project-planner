@@ -35,4 +35,29 @@ t("a project's own list of slots is honored, including names that are not defaul
   assert.deepEqual(r.map((s) => [s.name, s.doc?.id ?? null]), [["Business plan", "b"], ["Pricing", "p"]])
 })
 
+t("the owner's pick wins over a match, a null keeps a slot empty, a deleted pick falls back", () => {
+  const docs = [
+    { id: "v", title: "MLP v2: Reasoning Ledger", category: "vision" },
+    { id: "mine", title: "Where this is going" },
+    { id: "spec", title: "Settings map" },
+  ]
+  const auto = fillSlots(docs, ["Vision", "Product spec"])
+  assert.equal(auto.find((s) => s.name === "Vision")?.doc?.id, "v")
+  const picked = fillSlots(docs, ["Vision", "Product spec"], { Vision: "mine", "Product spec": null })
+  assert.equal(picked.find((s) => s.name === "Vision")?.doc?.id, "mine")
+  assert.equal(picked.find((s) => s.name === "Vision")?.chosen, true)
+  assert.equal(picked.find((s) => s.name === "Product spec")?.doc, null)
+  assert.equal(picked.find((s) => s.name === "Product spec")?.chosen, true)
+  const gone = fillSlots(docs, ["Vision"], { Vision: "deleted-id" })
+  assert.equal(gone[0].doc?.id, "v")
+  assert.equal(gone[0].chosen, false)
+})
+
+t("a document the owner picked for one slot is not also taken by another", () => {
+  const docs = [{ id: "a", title: "Business plan and marketing" }]
+  const r = fillSlots(docs, ["Business plan", "Marketing plan"], { "Marketing plan": "a" })
+  assert.equal(r.find((s) => s.name === "Marketing plan")?.doc?.id, "a")
+  assert.equal(r.find((s) => s.name === "Business plan")?.doc, null)
+})
+
 console.log(`\n${n} doc-slots checks passed`)

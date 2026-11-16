@@ -14,7 +14,7 @@ import { fillSlots, type Doc } from "./doc-slots"
 
 export { CORE_SLOTS, fillSlots } from "./doc-slots"
 
-export function DocsTab({ projectId, coreDocs }: { projectId: string; coreDocs?: string[] }) {
+export function DocsTab({ projectId, coreDocs, project, onProjectChange }: { projectId: string; coreDocs?: string[]; project?: any; onProjectChange?: () => void }) {
   const { data, loading, error, reload } = useJson(`/api/projects/${projectId}/documents`)
   const all = useMemo(() => (unwrap<Doc[]>(data, "documents") || []).filter((d) => d && d.id), [data])
   const docs = useMemo(() => all.filter((d) => !d.is_file), [all])
@@ -30,12 +30,26 @@ export function DocsTab({ projectId, coreDocs }: { projectId: string; coreDocs?:
   const [draft, setDraft] = useState("")
   const [saving, setSaving] = useState(false)
   const [renaming, setRenaming] = useState<string | null>(null)
+  // Which slot's "Change" is open, and the owner's picks (owner, 2026-11-16: "Fill automatically, but let me change it").
+  const [changing, setChanging] = useState<string | null>(null)
+  const slotDocs: Record<string, string | null> = project?.metadata?.planner_ui?.slotDocs || {}
+  const pickSlot = async (slot: string, value: string) => {
+    const next = { ...slotDocs }
+    if (value === "auto") delete next[slot]
+    else next[slot] = value === "none" ? null : value
+    const meta = project?.metadata || {}
+    try {
+      const r = await fetch(`/api/projects/${projectId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ metadata: { ...meta, planner_ui: { ...(meta.planner_ui || {}), slotDocs: next } } }) })
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j?.error?.message || j?.error || `HTTP ${r.status}`) }
+      setChanging(null); onProjectChange?.()
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't change the slot") }
+  }
   useEffect(() => setRenaming(null), [open])
 
   if (loading && !data) return <Loading what="documents" />
   if (error) return <Failed what="documents" error={error} retry={reload} />
 
-  const slots = fillSlots(docs, coreDocs)
+  const slots = fillSlots(docs, coreDocs, slotDocs)
   const cats = new Map<string, Doc[]>()
   for (const d of docs) { const c = d.category || "Other"; cats.set(c, [...(cats.get(c) || []), d]) }
   const list = (cat === "all" ? docs : cats.get(cat) || []).filter((d) => !q || d.title.toLowerCase().includes(q.toLowerCase()) || (d.content || "").toLowerCase().includes(q.toLowerCase()))
@@ -122,19 +136,38 @@ export function DocsTab({ projectId, coreDocs }: { projectId: string; coreDocs?:
       <section className="opx-sec">
         <div className="opx-sech"><h2>Core documents</h2><span className="opx-n">{slots.filter((s) => s.doc).length} of {slots.length}</span><span className="opx-link" style={{ marginLeft: "auto" }}>Choose which ones in Settings › Core documents</span></div>
         <div className="opx-slots">
-          {slots.map((s) => s.doc ? (
-            <button key={s.name} className="opx-slot has" onClick={() => { setOpen(s.doc!.id); setEditing(false) }}>
-              <i className="opx-sd ok" /><b>{s.name}</b><small>{s.doc.title}</small><small className="opx-muted">Updated {ago(s.doc.updated_at)}</small>
-            </button>
-          ) : (
-            <div key={s.name} className="opx-slot">
-              <i className="opx-sd" /><b>{s.name}</b><small className="opx-muted">Not written yet</small>
-              <span className="opx-row" style={{ gap: 6, marginTop: 6 }}>
-                <button className="opx-btn sm" onClick={() => startNew(s.name)}>Start it</button>
-                <button className="opx-btn sm" onClick={() => askAssistant(`Draft the "${s.name}" document for this project, using its tasks, decisions and existing docs. Show me the draft before saving it.`)}>Draft with the assistant</button>
-              </span>
-            </div>
-          ))}
+          {slots.map((s) => {
+            const change = project && (changing === s.name ? (
+              <select className="opx-input" autoFocus aria-label={`Document for ${s.name}`} style={{ marginTop: 6, fontSize: 13 }}
+                value={s.chosen ? (s.doc ? s.doc.id : "none") : "auto"}
+                onChange={(e) => pickSlot(s.name, e.target.value)} onBlur={() => setChanging(null)} onKeyDown={(e) => { if (e.key === "Escape") setChanging(null) }}>
+                <option value="auto">Fill automatically</option>
+                <option value="none">None for now</option>
+                {docs.map((d) => <option key={d.id} value={d.id}>{d.title}</option>)}
+              </select>
+            ) : (
+              <button type="button" className="opx-link" style={{ alignSelf: "flex-start", fontSize: 12.5, minHeight: 32, padding: 0 }} aria-label={`Change the document for ${s.name}`} onClick={() => setChanging(s.name)}>
+                {s.chosen ? "Chosen by you · Change" : "Change"}
+              </button>
+            ))
+            return s.doc ? (
+              <div key={s.name} className="opx-slot has" data-slot={s.name}>
+                <button type="button" style={{ all: "unset", cursor: "pointer", display: "flex", flexDirection: "column", gap: 2 }} onClick={() => { setOpen(s.doc!.id); setEditing(false) }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}><i className="opx-sd ok" /><b>{s.name}</b></span><small>{s.doc.title}</small><small className="opx-muted">Updated {ago(s.doc.updated_at)}</small>
+                </button>
+                {change}
+              </div>
+            ) : (
+              <div key={s.name} className="opx-slot" data-slot={s.name}>
+                <i className="opx-sd" /><b>{s.name}</b><small className="opx-muted">{s.chosen ? "None, as you chose" : "Not written yet"}</small>
+                <span className="opx-row" style={{ gap: 6, marginTop: 6 }}>
+                  <button className="opx-btn sm" onClick={() => startNew(s.name)}>Start it</button>
+                  <button className="opx-btn sm" onClick={() => askAssistant(`Draft the "${s.name}" document for this project, using its tasks, decisions and existing docs. Show me the draft before saving it.`)}>Draft with the assistant</button>
+                </span>
+                {change}
+              </div>
+            )
+          })}
         </div>
       </section>
       <div className="opx-docs2">

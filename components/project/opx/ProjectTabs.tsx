@@ -16,6 +16,8 @@ import { Failed, Loading, Section, ago, fmtDate, unwrap, useJson } from "./share
 
 export interface PlannerUi {
   coreDocs?: string[]
+  /** The owner's pick for a core-document slot: a document id, or null for "none" (Docs & files, 2026-11-16). */
+  slotDocs?: Record<string, string | null>
   defaultTab?: string
   defaultTaskView?: string
   decisionsView?: "pipeline" | "timeline"
