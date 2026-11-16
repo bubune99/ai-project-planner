@@ -112,6 +112,49 @@ export function registerQueueTools(server: any): void {
     },
   )
 
+  /*
+    The device calls out and holds the line (owner's choice, 2026-11-14: "The first one would likely be what I would
+    use"). A listener on his machine or the home server calls this and the planner keeps the call open until an answer
+    nobody has picked up, or new work for the device, exists, then answers at once. Nothing reaches into the machine.
+  */
+  server.tool(
+    "wait_for_work",
+    "Hold the call open (up to 55 seconds) until the owner has answered something nobody has picked up, or a job was sent to the device's agents after `since`; then return them at once. Call again in a loop for a working session. Answers from any folder are returned, each with its project.",
+    {
+      since: z.string().optional().describe("ISO time: only jobs sent after it (default: now minus 60 seconds)"),
+      projectId: z.string().optional().describe("Only this project's answers and jobs"),
+      timeoutSec: z.number().int().min(1).max(55).optional().describe("How long to hold the call (default 45)"),
+    },
+    async ({ since, projectId, timeoutSec }: { since?: string; projectId?: string; timeoutSec?: number }) => {
+      try {
+        const userId = getMcpUserId()
+        const from = since && !Number.isNaN(Date.parse(since)) ? new Date(since).toISOString() : new Date(Date.now() - 60000).toISOString()
+        const until = Date.now() + Math.min(timeoutSec ?? 45, 55) * 1000
+        for (;;) {
+          const answers = (await openAnswers(userId, { projectId, sinceDays: 30 })).filter((i) => i.state === "unclaimed")
+          const jobs = (await sql`
+            SELECT id, title, priority, input, created_at FROM agent_jobs
+             WHERE created_by = ${userId} AND status = 'pending' AND created_at > ${from}::timestamptz
+               AND NOT ('question' = ANY(COALESCE(tags, '{}')))
+               AND (${projectId ?? null}::text IS NULL OR input->>'projectId' = ${projectId ?? null})
+             ORDER BY created_at
+             LIMIT 50
+          `) as { id: string; title: string; priority: string; input: any; created_at: string }[]
+          if (answers.length || jobs.length || Date.now() >= until) {
+            return ok({
+              arrived: answers.length + jobs.length,
+              answers,
+              jobs: jobs.map((j) => ({ id: j.id, title: j.title, priority: j.priority, projectId: j.input?.projectId ?? null, stepId: j.input?.stepId ?? null, sentAt: j.created_at })),
+              checkedUntil: new Date().toISOString(),
+              next_actions: answers.length ? ["queue_claim each answer you act on, then queue_done with what you did"] : [],
+            })
+          }
+          await new Promise((r) => setTimeout(r, 2500))
+        }
+      } catch (e) { return fail(reason(e)) }
+    },
+  )
+
   server.tool(
     "queue_claim",
     "Take one of the owner's answers so he can see who has it. The agent that asked may always claim; another agent may when it is working on the same project and the asker has not claimed within the grace period. Claim before acting, and call queue_done when the work is finished.",
