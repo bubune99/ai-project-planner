@@ -170,7 +170,8 @@ export function AddEventDialog({
               checked={isAllDay}
               onCheckedChange={(v) => setIsAllDay(v === true)}
             />
-            <Label htmlFor="all-day" className="cursor-pointer">
+            {/* The words are the press target too: tall enough for a pointer, and for a finger on a phone. */}
+            <Label htmlFor="all-day" className="cursor-pointer flex items-center min-h-[28px] max-sm:min-h-[44px] pr-3">
               All day event
             </Label>
           </div>
