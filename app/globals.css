@@ -143,10 +143,17 @@ body::before {
   --j-density: 1;
 }
 
+/*
+  One scrollbar (owner, 2026-11-16: "The scroll bar here is a double bar. We only need one"). The shell is exactly the
+  window's height and the page's <main> is the one thing that scrolls; before, the shell grew with the page, so the
+  document scrolled while <main> scrolled as well.
+*/
 .j-app {
   display: grid;
   grid-template-columns: 240px 1fr;
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
   background: var(--j-bg);
   color: oklch(0.985 0 0);
   font-size: 14px;
@@ -239,7 +246,7 @@ body::before {
 .j-foot-meta span { font-size: 12px; color: oklch(0.556 0 0); display: block; }
 
 /* ---------- Main shell ---------- */
-.j-main { display: flex; flex-direction: column; min-width: 0; }
+.j-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 
 .j-topbar {
   display: flex; align-items: center; justify-content: space-between;

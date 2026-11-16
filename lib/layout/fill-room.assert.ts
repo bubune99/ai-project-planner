@@ -1,10 +1,9 @@
 // npx -y tsx@4.23.15 lib/layout/fill-room.assert.ts
 import assert from "node:assert/strict"
-import { roomBelow } from "./fill-room"
-// A 1305-tall page whose board starts 420 down: the board takes the rest, so the page itself does not scroll.
-assert.equal(roomBelow(1305, 420), 869)
-assert.equal(420 + roomBelow(1305, 420) + 16, 1305)
-// A short screen still gets a usable board; then, and only then, the page scrolls a little too.
-assert.equal(roomBelow(700, 500), 360)
-assert.equal(roomBelow(894, 380.6), 497)
-console.log("ok   the board takes the room left below it, never less than 360")
+import { boardHeight } from "./fill-room"
+// A page area 1238 tall: the board fills it once scrolled to, leaving a small gap.
+assert.equal(boardHeight(1238), 1222)
+// A short phone screen still gets a usable board.
+assert.equal(boardHeight(300), 360)
+assert.equal(boardHeight(780.5), 764)
+console.log("ok   the board is as tall as the page area shows, never less than 360")

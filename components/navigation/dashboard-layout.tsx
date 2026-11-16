@@ -284,7 +284,7 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
 
         <main style={noPad
           ? { flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }
-          : { flex: 1, overflowY: "auto" }
+          : { flex: 1, overflowY: "auto", minHeight: 0 }
         }>
           <div key={refreshN} style={{ display: "contents" }}>{children}</div>
         </main>
