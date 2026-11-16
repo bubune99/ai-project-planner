@@ -4,7 +4,10 @@ import { useState, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { KanbanBoard, type KanbanTask } from "@/components/views/kanban/KanbanBoard"
 import { toIdeaColumns, type IdeaColumnDef } from "@/components/views/kanban/adaptIdeas"
-import { Tag, Search, ChevronDown, X } from "lucide-react"
+import { Tag, Search, ChevronDown, X, MoreHorizontal } from "lucide-react"
+import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import type { Idea, IdeaLifecycle } from "@/lib/types"
 
 // ── Column config ──────────────────────────────────────────────────────────
@@ -134,6 +137,27 @@ export function IdeasKanban({
       }
     },
     [ideas, optimisticIdeas, onLifecycleChange]
+  )
+
+  /*
+    A visible way to move an idea. Dragging (or the keyboard pick-up) was the only way to change an idea's stage,
+    which nobody is told about and is awkward on a phone. The menu on each card names the stages; a move says what
+    it did and can be undone.
+  */
+  const moveFromMenu = useCallback(
+    async (idea: Idea, to: IdeaLifecycle) => {
+      const from = idea.lifecycle
+      const name = (id: string) => COLUMNS.find((c) => c.id === id)?.label ?? id
+      try {
+        await onLifecycleChange(idea.id, to)
+        toast.success(`Moved to ${name(to)}`, {
+          action: { label: "Undo", onClick: () => { onLifecycleChange(idea.id, from).catch(() => toast.error("It was not moved back")) } },
+        })
+      } catch {
+        toast.error("The idea was not moved")
+      }
+    },
+    [onLifecycleChange]
   )
 
   const boardColumns = useMemo(
@@ -406,6 +430,29 @@ export function IdeasKanban({
           label="Ideas board"
           onTaskMove={handleTaskMove}
           onTaskOpen={(task: KanbanTask) => handleCardClick(task.id)}
+          renderCardMenu={(task: KanbanTask) => {
+            const idea = (optimisticIdeas ?? ideas).find((i) => i.id === task.id)
+            if (!idea) return null
+            return (
+              <div data-kanban-no-drag onClick={(e) => e.stopPropagation()}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" aria-label={`Actions for ${idea.title}`}>
+                      <MoreHorizontal aria-hidden className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => handleCardClick(idea.id)}>Open</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>Move to</DropdownMenuLabel>
+                    {COLUMNS.filter((c) => c.id !== idea.lifecycle).map((c) => (
+                      <DropdownMenuItem key={c.id} onSelect={() => moveFromMenu(idea, c.id as IdeaLifecycle)}>{c.label}</DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )
+          }}
         />
       </div>
     </div>

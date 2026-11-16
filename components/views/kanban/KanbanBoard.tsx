@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   type LucideIcon,
   Monitor,
-  MoreHorizontal,
   Palette,
   Plus,
   Server,
@@ -871,32 +870,10 @@ function ColumnHeader({
       </motion.span>
       {/* only one way to add a task, and it lives at the foot of the column */}
       <span className="ml-auto flex items-center">
-        {menu ?? (
-          <IconButton label={`More options for ${col.name}`}>
-            <MoreHorizontal aria-hidden className="h-3.5 w-3.5" />
-          </IconButton>
-        )}
+        {/* A column with no menu shows no button: the "..." that stood here did nothing when pressed. */}
+        {menu}
       </span>
     </div>
-  );
-}
-
-function IconButton({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      className={cn(
-        // always there, quiet until you reach for it
-        "grid h-6 w-6 place-items-center rounded-[7px] transition-colors duration-150",
-        "text-neutral-400 hover:bg-black/[0.06] hover:text-neutral-800 active:bg-black/[0.1]",
-        "dark:text-neutral-500 dark:hover:bg-white/[0.1] dark:hover:text-neutral-100",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/25 dark:focus-visible:ring-white/30",
-        SQUIRCLE,
-      )}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -993,7 +970,7 @@ function CardShell({
   return (
     <div
       className={cn(
-        "group/shell relative rounded-[16px] p-3",
+        "group/shell relative rounded-[16px] p-3 [overflow-wrap:anywhere]",
         "bg-[var(--opx-soft,#e9edf2)] text-[var(--opx-ink,#20355b)]",
         floating ? "shadow-[0_16px_32px_-12px_rgb(0_0_0/0.35)]" : "",
         SQUIRCLE,

@@ -1145,3 +1145,6 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
 .opx-wait { display: inline-block; vertical-align: -0.08em; height: 0.82em; min-width: 1.2ch; border-radius: 6px; background: color-mix(in srgb, currentColor 14%, transparent); }
 .opx-wait-rows { display: block; }
 .opx-wait-rows > i { display: block; border-radius: 12px; margin-bottom: 8px; background: color-mix(in srgb, var(--opx-ink) 7%, transparent); }
+/* The ideas count pill read at 3.2 to 1 on its tint in the light theme. */
+.j-pill.j-idea { color: #6b4a00; }
+.dark .j-pill.j-idea { color: #f0c38a; }
