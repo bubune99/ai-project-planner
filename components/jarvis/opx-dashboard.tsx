@@ -8,6 +8,7 @@
  */
 
 import Link from "next/link"
+import { announceInbox } from "@/lib/inbox/live"
 import { useState } from "react"
 import { useUser } from "@stackframe/stack"
 import { toast } from "sonner"
@@ -56,7 +57,7 @@ export function OpxDashboard() {
     try {
       const r = await fetch(`/api/inbox/${q.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ option }) })
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j?.error?.message || j?.error || `HTTP ${r.status}`) }
-      toast.success(`Answered: ${option}`); inboxQ.reload()
+      toast.success(`Answered: ${option}`); announceInbox(-1); inboxQ.reload()
     } catch (e) {
       setAnswered((a) => { const { [q.id]: _, ...rest } = a; return rest })
       toast.error(e instanceof Error ? e.message : "Couldn't save the answer")

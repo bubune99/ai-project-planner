@@ -15,6 +15,7 @@
  */
 
 import { useMemo, useState } from "react"
+import { announceInbox } from "@/lib/inbox/live"
 import { toast } from "sonner"
 import { parseIdeaPlan, ideaStage, ideasForProject } from "@/lib/project-views/ideas"
 import { TIMELINE_KINDS, KIND_COLOR, buildTimeline, byMonth, type TimelineKind } from "@/lib/project-views/timeline"
@@ -67,6 +68,7 @@ export function IdeasDecisions({ projectId, projectName }: { projectId: string; 
       const r = await fetch(`/api/inbox/${q.id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ option }) })
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j?.error?.message || j?.error || `HTTP ${r.status}`) }
       toast.success(`Answered: ${option}`)
+      announceInbox(-1)
       inbox.reload()
     } catch (e) {
       setAnswered((a) => { const { [q.id]: _, ...rest } = a; return rest })

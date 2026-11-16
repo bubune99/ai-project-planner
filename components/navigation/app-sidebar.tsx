@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useInboxCount } from "@/lib/inbox/live"
 import { createPortal } from "react-dom"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -105,18 +106,8 @@ export function AppSidebar({
   const pathname = usePathname()
   const user = useUser()
 
-  // How many questions are waiting on the owner. Refetched on navigation, so
-  // answering on /inbox clears the badge on the next page.
-  const [inboxCount, setInboxCount] = useState(0)
-  useEffect(() => {
-    if (!user) return
-    let cancelled = false
-    fetch("/api/inbox", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (!cancelled && j?.success) setInboxCount(Array.isArray(j.data) ? j.data.length : 0) })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [user, pathname])
+  // How many questions are waiting on the owner, kept live (lib/inbox/live.ts).
+  const inboxCount = useInboxCount(`${user ? "in" : "out"}:${pathname}`)
 
   // Rail mode: hover/focus shows the label beside the icon; the J (or chevron beside the dock) opens the full menu.
   const rootRef = useRef<HTMLDivElement>(null)

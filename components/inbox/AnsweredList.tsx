@@ -8,6 +8,7 @@
  * finished with what was done. The states and wording are from lib/queue/item-state.ts.
  */
 import { useCallback, useEffect, useState } from "react"
+import { announceInbox } from "@/lib/inbox/live"
 
 interface Answered {
   questionId: string; question: string; answer: string | null; answeredAt: string | null
@@ -38,6 +39,7 @@ export function AnsweredList({ refreshKey, onTakenBack }: { refreshKey?: number;
       const j = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(j?.error?.message || `Could not take it back (${res.status})`)
       // Both lists together: reloading this one first left a moment where the answer was gone and the question not yet back.
+      announceInbox(1)
       await Promise.all([load(), Promise.resolve(onTakenBack?.())])
     } catch (e) { setUndoError({ id, why: e instanceof Error ? e.message : "Could not take it back" }); await load() }
     setUndoing(null)

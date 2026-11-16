@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useInboxCount } from "@/lib/inbox/live"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { PullToRefresh } from "./PullToRefresh"
@@ -108,12 +109,7 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
     window.setTimeout(() => setRefreshing(false), 900)
   }, [router])
   // How many things wait on the owner: shown on the phone's Inbox tab.
-  const [waitingCount, setWaitingCount] = useState(0)
-  useEffect(() => {
-    let alive = true
-    fetch("/api/inbox", { credentials: "include" }).then((r) => (r.ok ? r.json() : null)).then((j) => { if (alive && j) setWaitingCount(Array.isArray(j.data) ? j.data.length : 0) }).catch(() => undefined)
-    return () => { alive = false }
-  }, [pathname])
+  const waitingCount = useInboxCount(pathname)
 
   const meta = PAGE_META[pathname] || PARENT_META.find(([p]) => pathname.startsWith(p))?.[1] || { title: "Planner", sub: "" }
 

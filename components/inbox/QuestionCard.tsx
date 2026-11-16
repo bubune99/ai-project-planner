@@ -7,6 +7,7 @@
  */
 
 import { useState } from "react"
+import { announceInbox } from "@/lib/inbox/live"
 import { toast } from "sonner"
 import type { InboxItem } from "@/lib/inbox"
 
@@ -49,11 +50,13 @@ export function QuestionCard({ item, deferred, onDefer, onBringBack, onAnswered,
       const j = await res.json().catch(() => ({}))
       if (res.status === 409) {
         toast.info("Already answered")
+        announceInbox()
         onAnswered()
         return
       }
       if (!res.ok) throw new Error(j?.error?.message || `HTTP ${res.status}`)
       toast.success(`Answered: ${j.data?.answer?.note ?? label}`)
+      announceInbox(-1)
       onAnswered()
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to send")
