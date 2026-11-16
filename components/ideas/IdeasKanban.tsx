@@ -260,7 +260,7 @@ export function IdeasKanban({
             background: "var(--opx-soft)",
             boxShadow: "0 0 0 1px var(--j-ring)",
             borderRadius: 8,
-            padding: "6px 10px",
+            padding: "2px 10px",
             minWidth: 220,
             flex: "1 1 220px",
             maxWidth: 340,
@@ -278,6 +278,8 @@ export function IdeasKanban({
               border: "none",
               outline: "none",
               fontSize: 13,
+              // The field itself is the press target: it was 20 pixels tall inside a taller box.
+              minHeight: 30,
               color: "var(--opx-ink)",
               fontFamily: "inherit",
             }}
