@@ -425,6 +425,9 @@ export default function ImpactGraphPage() {
           </span>
         )}
         <div style={{ flex: 1 }} />
+        {focusCanonical && (
+          <button onClick={() => { setFocusCanonical(""); setFocusInput(""); syncQS({ focus: "" }) }} style={btnStyle}>Show everything</button>
+        )}
         <button
           aria-pressed={showConflicts}
           onClick={() => setShowConflicts(v => !v)}
@@ -486,7 +489,7 @@ export default function ImpactGraphPage() {
               <input
                 value={focusInput}
                 onChange={e => setFocusInput(e.target.value)}
-                placeholder="canonical_id"
+aria-label="Id of the part to focus on" placeholder="Id of a part, or press a box in the graph"
                 style={{ ...inputStyle, width: 260 }}
                 onKeyDown={e => {
                   if (e.key === "Enter") {
@@ -498,12 +501,14 @@ export default function ImpactGraphPage() {
               <button
                 onClick={() => { setFocusCanonical(focusInput); syncQS({ focus: focusInput }) }}
                 style={btnStyle}
+                aria-label="Show only what connects to it"
               >
                 <Search size={13} />
               </button>
               {focusCanonical && (
                 <button
                   onClick={() => { setFocusCanonical(""); setFocusInput(""); syncQS({ focus: "" }) }}
+                  aria-label="Show everything again"
                   style={{ ...btnStyle, color: "#f87171" }}
                 >
                   <X size={13} />
@@ -512,7 +517,7 @@ export default function ImpactGraphPage() {
             </div>
           </div>
           <div>
-            <div style={labelStyle}>Hops (focus)</div>
+            <div style={labelStyle}>How many steps away to show</div>
             <div style={{ display: "flex", gap: 5 }}>
               {[1, 2, 3].map(n => (
                 <button

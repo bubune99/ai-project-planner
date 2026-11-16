@@ -234,7 +234,12 @@ export default function KnowledgeGraphPage() {
           </span>
         )}
         <div style={{ flex: 1 }} />
-        <button onClick={() => setFiltersOpen((v) => !v)} className="j-btn" style={btnStyle}>
+        {/* The way back to the whole graph is in view whenever the graph is narrowed to one thing. It was an
+            unnamed X inside the closed Filters panel. */}
+        {focusedEntity && (
+          <button onClick={clearFocus} className="j-btn" style={btnStyle}>Show everything</button>
+        )}
+        <button onClick={() => setFiltersOpen((v) => !v)} className="j-btn" style={btnStyle} aria-expanded={filtersOpen}>
           <Filter size={14} /> Filters
         </button>
         <button onClick={fetchGraph} className="j-btn" style={btnStyle}>
@@ -308,11 +313,12 @@ export default function KnowledgeGraphPage() {
                   if (type && id) setFocusedEntity({ type, id })
                 }}
                 style={btnStyle}
+                aria-label="Show only what connects to it"
               >
                 <Search size={14} />
               </button>
               {focusedEntity && (
-                <button onClick={clearFocus} style={{ ...btnStyle, color: "#f87171" }}>
+                <button onClick={clearFocus} aria-label="Show everything again" style={{ ...btnStyle, color: "#f87171" }}>
                   <X size={14} />
                 </button>
               )}
