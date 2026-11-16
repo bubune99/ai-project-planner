@@ -33,8 +33,8 @@ function Linked({ text }: { text: string }) {
       {linkParts(text).map((p, i) =>
         "href" in p
           ? p.external
-            ? <a key={i} href={p.href} target="_blank" rel="noreferrer" className="opx-link">{p.text}</a>
-            : <Link key={i} href={p.href} className="opx-link">{p.text}</Link>
+            ? <a key={i} href={p.href} target="_blank" rel="noreferrer" className="opx-link" style={{ textDecoration: "underline", textUnderlineOffset: 2 }}>{p.text}</a>
+            : <Link key={i} href={p.href} className="opx-link" style={{ textDecoration: "underline", textUnderlineOffset: 2 }}>{p.text}</Link>
           : <span key={i}>{p.text}</span>,
       )}
     </>
@@ -146,7 +146,7 @@ export function QuestionCard({ item, deferred, onDefer, onBringBack, onAnswered,
           {item.askedBy ? `${item.askedBy} · ` : ""}{ago(item.askedAt)}
           {deferred ? " · put off" : ""}
         </span>
-        {hrefs.card && <Link href={hrefs.card} className="opx-link" style={{ fontSize: 12, marginLeft: "auto" }}>Open the card</Link>}
+        {hrefs.card && <Link href={hrefs.card} className="opx-link" style={{ fontSize: 12, marginLeft: "auto", textDecoration: "underline", textUnderlineOffset: 2 }}>Open the card</Link>}
       </div>
 
       <h2 style={{ fontSize: compact ? 15 : 16.5, fontWeight: 600, lineHeight: 1.4, margin: 0 }}><Linked text={item.question} /></h2>
