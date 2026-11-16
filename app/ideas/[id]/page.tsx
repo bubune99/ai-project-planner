@@ -1015,7 +1015,7 @@ function RefinementsTab({ ideaId }: { ideaId: string }) {
 
   const createRefinement = async () => {
     if (!form.sourceProjectId.trim() || !form.title.trim()) {
-      toast.error("Source project ID and title are required")
+      toast.error("Give it a title and choose the project it came from first.")
       return
     }
     setSubmitting(true)
@@ -1367,7 +1367,7 @@ function DocumentsTab({ ideaId }: { ideaId: string }) {
 
   const createDoc = async () => {
     if (!form.title.trim()) {
-      toast.error("Title is required")
+      toast.error("Give the document a title first.")
       return
     }
     setSubmitting(true)
