@@ -144,6 +144,8 @@ function layoutNodes(graph: GraphResponse): { nodes: Node[]; edges: Edge[] } {
   return { nodes: flowNodes, edges: flowEdges }
 }
 
+const words = (s: string) => { const w = String(s).replace(/[_-]+/g, " "); return w.charAt(0).toUpperCase() + w.slice(1) }
+
 export default function KnowledgeGraphPage() {
   const [graph, setGraph] = useState<GraphResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -254,7 +256,7 @@ export default function KnowledgeGraphPage() {
           }}
         >
           <div>
-            <div style={labelStyle}>Entity types</div>
+            <div style={labelStyle}>Kinds of thing</div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", maxWidth: 600 }}>
               {allTypes.map((t) => (
                 <button
@@ -264,15 +266,16 @@ export default function KnowledgeGraphPage() {
                       cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]
                     )
                   }
+                  aria-pressed={entityTypeFilter.includes(t)}
                   style={chipStyle(entityTypeFilter.includes(t), TYPE_COLORS[t]?.border)}
                 >
-                  {t} ({graph?.counts.byType[t] ?? 0})
+                  {words(t)} ({graph?.counts.byType[t] ?? 0})
                 </button>
               ))}
             </div>
           </div>
           <div>
-            <div style={labelStyle}>Relation types</div>
+            <div style={labelStyle}>Kinds of link</div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", maxWidth: 480 }}>
               {RELATION_TYPES.map((r) => (
                 <button
@@ -282,20 +285,21 @@ export default function KnowledgeGraphPage() {
                       cur.includes(r) ? cur.filter((x) => x !== r) : [...cur, r]
                     )
                   }
+                  aria-pressed={relationTypeFilter.includes(r)}
                   style={chipStyle(relationTypeFilter.includes(r))}
                 >
-                  {r}
+                  {words(r)}
                 </button>
               ))}
             </div>
           </div>
           <div>
-            <div style={labelStyle}>Focus on entity</div>
+            <div style={labelStyle}>Show only what connects to one thing</div>
             <div style={{ display: "flex", gap: 6 }}>
               <input
                 value={focusInput}
                 onChange={(e) => setFocusInput(e.target.value)}
-                placeholder="type:uuid (e.g. idea:abc-…)"
+                aria-label="Kind and id of the thing, as kind:id" placeholder="kind:id, or press a box in the graph"
                 style={{ ...inputStyle, width: 220 }}
               />
               <button
@@ -377,7 +381,7 @@ export default function KnowledgeGraphPage() {
               <span style={{ fontSize: 12, color: "var(--opx-muted)", textTransform: "uppercase", letterSpacing: 1 }}>
                 {selectedNode.type}
               </span>
-              <button onClick={() => setSelectedNode(null)} style={iconBtnStyle}>
+              <button onClick={() => setSelectedNode(null)} style={iconBtnStyle} aria-label="Close the details">
                 <X size={14} />
               </button>
             </div>
@@ -403,7 +407,7 @@ export default function KnowledgeGraphPage() {
             )}
             <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 6 }}>
               <button onClick={focusOnSelected} style={{ ...btnStyle, justifyContent: "center" }}>
-                Focus on this node (2-hop)
+                Show only what connects to this
               </button>
               <div style={{ fontSize: 12, color: "var(--opx-muted)", marginTop: 4 }}>
                 ID: <code>{selectedNode.id}</code>
