@@ -8,13 +8,15 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { formatMoney, moneyTotals } from "@/lib/project-views/money"
+import { CURRENCIES, formatMoney, moneyTotals, parseAmount } from "@/lib/project-views/money"
 import { toast } from "sonner"
 import { projectMetrics, medianLabel } from "@/lib/project-views/metrics"
 import { CORE_SLOTS } from "./DocsTab"
 import { Failed, Loading, Section, ago, fmtDate, unwrap, useJson } from "./shared"
 
 export interface PlannerUi {
+  /** Revision of this record, owned by the server (PATCH /api/projects/:id expectedUiRev). */
+  _rev?: number
   coreDocs?: string[]
   /** The owner's pick for a core-document slot: a document id, or null for "none" (Docs & files, 2026-11-16). */
   slotDocs?: Record<string, string | null>
@@ -37,11 +39,25 @@ export interface PlannerUi {
 
 export const uiOf = (project: any): PlannerUi => (project?.metadata?.planner_ui as PlannerUi) || {}
 
-async function saveProject(projectId: string, project: any, patch: Record<string, unknown>, ui?: Partial<PlannerUi>) {
+/** Thrown when the settings record changed since this copy was read (another tab or an agent saved). */
+export class StaleError extends Error {}
+
+/**
+ * Saves project fields and, with ui, the settings record. The record carries the revision it was read at; a save
+ * made from an old copy is refused (409) rather than overwriting someone else's change. Returns the saved project,
+ * so the next save can start from it without waiting for the page to reload.
+ */
+export async function saveProject(projectId: string, project: any, patch: Record<string, unknown>, ui?: Partial<PlannerUi>): Promise<any> {
   const body: Record<string, unknown> = { ...patch }
-  if (ui) body.metadata = { ...(project?.metadata || {}), planner_ui: { ...uiOf(project), ...ui } }
+  if (ui) {
+    body.metadata = { ...(project?.metadata || {}), planner_ui: { ...uiOf(project), ...ui } }
+    body.expectedUiRev = Number(uiOf(project)._rev) || 0
+  }
   const r = await fetch(`/api/projects/${projectId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-  if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j?.error?.message || j?.error || `HTTP ${r.status}`) }
+  const j = await r.json().catch(() => ({}))
+  if (r.status === 409) throw new StaleError(j?.error || "Changed elsewhere; reload and try again")
+  if (!r.ok) throw new Error(j?.error?.message || j?.error || `HTTP ${r.status}`)
+  return j?.project ?? null
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10)
@@ -106,7 +122,8 @@ export function MoneyTab({ projectId, project, onChange }: { projectId: string; 
   const totals = moneyTotals(money)
   const fmt = (n: number | null | undefined) => formatMoney(n, totals.currency)
   const costs = money.costs || [], putIn = money.putIn || [], brought = money.broughtIn || []
-  const [form, setForm] = useState<{ kind: "cost" | "in" | "out" | "budget" | null; a: string; b: string; c: string }>({ kind: null, a: "", b: "", c: "" })
+  // id is set when a form changes an existing record in place (Money check, 2026-11-15: only Remove and add again).
+  const [form, setForm] = useState<{ kind: "cost" | "in" | "out" | "budget" | null; a: string; b: string; c: string; d?: string; id?: string }>({ kind: null, a: "", b: "", c: "" })
   const [busy, setBusy] = useState(false)
   /** The project as last drawn: an Undo pressed a moment later must add to what is there now, not to what was there then. */
   const latest = useRef(project); latest.current = project
@@ -116,10 +133,17 @@ export function MoneyTab({ projectId, project, onChange }: { projectId: string; 
     setBusy(true); setNeed(null)
     try {
       const now = uiOf(latest.current).money || {}
-      await saveProject(projectId, latest.current, {}, { money: { ...now, ...(typeof next === "function" ? next(now) : next) } }); onChange(); setForm({ kind: null, a: "", b: "", c: "" })
+      const saved = await saveProject(projectId, latest.current, {}, { money: { ...now, ...(typeof next === "function" ? next(now) : next) } })
+      if (saved) latest.current = saved // the next save (an Undo, say) starts from what was just saved
+      onChange(); setForm({ kind: null, a: "", b: "", c: "" })
       return true
     }
-    catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't save"); return false }
+    catch (e) {
+      // Saved elsewhere since this page loaded: nothing is overwritten; the page reloads to show the latest.
+      if (e instanceof StaleError) { toast.error(e.message, { duration: 10000 }); onChange() }
+      else toast.error(e instanceof Error ? e.message : "Couldn't save")
+      return false
+    }
     finally { setBusy(false) }
   }
   /** Removing a money record can be taken back: the line says what went and offers Undo. */
@@ -128,7 +152,14 @@ export function MoneyTab({ projectId, project, onChange }: { projectId: string; 
     toast(`Removed ${label}`, { duration: 10000, action: { label: "Undo", onClick: () => { void write((now) => ({ [key]: [...((now[key] || []) as { id: string }[]).filter((x) => x.id !== item.id), item] })) } } })
   }
   const open = (next: typeof form) => { setNeed(null); setForm(next) }
-  const num = (s: string) => { const n = Number(s.replace(/[^0-9.]/g, "")); return Number.isFinite(n) && s.trim() ? n : null }
+  /** An optional amount: blank is "not set"; anything else must be a real amount, or the reason is shown. */
+  const optAmount = (s: string): { ok: true; value: number | null } | { ok: false; why: string } => {
+    if (!s.trim()) return { ok: true, value: null }
+    const r = parseAmount(s)
+    return r.ok ? r : { ok: false, why: r.why }
+  }
+  /** Puts a changed record back in its place, or adds a new one. */
+  const upsert = <T extends { id: string }>(list: T[] | undefined, item: T) => (list || []).some((x) => x.id === item.id) ? (list || []).map((x) => (x.id === item.id ? item : x)) : [...(list || []), item]
   const today = new Date().toISOString().slice(0, 10)
   const budgetUsed = totals.budgetUsed
   return (
@@ -142,31 +173,41 @@ export function MoneyTab({ projectId, project, onChange }: { projectId: string; 
       <div className="opx-2col">
         <Section title="What it costs to run" action={<button className="opx-link opx-act" onClick={() => open({ kind: "cost", a: "", b: "", c: "" })}>Add a cost</button>}>
           {costs.length === 0 && form.kind !== "cost" && <p className="opx-muted" style={{ margin: 0 }}>No running costs recorded. Add the services this project pays for (hosting, database, email, domain) and what each costs a month.</p>}
-          {costs.map((c) => (
-            <div key={c.id} className="opx-li">
+          {costs.map((c) => form.kind === "cost" && form.id === c.id ? null : (
+            <div key={c.id} className="opx-li" data-cost={c.id}>
               <div><b>{c.name}</b><small>{c.service}</small></div>
               <span>{c.monthly != null ? `${fmt(c.monthly)} / month` : "— / month"}</span>
+              <button className="opx-btn sm" disabled={busy} onClick={() => open({ kind: "cost", id: c.id, a: c.name, b: c.service || "", c: c.monthly != null ? String(c.monthly) : "" })} aria-label={`Edit ${c.name}`}>Edit</button>
               <button className="opx-btn sm" disabled={busy} onClick={() => remove("costs", c, c.name)} aria-label={`Remove ${c.name}`}>Remove</button>
             </div>
           ))}
           {form.kind === "cost" && (
-            <form className="opx-row" style={{ gap: 8, marginTop: 10, flexWrap: "wrap" }} onSubmit={(e) => { e.preventDefault(); if (!form.a.trim()) { setNeed("Say what the cost is first, then press Add."); return } write((now) => ({ costs: [...(now.costs || []), { id: uid(), name: form.a.trim(), service: form.b.trim(), monthly: num(form.c) }] })) }}>
+            <form className="opx-row" style={{ gap: 8, marginTop: 10, flexWrap: "wrap" }} onSubmit={(e) => { e.preventDefault(); if (!form.a.trim()) { setNeed("Say what the cost is first, then press Add."); return } const m = optAmount(form.c); if (!m.ok) { setNeed(m.why); return } const item = { id: form.id || uid(), name: form.a.trim(), service: form.b.trim(), monthly: m.value }; write((now) => ({ costs: upsert(now.costs, item) })) }}>
               <input className="opx-input" style={{ width: 160 }} placeholder="What (e.g. Hosting)" value={form.a} onChange={(e) => setForm({ ...form, a: e.target.value })} aria-label="Cost name" autoFocus />
               <input className="opx-input" style={{ width: 200 }} placeholder="Service (e.g. Vercel)" value={form.b} onChange={(e) => setForm({ ...form, b: e.target.value })} aria-label="Service" />
               <input className="opx-input" style={{ width: 130 }} placeholder="Per month" inputMode="decimal" value={form.c} onChange={(e) => setForm({ ...form, c: e.target.value })} aria-label="Monthly cost" />
-              <button className="opx-btn primary" disabled={busy}>Add</button><button type="button" className="opx-btn" onClick={() => open({ kind: null, a: "", b: "", c: "" })}>Cancel</button>
+              <button className="opx-btn primary" disabled={busy}>{form.id ? "Save" : "Add"}</button><button type="button" className="opx-btn" onClick={() => open({ kind: null, a: "", b: "", c: "" })}>Cancel</button>
               {need && <span role="alert" className="opx-ch-need">{need}</span>}
             </form>
           )}
         </Section>
         <div className="opx-col" style={{ gap: 12 }}>
-          <Section title="Budget" action={<button className="opx-link opx-act" onClick={() => open({ kind: "budget", a: money.budget != null ? String(money.budget) : "", b: money.budgetPeriod || "month", c: String(money.warnAt ?? 80) })}>{money.budget != null ? "Change" : "Set a budget"}</button>}>
+          <Section title="Budget" action={<button className="opx-link opx-act" onClick={() => open({ kind: "budget", a: money.budget != null ? String(money.budget) : "", b: money.budgetPeriod || "month", c: String(money.warnAt ?? 80), d: money.currency || "USD" })}>{money.budget != null ? "Change" : "Set a budget"}</button>}>
             {form.kind === "budget" ? (
-              <form className="opx-row" style={{ gap: 8, flexWrap: "wrap" }} onSubmit={(e) => { e.preventDefault(); write({ budget: num(form.a), budgetPeriod: form.b === "total" ? "total" : "month", warnAt: num(form.c) ?? 80 }) }}>
+              <form className="opx-row" style={{ gap: 8, flexWrap: "wrap" }} onSubmit={(e) => {
+                e.preventDefault()
+                const b = optAmount(form.a); if (!b.ok) { setNeed(b.why); return }
+                const w = Number(form.c.trim() || 80); if (!Number.isInteger(w) || w < 1 || w > 100) { setNeed("The warning is a whole percent from 1 to 100."); return }
+                write({ budget: b.value, budgetPeriod: form.b === "total" ? "total" : "month", warnAt: w, currency: form.d || "USD" })
+              }}>
                 <input className="opx-input" style={{ width: 130 }} placeholder="Amount" inputMode="decimal" value={form.a} onChange={(e) => setForm({ ...form, a: e.target.value })} aria-label="Budget amount" autoFocus />
                 <select className="opx-input" style={{ width: 130 }} value={form.b} onChange={(e) => setForm({ ...form, b: e.target.value })} aria-label="Budget period"><option value="month">per month</option><option value="total">in total</option></select>
                 <input className="opx-input" style={{ width: 110 }} value={form.c} onChange={(e) => setForm({ ...form, c: e.target.value })} aria-label="Warn at percent" />
                 <span className="opx-muted" style={{ fontSize: 12.5 }}>% warning</span>
+                <select className="opx-input" style={{ width: 170 }} value={form.d || "USD"} onChange={(e) => setForm({ ...form, d: e.target.value })} aria-label="Currency">
+                  {CURRENCIES.map(([code, name]) => <option key={code} value={code}>{name} ({code})</option>)}
+                </select>
+                {need && <span role="alert" className="opx-ch-need">{need}</span>}
                 <button className="opx-btn primary" disabled={busy}>Save</button><button type="button" className="opx-btn" onClick={() => setForm({ kind: null, a: "", b: "", c: "" })}>Cancel</button>
               </form>
             ) : money.budget != null ? (
@@ -177,15 +218,16 @@ export function MoneyTab({ projectId, project, onChange }: { projectId: string; 
             <Section key={kind} title={title} count={list.length || undefined} action={<button className="opx-link opx-act" aria-label={`Log an amount: ${title}`} onClick={() => open({ kind, a: today, b: "", c: "" })}>Log an amount</button>}>
               {list.length === 0 && form.kind !== kind && <p className="opx-muted" style={{ margin: 0 }}>{kind === "in" ? "Your own money, tools, contractors: anything that went into building it." : "Sales, retainers or payments this project has earned."}</p>}
               {[...list].sort((a, b) => b.date.localeCompare(a.date)).map((x) => (
-                <div key={x.id} className="opx-li"><div><b>{fmt(x.amount)}</b><small>{fmtDate(x.date + "T12:00:00", { month: "short", day: "numeric", year: "numeric" })}{x.note ? ` · ${x.note}` : ""}</small></div>
+                form.kind === kind && form.id === x.id ? null : <div key={x.id} className="opx-li" data-amount={x.id}><div><b>{fmt(x.amount)}</b><small>{fmtDate(x.date + "T12:00:00", { month: "short", day: "numeric", year: "numeric" })}{x.note ? ` · ${x.note}` : ""}</small></div>
+                  <button className="opx-btn sm" disabled={busy} onClick={() => open({ kind, id: x.id, a: x.date, b: String(x.amount), c: x.note || "" })} aria-label={`Edit ${fmt(x.amount)} of ${fmtDate(x.date + "T12:00:00", { month: "short", day: "numeric", year: "numeric" })}`}>Edit</button>
                   <button className="opx-btn sm" disabled={busy} onClick={() => remove(key, x, `${fmt(x.amount)}${x.note ? `, ${x.note}` : ""}`)} aria-label={`Remove ${fmt(x.amount)} of ${fmtDate(x.date + "T12:00:00", { month: "short", day: "numeric", year: "numeric" })}`}>Remove</button></div>
               ))}
               {form.kind === kind && (
-                <form className="opx-row" style={{ gap: 8, marginTop: 10, flexWrap: "wrap" }} onSubmit={(e) => { e.preventDefault(); const amount = num(form.b); if (amount == null) { setNeed("Type an amount first, then press Add."); return } write((now) => ({ [key]: [...(now[key] || []), { id: uid(), date: form.a || today, amount, note: form.c.trim() }] })) }}>
+                <form className="opx-row" style={{ gap: 8, marginTop: 10, flexWrap: "wrap" }} onSubmit={(e) => { e.preventDefault(); const p = parseAmount(form.b); if (!p.ok) { setNeed(p.why); return } const item = { id: form.id || uid(), date: form.a || today, amount: p.value, note: form.c.trim() }; write((now) => ({ [key]: upsert(now[key], item) })) }}>
                   <input className="opx-input" type="date" style={{ width: 160 }} value={form.a} onChange={(e) => setForm({ ...form, a: e.target.value })} aria-label="Date" />
                   <input className="opx-input" style={{ width: 120 }} placeholder="Amount" inputMode="decimal" value={form.b} onChange={(e) => setForm({ ...form, b: e.target.value })} aria-label="Amount" autoFocus />
                   <input className="opx-input" style={{ flex: 1, minWidth: 160 }} placeholder="Note" value={form.c} onChange={(e) => setForm({ ...form, c: e.target.value })} aria-label="Note" />
-                  <button className="opx-btn primary" disabled={busy}>Add</button><button type="button" className="opx-btn" onClick={() => open({ kind: null, a: "", b: "", c: "" })}>Cancel</button>
+                  <button className="opx-btn primary" disabled={busy}>{form.id ? "Save" : "Add"}</button><button type="button" className="opx-btn" onClick={() => open({ kind: null, a: "", b: "", c: "" })}>Cancel</button>
                   {need && <span role="alert" className="opx-ch-need">{need}</span>}
                 </form>
               )}
@@ -319,7 +361,12 @@ export function SettingsTab({ projectId, project, onChange }: { projectId: strin
         { liveUrl: f.liveUrl.trim(), stagingUrl: f.stagingUrl.trim(), defaultTab: f.defaultTab, defaultTaskView: f.defaultTaskView, decisionsView: f.decisionsView as PlannerUi["decisionsView"], progressCountsSubtasks: f.progressCountsSubtasks, coreDocs: f.coreDocs })
       setBase(JSON.stringify(f)); setRestored(false)
       toast.success("Saved"); onChange()
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't save") }
+    } catch (e) {
+      // Saved elsewhere since this page loaded: nothing was overwritten. Your changes stay in the form; the page
+      // reloads the project, and Save again applies them over the latest.
+      if (e instanceof StaleError) { toast.error(`${e.message} Your changes are still in the form.`, { duration: 12000 }); onChange() }
+      else toast.error(e instanceof Error ? e.message : "Couldn't save")
+    }
     finally { setSaving(false) }
   }
   const archive = async () => {

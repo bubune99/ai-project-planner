@@ -39,7 +39,8 @@ export function DocsTab({ projectId, coreDocs, project, onProjectChange }: { pro
     else next[slot] = value === "none" ? null : value
     const meta = project?.metadata || {}
     try {
-      const r = await fetch(`/api/projects/${projectId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ metadata: { ...meta, planner_ui: { ...(meta.planner_ui || {}), slotDocs: next } } }) })
+      const r = await fetch(`/api/projects/${projectId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ metadata: { ...meta, planner_ui: { ...(meta.planner_ui || {}), slotDocs: next } }, expectedUiRev: Number(meta.planner_ui?._rev) || 0 }) })
+      if (r.status === 409) { const j = await r.json().catch(() => ({})); toast.error(j?.error || "Changed elsewhere; try again"); onProjectChange?.(); return }
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j?.error?.message || j?.error || `HTTP ${r.status}`) }
       setChanging(null); onProjectChange?.()
     } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't change the slot") }

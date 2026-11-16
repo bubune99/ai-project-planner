@@ -139,7 +139,15 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { name, description, status, priority, due_date, github_repo_url, metadata } = body
+    const { name, description, status, priority, due_date, github_repo_url } = body
+    let metadata = body.metadata
+    // The page's settings record (metadata.planner_ui) is written whole. A save says which revision it started from
+    // (expectedUiRev) and is refused if another tab or an agent saved since (Money and Settings checks, 2026-11-15:
+    // two tabs could overwrite each other with no warning). The server owns the counter.
+    const expectedUiRev: number | null = Number.isInteger(body.expectedUiRev) ? body.expectedUiRev : null
+    if (expectedUiRev !== null && metadata && typeof metadata === 'object') {
+      metadata = { ...metadata, planner_ui: { ...((metadata as any).planner_ui || {}), _rev: expectedUiRev + 1 } }
+    }
     // A field that was sent empty is being cleared; a field that was not sent is left alone. Before this, an emptied
     // description, target date or repository link was answered with "saved" and the old value stayed.
     const sent = (k: string) => Object.prototype.hasOwnProperty.call(body, k)
@@ -172,16 +180,31 @@ export async function PATCH(
         priority = COALESCE(${priority || null}, priority),
         due_date = CASE WHEN ${sent('due_date')}::boolean THEN ${due_date || null}::timestamp ELSE due_date END,
         github_repo_url = CASE WHEN ${sent('github_repo_url')}::boolean THEN ${typeof github_repo_url === 'string' && github_repo_url.trim() ? github_repo_url.trim() : null} ELSE github_repo_url END,
-        metadata = COALESCE(${metadata ? JSON.stringify(metadata) : null}::jsonb, metadata),
+        -- Without expectedUiRev a save may change other metadata (risks, for one) but never the settings record:
+        -- the stored planner_ui is kept, so a whole-metadata write from an old copy cannot wipe it.
+        metadata = COALESCE(
+          ${metadata ? JSON.stringify(metadata) : null}::jsonb
+            || CASE WHEN ${expectedUiRev}::int IS NULL THEN jsonb_strip_nulls(jsonb_build_object('planner_ui', metadata->'planner_ui')) ELSE '{}'::jsonb END,
+          metadata),
         tags = COALESCE(${tags}::text[], tags),
         documentation_5wh = ${envelopeForSql(mergeResult.envelope)}::jsonb,
         updated_at = NOW()
       WHERE id = ${id}
         AND user_id = ${userId}
+        AND (${expectedUiRev}::int IS NULL OR COALESCE((metadata->'planner_ui'->>'_rev')::int, 0) = ${expectedUiRev}::int)
       RETURNING *
     `
 
     if (result.length === 0) {
+      if (expectedUiRev !== null) {
+        const [exists] = await sql`SELECT 1 FROM projects WHERE id = ${id} AND user_id = ${userId}`
+        if (exists) {
+          return NextResponse.json(
+            { error: 'This project was changed in another tab or by an agent since you opened it. The page now shows the latest; make your change again.', code: 'STALE' },
+            { status: 409 }
+          )
+        }
+      }
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 

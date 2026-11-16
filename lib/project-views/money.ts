@@ -116,3 +116,19 @@ export const formatMoney = (n: number | null | undefined, currency = "USD") => {
   const cents = Math.round(n * 100) / 100, digits = Number.isInteger(cents) ? 0 : 2
   return new Intl.NumberFormat("en-US", { style: "currency", currency, minimumFractionDigits: digits, maximumFractionDigits: digits }).format(cents)
 }
+
+/**
+ * Reads an amount typed on the Money tab. Money check, 2026-11-15: the boxes dropped anything that was not a digit or
+ * a point, so "-5" was saved as 5 and "12a" as 12, and nothing said so. Now an amount is a positive number with up to
+ * two decimals; thousands commas and a leading currency sign are allowed. Anything else is refused with a reason.
+ */
+export function parseAmount(raw: string): { ok: true; value: number } | { ok: false; why: string } {
+  const s = raw.trim().replace(/^[$€£₵]\s*/, "").replace(/,(?=\d{3}(\D|$))/g, "")
+  if (!s) return { ok: false, why: "Type an amount first, then press Add." }
+  if (s.startsWith("-")) return { ok: false, why: "Amounts are positive. To record money going out, use the other list." }
+  if (!/^\d+(\.\d{1,2})?$/.test(s) && !/^\.\d{1,2}$/.test(s)) return { ok: false, why: `"${raw.trim()}" is not an amount. Use digits, like 12.50.` }
+  return { ok: true, value: Math.round(Number(s) * 100) / 100 }
+}
+
+/** Currencies the Money tab offers. */
+export const CURRENCIES: [string, string][] = [["USD", "US dollar"], ["EUR", "Euro"], ["GBP", "British pound"], ["CAD", "Canadian dollar"], ["GHS", "Ghanaian cedi"], ["NGN", "Nigerian naira"]]

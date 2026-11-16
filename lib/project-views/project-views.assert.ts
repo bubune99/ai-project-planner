@@ -3,7 +3,7 @@
  * Run: npx -y tsx@4.23.15 lib/project-views/project-views.assert.ts
  */
 import assert from "node:assert/strict"
-import { formatMoney, hasMoney, moneyRollup, moneyTotals } from "./money"
+import { formatMoney, hasMoney, moneyRollup, moneyTotals, parseAmount } from "./money"
 import { type Plannable, rangeOf, byDay, dedupeTodos, unscheduled, monthCells, addDays, dayKey, dayOf, dayTicks } from "./schedule"
 import { projectMetrics, weekOf, lastWeeks, medianLabel } from "./metrics"
 import { parseIdeaPlan, featureName, ideaStage, ideasForProject } from "./ideas"
@@ -206,6 +206,24 @@ ok("money roll-up: per currency, empty projects left out, services merged", () =
   assert.equal(lower[0].budgetUsed, null)
   assert.deepEqual([r[1].monthly, r[1].net], [null, null])
   assert.deepEqual(moneyRollup([]), [])
+})
+
+ok("parseAmount: a positive amount with up to two decimals, commas and a currency sign allowed", () => {
+  const v = (s: string) => { const r = parseAmount(s); return r.ok ? r.value : null }
+  assert.equal(v("12.50"), 12.5)
+  assert.equal(v("$1,234.5"), 1234.5)
+  assert.equal(v(" 7 "), 7)
+  assert.equal(v(".5"), 0.5)
+  assert.equal(v("0"), 0)
+})
+
+ok("parseAmount: refuses what it used to quietly change, and says why", () => {
+  const why = (s: string) => { const r = parseAmount(s); return r.ok ? null : r.why }
+  assert.match(why("-5") || "", /positive/)
+  assert.match(why("12a") || "", /not an amount/)
+  assert.match(why("1.234") || "", /not an amount/)
+  assert.match(why("") || "", /Type an amount/)
+  assert.match(why("1,2") || "", /not an amount/)
 })
 
 console.log(`\n${passed} checks passed`)
