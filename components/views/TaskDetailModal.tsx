@@ -200,6 +200,8 @@ export function TaskDetailModal({
         className="sm:max-w-[min(1320px,94vw)] h-[92vh] flex flex-col overflow-hidden p-0 gap-0"
         data-testid="card-view"
         onOpenAutoFocus={(e) => e.preventDefault()}
+        // A press on the feedback menu or form (drawn outside the card) is not a press outside the card.
+        onInteractOutside={(e) => { if ((e.target as Element | null)?.closest?.("[data-fbw]")) e.preventDefault() }}
         onEscapeKeyDown={(e) => {
           const a = document.activeElement
           // Esc first closes a picture shown large, then leaves a field being typed in; the next Esc closes the card.

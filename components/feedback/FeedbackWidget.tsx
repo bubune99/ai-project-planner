@@ -31,6 +31,14 @@ const LONG_PRESS_MS = 550;
 const isEditable = (el: Element | null) =>
   !!el?.closest("input, textarea, select, [contenteditable=''], [contenteditable='true']");
 const isOwnUi = (el: Element | null) => !!el?.closest("[data-fbw]");
+/** What was pointed at, in words: the visible text and what kind of thing it is, never a code path. */
+const pickedWords = (t: { snapshot: { tag: string; text?: string } }) => {
+  const kinds: Record<string, string> = { button: "button", a: "link", input: "field", textarea: "text box", select: "list", img: "picture", h1: "heading", h2: "heading", h3: "heading", h4: "heading" }
+  const what = kinds[String(t.snapshot.tag || "").toLowerCase()] || "part of the page"
+  const text = String(t.snapshot.text || "").replace(/\s+/g, " ").trim().slice(0, 50)
+  return text ? `the ${what} "${text}"` : `a ${what}`
+}
+
 const describe = (el: Element) => {
   const t = (el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 36);
   return `${el.tagName.toLowerCase()}${t ? ` “${t}”` : ""}`;
@@ -50,6 +58,8 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
   const [target, setTarget] = useState<CapturedTarget | null>(null);
   const [comment, setComment] = useState("");
   const [title, setTitle] = useState("");
+  const [kind, setKind] = useState<"wrong" | "wish">("wrong");
+  const [sentTo, setSentTo] = useState("");
   const [err, setErr] = useState("");
   const ctrl = useRef<SelectController | null>(null);
 
@@ -197,10 +207,14 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
       projectId,
       comment: comment.trim(),
       title: title.trim() || undefined,
+      kind,
+      picked: target ? pickedWords(target) : null,
       target,
       env: captureEnv(),
     });
     if (res.ok) {
+      setSentTo(res.card ? `Sent. It is a card in ${res.card.column} on the planner's board.` : "Sent.");
+      setKind("wrong");
       setPhase("done");
       setComment("");
       setTitle("");
@@ -210,7 +224,7 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
       setErr(res.error || "Failed to send");
       setPhase("error");
     }
-  }, [comment, title, target, source, projectId]);
+  }, [comment, title, kind, target, source, projectId]);
 
   const reset = () => {
     ctrl.current?.stop();
@@ -271,7 +285,9 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
   });
 
   return (
-    <div data-fbw="root">
+    // An open dialog turns presses off on everything outside it (pointer-events: none on body); the menu and the
+    // form live outside every dialog, so they turn them back on, or a press inside an open card falls through them.
+    <div data-fbw="root" style={{ pointerEvents: "auto" }}>
       {menu && (
         <div
           data-fbw="menu"
@@ -296,7 +312,7 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
           }}
         >
           <button role="menuitem" data-fbw="menu-ask" onClick={() => askAbout(menu.el)} style={menuItem}>
-            <span style={{ fontWeight: 600 }}>Ask JARVIS about this</span>
+            <span style={{ fontWeight: 600 }}>Ask the assistant about this</span>
           </button>
           {messageOf(menu.el) && (
             <>
@@ -369,8 +385,22 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
             <strong style={{ fontSize: 13 }}>Send feedback</strong>
             <button onClick={reset} style={{ ...btn("#141a28"), padding: "2px 8px" }}>
-              ✕
+              Close
             </button>
+          </div>
+          <div role="radiogroup" aria-label="What kind of report" style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+            {([["wrong", "Something is wrong"], ["wish", "I'd like this"]] as const).map(([k, label]) => (
+              <button
+                key={k}
+                role="radio"
+                aria-checked={kind === k}
+                data-fbw={`kind-${k}`}
+                onClick={() => setKind(k)}
+                style={{ ...btn(kind === k ? accent : "#141a28"), flex: 1, padding: "6px 8px" }}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
           {target ? (
@@ -385,9 +415,7 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
                 wordBreak: "break-all",
               }}
             >
-              <code>{target.snapshot.tag}</code>{" "}
-              {target.snapshot.text ? `“${target.snapshot.text.slice(0, 40)}”` : ""}
-              <div style={{ opacity: 0.7, marginTop: 2 }}>{target.selector}</div>
+              You pointed at {pickedWords(target)}
             </div>
           ) : (
             <div style={{ fontSize: 12, color: "#8b93a7", marginBottom: 10 }}>
@@ -404,11 +432,11 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
           />
           <textarea
             data-fbw="comment"
-            placeholder="What’s wrong / what would you change?"
+            placeholder={kind === "wish" ? "What would you like it to do?" : "What is wrong?"}
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             rows={4}
-            style={{ ...input, resize: "vertical", marginBottom: 10 }}
+            style={{ ...input, resize: "none", marginBottom: 10 }}
           />
 
           {err && <div style={{ color: "#f87171", fontSize: 12, marginBottom: 8 }}>{err}</div>}
@@ -445,7 +473,7 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
             boxShadow: "0 8px 24px rgba(0,0,0,.4)",
           }}
         >
-          ✓ Feedback sent — thank you
+          {sentTo || "Sent."}
         </div>
       )}
     </div>

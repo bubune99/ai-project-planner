@@ -3645,6 +3645,88 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
       }
     )
 
+    // Owner, 2026-11-16: "I see you call neon to know what is in the project, you should have updated the MCP to be able
+    // to handle these calls". Agents were reading the database for: cards across projects by column, what moved
+    // recently, a card's subtasks, and the owner's reports. These two tools answer those, owner-scoped like the rest.
+    server.tool(
+      "find_cards",
+      "Find cards across every project you own in one call: by column (status), recently changed, tag, parent card or words in the title. Returns id, project, column, kind, priority, holder and parent. Use instead of get_project_tasks per project.",
+      {
+        status: z.array(z.string()).optional().describe("Columns to include, e.g. [\"requested\",\"pending\",\"in-progress\"]"),
+        projectId: z.string().optional().describe("Only this project"),
+        changedSince: z.string().optional().describe("ISO time; only cards updated after it"),
+        tag: z.string().optional().describe("Only cards carrying this tag"),
+        parentId: z.string().optional().describe("Only the subtasks of this card"),
+        topLevelOnly: z.boolean().optional().describe("Leave out subtasks (default false)"),
+        text: z.string().optional().describe("Words that must appear in the title"),
+        limit: z.number().int().min(1).max(500).optional().describe("Max cards (default 100)"),
+      },
+      async ({ status, projectId, changedSince, tag, parentId, topLevelOnly, text, limit }) => {
+        try {
+          const userId = getMcpUserId()
+          const rows = (await sql`
+            SELECT s.id, s.title, s.status, s.priority, s.work_kind, s.parent_task_id, s.claimed_by_id, s.tags,
+                   s.updated_at, p.id AS project_id, p.name AS project_name,
+                   (SELECT COUNT(*)::int FROM project_steps c WHERE c.parent_task_id = s.id AND c.deleted_at IS NULL) AS subtasks
+              FROM project_steps s
+              JOIN projects p ON p.id = s.project_id AND p.deleted_at IS NULL
+             WHERE p.user_id = ${userId} AND s.deleted_at IS NULL
+               AND (${projectId ?? null}::uuid IS NULL OR p.id = ${projectId ?? null}::uuid)
+               AND (${status && status.length ? status : null}::text[] IS NULL OR s.status = ANY(${status && status.length ? status : null}::text[]))
+               AND (${changedSince ?? null}::timestamptz IS NULL OR s.updated_at > ${changedSince ?? null}::timestamptz)
+               AND (${tag ?? null}::text IS NULL OR ${tag ?? null} = ANY(COALESCE(s.tags, '{}')))
+               AND (${parentId ?? null}::uuid IS NULL OR s.parent_task_id = ${parentId ?? null}::uuid)
+               AND (${topLevelOnly ? true : null}::boolean IS NULL OR s.parent_task_id IS NULL)
+               AND (${text ?? null}::text IS NULL OR s.title ILIKE '%' || ${text ?? ""} || '%')
+             ORDER BY s.updated_at DESC
+             LIMIT ${Math.min(limit ?? 100, 500)}
+          `) as any[]
+          return mcpResponse({
+            count: rows.length,
+            cards: rows.map((r) => ({
+              id: r.id, title: r.title, column: r.status, priority: r.priority, kind: r.work_kind,
+              project: { id: r.project_id, name: r.project_name }, parentId: r.parent_task_id,
+              heldBy: r.claimed_by_id, subtasks: r.subtasks, tags: r.tags || [], updatedAt: r.updated_at,
+            })),
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
+    server.tool(
+      "list_reports",
+      "The owner's reports from the feedback form: what he said, the page, status, and the card each became. Filter by status (open, fixed, ...) or source.",
+      {
+        status: z.string().optional().describe("open, in_progress, fixed, ..."),
+        source: z.string().optional().describe("The app it came from, e.g. ai-project-planner"),
+        limit: z.number().int().min(1).max(200).optional().describe("Max reports (default 50)"),
+      },
+      async ({ status, source, limit }) => {
+        try {
+          getMcpUserId()
+          const rows = (await sql`
+            SELECT id, source, route, title, comment, status, priority, created_at, metadata
+              FROM feedback
+             WHERE (${status ?? null}::text IS NULL OR status = ${status ?? null})
+               AND (${source ?? null}::text IS NULL OR source = ${source ?? null})
+             ORDER BY created_at DESC
+             LIMIT ${Math.min(limit ?? 50, 200)}
+          `) as any[]
+          return mcpResponse({
+            count: rows.length,
+            reports: rows.map((r) => ({
+              id: r.id, source: r.source, page: r.route, title: r.title, said: r.comment, status: r.status,
+              kind: r.metadata?.kind ?? null, cardId: r.metadata?.stepId ?? null, createdAt: r.created_at,
+            })),
+          })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+
     server.tool(
       "get_dashboard",
       "Get unified dashboard summary with projects, todos, ideas, and recent activity.",

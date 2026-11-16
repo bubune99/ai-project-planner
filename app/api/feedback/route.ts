@@ -13,6 +13,7 @@ import { sql } from "@/lib/db/client";
 import { successResponse, errorResponse, ErrorCodes } from "@/lib/api-utils";
 import { getAuthContext } from "@/lib/auth/auth-utils";
 import { buildEnvelopeForWrite, envelopeForSql } from "@/lib/api/envelope-helpers";
+import { reportCard, reportKind } from "@/lib/intake/report-card";
 
 export const dynamic = "force-dynamic";
 
@@ -99,9 +100,49 @@ export async function POST(request: NextRequest) {
       )
       RETURNING id, created_at, status
     `;
-    return successResponse({ id: created.id, status: created.status }, undefined, 201);
+    const card = await cardForReport(created.id, b);
+    return successResponse({ id: created.id, status: created.status, card }, undefined, 201);
   } catch (e: any) {
     return errorResponse(ErrorCodes.INTERNAL_ERROR, "Failed to save feedback", 500, e?.message);
+  }
+}
+
+/**
+ * Intake (lib/intake/report-card.ts): the report becomes a card on its app's project, wrong to Up next, wish to
+ * Requests. A failure here never loses the report itself; it stays in the list and the error is logged.
+ */
+async function cardForReport(reportId: string, b: any): Promise<{ id: string; column: string } | null> {
+  const kind = reportKind(b.kind);
+  try {
+    const card = reportCard({
+      id: reportId, source: b.source, kind, title: b.title, comment: b.comment, url: b.url, route: b.route,
+      selector: b.selector, picked: typeof b.picked === "string" ? b.picked.slice(0, 200) : null,
+      screenshot: typeof b.screenshot === "string" && /^https?:\/\//.test(b.screenshot) ? b.screenshot : b.screenshot ? "kept" : null,
+    });
+    if (!card) {
+      await sql`UPDATE feedback SET metadata = COALESCE(metadata, '{}'::jsonb) || ${JSON.stringify({ kind })}::jsonb WHERE id = ${reportId}`;
+      return null;
+    }
+    const [step] = await sql`
+      INSERT INTO project_steps (project_id, title, description, status, phase, stage, priority, order_index, tags, work_kind)
+      VALUES (
+        ${card.projectId}, ${card.title}, ${card.description}, ${card.status},
+        COALESCE((SELECT NULLIF(current_phase, '') FROM projects WHERE id = ${card.projectId}), 'planning'),
+        'backlog', ${card.priority},
+        (SELECT COALESCE(MAX(order_index), 0) + 1 FROM project_steps WHERE project_id = ${card.projectId} AND deleted_at IS NULL),
+        ${card.tags}::text[], 'task'
+      )
+      RETURNING id
+    `;
+    await sql`
+      UPDATE feedback SET project_id = ${card.projectId},
+             metadata = COALESCE(metadata, '{}'::jsonb) || ${JSON.stringify({ kind, stepId: step.id })}::jsonb
+       WHERE id = ${reportId}
+    `;
+    return { id: step.id, column: card.status === "requested" ? "Requests" : "Up next" };
+  } catch (e: any) {
+    console.error("[feedback] report saved but its card was not made", reportId, e?.message);
+    return null;
   }
 }
 

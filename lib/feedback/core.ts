@@ -282,6 +282,10 @@ export interface FeedbackPayload {
   projectId?: string | null;
   comment: string;
   title?: string;
+  /** "wrong" becomes a card in Up next, "wish" a card in Requests (lib/intake/report-card.ts). */
+  kind?: "wrong" | "wish";
+  /** What was pointed at, in words a person reads. */
+  picked?: string | null;
   target: CapturedTarget | null;
   env: CapturedEnv;
 }
@@ -289,7 +293,7 @@ export interface FeedbackPayload {
 export async function submitFeedback(
   payload: FeedbackPayload,
   endpoint = "/api/feedback"
-): Promise<{ ok: boolean; id?: string; error?: string }> {
+): Promise<{ ok: boolean; id?: string; card?: { id: string; column: string } | null; error?: string }> {
   try {
     const res = await fetch(endpoint, {
       method: "POST",
@@ -300,6 +304,8 @@ export async function submitFeedback(
         projectId: payload.projectId ?? null,
         comment: payload.comment,
         title: payload.title || null,
+        kind: payload.kind || "wrong",
+        picked: payload.picked || null,
         url: payload.env.url,
         route: payload.env.route,
         selector: payload.target?.selector || null,
@@ -314,7 +320,7 @@ export async function submitFeedback(
     });
     const j = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: j?.error?.message || j?.error || `HTTP ${res.status}` };
-    return { ok: true, id: j?.data?.id || j?.id };
+    return { ok: true, id: j?.data?.id || j?.id, card: j?.data?.card ?? null };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "network error" };
   }
