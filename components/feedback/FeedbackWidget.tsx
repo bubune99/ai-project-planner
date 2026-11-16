@@ -31,6 +31,15 @@ const LONG_PRESS_MS = 550;
 const isEditable = (el: Element | null) =>
   !!el?.closest("input, textarea, select, [contenteditable=''], [contenteditable='true']");
 const isOwnUi = (el: Element | null) => !!el?.closest("[data-fbw]");
+const cardOf = (el: Element) => el.closest("[data-kanban-card]") as HTMLElement | null;
+const cardActions = (el: Element) => cardOf(el)?.querySelector('button[aria-label^="Actions for"]') as HTMLElement | null;
+/** Radix menus open on pointerdown, not click. */
+const openRadix = (b: HTMLElement) => {
+  const r = b.getBoundingClientRect();
+  const o = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0, pointerType: "mouse" } as PointerEventInit;
+  b.dispatchEvent(new PointerEvent("pointerdown", o));
+  b.dispatchEvent(new PointerEvent("pointerup", o));
+};
 /** What was pointed at, in words: the visible text and what kind of thing it is, never a code path. */
 const pickedWords = (t: { snapshot: { tag: string; text?: string } }) => {
   const kinds: Record<string, string> = { button: "button", a: "link", input: "field", textarea: "text box", select: "list", img: "picture", h1: "heading", h2: "heading", h3: "heading", h4: "heading" }
@@ -39,10 +48,8 @@ const pickedWords = (t: { snapshot: { tag: string; text?: string } }) => {
   return text ? `the ${what} "${text}"` : `a ${what}`
 }
 
-const describe = (el: Element) => {
-  const t = (el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 36);
-  return `${el.tagName.toLowerCase()}${t ? ` “${t}”` : ""}`;
-};
+/** What is under the pointer, in words ("the button “Save”"), never a tag name. */
+const describe = (el: Element) => pickedWords({ snapshot: { tag: el.tagName, text: (el.textContent || "").slice(0, 60) } });
 
 type Phase = "idle" | "selecting" | "composing" | "sending" | "done" | "error";
 
@@ -243,29 +250,29 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
     setPhase("idle");
   };
 
-  const accent = "#2563eb";
+  const accent = "var(--opx-accent, #2563eb)";
   const panel: React.CSSProperties = {
     position: "fixed",
     bottom: 16,
     right: 16,
     width: "min(320px, calc(100vw - 32px))",
-    background: "#0b0f1a",
-    color: "#e8eaf0",
-    border: "1px solid #2a3142",
+    background: "var(--opx-card, #0b0f1a)",
+    color: "var(--opx-ink, #e8eaf0)",
+    border: "1px solid var(--opx-line, #2a3142)",
     borderRadius: 12,
     boxShadow: "0 12px 40px rgba(0,0,0,.5)",
     zIndex: 2147483646,
     padding: 16,
-    font: "13px/1.5 system-ui, sans-serif",
+    fontSize: 13, lineHeight: 1.5, fontFamily: "inherit",
   };
   const input: React.CSSProperties = {
     width: "100%",
-    background: "#141a28",
-    border: "1px solid #2a3142",
+    background: "var(--opx-soft, #141a28)",
+    border: "1px solid var(--opx-line, #2a3142)",
     borderRadius: 7,
-    color: "#e8eaf0",
+    color: "var(--opx-ink, #e8eaf0)",
     padding: "8px 10px",
-    font: "13px system-ui",
+    fontSize: 13, fontFamily: "inherit",
     boxSizing: "border-box",
   };
   const menuItem: React.CSSProperties = {
@@ -273,22 +280,23 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
     width: "100%",
     textAlign: "left",
     background: "transparent",
-    color: "#e8eaf0",
+    color: "var(--opx-ink, #e8eaf0)",
     border: "none",
     borderRadius: 8,
     padding: "12px 12px",
     minHeight: 44,
     cursor: "pointer",
-    font: "13px/1.3 system-ui",
+    fontSize: 13, lineHeight: 1.3, fontFamily: "inherit",
   };
   const btn = (bg: string): React.CSSProperties => ({
     background: bg,
-    color: bg === accent ? "#fff" : "#cfd6e6",
-    border: bg === accent ? "none" : "1px solid #2a3142",
+    color: bg === accent ? "#fff" : "var(--opx-ink, #cfd6e6)",
+    border: bg === accent ? "none" : "1px solid var(--opx-line, #2a3142)",
     borderRadius: 7,
-    padding: "8px 12px",
+    padding: "8px 14px",
+    minHeight: 44,
     cursor: "pointer",
-    font: "12px/1 system-ui",
+    fontSize: 12, lineHeight: 1, fontFamily: "inherit",
     fontWeight: 600,
   });
 
@@ -311,14 +319,27 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
                   borderRadius: 12,
                   padding: 6,
                 }),
-            background: "#0b0f1a",
-            color: "#e8eaf0",
-            border: "1px solid #2a3142",
+            background: "var(--opx-card, #0b0f1a)",
+            color: "var(--opx-ink, #e8eaf0)",
+            border: "1px solid var(--opx-line, #2a3142)",
             boxShadow: "0 12px 40px rgba(0,0,0,.5)",
             zIndex: 2147483646,
-            font: "13px/1.4 system-ui, sans-serif",
+            fontSize: 13, lineHeight: 1.4, fontFamily: "inherit",
           }}
         >
+          {/* Over a board card: its own actions come first (walk 2026-11-16: right-click on a card gave no way to them). */}
+          {cardOf(menu.el) && (
+            <>
+              <button role="menuitem" data-fbw="menu-card-open" onClick={() => { const c = cardOf(menu.el)!; setMenu(null); (c.querySelector("p") as HTMLElement | null ?? c).click(); }} style={menuItem}>
+                <span style={{ fontWeight: 600 }}>Open this card</span>
+              </button>
+              {cardActions(menu.el) && (
+                <button role="menuitem" data-fbw="menu-card-actions" onClick={() => { const b = cardActions(menu.el)!; setMenu(null); setTimeout(() => openRadix(b), 0); }} style={menuItem}>
+                  Card actions: duplicate, move, delete
+                </button>
+              )}
+            </>
+          )}
           <button role="menuitem" data-fbw="menu-ask" onClick={() => askAbout(menu.el)} style={menuItem}>
             <span style={{ fontWeight: 600 }}>Ask the assistant about this</span>
           </button>
@@ -348,7 +369,7 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
             style={menuItem}
           >
             <span style={{ fontWeight: 600 }}>Give feedback on this</span>
-            <span style={{ display: "block", fontSize: 12, color: "#8b93a7", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <span style={{ display: "block", fontSize: 12, color: "var(--opx-muted, #8b93a7)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {describe(menu.el)}
             </span>
           </button>
@@ -356,7 +377,7 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
             General feedback
           </button>
           {!menu.touch && (
-            <div style={{ fontSize: 12, color: "#6b7388", padding: "4px 10px 2px" }}>
+            <div style={{ fontSize: 12, color: "var(--opx-muted, #8b93a7)", padding: "4px 10px 2px" }}>
               Shift + right-click for the browser menu
             </div>
           )}
@@ -371,18 +392,18 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
             bottom: 20,
             left: "50%",
             transform: "translateX(-50%)",
-            background: "#0b0f1a",
-            color: "#e8eaf0",
-            border: "1px solid #2a3142",
+            background: "var(--opx-card, #0b0f1a)",
+            color: "var(--opx-ink, #e8eaf0)",
+            border: "1px solid var(--opx-line, #2a3142)",
             borderRadius: 999,
             padding: "9px 16px",
             zIndex: 2147483646,
-            font: "12px system-ui",
+            fontSize: 12, fontFamily: "inherit",
             boxShadow: "0 8px 24px rgba(0,0,0,.4)",
           }}
         >
           Tap or click the element you’re reporting · <b>Esc</b> to cancel ·{" "}
-          <button onClick={skipTarget} style={{ ...btn("#141a28"), padding: "3px 8px", marginLeft: 6 }}>
+          <button onClick={skipTarget} style={{ ...btn("var(--opx-soft, #141a28)"), padding: "3px 8px", marginLeft: 6 }}>
             skip — comment only
           </button>
         </div>
@@ -392,7 +413,7 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
         <div data-fbw="panel" style={panel}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
             <strong style={{ fontSize: 13 }}>Send feedback</strong>
-            <button onClick={reset} style={{ ...btn("#141a28"), padding: "2px 8px" }}>
+            <button onClick={reset} style={{ ...btn("var(--opx-soft, #141a28)"), padding: "2px 8px" }}>
               Close
             </button>
           </div>
@@ -404,7 +425,7 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
                 aria-checked={kind === k}
                 data-fbw={`kind-${k}`}
                 onClick={() => setKind(k)}
-                style={{ ...btn(kind === k ? accent : "#141a28"), flex: 1, padding: "6px 8px" }}
+                style={{ ...btn(kind === k ? accent : "var(--opx-soft, #141a28)"), flex: 1, padding: "6px 8px" }}
               >
                 {label}
               </button>
@@ -415,10 +436,10 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
             <div
               style={{
                 fontSize: 12,
-                color: "#8b93a7",
+                color: "var(--opx-muted, #8b93a7)",
                 marginBottom: 10,
                 padding: "6px 8px",
-                background: "#141a28",
+                background: "var(--opx-soft, #141a28)",
                 borderRadius: 6,
                 wordBreak: "break-all",
               }}
@@ -426,13 +447,13 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
               You pointed at {pickedWords(target)}
               {target.screenshot && (
                 <img src={target.screenshot} alt={`What you pointed at: ${pickedWords(target)}`}
-                  style={{ display: "block", marginTop: 6, maxWidth: "100%", maxHeight: 120, borderRadius: 4, padding: 4, border: "1px solid #2a3142",
+                  style={{ display: "block", marginTop: 6, maxWidth: "100%", maxHeight: 120, borderRadius: 4, padding: 4, border: "1px solid var(--opx-line, #2a3142)",
                     // The page's own background, so the picture reads in both themes (white hid light text).
                     background: typeof document !== "undefined" ? getComputedStyle(document.body).backgroundColor : "#fff" }} />
               )}
             </div>
           ) : (
-            <div style={{ fontSize: 12, color: "#8b93a7", marginBottom: 10 }}>
+            <div style={{ fontSize: 12, color: "var(--opx-muted, #8b93a7)", marginBottom: 10 }}>
               No element attached (general feedback)
             </div>
           )}
@@ -453,10 +474,10 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
             style={{ ...input, resize: "none", marginBottom: 10 }}
           />
 
-          {err && <div style={{ color: "#f87171", fontSize: 12, marginBottom: 8 }}>{err}</div>}
+          {err && <div style={{ color: "var(--opx-bad, #f87171)", fontSize: 12, marginBottom: 8 }}>{err}</div>}
 
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <button onClick={beginSelect} style={btn("#141a28")}>
+            <button onClick={beginSelect} style={btn("var(--opx-soft, #141a28)")}>
               {target ? "Re-pick" : "Pick element"}
             </button>
             <button
@@ -477,13 +498,13 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
             position: "fixed",
             bottom: 16,
             right: 16,
-            background: "#0b1f14",
-            color: "#7ee2a8",
-            border: "1px solid #1f5236",
+            background: "color-mix(in srgb, var(--opx-good, #307e59) 16%, var(--opx-card, #0b0f1a))",
+            color: "var(--opx-ink, #7ee2a8)",
+            border: "1px solid var(--opx-good, #1f5236)",
             borderRadius: 10,
             padding: "12px 16px",
             zIndex: 2147483646,
-            font: "13px system-ui",
+            fontSize: 13, fontFamily: "inherit",
             boxShadow: "0 8px 24px rgba(0,0,0,.4)",
           }}
         >
