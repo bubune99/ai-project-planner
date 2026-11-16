@@ -980,8 +980,9 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         progress: z.number().min(0).max(100).optional(),
         tags: z.array(z.string()).optional().describe("Replaces the full tag list"),
         dueDate: z.string().nullable().optional(),
+        claimedBy: z.string().max(80).optional().describe("Your agent name. With status 'in-progress' it marks you as holding the card, so the board shows who has it. Moving it out of in-progress lets go."),
       },
-      async ({ taskId, title, description, status, priority, progress, tags, dueDate }) => {
+      async ({ taskId, title, description, status, priority, progress, tags, dueDate, claimedBy }) => {
         try {
           requireMcpScope("write")
           const [step] = await sql`
@@ -1017,6 +1018,11 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
                 progress = COALESCE(${progress ?? null}, progress),
                 tags = CASE WHEN ${setTags} THEN ${cleanTags}::text[] ELSE tags END,
                 end_date = CASE WHEN ${setDue} THEN ${dueDate ?? null}::timestamp ELSE end_date END,
+                -- In progress only while an agent holds it (lib/work/pipeline.ts): taking it records who, leaving lets go.
+                claimed_by_id = CASE WHEN ${status || null}::text = 'in-progress' THEN COALESCE(${claimedBy || null}, claimed_by_id, 'agent')
+                                     WHEN ${status || null}::text IS NOT NULL THEN NULL ELSE claimed_by_id END,
+                claimed_by_type = CASE WHEN ${status || null}::text = 'in-progress' THEN 'agent' WHEN ${status || null}::text IS NOT NULL THEN NULL ELSE claimed_by_type END,
+                claimed_at = CASE WHEN ${status || null}::text = 'in-progress' THEN COALESCE(claimed_at, NOW()) WHEN ${status || null}::text IS NOT NULL THEN NULL ELSE claimed_at END,
                 completed_at = CASE WHEN ${statusKind === "done"} THEN NOW()
                                     WHEN ${statusKind !== null && statusKind !== "done"} THEN NULL
                                     ELSE completed_at END,

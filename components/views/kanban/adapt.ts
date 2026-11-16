@@ -141,13 +141,13 @@ function kindOf(step: Pick<BoardStep, "status">, statusMap: Record<string, Proje
 }
 
 const INITIATIVE_WORD = { campaign: "Campaign", phase: "Phase", sprint: "Sprint" } as const
-/** Who has the card: the agent holding it in progress, or that it was sent and not yet picked up (lib/work/pipeline.ts). */
-function holderOf(step: BoardStep, now: Date): Array<{ name: string }> | undefined {
+/** Who has the card, in words for its footer: the agent holding it, or that it was sent and not picked up (lib/work/pipeline.ts). */
+function holderLine(step: BoardStep, now: Date): { label: string; title: string } | null {
   const h = holding(step as unknown as WorkRow, now)
-  if (h?.state === "held") return [{ name: h.by }]
-  if (h?.state === "sent") return [{ name: "Sent, waiting for an agent" }]
-  if (h?.state === "nobody") return [{ name: "Nobody holds it" }]
-  return step.assigned_agent ? [{ name: step.assigned_agent }] : undefined
+  if (h?.state === "held") return { label: `With ${h.by}`, title: "The agent working on it now" }
+  if (h?.state === "sent") return { label: "Sent, waiting for an agent", title: "Sent to the project's agents; it shows who has it once one picks it up" }
+  if (h?.state === "nobody") return { label: "Nobody holds it", title: "In progress with no agent holding it: agents put it back" }
+  return null
 }
 
 export function toKanbanTask(step: BoardStep, opts: AdaptOptions): KanbanTask {
@@ -168,11 +168,11 @@ export function toKanbanTask(step: BoardStep, opts: AdaptOptions): KanbanTask {
     category: workKind === "initiative" ? INITIATIVE_WORD[initiativeType] : workKind === "upkeep" ? "Upkeep" : step.tags?.[0] || undefined,
     // the first tag is already up top as the category chip; show the rest here
     tags: (step.tags ?? []).slice(1).map((label) => ({ label, color: tagColor(label) })),
-    assignees: holderOf(step, opts.today ?? new Date()),
+    assignees: step.status === "in-progress" && step.claimed_by_id ? [{ name: step.claimed_by_id }] : step.assigned_agent ? [{ name: step.assigned_agent }] : undefined,
     due,
     dueSoon,
     progress: toProgress(step, isDone),
-    footnotes: toFootnotes(step, opts),
+    footnotes: [...(holderLine(step, opts.today ?? new Date()) ? [holderLine(step, opts.today ?? new Date())!] : []), ...toFootnotes(step, opts)],
     done: isDone,
   }
 }

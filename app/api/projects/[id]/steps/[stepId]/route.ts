@@ -197,6 +197,8 @@ export async function PATCH(
     if (workKind !== null && !["task", "initiative", "upkeep"].includes(workKind)) {
       return NextResponse.json({ error: `Invalid work_kind: ${workKind}. Allowed: task, initiative, upkeep` }, { status: 400 });
     }
+    // An agent taking a card names itself, so the board shows who holds it (only an agent's key may claim).
+    const claimedBy = authType !== "session" && typeof body.claimed_by === "string" && body.claimed_by.trim() ? body.claimed_by.trim().slice(0, 80) : null;
     // Where the card was, so a move into Up next or In progress can send it to an agent (lib/work/pipeline.ts).
     const [before] = (await sql`SELECT status FROM project_steps WHERE id = ${stepId} AND project_id = ${projectId} AND deleted_at IS NULL`) as { status: string }[];
 
@@ -222,9 +224,12 @@ export async function PATCH(
         version_id = COALESCE(${version_id || null}, version_id),
         metadata = COALESCE(${metadata ? JSON.stringify(metadata) : null}::jsonb, metadata),
         work_kind = COALESCE(${workKind}, work_kind),
-        claimed_by_id = CASE WHEN ${status || null}::text IS NOT NULL AND ${status || null}::text <> 'in-progress' THEN NULL ELSE claimed_by_id END,
-        claimed_by_type = CASE WHEN ${status || null}::text IS NOT NULL AND ${status || null}::text <> 'in-progress' THEN NULL ELSE claimed_by_type END,
-        claimed_at = CASE WHEN ${status || null}::text IS NOT NULL AND ${status || null}::text <> 'in-progress' THEN NULL ELSE claimed_at END,
+        claimed_by_id = CASE WHEN ${status || null}::text = 'in-progress' AND ${claimedBy}::text IS NOT NULL THEN ${claimedBy}
+                             WHEN ${status || null}::text IS NOT NULL AND ${status || null}::text <> 'in-progress' THEN NULL ELSE claimed_by_id END,
+        claimed_by_type = CASE WHEN ${status || null}::text = 'in-progress' AND ${claimedBy}::text IS NOT NULL THEN 'agent'
+                               WHEN ${status || null}::text IS NOT NULL AND ${status || null}::text <> 'in-progress' THEN NULL ELSE claimed_by_type END,
+        claimed_at = CASE WHEN ${status || null}::text = 'in-progress' AND ${claimedBy}::text IS NOT NULL THEN COALESCE(claimed_at, NOW())
+                          WHEN ${status || null}::text IS NOT NULL AND ${status || null}::text <> 'in-progress' THEN NULL ELSE claimed_at END,
         updated_at = NOW(),
         completed_at = CASE WHEN ${statusKind === "done"} THEN NOW()
                             WHEN ${statusKind !== null && statusKind !== "done"} THEN NULL
