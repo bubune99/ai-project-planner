@@ -1106,4 +1106,4 @@ input[type=date].opx-rowsel { min-width: 128px; }
 .opx-ajob-t { font-weight: 500; overflow-wrap: anywhere; }
 .opx-ajob-d { font-size: 12px; color: var(--opx-muted); display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 @media (max-width: 760px) { .opx-ajob { min-height: 44px; } .opx-afilter { flex: 1; } }
-.opx-agrid.opx-astats { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.opx-agrid.opx-astats { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
