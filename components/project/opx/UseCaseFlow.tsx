@@ -10,7 +10,8 @@ import { Controls, Handle, MarkerType, Position, ReactFlow, ReactFlowProvider, t
 import "@xyflow/react/dist/style.css"
 import { flowLayout, perRowFor, type Side } from "@/lib/people/flow-layout"
 
-export interface FlowStep { id: string; does: string; expects: string; state: string; dot: string; picture: React.CSSProperties | null; noPicture: string; tag?: string | null; out?: boolean }
+// A type, not an interface: the drawing library asks for data that is a plain record.
+export type FlowStep = { id: string; does: string; expects: string; state: string; dot: string; picture: React.CSSProperties | null; noPicture: string; tag?: string | null; out?: boolean }
 
 const W = 280, H = 250
 const SIDES: Record<Side, Position> = { t: Position.Top, r: Position.Right, b: Position.Bottom, l: Position.Left }
