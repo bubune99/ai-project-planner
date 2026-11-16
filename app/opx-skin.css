@@ -1094,3 +1094,15 @@ input[type=date].opx-rowsel { min-width: 128px; }
 .opx-setpick { display: none; align-items: center; gap: 10px; }
 .opx-setpick select { flex: 1; }
 @media (max-width: 1000px) { .opx-setpick { display: flex; } .opx-settabs { display: none !important; } }
+
+/* Agents page: cards and the jobs table are sized by the room they have, not the window. */
+.opx-agents { container-type: inline-size; }
+.opx-agrid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.opx-afilter { width: auto; min-width: 150px; }
+.opx-ascroll { overflow-x: auto; }
+.opx-ascroll .j-table { min-width: 720px; }
+.opx-ajob { display: flex; flex-direction: column; gap: 2px; text-align: left; background: none; border: 0; padding: 4px 0; min-height: 32px; color: inherit; font: inherit; cursor: pointer; max-width: 420px; }
+.opx-ajob:hover .opx-ajob-t, .opx-ajob:focus-visible .opx-ajob-t { text-decoration: underline; }
+.opx-ajob-t { font-weight: 500; overflow-wrap: anywhere; }
+.opx-ajob-d { font-size: 12px; color: var(--opx-muted); display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+@media (max-width: 760px) { .opx-ajob { min-height: 44px; } .opx-afilter { flex: 1; } }
