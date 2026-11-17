@@ -146,6 +146,9 @@ export async function middleware(request: NextRequest) {
   // - /oauth/authorize      : consent page; does its OWN Stack Auth session gate
   //                           so it controls the sign-in return URL (a middleware
   //                           redirect here would drop the OAuth query params).
+  // /.well-known/security.txt: where to report a security problem (RFC 9116). Public by definition; the owner
+  // chose the contact on 2026-11-17 (question f1d050e9).
+  if (pathname === "/.well-known/security.txt") return continueWith(requestHeaders);
   if (
     pathname.startsWith("/.well-known/oauth-") ||
     pathname.startsWith("/api/oauth/") ||
