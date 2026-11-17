@@ -13,6 +13,7 @@ import {
   type PlannedRange, type Plannable,
 } from "@/lib/project-views/schedule"
 import { Failed, Loading, Priority, STATUS_COLOR, STATUS_LABEL, fmtDate, unwrap, useHoverTip, useJson } from "./shared"
+import { DEFAULT_STATUSES, type ProjectStatus } from "@/components/views/kanban-config"
 
 export interface Step extends Plannable {
   description?: string | null
@@ -42,9 +43,13 @@ const topLevel = (s: Step[]) => s.filter((x) => !x.is_subtask && !x.parent_task_
 
 export function TaskList({ projectId }: { projectId: string }) {
   const { data, loading, error, reload } = useJson(`/api/projects/${projectId}/steps`)
-  // The project's own columns (e.g. "requested" is its Requests column) name and color a status the board's way.
-  const { data: statusData } = useJson<{ statuses?: { key: string; label: string; color: string }[] }>(`/api/projects/${projectId}/statuses`)
-  const own = useMemo(() => new Map((statusData?.statuses || []).map((x) => [x.key, x])), [statusData])
+  // A status is named and colored the board's way: the project's own columns when it has any, otherwise the board's
+  // standard ones (where "requested" is Requests).
+  const { data: statusData } = useJson<{ statuses?: ProjectStatus[] }>(`/api/projects/${projectId}/statuses`)
+  const own = useMemo(() => {
+    const custom = statusData?.statuses || []
+    return new Map((custom.length ? custom : DEFAULT_STATUSES).map((x) => [x.key, x]))
+  }, [statusData])
   const { tipProps, node } = useHoverTip()
   const [busy, setBusy] = useState<string | null>(null)
   const steps = useMemo(() => topLevel(unwrap<Step[]>(data, "steps") || []), [data])
