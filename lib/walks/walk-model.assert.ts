@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { HANDLED_BY, LENSES, coverage, findingKey, handledBy, lowScores, openFindings, parseWalk, settleIn, walkLine, withoutCalls, type StoredWalk, type Walk } from "./walk-model"
+import { HANDLED_BY, LENSES, coverage, findingKey, fixIn, handledBy, lowScores, openFindings, parseWalk, settleIn, walkLine, withoutCalls, type StoredWalk, type Walk } from "./walk-model"
 
 let n = 0
 const ok = (name: string, fn: () => void) => { fn(); n++; console.log("ok ", name) }
@@ -59,6 +59,21 @@ ok("the same finding met on two walks is listed once, from the newest", () => {
   const walks = [S("w1", "2026-11-14T10:00:00Z", { findings: [{ kind: "gap", what: "No undo" }] }), S("w2", "2026-11-14T12:00:00Z", { findings: [{ kind: "gap", what: "no undo" }, { kind: "error", what: "Save fails" }] })]
   const open = openFindings(walks)
   assert.deepEqual(open.map((f) => [f.what, f.walk, f.who]), [["no undo", "w2", "agents"], ["Save fails", "w2", "agents"]])
+})
+
+ok("a finding an agent fixed and proved is closed, until a later walk meets it again", () => {
+  const bug = { kind: "error" as const, what: "Save fails" }
+  const w1 = S("w1", "2026-11-14T10:00:00Z", { findings: [bug, { kind: "gap", what: "No undo" }] })
+  const key = findingKey(bug)
+  const fixed = [w1].map((w) => fixIn(w, key, { at: "2026-11-15T09:00:00Z", proof: "main abc: saved on production", by: "agent" }))
+  assert.deepEqual(openFindings(fixed).map((f) => f.what), ["No undo"])
+  assert.equal(w1.findings[0].fixed, undefined)                                                           // nothing changed in place
+  const again = [...fixed, S("w2", "2026-11-16T09:00:00Z", { findings: [{ ...bug, what: "save fails" }] })] // met again after the fix
+  assert.deepEqual(openFindings(again).map((f) => [f.what, f.walk]), [["save fails", "w2"], ["No undo", "w1"]])
+  assert.deepEqual(openFindings(fixed.map((w) => fixIn(w, key, null))).map((f) => f.what), ["Save fails", "No undo"])
+  // A walk sent in cannot arrive already marked fixed, and a stored one keeps its mark through parsing.
+  assert.equal(withoutCalls(fixed[0]).findings[0].fixed, undefined)
+  assert.equal(parseWalk({ ...fixed[0] }).walk.findings[0].fixed?.proof, "main abc: saved on production")
 })
 
 ok("the owner's call on a finding: left as it is, it is no longer open; to be changed, it is the agents' work; and it can be put back", () => {

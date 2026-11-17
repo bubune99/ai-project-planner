@@ -56,9 +56,13 @@ export interface Finding {
   suggest?: string
   /** The owner's call on a finding that was theirs: change it (it becomes a task for agents) or leave it as it is. */
   settled?: Settled
+  /** An agent fixed it and proved the fix (a build, a page, what was seen). A walk after this that meets it again reopens it. */
+  fixed?: Fixed
 }
 /** Only the owner settles a finding, and only from a signed-in session. An agent sending a walk cannot set this. */
 export interface Settled { call: "do" | "leave"; at: string; task?: string }
+/** A fix an agent made and proved. Not a preference: anything an agent may fix, it may also say it fixed, with proof. */
+export interface Fixed { at: string; proof: string; by: "agent" | "owner" }
 /** What makes two findings the same finding: its kind and its words. */
 export const findingKey = (f: Pick<Finding, "kind" | "what">): string => `${f.kind}|${f.what.toLowerCase()}`
 /** A walk with every finding of that key settled (or, with null, put back to open). A new walk: nothing is changed in place. */
@@ -70,7 +74,15 @@ export function settleIn<W extends Walk>(walk: W, key: string, settled: Settled 
   }) }
 }
 /** A walk as an agent may send it: whatever it says about the owner's calls is dropped. */
-export const withoutCalls = <W extends Walk>(walk: W): W => ({ ...walk, findings: walk.findings.map(({ settled: _s, ...rest }) => rest) })
+export const withoutCalls = <W extends Walk>(walk: W): W => ({ ...walk, findings: walk.findings.map(({ settled: _s, fixed: _f, ...rest }) => rest) })
+/** A walk with every finding of that key marked fixed (or, with null, put back to open). A new walk: nothing is changed in place. */
+export function fixIn<W extends Walk>(walk: W, key: string, fixed: Fixed | null): W {
+  return { ...walk, findings: walk.findings.map((f) => {
+    if (findingKey(f) !== key) return f
+    const { fixed: _was, ...rest } = f
+    return fixed ? { ...rest, fixed } : rest
+  }) }
+}
 export interface Walk {
   goal: string
   /** Ids from the project's People and flows, when the goal is one of its use cases. */
@@ -150,7 +162,9 @@ export function parseWalk(raw: unknown): { walk: Walk; errors: string[] } {
     const suggest = text(r.suggest), lens = LENSES.find((l) => l === r.lens)
     const s = (r.settled && typeof r.settled === "object" ? r.settled : null) as Record<string, unknown> | null
     const settled: Settled | undefined = s && (s.call === "do" || s.call === "leave") && typeof s.at === "string" ? { call: s.call, at: s.at, ...(typeof s.task === "string" ? { task: s.task } : {}) } : undefined
-    return { kind: kind ?? "friction", what, ...(lens ? { lens } : {}), ...(step !== undefined ? { step } : {}), ...(suggest ? { suggest } : {}), ...(settled ? { settled } : {}) }
+    const x = (r.fixed && typeof r.fixed === "object" ? r.fixed : null) as Record<string, unknown> | null
+    const fixed: Fixed | undefined = x && typeof x.at === "string" && typeof x.proof === "string" ? { at: x.at, proof: x.proof, by: x.by === "owner" ? "owner" : "agent" } : undefined
+    return { kind: kind ?? "friction", what, ...(lens ? { lens } : {}), ...(step !== undefined ? { step } : {}), ...(suggest ? { suggest } : {}), ...(settled ? { settled } : {}), ...(fixed ? { fixed } : {}) }
   })
   const scores: Partial<Record<Lens, LensScore>> = {}
   const rawScores = (o.scores && typeof o.scores === "object" && !Array.isArray(o.scores) ? o.scores : {}) as Record<string, unknown>
@@ -203,10 +217,11 @@ export function coverage(useCases: { id: string; name: string }[], walks: Stored
  * open; to be changed, it is the agents' work.
  */
 export function openFindings(walks: StoredWalk[]): (Finding & { walk: string; goal: string; who: "agents" | "owner" })[] {
-  const calls = new Map<string, Settled>()
+  const calls = new Map<string, Settled>(), fixes = new Map<string, Fixed>()
   for (const w of walks) for (const f of w.findings) {
-    const k = findingKey(f), had = calls.get(k)
+    const k = findingKey(f), had = calls.get(k), fx = fixes.get(k)
     if (f.settled && (!had || f.settled.at > had.at)) calls.set(k, f.settled)
+    if (f.fixed && (!fx || f.fixed.at > fx.at)) fixes.set(k, f.fixed)
   }
   const seen = new Set<string>(), out: (Finding & { walk: string; goal: string; who: "agents" | "owner" })[] = []
   for (const w of [...walks].sort((a, b) => b.at.localeCompare(a.at))) for (const f of w.findings) {
@@ -215,6 +230,9 @@ export function openFindings(walks: StoredWalk[]): (Finding & { walk: string; go
     seen.add(key)
     const call = calls.get(key)
     if (call?.call === "leave") continue
+    // Fixed and proved: closed, unless this (newest) walk that met it came after the fix, which means it is back.
+    const fix = fixes.get(key)
+    if (fix && fix.at >= w.at) continue
     out.push({ ...f, ...(call ? { settled: call } : {}), walk: w.id, goal: w.goal, who: call?.call === "do" ? "agents" : handledBy(f, w.scores).who })
   }
   return out

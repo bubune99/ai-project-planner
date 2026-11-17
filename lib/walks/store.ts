@@ -1,7 +1,7 @@
 /** Walks: saving and listing. Rules are in walk-model.ts; this file is SQL only. Callers check access first. */
 import { sql } from "@/lib/db/client"
 import { loadFlows } from "@/lib/people/store"
-import { coverage, findingKey, openFindings, parseWalk, settleIn, walkLine, withoutCalls, type Settled, type StoredWalk, type Walk } from "./walk-model"
+import { coverage, findingKey, fixIn, openFindings, parseWalk, settleIn, walkLine, withoutCalls, type Fixed, type Settled, type StoredWalk, type Walk } from "./walk-model"
 
 import { walkErrorCard } from "@/lib/intake/check-card"
 import { upsertFixCard } from "@/lib/intake/check-card-store"
@@ -52,6 +52,18 @@ export const findingMarker = (key: string) => `walk-finding: ${key}`
  * The owner's call on one finding, for every walk in the project that met it: "do" (it becomes a task for agents),
  * "leave" (it is no longer open), or null (put back to open). Callers have checked that this is the owner's own session.
  */
+/**
+ * A finding fixed and proved (by an agent, or the owner), or put back to open with null. Closes it on every walk that
+ * met it; a later walk that meets it again reopens it on its own (openFindings).
+ */
+export async function fixFinding(a: { projectId: string; key: string; fixed: Fixed | null }) {
+  const rows = (await sql`SELECT id, doc FROM walks WHERE project_id = ${a.projectId} ORDER BY created_at DESC LIMIT 200`) as { id: string; doc: Walk }[]
+  const met = rows.map((r) => ({ id: r.id, walk: parseWalk(r.doc).walk })).filter((r) => r.walk.findings.some((f) => findingKey(f) === a.key))
+  if (!met.length) throw new WalkError("That finding is not on any walk of this project")
+  for (const r of met) await sql`UPDATE walks SET doc = ${JSON.stringify(fixIn(r.walk, a.key, a.fixed))}::jsonb WHERE id = ${r.id} AND project_id = ${a.projectId}`
+  return { key: a.key, fixed: !!a.fixed, walks: met.length }
+}
+
 export async function settleFinding(a: { projectId: string; key: string; call: "do" | "leave" | null }) {
   const rows = (await sql`SELECT id, doc FROM walks WHERE project_id = ${a.projectId} ORDER BY created_at DESC LIMIT 200`) as { id: string; doc: Walk }[]
   const met = rows.map((r) => ({ id: r.id, walk: parseWalk(r.doc).walk })).filter((r) => r.walk.findings.some((f) => findingKey(f) === a.key))
