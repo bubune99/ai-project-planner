@@ -1946,10 +1946,11 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         priority: z.enum(["low", "medium", "high", "urgent"]).optional().describe("Filter by priority"),
         search: z.string().optional().describe("Search in title/description"),
         brief: z.boolean().optional().describe("Return minimal fields only"),
+        full: z.boolean().optional().describe("Return each description whole. Without it descriptions are cut at 150 characters (descriptionTruncated says so): read them whole before rewriting one with update_todo"),
         limit: z.number().optional().describe(`Max results (default ${DEFAULT_LIMIT}, max ${MAX_LIMIT})`),
         offset: z.number().optional().describe("Skip N results for pagination"),
       },
-      async ({ view = "all", projectId, priority, search, brief, limit, offset }) => {
+      async ({ view = "all", projectId, priority, search, brief, full, limit, offset }) => {
         try {
           const userId = getMcpUserId()
           const actualLimit = Math.min(limit || DEFAULT_LIMIT, MAX_LIMIT)
@@ -2018,7 +2019,11 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             : todos.map((t: Record<string, unknown>) => ({
                 id: t.id,
                 title: t.title,
-                description: truncate(t.description as string, 150),
+                // Cut for a short list, and said so: an agent that wrote the cut text back destroyed the rest (card 93710050).
+                description: full ? t.description : truncate(t.description as string, 150),
+                ...(!full && String(t.description || "").length > 150
+                  ? { descriptionTruncated: true, descriptionLength: String(t.description).length }
+                  : {}),
                 status: t.status,
                 priority: t.priority,
                 due_date: t.due_date,
@@ -2114,22 +2119,33 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
       {
         todoId: z.string().describe("Todo ID to update"),
         title: z.string().optional().describe("New title"),
-        description: z.string().optional().describe("New description"),
+        description: z.string().optional().describe("Replaces the whole description. To add to it, use appendDescription"),
+        appendDescription: z.string().optional().describe("Added to the end of the description, on a new paragraph; the rest is kept"),
         status: z.enum(["pending", "in_progress", "completed"]).optional().describe("New status"),
         priority: z.enum(["low", "medium", "high", "urgent"]).optional().describe("New priority"),
         dueDate: z.string().nullable().optional().describe("New due date (null to clear)"),
         projectId: z.string().nullable().optional().describe("Link to project (null to unlink)"),
       },
-      async ({ todoId, title, description, status, priority, dueDate, projectId }) => {
+      async ({ todoId, title, description, appendDescription, status, priority, dueDate, projectId }) => {
         try {
           requireMcpScope("write")
           const userId = getMcpUserId()
 
           // Verify ownership
           const [existing] = await sql`
-            SELECT id, project_id FROM todos WHERE id = ${todoId} AND user_id = ${userId} AND deleted_at IS NULL
+            SELECT id, project_id, description FROM todos WHERE id = ${todoId} AND user_id = ${userId} AND deleted_at IS NULL
           `
           if (!existing) return mcpError("Todo not found or access denied")
+          if (description !== undefined && appendDescription !== undefined) {
+            return mcpError("Send description (replace) or appendDescription (add), not both")
+          }
+          // The cut text list_todos returns, written back, would destroy the rest of the description (card 93710050).
+          const stored = String(existing.description || "")
+          const sent = description === undefined ? null : description.replace(/(…|\.\.\.)\s*$/, "")
+          if (sent !== null && sent.length < stored.length && stored.startsWith(sent) && /(…|\.\.\.)\s*$/.test(description!)) {
+            return mcpError(`That description is the shortened text from list_todos (${sent.length} of ${stored.length} characters). Read it whole with list_todos({ full: true }), or add to it with appendDescription.`)
+          }
+          if (appendDescription !== undefined) description = stored ? `${stored}\n\n${appendDescription}` : appendDescription
 
           // A todo already linked to a project is project content: a viewer may not edit or unlink it.
           const existingRoleError = await rowProjectWriteError(existing.project_id)
