@@ -56,6 +56,7 @@ import {
   getMcpContext,
   verifyMcpProjectOwnership,
   verifyMcpProjectAccess,
+  getMcpContextOrNull,
   requireMcpProjectWriteAccess,
   mcpWriteBindingError,
   verifyMcpDocumentOwnership,
@@ -4319,13 +4320,22 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             }
           }
           const questionInput = kept.length ? { ...built.value.input, images: kept } : built.value.input
+          // A question asked without askedBy still says who asked: the name of the key it came in on (walk 'agent-ask',
+          // 2026-11-14: questions without it recorded neither, so the asker could not claim the answer by name).
+          let asker = askedBy?.trim() || null
+          const ctxKey = getMcpContextOrNull()?.apiKeyId ?? null
+          if (!asker && ctxKey) {
+            const [k] = (await sql`SELECT name FROM api_keys WHERE id = ${ctxKey}`) as { name: string | null }[]
+            if (k?.name) asker = `key: ${String(k.name).slice(0, 80)}`
+          }
+          const meta = { ...(askedFrom ? { askedFrom: askedFrom.slice(0, 300) } : {}), ...(ctxKey ? { apiKeyId: ctxKey } : {}) }
           const [job] = await sql`
             INSERT INTO agent_jobs (title, description, created_by, assigned_to, status, priority, input, tags, parent_step_id, unlock_prompt, metadata)
             VALUES (
-              ${built.value.question.slice(0, 255)}, ${built.value.input.context}, ${userId}, ${askedBy ?? "mcp-client"},
+              ${built.value.question.slice(0, 255)}, ${built.value.input.context}, ${userId}, ${asker ?? "mcp-client"},
               'awaiting-unlock', 'normal', ${JSON.stringify(questionInput)}::jsonb, ARRAY['question'],
               ${built.value.input.stepId}, ${built.value.question},
-              ${JSON.stringify(askedFrom ? { askedFrom: askedFrom.slice(0, 300) } : {})}::jsonb
+              ${JSON.stringify(meta)}::jsonb
             )
             RETURNING id, status
           `
