@@ -195,6 +195,34 @@ export async function POST(req: Request) {
 }
 
 // ============================================================================
+// Test: MCP tools declared outside app/mcp (lib/mcp/*.ts), with .optional().describe() chains (card d101bb88)
+// ============================================================================
+
+async function testMcpToolsInLib(): Promise<void> {
+  const dir = makeTempDir()
+  writeFile(dir, "lib/mcp/sample-tools.ts", `
+import { z } from "zod"
+export function registerSampleTools(server: any) {
+  server.tool(
+    "ask_sample",
+    "Ask a sample question",
+    {
+      question: z.string().describe("The question"),
+      options: z.array(z.string()).optional().describe("Choices"),
+      projectId: z.string().optional().describe("Project"),
+    },
+    async () => ({ content: [] })
+  )
+}
+  `)
+  const result = await scanPaths({ projectRoot: dir, files: ["lib/mcp/sample-tools.ts"] })
+  const tool = result.detected_surfaces.find((s) => s.canonical_id === "mcp:ask_sample")
+  assert(tool !== undefined, "should detect mcp:ask_sample declared in lib/mcp")
+  assertEqual((tool?.signature as Record<string, unknown>)?.input_arg_names, ["question", "options", "projectId"], "arg names read through .optional().describe() chains")
+  fs.rmSync(dir, { recursive: true, force: true })
+}
+
+// ============================================================================
 // Test: API route — dynamic segments
 // ============================================================================
 
@@ -399,6 +427,7 @@ async function main(): Promise<void> {
     ["Config file", testConfigFile],
     ["Scan type targeted vs full", testScanTypeTargeted],
     ["Webhook endpoint", testWebhookEndpoint],
+    ["MCP tools in lib/mcp", testMcpToolsInLib],
   ]
 
   for (const [name, fn] of tests) {

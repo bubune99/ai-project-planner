@@ -117,6 +117,11 @@ export async function scanPaths(opts: ScanOptions): Promise<ScanResult> {
       apiRouteFiles.push(norm)
     } else if (/^app\/mcp\/.*route\.tsx?$/.test(norm) || norm === "app/mcp/route.ts" || norm === "app/mcp/route.tsx") {
       mcpRouteFiles.push(norm)
+    } else if (/^lib\/mcp\/[^/]+\.tsx?$/.test(norm) && !/\.(test|spec|assert)\.tsx?$/.test(norm)) {
+      // The tools are declared here (server.tool in lib/mcp/*.ts), not in app/mcp/route.ts, which only wires them
+      // up: reading route.ts alone found 0 of them (card d101bb88). These files are lib code too.
+      mcpRouteFiles.push(norm)
+      libTsFiles.push(norm)
     } else if (/^middleware\.tsx?$/.test(norm)) {
       middlewareFiles.push(norm)
     } else if (/^app\/.+\/page\.tsx?$/.test(norm)) {
