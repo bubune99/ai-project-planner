@@ -53,6 +53,21 @@ const describe = (el: Element) => pickedWords({ snapshot: { tag: el.tagName, tex
 
 type Phase = "idle" | "selecting" | "composing" | "sending" | "done" | "error";
 
+/** How much of the bottom of the window a phone's on-screen keyboard covers (0 when none), so fixed panels sit above it. */
+function useKeyboardInset(active: boolean): number {
+  const [inset, setInset] = useState(0);
+  useEffect(() => {
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    if (!active || !vv) { setInset(0); return; }
+    const update = () => setInset(Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)));
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => { vv.removeEventListener("resize", update); vv.removeEventListener("scroll", update); };
+  }, [active]);
+  return inset;
+}
+
 interface FeedbackWidgetProps {
   /** App key stored on every item so one backend can serve many projects. */
   source?: string;
@@ -62,6 +77,7 @@ interface FeedbackWidgetProps {
 
 export function FeedbackWidget({ source = "ai-project-planner", projectId = null }: FeedbackWidgetProps) {
   const [phase, setPhase] = useState<Phase>("idle");
+  const keyboard = useKeyboardInset(phase !== "idle" && phase !== "done");
   const [target, setTarget] = useState<CapturedTarget | null>(null);
   const [comment, setComment] = useState("");
   const [title, setTitle] = useState("");
@@ -253,7 +269,7 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
   const accent = "var(--opx-accent, #2563eb)";
   const panel: React.CSSProperties = {
     position: "fixed",
-    bottom: 16,
+    bottom: 16 + keyboard,
     right: 16,
     width: "min(320px, calc(100vw - 32px))",
     background: "var(--opx-card, #0b0f1a)",
@@ -389,9 +405,13 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
           data-fbw="hint"
           style={{
             position: "fixed",
-            bottom: 20,
+            bottom: 20 + keyboard,
             left: "50%",
             transform: "translateX(-50%)",
+            width: "max-content",
+            maxWidth: "calc(100vw - 32px)",
+            boxSizing: "border-box",
+            textAlign: "center",
             background: "var(--opx-card, #0b0f1a)",
             color: "var(--opx-ink, #e8eaf0)",
             border: "1px solid var(--opx-line, #2a3142)",
@@ -402,9 +422,13 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
             boxShadow: "0 8px 24px rgba(0,0,0,.4)",
           }}
         >
-          Tap or click the element you’re reporting · <b>Esc</b> to cancel ·{" "}
+          Tap or click the element you’re reporting{" "}
           <button onClick={skipTarget} style={{ ...btn("var(--opx-soft, #141a28)"), padding: "3px 8px", marginLeft: 6 }}>
-            skip — comment only
+            Skip, comment only
+          </button>
+          {/* A phone has no Esc key: cancelling must be something to press. */}
+          <button onClick={reset} style={{ ...btn("var(--opx-soft, #141a28)"), padding: "3px 8px", marginLeft: 6 }}>
+            Cancel
           </button>
         </div>
       )}
