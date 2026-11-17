@@ -10,8 +10,7 @@ import {
   toProgress,
   toKanbanTask,
   toKanbanColumns,
-  toFootnotes,
-} from "./adapt"
+  toFootnotes, toSubtaskList } from "./adapt"
 
 let pass = 0
 let fail = 0
@@ -261,5 +260,16 @@ eq(
   eq(card({ status: "pending", assigned_agent: "claude" }).assignees, [{ name: "claude" }], "elsewhere the assigned agent stays")
 }
 
+
+// Subtasks shown in place on the card (owner's pick 2026-11-17): each with its title and whether it is done.
+{
+  const parent = { id: "p", title: "Parent", status: "pending" } as never
+  const kids = [{ id: "a", title: "First", status: "completed" }, { id: "b", title: "Second", status: "pending" }] as never[]
+  const list = toSubtaskList(parent, { subtasksOf: (id: string) => (id === "p" ? kids : []), statusMap: { completed: { kind: "done" }, pending: { kind: "open" } } } as never)
+  eq(list, [{ id: "a", title: "First", done: true }, { id: "b", title: "Second", done: false }], "a card lists its subtasks with whether each is done")
+  eq(toSubtaskList({ id: "x", title: "Lone", status: "pending" } as never, { subtasksOf: () => [], statusMap: {} } as never), [], "a card without subtasks lists none")
+}
+
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
+

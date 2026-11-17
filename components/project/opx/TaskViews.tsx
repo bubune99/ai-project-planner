@@ -6,7 +6,8 @@
  * [Timeline · Calendar]. Rules live in lib/project-views/schedule.ts.
  */
 
-import { useMemo, useState, type ReactNode } from "react"
+import { Fragment, useMemo, useState, type ReactNode } from "react"
+import { ChevronDown } from "lucide-react"
 import { toast } from "sonner"
 import {
   DAY, addDays, byDay, dayKey, dayOf, dayTicks, dedupeTodos, monthCells, priorityRank, rangeOf, unscheduled,
@@ -53,6 +54,14 @@ export function TaskList({ projectId }: { projectId: string }) {
   const { tipProps, node } = useHoverTip()
   const [busy, setBusy] = useState<string | null>(null)
   const steps = useMemo(() => topLevel(unwrap<Step[]>(data, "steps") || []), [data])
+  // Subtasks open in place under their row (owner's pick, 2026-11-17): a count on the row, press it to show them.
+  const subsOf = useMemo(() => {
+    const m = new Map<string, Step[]>()
+    for (const x of unwrap<Step[]>(data, "steps") || []) if (x.parent_task_id) m.set(x.parent_task_id, [...(m.get(x.parent_task_id) || []), x])
+    return m
+  }, [data])
+  const [openSubs, setOpenSubs] = useState<Set<string>>(new Set())
+  const flipSubs = (id: string) => setOpenSubs((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const rows = useMemo(() => {
     const st: Record<string, number> = { "in-progress": 0, pending: 1, blocked: 1, completed: 2 }
     return [...steps].sort((a, b) => (st[a.status || ""] ?? 1) - (st[b.status || ""] ?? 1) || priorityRank(a.priority) - priorityRank(b.priority))
@@ -74,15 +83,41 @@ export function TaskList({ projectId }: { projectId: string }) {
         const r = rangeOf(s)
         const done = s.status === "completed"
         const late = r && r.end < now && !done
+        const subs = subsOf.get(s.id) || []
+        const subsDone = subs.filter((x) => x.status === "completed").length
+        const open = openSubs.has(s.id)
         return (
-          <div key={s.id} className={`opx-lv${done ? " dn" : ""}`} {...tipProps(s.description)}>
+          <Fragment key={s.id}>
+          <div className={`opx-lv${done ? " dn" : ""}`} {...tipProps(s.description)}>
             <button className={`opx-ck${done ? " on" : ""}`} aria-label={done ? `Reopen ${s.title}` : `Mark ${s.title} done`} disabled={busy === s.id} onClick={() => toggle(s)} />
-            <b>{s.title}</b>
+            <span className="opx-row" style={{ gap: 8, minWidth: 0 }}>
+              <b>{s.title}</b>
+              {subs.length > 0 && (
+                <button type="button" className="opx-chip" aria-expanded={open} title={open ? "Hide subtasks" : "Show subtasks"} onClick={() => flipSubs(s.id)} style={{ flexShrink: 0, minHeight: 32, cursor: "pointer", border: 0 }}>
+                  {subsDone}/{subs.length} subtasks
+                  <ChevronDown aria-hidden size={13} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+                </button>
+              )}
+            </span>
             <span className="opx-row" style={{ gap: 6, fontSize: 12.5 }}><i className="opx-dot" style={{ background: own.get(s.status || "")?.color || STATUS_COLOR[s.status || ""] || "#8a94a3", width: 7, height: 7 }} />{own.get(s.status || "")?.label || STATUS_LABEL[s.status || ""] || s.status}</span>
             <Priority p={s.priority} />
             <span style={{ fontSize: 13, color: late ? "var(--opx-hot)" : "var(--opx-muted)" }}>{r ? fmtDate(r.end) : "—"}</span>
             <span className="opx-pg"><i style={{ width: `${done ? 100 : s.progress || 0}%` }} /></span>
           </div>
+          {open && subs.map((x) => {
+            const xd = x.status === "completed"
+            return (
+              <div key={x.id} className={`opx-lv${xd ? " dn" : ""}`}>
+                <button className={`opx-ck${xd ? " on" : ""}`} aria-label={xd ? `Reopen ${x.title}` : `Mark ${x.title} done`} disabled={busy === x.id} onClick={() => toggle(x)} />
+                <span style={{ paddingLeft: 18 }}>{x.title}</span>
+                <span className="opx-row" style={{ gap: 6, fontSize: 12.5 }}><i className="opx-dot" style={{ background: own.get(x.status || "")?.color || STATUS_COLOR[x.status || ""] || "#8a94a3", width: 7, height: 7 }} />{own.get(x.status || "")?.label || STATUS_LABEL[x.status || ""] || x.status}</span>
+                <Priority p={x.priority} />
+                <span style={{ fontSize: 13, color: "var(--opx-muted)" }}>—</span>
+                <span className="opx-pg"><i style={{ width: `${xd ? 100 : x.progress || 0}%` }} /></span>
+              </div>
+            )
+          })}
+          </Fragment>
         )
       })}
       {node}

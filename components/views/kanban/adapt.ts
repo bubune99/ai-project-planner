@@ -111,6 +111,11 @@ function hours(v: BoardStep["estimated_hours"]): number {
  * subtasks should not carry an empty subtask counter. This is what keeps the
  * footer from turning back into the eleven-badge row it replaced.
  */
+/** A card's subtasks for showing in place (owner's pick 2026-11-17): title and whether each is done. */
+export function toSubtaskList(step: BoardStep, opts: AdaptOptions): Array<{ id: string; title: string; done: boolean }> {
+  return (opts.subtasksOf?.(step.id) ?? []).map((s) => ({ id: s.id, title: s.title, done: kindOf(s, opts.statusMap) === "done" }))
+}
+
 export function toFootnotes(
   step: BoardStep,
   opts: AdaptOptions,
@@ -177,6 +182,7 @@ export function toKanbanTask(step: BoardStep, opts: AdaptOptions): KanbanTask {
     dueSoon,
     progress: toProgress(step, isDone),
     footnotes: [...(opts.showProject ? [{ label: (step as BoardStep & { project_name?: string }).project_name ?? "Project", title: "The project this card belongs to" }] : []), ...(holderLine(step, opts.today ?? new Date()) ? [holderLine(step, opts.today ?? new Date())!] : []), ...toFootnotes(step, opts)],
+    subtasks: toSubtaskList(step, opts),
     done: isDone,
   }
 }

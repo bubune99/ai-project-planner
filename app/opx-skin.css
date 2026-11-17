@@ -1260,3 +1260,6 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
 .opx-pm-wholebar .gap { flex: 1; }
 .opx-pm-wholebar .opx-btn { min-height: 40px; }
 @media (max-width: 700px) { .opx-pm-wholebar .opx-btn { min-height: 44px; } .opx-sec.opx-pm-whole { padding: 8px; } }
+
+/* Subtasks in place (2026-11-17): the list's subtask count is a 44px target on touch widths. */
+@media (max-width: 1023px) { .opx-lv .opx-chip[aria-expanded] { min-height: 44px; } }

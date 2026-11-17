@@ -688,6 +688,10 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
                   />
                 ) : null
               }
+              onToggleSubtask={(_taskId, subId) => {
+                const sub = steps.find((s) => s.id === subId)
+                if (sub) handleToggleComplete(sub)
+              }}
               renderCardActions={(task) => {
                 const step = stepById.get(task.id)
                 if (!step) return null

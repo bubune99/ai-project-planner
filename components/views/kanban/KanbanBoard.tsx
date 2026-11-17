@@ -4,6 +4,8 @@ import * as React from "react";
 import { AnimatePresence, LayoutGroup, motion, useMotionValue, useReducedMotion } from "framer-motion";
 import {
   CalendarDays,
+  Check,
+  ChevronDown,
   FileText,
   Flag,
   LayoutDashboard,
@@ -127,6 +129,11 @@ export interface KanbanTask {
    * counter never means touching this component again.
    */
   footnotes?: Array<{ label: string; title?: string }>;
+  /**
+   * Added (owner's pick, 2026-11-17): the card's subtasks. With these the subtask count becomes a button that shows
+   * them under the card, each with its own tick, without opening the task.
+   */
+  subtasks?: Array<{ id: string; title: string; done: boolean }>;
   /** Strikes the title through and mutes the card. */
   done?: boolean;
 }
@@ -171,6 +178,8 @@ export interface KanbanBoardProps
   renderCardMenu?: (task: KanbanTask, columnId: string) => React.ReactNode;
   /** Added (planner redesign): quick actions under the title — done, start, flag, date. */
   renderCardActions?: (task: KanbanTask, columnId: string) => React.ReactNode;
+  /** Added: a subtask's tick pressed on the card (task.subtasks). */
+  onToggleSubtask?: (taskId: string, subtaskId: string) => void;
   /** Foot-of-column "Add task". Omit to hide the button entirely. */
   onAddTask?: (columnId: string) => void;
   /** Click (not drag) on a card body. */
@@ -201,6 +210,7 @@ export const KanbanBoard = React.forwardRef<HTMLDivElement, KanbanBoardProps>(
       renderColumnMenu,
       renderCardMenu,
       renderCardActions,
+      onToggleSubtask,
       onAddTask,
       onTaskOpen,
       ...props
@@ -698,6 +708,7 @@ export const KanbanBoard = React.forwardRef<HTMLDivElement, KanbanBoardProps>(
                               onKeyDown={(e) => onCardKeyDown(e, task, col.id)}
                               menu={renderCardMenu?.(task, col.id)}
                               actions={renderCardActions?.(task, col.id)}
+                              onToggleSubtask={onToggleSubtask}
                               onOpen={
                                 onTaskOpen
                                   ? () => {
@@ -931,9 +942,11 @@ function Card({
   menu,
   actions,
   onOpen,
+  onToggleSubtask,
 }: {
   task: KanbanTask;
   actions?: React.ReactNode;
+  onToggleSubtask?: (taskId: string, subtaskId: string) => void;
   grabbed: boolean;
   reduceMotion: boolean;
   elRef: (el: HTMLDivElement | null) => void;
@@ -973,7 +986,7 @@ function Card({
         SQUIRCLE,
       )}
     >
-      <CardShell task={task} menu={menu} actions={actions} />
+      <CardShell task={task} menu={menu} actions={actions} onToggleSubtask={onToggleSubtask} />
     </motion.div>
   );
 }
@@ -983,12 +996,16 @@ function CardShell({
   floating,
   menu,
   actions,
+  onToggleSubtask,
 }: {
   task: KanbanTask;
   floating?: boolean;
   menu?: React.ReactNode;
   actions?: React.ReactNode;
+  onToggleSubtask?: (taskId: string, subtaskId: string) => void;
 }) {
+  const [subsOpen, setSubsOpen] = React.useState(false);
+  const subs = task.subtasks ?? [];
   /*
    * Planner redesign (owner 2026-11-13): the title carries the card. The
    * description is read on hover, tags are dropped (mostly "from-todo"
@@ -1058,11 +1075,15 @@ function CardShell({
           </span>
         )}
         {task.progress != null && task.progress > 0 && <ProgressRing value={task.progress} />}
-        {task.footnotes?.map((f) => (
-          <span key={f.label} title={f.title} className="tabular-nums">
-            {f.label}
-          </span>
-        ))}
+        {task.footnotes?.map((f) =>
+          subs.length > 0 && f.title === "Subtasks" && !floating ? (
+            <SubtaskCount key={f.label} label={f.label} open={subsOpen} onToggle={() => setSubsOpen((o) => !o)} />
+          ) : (
+            <span key={f.label} title={f.title} className="tabular-nums">
+              {f.label}
+            </span>
+          ),
+        )}
         <AvatarStack people={task.assignees ?? []} />
         {actions && (
           <span data-kanban-no-drag className="ml-auto flex items-center gap-1">
@@ -1070,7 +1091,91 @@ function CardShell({
           </span>
         )}
       </div>
+      {subsOpen && subs.length > 0 && !floating && (
+        <SubtaskList taskId={task.id} subs={subs} onToggle={onToggleSubtask} />
+      )}
     </div>
+  );
+}
+
+/** Keeps a press inside a card from opening it or starting a drag. */
+const keepInCard = {
+  onClick: (e: React.MouseEvent) => e.stopPropagation(),
+  onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
+  onKeyDown: (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") e.stopPropagation();
+  },
+};
+
+/** The subtask count as a button: press to show the subtasks under the card, press again to hide them. */
+function SubtaskCount({ label, open, onToggle }: { label: string; open: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      data-kanban-no-drag
+      aria-expanded={open}
+      title={open ? "Hide subtasks" : "Show subtasks"}
+      className={cn(
+        "inline-flex min-h-7 items-center gap-1 rounded-full px-2 tabular-nums max-[1023px]:min-h-11",
+        "bg-[var(--opx-card,#fff)] text-[var(--opx-ink,#20355b)] hover:bg-[var(--opx-soft,#eef1f5)]",
+      )}
+      {...keepInCard}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle();
+      }}
+    >
+      {label}
+      <ChevronDown aria-hidden className={cn("h-3 w-3 transition-transform", open && "rotate-180")} strokeWidth={2.25} />
+    </button>
+  );
+}
+
+/** The card's subtasks in place, each with its own tick. */
+function SubtaskList({
+  taskId,
+  subs,
+  onToggle,
+}: {
+  taskId: string;
+  subs: Array<{ id: string; title: string; done: boolean }>;
+  onToggle?: (taskId: string, subtaskId: string) => void;
+}) {
+  return (
+    <ul data-kanban-no-drag className="m-0 mt-2 list-none space-y-0.5 p-0" aria-label="Subtasks">
+      {subs.map((s) => (
+        <li key={s.id}>
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={s.done}
+            disabled={!onToggle}
+            className={cn(
+              "flex min-h-9 w-full items-center gap-2 rounded-[10px] px-2 text-left text-[13px] max-[1023px]:min-h-11",
+              "hover:bg-[var(--opx-card,#fff)] disabled:cursor-default",
+            )}
+            {...keepInCard}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle?.(taskId, s.id);
+            }}
+          >
+            <span
+              aria-hidden
+              className={cn(
+                "grid h-4 w-4 shrink-0 place-items-center rounded-[5px] border",
+                s.done
+                  ? "border-[var(--opx-ink,#20355b)] bg-[var(--opx-ink,#20355b)] text-[var(--opx-card,#fff)]"
+                  : "border-[var(--opx-muted,#5a687c)]",
+              )}
+            >
+              {s.done && <Check className="h-3 w-3" strokeWidth={3} />}
+            </span>
+            <span className={cn(s.done && "text-[var(--opx-muted,#5a687c)] line-through")}>{s.title}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 
