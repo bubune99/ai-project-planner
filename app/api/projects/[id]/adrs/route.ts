@@ -79,10 +79,10 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
 
     const [adr] = await sql`
       INSERT INTO architecture_decisions (
-        project_id, title, context, decision, consequences, alternatives_considered, status, documentation_5wh
+        project_id, title, context, decision, consequences, alternatives, status, documentation_5wh
       ) VALUES (
         ${id}, ${title}, ${context}, ${decision}, ${consequences || null},
-        ${alternatives_considered ? JSON.stringify(alternatives_considered) : null}, 'proposed',
+        ${alternatives_considered ? JSON.stringify(alternatives_considered) : null}::jsonb, 'proposed',
         ${envelopeSql}::jsonb
       )
       RETURNING *
