@@ -216,10 +216,24 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
   // The top bar's "Report a problem" starts here: pick a part of the page, then describe it.
   useEffect(() => {
     // After this press has finished, so the press on the button is not taken as the pick.
-    const go = () => { setMenu(null); setTimeout(beginSelect, 0); };
+    // A report hidden with Esc or a press outside comes back as it was left, rather than starting over.
+    const go = () => { setMenu(null); if (draftRef.current) { setPhase("composing"); return } setTimeout(beginSelect, 0); };
     window.addEventListener(REPORT_EVENT, go);
     return () => window.removeEventListener(REPORT_EVENT, go);
   }, [beginSelect]);
+
+  // The open report closes like any panel: Close, Esc, or a press outside it (walk 2026-11-17: only Close worked).
+  // Closing keeps what was written and pointed at; Report a problem brings it back.
+  const composing = phase === "composing" || phase === "error";
+  useEffect(() => {
+    if (!composing) return;
+    const hide = () => setPhase("idle");
+    const away = (e: Event) => { if (!(e.target instanceof Element) || !e.target.closest("[data-fbw]")) hide() };
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") hide() };
+    document.addEventListener("pointerdown", away, true);
+    document.addEventListener("keydown", key, true);
+    return () => { document.removeEventListener("pointerdown", away, true); document.removeEventListener("keydown", key, true) };
+  }, [composing]);
 
   const skipTarget = useCallback(() => {
     ctrl.current?.stop();
@@ -256,6 +270,10 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
       setPhase("error");
     }
   }, [comment, title, kind, target, source, projectId]);
+
+  // Whether a hidden report is waiting to be reopened (read by the Report a problem listener without re-binding it).
+  const draftRef = useRef(false);
+  draftRef.current = !!(comment.trim() || title.trim() || target);
 
   const reset = () => {
     ctrl.current?.stop();
@@ -465,7 +483,8 @@ export function FeedbackWidget({ source = "ai-project-planner", projectId = null
                 padding: "6px 8px",
                 background: "var(--opx-soft, #141a28)",
                 borderRadius: 6,
-                wordBreak: "break-all",
+                // Break only a word too long for the line (a long address), never an ordinary word mid-way.
+                overflowWrap: "anywhere",
               }}
             >
               You pointed at {pickedWords(target)}
