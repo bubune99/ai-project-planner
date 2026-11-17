@@ -292,7 +292,12 @@ export function auditCompleteness(envelope: Documentation5WH): {
     ["how.risks", envelope.how.risks],
   ] as const;
 
-  const filled: string[] = [];
+  // The required fields are present whenever the envelope validated, so they are listed as filled too: listing
+  // only the optional ones made a complete envelope read as "filled: []" (Program 1 finding F4). Score unchanged.
+  const filled: string[] = [
+    "who.user_id", "what.title", "what.type", "what.summary", "when.created_at", "why.rationale",
+    ...(envelope.where?.project_id ? ["where.project_id"] : []),
+  ];
   const empty: string[] = [];
   for (const [name, val] of optionalFields) {
     const isFilled =
@@ -303,7 +308,8 @@ export function auditCompleteness(envelope: Documentation5WH): {
 
   // Score: starred fields always present (validated) = 50 base points
   //        Optional fields contribute up to 50 points
-  const optionalScore = Math.round((filled.length / optionalFields.length) * 50);
+  const optionalFilled = optionalFields.length - empty.length;
+  const optionalScore = Math.round((optionalFilled / optionalFields.length) * 50);
   return { score: 50 + optionalScore, filled, empty };
 }
 

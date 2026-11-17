@@ -23,6 +23,7 @@ import { resetLimits } from "@/lib/rate-limit"
 import { getAiLimitStatus } from "@/lib/ai/usage-store"
 import { isPlatformAdmin } from "@/lib/auth/platform-admin"
 import { decodeTitleEntities, decodeMarkdownAmpEntities } from "@/lib/text/decode-entities"
+import { stampEnvelope } from "./envelope-stamp"
 import {
   fetchEntityEnvelope,
   AUDITABLE_ENVELOPE_TABLES,
@@ -844,8 +845,9 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         estimatedHours: z.number().optional(),
         phase: z.string().optional(),
         workKind: z.enum(["task", "initiative", "upkeep", "owner"]).optional().describe("'owner' for something only the owner can do (keys, dashboards, accounts, payments): shown as Needs you and never sent to an agent. 'initiative' for a campaign, phase or sprint whose tasks sit under it (never in progress itself; its tasks are); 'upkeep' for an agent's maintenance work; default 'task'."),
+        rationale: z.string().optional().describe("Why this exists: recorded as why.rationale in its 5W+H envelope (the agent contract asks for one on every create)"),
       },
-      async ({ projectId, title, description, status, priority, parentTaskId, tags, dueDate, estimatedHours, phase, workKind }) => {
+      async ({ projectId, title, description, status, priority, parentTaskId, tags, dueDate, estimatedHours, phase, workKind, rationale }) => {
         try {
           requireMcpScope("write")
           const [resolvedId, error] = resolveProjectId(projectId)
@@ -903,6 +905,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             )
             RETURNING id, title, status, parent_task_id
           `
+          // Program 1 F1 (card cfc3cf90): every create carries its 5W+H envelope, with the rationale the agent gave.
+          if (task?.id) await stampEnvelope("project_steps", task.id, { type: "task", title: title, summary: description, rationale, userId: getMcpUserId(), projectId: resolvedId })
           return mcpResponse({
             created: true,
             id: task.id,
@@ -1275,8 +1279,9 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         content: z.string().describe("Markdown content"),
         category: z.string().optional().describe("Category"),
         docType: z.enum(["architecture","api","ui_ux","requirements","testing","deployment","general"]).optional().describe("Document type (default: general)"),
+        rationale: z.string().optional().describe("Why this exists: recorded as why.rationale in its 5W+H envelope (the agent contract asks for one on every create)"),
       },
-      async ({ projectId, title, content, category, docType }) => {
+      async ({ projectId, title, content, category, docType, rationale }) => {
         try {
           requireMcpScope("write")
           const userId = getMcpUserId()
@@ -1299,6 +1304,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             VALUES(${resolvedId}, ${cleanTitle}, ${cleanContent}, ${category || "general"}, ${docType || "general"}, NULL, 'text/markdown', ${contentSize}, ${userId})
             RETURNING id, title
           `
+          // Program 1 F1 (card cfc3cf90): every create carries its 5W+H envelope, with the rationale the agent gave.
+          if (doc?.id) await stampEnvelope("documents", doc.id, { type: "document", title: cleanTitle, summary: null, rationale, userId: userId, projectId: resolvedId })
 
           return mcpResponse({ created: true, id: doc.id, title: doc.title })
         } catch (error: unknown) {
@@ -2055,8 +2062,9 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         priority: z.enum(["low", "medium", "high", "urgent"]).optional().describe("Priority level (default: medium)"),
         dueDate: z.string().optional().describe("Due date (ISO 8601 format)"),
         projectId: z.string().optional().describe("Link to a project. NOTE: a project link does NOT make this appear in the project's task views — use create_task for that. Link a todo to a project only when it is a project-adjacent personal/owner item."),
+        rationale: z.string().optional().describe("Why this exists: recorded as why.rationale in its 5W+H envelope (the agent contract asks for one on every create)"),
       },
-      async ({ title, description, priority = "medium", dueDate, projectId }) => {
+      async ({ title, description, priority = "medium", dueDate, projectId, rationale }) => {
         try {
           requireMcpScope("write")
           const userId = getMcpUserId()
@@ -2082,6 +2090,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             VALUES (${userId}, ${projectId || null}, ${title}, ${description || null}, ${priority}, ${dueDate || null}, ${maxOrder + 1})
             RETURNING id, title, status, priority, due_date
           `
+          // Program 1 F1 (card cfc3cf90): every create carries its 5W+H envelope, with the rationale the agent gave.
+          if (todo?.id) await stampEnvelope("todos", todo.id, { type: "todo", title: title, summary: description, rationale, userId: userId, projectId: projectId })
 
           return mcpResponse({
             created: true,
@@ -2421,8 +2431,9 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         description: z.string().optional().describe("Idea description"),
         category: z.string().optional().describe("Category (e.g., 'product', 'feature', 'business')"),
         tags: z.array(z.string()).optional().describe("Tags for organization"),
+        rationale: z.string().optional().describe("Why this exists: recorded as why.rationale in its 5W+H envelope (the agent contract asks for one on every create)"),
       },
-      async ({ title, description, category, tags }) => {
+      async ({ title, description, category, tags, rationale }) => {
         try {
           requireMcpScope("write")
           const userId = getMcpUserId()
@@ -2432,6 +2443,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             VALUES (${userId}, ${title}, ${description || null}, ${category || null}, ${tags || []}, 'seed', 'private')
             RETURNING id, title, lifecycle
           `
+          // Program 1 F1 (card cfc3cf90): every create carries its 5W+H envelope, with the rationale the agent gave.
+          if (idea?.id) await stampEnvelope("ideas", idea.id, { type: "idea", title: title, summary: description, rationale, userId: userId, projectId: null })
 
           // Create default main branch
           await sql`
@@ -2758,8 +2771,9 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         domains: z.array(z.string()).optional().describe("Domains (e.g., 'architecture', 'business')"),
         businessDrivers: z.array(z.string()).optional().describe("Business drivers"),
         technicalConstraints: z.array(z.string()).optional().describe("Technical constraints"),
+        rationale: z.string().optional().describe("Why this exists: recorded as why.rationale in its 5W+H envelope (the agent contract asks for one on every create)"),
       },
-      async ({ title, projectId, ideaId, summary, tags, domains, businessDrivers, technicalConstraints }) => {
+      async ({ title, projectId, ideaId, summary, tags, domains, businessDrivers, technicalConstraints, rationale }) => {
         try {
           requireMcpScope("write")
           const userId = getMcpUserId()
@@ -2784,6 +2798,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             )
             RETURNING id, title, status
           `
+          // Program 1 F1 (card cfc3cf90): every create carries its 5W+H envelope, with the rationale the agent gave.
+          if (decision?.id) await stampEnvelope("mlp_why_decisions", decision.id, { type: "decision", title: title, summary: summary, rationale, userId: userId, projectId: projectId })
 
           return mcpResponse({
             created: true,
