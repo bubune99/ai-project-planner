@@ -59,25 +59,29 @@ export function NewBuildBar({ build }: { build: string }) {
     <div
       role="status"
       data-new-build
+      className="opx-newbuild"
       style={{
-        position: "fixed", left: "50%", bottom: 16, transform: "translateX(-50%)", zIndex: 2147483000,
-        display: "flex", alignItems: "center", gap: 10, padding: "8px 8px 8px 16px", maxWidth: "calc(100vw - 32px)",
-        borderRadius: 999, background: "var(--opx-ink, #20355b)", color: "var(--opx-card, #fff)",
+        // Centered by margin, not left: 50% + translate: a fixed box at left: 50% is only allowed half the screen,
+        // so at 440px the sentence wrapped one word a line into a 142px-tall blob (owner's comment 694b7de9).
+        // The distance from the bottom is in globals.css (.opx-newbuild): above the tab bar on phones.
+        position: "fixed", left: 16, right: 16, margin: "0 auto", width: "fit-content", zIndex: 2147483000,
+        display: "flex", alignItems: "center", gap: 10, padding: "8px 8px 8px 16px",
+        borderRadius: 24, background: "var(--opx-ink, #20355b)", color: "var(--opx-card, #fff)",
         boxShadow: "0 12px 32px rgb(0 0 0 / 0.3)", fontSize: 14,
       }}
     >
-      <span>A new version of the planner is ready.</span>
+      <span style={{ flex: "1 1 auto", minWidth: 0 }}>A new version of the planner is ready.</span>
       <button
         type="button"
         onClick={() => window.location.reload()}
-        style={{ minHeight: 44, padding: "0 16px", borderRadius: 999, border: 0, fontWeight: 600, cursor: "pointer", background: "var(--opx-card, #fff)", color: "var(--opx-ink, #20355b)" }}
+        style={{ minHeight: 44, padding: "0 16px", borderRadius: 999, border: 0, fontWeight: 600, cursor: "pointer", background: "var(--opx-card, #fff)", color: "var(--opx-ink, #20355b)", flexShrink: 0 }}
       >
         Reload
       </button>
       <button
         type="button"
         onClick={() => setHidden(true)}
-        style={{ minHeight: 44, padding: "0 12px", borderRadius: 999, border: 0, cursor: "pointer", background: "transparent", color: "inherit" }}
+        style={{ minHeight: 44, padding: "0 12px", borderRadius: 999, border: 0, cursor: "pointer", background: "transparent", color: "inherit", flexShrink: 0 }}
       >
         Later
       </button>

@@ -604,6 +604,12 @@ body::before {
   .j-pill { height: 22px; padding: 3px 9px; }
 }
 
+/* The "new version is ready" notice (components/pwa/NewBuildBar.tsx): clear of the phone tab bar below. */
+.opx-newbuild { bottom: 16px; }
+@media (max-width: 768px) {
+  .opx-newbuild { bottom: calc(72px + env(safe-area-inset-bottom)); }
+}
+
 /* ---------- PHONE BOTTOM TABS (≤ 768px) — Today · Projects · Ask · Inbox · More ---------- */
 .j-tabbar { display: none; }
 @media (max-width: 768px) {
