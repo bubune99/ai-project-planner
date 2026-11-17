@@ -137,8 +137,17 @@ export async function DELETE(
          ORDER BY deleted_at LIMIT 25
       `) as { id: string; blob_key: string }[];
       if (old.length && isR2Configured()) {
-        await deleteMultipleFromR2(old.map((d) => d.blob_key));
-        await sql`UPDATE documents SET blob_key = NULL, blob_url = NULL WHERE id = ANY(${old.map((d) => d.id)}::uuid[])`;
+        const ids = old.map((d) => d.id);
+        // Their earlier versions hold stored files too; they go with the document.
+        const versions = (await sql`
+          SELECT blob_key FROM document_versions WHERE document_id = ANY(${ids}::uuid[]) AND blob_key IS NOT NULL
+        `) as { blob_key: string }[];
+        const keys = [...new Set([...old.map((d) => d.blob_key), ...versions.map((v) => v.blob_key)])];
+        await deleteMultipleFromR2(keys);
+        await sql`DELETE FROM document_versions WHERE document_id = ANY(${ids}::uuid[])`;
+        // Only the key is cleared: changing blob_url would fire document_version_trigger, which saves the old (now
+        // deleted) file as a new version.
+        await sql`UPDATE documents SET blob_key = NULL WHERE id = ANY(${ids}::uuid[])`;
       }
     } catch (sweepError) {
       console.error("[documents] sweeping old deleted files failed", sweepError instanceof Error ? sweepError.message : sweepError);
