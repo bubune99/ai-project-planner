@@ -5520,7 +5520,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
 
           // Verify step belongs to the work order and is in 'ready' status
           const [step] = await sql`
-            SELECT s.*, wo.project_id, wo.status as wo_status
+            SELECT s.*, wo.project_id, wo.status as wo_status, wo.source_template_id
             FROM work_order_steps s
             JOIN work_orders wo ON wo.id = s.work_order_id
             WHERE s.id = ${step_id}::uuid
@@ -5583,7 +5583,10 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
                 `ON COMPLETION: work_order_check_in({ ..., event_type: 'completion', outcome_summary: '<what got built>', outcome_artifacts: [{kind, ref, url?}] }).`,
                 `ON BLOCKER: work_order_check_in({ ..., event_type: 'blocker', message: '<what blocks you>' }) — response.prior_art[] returns matching attempted_solutions.`,
                 `ON FAILURE you cannot recover: work_order_check_in({ ..., event_type: 'failure' }) THEN record_attempt({ entity_type: 'work_order_step', entity_id: '${step.id}', approach, outcome: 'failed', lessons_learned }).`,
-                `AFTER completion: record_spec_outcome({ spec_source_type: 'feature_template', spec_source_id: <work_order.source_template_id>, applied_to_type: 'work_order_step', applied_to_id: '${step.id}', outcome: 'success' }) so the library learns.`,
+                // Program 1 F5 (card cfc3cf90): an ad-hoc work order has no template, so the hint names the real one or says what to score instead.
+                step.source_template_id
+                  ? `AFTER completion: record_spec_outcome({ spec_source_type: 'feature_template', spec_source_id: '${step.source_template_id}', applied_to_type: 'work_order_step', applied_to_id: '${step.id}', outcome: 'success' | 'partial' | 'failed' }).`
+                  : `AFTER completion: this work order has no template. If you applied a skill, protocol or feature template from the library in this step, score it: record_spec_outcome({ spec_source_type: '<skill|protocol|feature_template>', spec_source_id: '<its id>', applied_to_type: 'work_order_step', applied_to_id: '${step.id}', outcome }). If you used none, skip this.`,
               ],
             },
           })
