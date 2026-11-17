@@ -129,6 +129,7 @@ function IntakeAnswer({ projectId, route, open, onDone }: { projectId: string; r
 function PlanSection({ projectId, route, tick, onPick }: { projectId: string; route: string; tick: number; onPick: (n: number) => void }) {
   const plan = useJson<PlanData>(`/api/projects/${projectId}/gates/plan?route=${encodeURIComponent(route)}`)
   const [error, setError] = useState<string | null>(null)
+  const [allQuestions, setAllQuestions] = useState(false)
   const reload = plan.reload
   useEffect(() => { if (tick) reload() }, [tick, reload])
   const d = plan.data
@@ -178,7 +179,8 @@ function PlanSection({ projectId, route, tick, onPick }: { projectId: string; ro
           <summary>Why each thing is there: {d.intake.settled + d.intake.reasoned} of {d.intake.questions} questions answered{d.intake.proposed > 0 ? `, ${d.intake.proposed} proposed and waiting for you` : ""}</summary>
           <p className="opx-muted">Every planned item is asked what it is for, who uses it, which use case it belongs to and, for anything that shows content, whether it is typed in or worked out and from what. {d.intake.settled} came from you, {d.intake.reasoned} were reasoned from the code or a rule, {d.intake.missing} are not answered.</p>
           <ul>
-            {d.intake.open.slice(0, 12).map((o) => (
+            {/* What waits on the owner (an agent's proposal) comes first, so it is never hidden past the first twelve. */}
+            {[...d.intake.open].sort((a, b) => Number(b.state === "proposed") - Number(a.state === "proposed")).slice(0, allQuestions ? undefined : 12).map((o) => (
               <li key={`${o.itemId}-${o.question.id}`}>
                 <b>{o.label}: {o.question.ask}</b>
                 <span className="opx-muted">{o.state === "proposed" ? `Proposed by the agent: ${o.proposal}` : "Not answered yet."} {o.question.why}</span>
@@ -186,7 +188,11 @@ function PlanSection({ projectId, route, tick, onPick }: { projectId: string; ro
               </li>
             ))}
           </ul>
-          {d.intake.open.length > 12 && <p className="opx-muted">and {d.intake.open.length - 12} more.</p>}
+          {d.intake.open.length > 12 && (
+            <button type="button" className="opx-btn sm" aria-expanded={allQuestions} onClick={() => setAllQuestions((v) => !v)}>
+              {allQuestions ? "Show the first 12" : `Show all ${d.intake.open.length}`}
+            </button>
+          )}
         </details>
       )}
       {waiting.length > 0 && (
