@@ -126,7 +126,7 @@ export function TaskTimeline({ projectId }: { projectId: string }) {
           <div className="opx-tlg">{g.charAt(0).toUpperCase() + g.slice(1)} <span className="opx-n">{rows.length}</span></div>
           {rows.map(({ s, r }) => (
             <div key={s.id} className="opx-tlrow">
-              <div className="opx-tln" title={s.title}><i className="opx-dot" style={{ background: STATUS_COLOR[s.status || ""] || "#8a94a3" }} />{s.title}</div>
+              <div className="opx-tln" title={s.title}><i className="opx-dot" style={{ background: STATUS_COLOR[s.status || ""] || "#8a94a3", flexShrink: 0 }} /><span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{s.title}</span></div>
               <div className="opx-tlt">
                 {grid}
                 {today >= min && today <= max && <i className="opx-tod" style={{ left: `${pct(today)}%` }} />}
