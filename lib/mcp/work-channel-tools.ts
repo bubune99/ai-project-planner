@@ -66,9 +66,10 @@ export function registerWorkChannelTools(server: any): void {
       agent: AGENT,
       sha: z.string().max(64).optional().describe("The commit that carries the change"),
       visible: z.boolean().optional().describe("The change can be seen on a screen (a before/after pair is then owed)"),
+      deploys: z.boolean().optional().describe("False when the commit is in a repository that deploys nothing (a plugin, a library): no ship record is owed, the proof is the evidence"),
       proof: z.string().max(2000).describe("What you saw and where: the address and the value or picture"),
     },
-    async (a: { projectId: string; taskId: string; agent: string; sha?: string; visible?: boolean; proof: string }) => {
+    async (a: { projectId: string; taskId: string; agent: string; sha?: string; visible?: boolean; deploys?: boolean; proof: string }) => {
       try {
         requireMcpScope("write")
         const err = (await canWrite(a.projectId)) ?? (await stepIn(a.projectId, a.taskId))
@@ -91,9 +92,9 @@ export function registerWorkChannelTools(server: any): void {
             FROM project_steps s LEFT JOIN project_statuses ps ON ps.project_id = s.project_id AND ps.key = s.status AND ps.deleted_at IS NULL
            WHERE s.id = ${a.taskId}
         `) as { kind: Evidence["cardKind"] }[]
-        const review = reviewFinish({ taskId: a.taskId, sha, visible: a.visible, proof: a.proof }, { ships, changes, cardKind: card?.kind ?? null })
+        const review = reviewFinish({ taskId: a.taskId, sha, visible: a.visible, deploys: a.deploys, proof: a.proof }, { ships, changes, cardKind: card?.kind ?? null })
 
-        const finished = await post({ projectId: a.projectId, taskId: a.taskId, agent: a.agent, side: "session", kind: "finished", body: a.proof, proof: { sha, visible: !!a.visible } })
+        const finished = await post({ projectId: a.projectId, taskId: a.taskId, agent: a.agent, side: "session", kind: "finished", body: a.proof, proof: { sha, visible: !!a.visible, deploys: a.deploys !== false } })
         if (review.verdict === "sent_back") {
           await post({ projectId: a.projectId, taskId: a.taskId, agent: a.agent, side: "platform", kind: "sent_back", body: `Not accepted yet: ${review.requests.length} thing${review.requests.length === 1 ? "" : "s"} missing.`, replyTo: finished.id })
           const requests = []

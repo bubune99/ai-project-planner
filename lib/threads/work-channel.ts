@@ -29,6 +29,11 @@ export interface FinishClaim {
   sha?: string | null
   /** The change can be seen on a screen (then a before/after pair is owed). */
   visible?: boolean
+  /**
+   * False when the commit is in a repository that deploys nothing (a plugin, a library): there is no build, so no
+   * ship record or before/after pair can exist, and the proof (the check that ran, where) is the evidence.
+   */
+  deploys?: boolean
   proof: string
 }
 
@@ -54,7 +59,7 @@ export function reviewFinish(claim: FinishClaim, ev: Evidence): Review {
   if (!isRealProof(claim.proof)) requests.push("Say what you saw and where (the address, the value read off the page or the output). \"Done\" or \"ok\" is not proof.")
   if (!claim.sha) {
     requests.push("Name the commit that carries the change, so it can be matched with its ship record.")
-  } else {
+  } else if (claim.deploys !== false) {
     const ships = ev.ships.filter((s) => sameCommit(s.sha, claim.sha))
     if (!ships.length) requests.push(`No ship record for ${claim.sha.slice(0, 8)}. After the build is live, check it in the running page and record it: gates shipped ${claim.sha.slice(0, 8)} --saw "<what you saw, on which address>".`)
     else if (!ships.some((s) => isRealProof(s.note))) requests.push(`The ship record for ${claim.sha.slice(0, 8)} does not say what was seen. Record it again with what you saw.`)

@@ -23,6 +23,9 @@ eq(reviewFinish({ taskId: "t", sha: "1f6dcec0", visible: true, proof: good }, ev
 eq(reviewFinish({ taskId: "t", sha: "1f6dcec0", visible: false, proof: good }, ev({ changes: [] })).verdict, "accepted", "a change nobody can see owes no pair")
 eq(reviewFinish({ taskId: "t", sha: "1f6dcec0", proof: good }, ev({ cardKind: "active" })).requests[0].startsWith("The card is not finished"), true, "the card still in progress is sent back")
 eq(reviewFinish({ taskId: "t", proof: good }, ev()).requests[0].startsWith("Name the commit"), true, "no commit named")
+eq(reviewFinish({ taskId: "t", sha: "94a6fe6", deploys: false, proof: good }, ev({ ships: [], changes: [] })), { verdict: "accepted", requests: [] }, "a repository that deploys nothing owes no ship record or pair (walk, 2026-11-17: the plugin's finish was sent back forever)")
+eq(reviewFinish({ taskId: "t", sha: "94a6fe6", deploys: false, proof: "ok" }, ev({ ships: [] })).verdict, "sent_back", "but its proof must still say what was seen")
+eq(reviewFinish({ taskId: "t", sha: "94a6fe6", deploys: false, proof: good }, ev({ ships: [], cardKind: "active" })).verdict, "sent_back", "and the card must still be closed")
 
 const cards = [
   { id: "a", title: "A", priority: "low", orderIndex: 1, kind: "open" },
