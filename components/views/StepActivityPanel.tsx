@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Loader2, MessageSquare, History, Play, Square } from "lucide-react"
+import { Bot, Loader2, MessageSquare, History, Play, Square } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { toast } from "sonner"
 
@@ -25,6 +25,28 @@ interface Comment {
   created_at: string
 }
 
+/** A message on the two-way channel about this card (work_messages; planner card f56c9ba0). */
+interface ChannelMessage {
+  id: string
+  agent: string
+  from_side: "session" | "platform" | "owner"
+  kind: string
+  body: string
+  status: string
+  created_at: string
+}
+
+/** Each kind of channel message in the words the owner reads. */
+const CHANNEL_WORDS: Record<string, string> = {
+  finished: "Said it is finished",
+  accepted: "Accepted",
+  sent_back: "Sent back",
+  request: "Asked for",
+  result: "Answered",
+  assign: "Handed the next card",
+  question: "Question for you",
+}
+
 interface ActivityEvent {
   id: string
   event_type: string
@@ -34,7 +56,8 @@ interface ActivityEvent {
 }
 
 export function StepActivityPanel({ projectId, stepId }: { projectId: string; stepId: string }) {
-  const [tab, setTab] = useState<"comments" | "activity">("comments")
+  const [tab, setTab] = useState<"comments" | "activity" | "agents">("comments")
+  const [channel, setChannel] = useState<ChannelMessage[] | null>(null)
   const [comments, setComments] = useState<Comment[] | null>(null)
   const [events, setEvents] = useState<ActivityEvent[] | null>(null)
   const [draft, setDraft] = useState("")
@@ -51,6 +74,7 @@ export function StepActivityPanel({ projectId, stepId }: { projectId: string; st
   useEffect(() => {
     setComments(null)
     setEvents(null)
+    setChannel(null)
     loadComments()
   }, [loadComments])
 
@@ -62,6 +86,15 @@ export function StepActivityPanel({ projectId, stepId }: { projectId: string; st
         .catch(() => setEvents([]))
     }
   }, [tab, events, base])
+
+  // What agents said about this card on the channel: loaded once, so the tab can say how many there are.
+  useEffect(() => {
+    if (channel !== null) return
+    fetch(`${base}/channel`)
+      .then((r) => r.json())
+      .then((d) => setChannel(Array.isArray(d.messages) ? d.messages : []))
+      .catch(() => setChannel([]))
+  }, [channel, base])
 
   const postComment = async () => {
     const body = draft.trim()
@@ -103,6 +136,15 @@ export function StepActivityPanel({ projectId, stepId }: { projectId: string; st
         >
           <History className="w-3.5 h-3.5" />
           Activity
+        </button>
+        <button
+          onClick={() => setTab("agents")}
+          className={`flex items-center gap-1.5 text-xs font-medium px-3 py-2 border-b-2 -mb-px transition-colors ${
+            tab === "agents" ? "border-blue-500 text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Bot className="w-3.5 h-3.5" />
+          Agents{channel && channel.length > 0 ? ` (${channel.length})` : ""}
         </button>
       </div>
 
@@ -148,6 +190,27 @@ export function StepActivityPanel({ projectId, stepId }: { projectId: string; st
               </Button>
             </div>
           </div>
+        </div>
+      ) : tab === "agents" ? (
+        <div className="space-y-2">
+          {channel === null ? (
+            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+          ) : channel.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No agent has said anything about this card on the channel yet.</p>
+          ) : (
+            channel.map((m) => (
+              <div key={m.id} className="rounded-lg bg-accent/40 px-3 py-2">
+                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                  <span className="text-xs font-semibold">{CHANNEL_WORDS[m.kind] ?? m.kind}</span>
+                  <span className="text-[12px] text-muted-foreground">
+                    {m.from_side === "platform" ? "the planner, to " : ""}{m.agent} · {formatDistanceToNow(new Date(m.created_at), { addSuffix: true })}
+                    {m.kind === "request" ? (m.status === "open" ? " · still owed" : " · answered") : ""}
+                  </span>
+                </div>
+                <p className="text-sm whitespace-pre-wrap">{m.body}</p>
+              </div>
+            ))
+          )}
         </div>
       ) : (
         <div className="space-y-1.5">
