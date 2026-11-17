@@ -23,6 +23,7 @@ import { resetLimits } from "@/lib/rate-limit"
 import { getAiLimitStatus } from "@/lib/ai/usage-store"
 import { isPlatformAdmin } from "@/lib/auth/platform-admin"
 import { decodeTitleEntities, decodeMarkdownAmpEntities } from "@/lib/text/decode-entities"
+import { lookupTitles, withTitles } from "./entity-titles"
 import { stampEnvelope } from "./envelope-stamp"
 import {
   fetchEntityEnvelope,
@@ -4909,17 +4910,20 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             `
           }
 
+          const edges = edgeRows.map((r) => ({
+            id: r.id,
+            from: { type: String(r.from_entity_type), id: String(r.from_entity_id) },
+            to: { type: String(r.to_entity_type), id: String(r.to_entity_id) },
+            relation_type: r.relation_type,
+            confidence: r.confidence,
+            created_at: r.created_at,
+          }))
+          // Program 1 F8 (card cfc3cf90): each end carries its title, so a hop needs no follow-up lookups.
+          const titles = await lookupTitles(edges.flatMap((e) => [e.from, e.to]), userId)
           return mcpResponse({
             success: true,
             data: {
-              edges: edgeRows.map((r) => ({
-                id: r.id,
-                from: { type: r.from_entity_type, id: r.from_entity_id },
-                to: { type: r.to_entity_type, id: r.to_entity_id },
-                relation_type: r.relation_type,
-                confidence: r.confidence,
-                created_at: r.created_at,
-              })),
+              edges: withTitles(edges, titles),
               count: edgeRows.length,
             },
           })
