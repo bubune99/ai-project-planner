@@ -26,7 +26,8 @@ export async function GET() {
                           WHERE c.project_id = p.id AND c.user_id = ${auth.userId}
                             AND c.removed_at IS NULL AND c.accepted_at IS NOT NULL))
       )
-      SELECT ps.*, mine.name AS project_name, '[]'::json AS dependencies
+      SELECT ps.*, mine.name AS project_name, '[]'::json AS dependencies,
+             EXISTS (SELECT 1 FROM agent_jobs j WHERE j.parent_step_id = ps.id AND j.status IN ('pending', 'queued', 'assigned')) AS in_line
       FROM project_steps ps
       JOIN mine ON mine.id = ps.project_id
       WHERE ps.deleted_at IS NULL

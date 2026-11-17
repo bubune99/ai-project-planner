@@ -58,7 +58,9 @@ export async function GET(
             json_build_object('depends_on_step_id', sd.depends_on_step_id, 'dependency_type', sd.dependency_type)
           ) FILTER (WHERE sd.id IS NOT NULL),
           '[]'::json
-        ) as dependencies
+        ) as dependencies,
+        -- Started and waiting for an agent to take it: the card says so (walk 2026-11-17).
+        EXISTS (SELECT 1 FROM agent_jobs j WHERE j.parent_step_id = ps.id AND j.status IN ('pending', 'queued', 'assigned')) AS in_line
       FROM project_steps ps
       LEFT JOIN step_dependencies sd ON ps.id = sd.step_id
       WHERE ps.project_id = ${projectId}

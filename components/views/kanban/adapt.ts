@@ -154,6 +154,9 @@ export function holderLine(step: BoardStep, now: Date): { label: string; title: 
   if (h?.state === "held") return { label: `With ${h.by}`, title: "The agent working on it now" }
   if (h?.state === "sent") return { label: "Sent, waiting for an agent", title: "Sent to the project's agents; it shows who has it once one picks it up" }
   if (h?.state === "nobody") return { label: "Nobody holds it", title: "In progress with no agent holding it: agents put it back" }
+  // Started from Up next: it stays in Up next until an agent takes it, so the card itself says it is in line
+  // (walk 2026-11-17: after the toast faded nothing showed that Start had worked).
+  if ((step as BoardStep & { in_line?: boolean }).in_line) return { label: "In line for an agent", title: "Started: sent to the project's agents; it moves to In Progress when one takes it" }
   return null
 }
 
