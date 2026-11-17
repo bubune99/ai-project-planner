@@ -8,6 +8,7 @@
  *         meta.openCount drives the admin notification badge.
  */
 
+import { evaluationCard } from "@/lib/intake/evaluation-card";
 import { NextRequest } from "next/server";
 import { sql } from "@/lib/db/client";
 import { successResponse, errorResponse, ErrorCodes } from "@/lib/api-utils";
@@ -139,6 +140,23 @@ async function cardForReport(reportId: string, b: any): Promise<{ id: string; co
       )
       RETURNING id
     `;
+    // Every report asks why our checks missed it: an evaluation card under the report's card (owner, 2026-11-16).
+    // Its failure never loses the report or its card.
+    try {
+      const ev = evaluationCard({ reportId, kind, title: card.title, route: b.route ?? null, comment: String(b.comment) })
+      await sql`
+        INSERT INTO project_steps (project_id, parent_task_id, title, description, status, phase, stage, priority, order_index, tags, work_kind)
+        VALUES (
+          ${card.projectId}, ${step.id}, ${ev.title}, ${ev.description}, 'pending',
+          COALESCE((SELECT NULLIF(current_phase, '') FROM projects WHERE id = ${card.projectId}), 'planning'),
+          'backlog', 'medium',
+          (SELECT COALESCE(MAX(order_index), 0) + 1 FROM project_steps WHERE project_id = ${card.projectId} AND deleted_at IS NULL),
+          ${ev.tags}::text[], 'task'
+        )
+      `
+    } catch (e: any) {
+      console.error("[feedback] evaluation card was not made", reportId, e?.message)
+    }
     await sql`
       UPDATE feedback SET project_id = ${card.projectId},
              metadata = COALESCE(metadata, '{}'::jsonb) || ${JSON.stringify({ kind, picked, stepId: step.id })}::jsonb
