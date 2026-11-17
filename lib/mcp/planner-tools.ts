@@ -881,7 +881,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           const [task] = await sql`
             INSERT INTO project_steps (
               project_id, title, description, status, phase, stage,
-              estimated_hours, priority, order_index, parent_task_id, tags, end_date, work_kind
+              estimated_hours, priority, order_index, parent_task_id, tags, end_date, work_kind, progress
             ) VALUES (
               ${resolvedId}, ${title}, ${description || ""}, ${statusKey},
               -- phase and stage are NOT NULL. Writing "" left every step in an
@@ -897,7 +897,9 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
               ${parentTaskId || null},
               ${(tags || []).map(t => String(t).trim()).filter(Boolean).slice(0, 20)}::text[],
               ${dueDate || null},
-              ${workKind || "task"}
+              ${workKind || "task"},
+              -- A task created already done is 100%, not 0% (card 9e6284c8: a completed task read 0%).
+              CASE WHEN step_status_kind(${resolvedId}::uuid, ${statusKey}) = 'done' THEN 100 ELSE 0 END
             )
             RETURNING id, title, status, parent_task_id
           `
@@ -1049,7 +1051,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
                 description = COALESCE(${description || null}, description),
                 status = COALESCE(${status || null}, status),
                 priority = CASE WHEN ${setPriority} THEN ${priority ?? null} ELSE priority END,
-                progress = COALESCE(${progress ?? null}, progress),
+                progress = COALESCE(${progress ?? null}, CASE WHEN ${statusKind === "done"} THEN 100 END, progress),
                 tags = CASE WHEN ${setTags} THEN ${cleanTags}::text[] ELSE tags END,
                 end_date = CASE WHEN ${setDue} THEN ${dueDate ?? null}::timestamp ELSE end_date END,
                 work_kind = COALESCE(${workKind || null}, work_kind),

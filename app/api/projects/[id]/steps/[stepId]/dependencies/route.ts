@@ -47,10 +47,15 @@ export async function POST(
       return NextResponse.json({ error: "Step not found", code: "NOT_FOUND" }, { status: 404 })
     }
 
+    if (params.stepId === dependsOnId) {
+      return NextResponse.json({ error: "A step cannot wait on itself" }, { status: 400 })
+    }
+    // step_dependencies is the table every view reads; project_step_dependencies never existed, so every call here
+    // failed with a 500 (review 2026-10-08, card d81ee324).
     await sql`
-      INSERT INTO project_step_dependencies (step_id, depends_on_id)
-      VALUES (${params.stepId}, ${dependsOnId})
-      ON CONFLICT (step_id, depends_on_id) DO NOTHING
+      INSERT INTO step_dependencies (step_id, depends_on_step_id, dependency_type)
+      VALUES (${params.stepId}, ${dependsOnId}, 'hard')
+      ON CONFLICT (step_id, depends_on_step_id) DO UPDATE SET deleted_at = NULL
     `
 
     return NextResponse.json({ success: true })
@@ -88,8 +93,8 @@ export async function DELETE(
     }
 
     await sql`
-      DELETE FROM project_step_dependencies
-      WHERE step_id = ${params.stepId} AND depends_on_id = ${dependsOnId}
+      DELETE FROM step_dependencies
+      WHERE step_id = ${params.stepId} AND depends_on_step_id = ${dependsOnId}
     `
 
     return NextResponse.json({ success: true })
