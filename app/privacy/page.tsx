@@ -70,7 +70,7 @@ export default function PrivacyPage() {
         </div>
 
         <H>Cookies and your browser</H>
-        <p>One cookie keeps you signed in. Your browser also remembers a few display choices, such as how dense lists are. Nothing tracks you across other sites.</p>
+        <p>One cookie keeps you signed in. Your browser also remembers a few display choices, such as how dense lists are. Nothing tracks you across other sites, so a Do Not Track signal from your browser changes nothing here: there is no tracking for it to turn off.</p>
 
         <H>How long we keep it</H>
         <p>While your account exists, and for 30 days after it is closed. Then it is deleted.</p>

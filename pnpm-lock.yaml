@@ -94,9 +94,6 @@ importers:
       '@tailwindcss/typography':
         specifier: ^0.5.19
         version: 0.5.19(tailwindcss@3.4.18(tsx@4.21.0)(yaml@2.8.2))
-      '@upstash/redis':
-        specifier: ^1.35.8
-        version: 1.35.8
       '@vercel/analytics':
         specifier: latest
         version: 2.0.1(next@15.5.29(@opentelemetry/api@1.9.0)(@types/node@22.19.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react@19.2.0)(vue-router@4.6.3(vue@3.5.25(typescript@5.9.3)))(vue@3.5.25(typescript@5.9.3))
