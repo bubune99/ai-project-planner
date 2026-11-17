@@ -184,7 +184,7 @@ export function CardPictures({ step, onSaveMetadata }: { step: BoardStep; onSave
         <button type="button" disabled={busy} onClick={() => input.current?.click()} className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground min-h-8 px-2 rounded-md hover:bg-accent disabled:opacity-50">
           <ImagePlus className="w-3.5 h-3.5" /> {busy ? "Adding…" : "Add a picture"}
         </button>
-        <input ref={input} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) upload(f) }} />
+        <input ref={input} type="file" accept="image/*" hidden aria-label="Choose a picture" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) upload(f) }} />
       </div>
       {pics.length === 0 ? (
         <p className="text-[13px] text-muted-foreground">None yet. Choose one, or paste a picture while the card is open.</p>

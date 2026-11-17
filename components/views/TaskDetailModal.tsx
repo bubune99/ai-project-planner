@@ -308,11 +308,12 @@ export function TaskDetailModal({
                   <Input
                     value={newSubtask}
                     placeholder={step.work_kind === "initiative" ? "Add a task…" : "Add a step…"}
+                    aria-label={step.work_kind === "initiative" ? "New task" : "New step"}
                     className="h-7 text-sm"
                     onChange={(e) => setNewSubtask(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && addSubtask()}
                   />
-                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={addSubtask}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={addSubtask} aria-label={step.work_kind === "initiative" ? "Add the task" : "Add the step"}>
                     <Plus className="w-3.5 h-3.5" />
                   </Button>
                 </div>
@@ -503,7 +504,7 @@ export function TaskDetailModal({
                     style={{ backgroundColor: tagColor(t) + "26", color: tagColor(t) }}
                   >
                     {t}
-                    <button onClick={() => removeTag(t)} className="hover:opacity-70">
+                    <button type="button" onClick={() => removeTag(t)} className="hover:opacity-70" aria-label={`Remove tag ${t}`}>
                       <X className="w-2.5 h-2.5" />
                     </button>
                   </span>
@@ -513,6 +514,7 @@ export function TaskDetailModal({
                 value={newTag}
                 list="kanban-tag-options"
                 placeholder="Add tag…"
+                aria-label="New tag"
                 className="h-7 text-xs"
                 onChange={(e) => setNewTag(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addTag()}
@@ -535,6 +537,7 @@ export function TaskDetailModal({
                 step="0.5"
                 min="0"
                 value={estimate}
+                aria-label="Estimate in hours"
                 className="h-7 w-[80px] text-xs"
                 onChange={(e) => setEstimate(e.target.value)}
                 onBlur={() => {
@@ -551,6 +554,7 @@ export function TaskDetailModal({
                 step="0.5"
                 min="0"
                 value={actual}
+                aria-label="Actual hours"
                 className="h-7 w-[80px] text-xs"
                 onChange={(e) => setActual(e.target.value)}
                 onBlur={() => {
@@ -573,10 +577,15 @@ export function TaskDetailModal({
                 max={100}
                 step={5}
                 value={progress}
+                aria-label="Progress"
+                aria-valuetext={`${progress}%`}
                 className="w-full accent-blue-500"
                 onChange={(e) => setProgress(Number(e.target.value))}
                 onMouseUp={() => progress !== step.progress && patch({ progress })}
                 onTouchEnd={() => progress !== step.progress && patch({ progress })}
+                // Arrow keys change the value too; save when the keys are let go or the slider is left.
+                onKeyUp={() => progress !== step.progress && patch({ progress })}
+                onBlur={() => progress !== step.progress && patch({ progress })}
               />
             </div>
 
