@@ -45,8 +45,13 @@ export function routeOfFile(file: string): string | null {
   return "/" + parts.join("/")
 }
 
-/** What a set of changed files touches: the pages by route, and whether something shared by every page changed. */
-export function shipTouches(files: string[]): { routes: string[]; everywhere: boolean } {
+/**
+ * What a set of changed files touches: the pages by route, and whether something shared by every page changed.
+ * `importsResolved`: the sender (far-gates) already followed each code file's imports to its pages and sent those
+ * routes, so a component or library file no longer counts as "every page" here. Styles, assets and the
+ * named shared files still do.
+ */
+export function shipTouches(files: string[], opts: { importsResolved?: boolean } = {}): { routes: string[]; everywhere: boolean } {
   const routes = new Set<string>()
   let everywhere = false
   for (const raw of files) {
@@ -56,6 +61,7 @@ export function shipTouches(files: string[]): { routes: string[]; everywhere: bo
     if (route) { routes.add(route); if (/layout\.(tsx|jsx|ts|js)$/.test(f) && route === "/") everywhere = true; continue }
     if (SHARED.some((re) => re.test(f))) { everywhere = true; continue }
     // Any other component, style or library file may be drawn by pages we cannot name from here.
+    if (opts.importsResolved && /\.(tsx|jsx|ts|js|mjs)$/.test(f)) continue
     if (/^(components|lib|app|public|styles)\//.test(f) && /\.(tsx|jsx|ts|js|css|svg|png|json)$/.test(f)) everywhere = true
   }
   return { routes: [...routes].sort(), everywhere }
@@ -111,7 +117,7 @@ export function parseShip(raw: unknown): { sha: string; env: string; routes: str
   if (!env) throw new ShipError('env must be "production" or "staging"')
   const files = Array.isArray(b.files) ? b.files.filter((f): f is string => typeof f === "string").slice(0, 2000) : null
   const given = Array.isArray(b.routes) ? b.routes.filter((r): r is string => typeof r === "string" && r.startsWith("/") && r.length <= 200).slice(0, 200) : []
-  const derived = files ? shipTouches(files) : { routes: [], everywhere: false }
+  const derived = files ? shipTouches(files, { importsResolved: b.reach === "imports" }) : { routes: [], everywhere: false }
   const routes = [...new Set([...given, ...derived.routes])].sort()
   const everywhere = b.everywhere === true || derived.everywhere
   if (!routes.length && !everywhere && !files) throw new ShipError("Say what shipped: files (the changed files), or routes, or everywhere: true")

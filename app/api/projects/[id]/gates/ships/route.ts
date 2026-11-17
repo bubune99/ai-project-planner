@@ -3,6 +3,8 @@
  *
  * GET  /api/projects/[id]/gates/ships   each scanned page with where its picture stands, and the project's one line
  * POST /api/projects/[id]/gates/ships   { sha, env: "production" | "staging", files?: string[], routes?: string[], everywhere?, note?, at? }
+ *                                       reach: "imports" means routes came from following imports (far-gates),
+ *                                       so code files are not counted as "every page" again
  *                                       reported by the agent that shipped, after it has seen the change live
  */
 import { type NextRequest, NextResponse } from "next/server"
