@@ -8,8 +8,10 @@
  *               Never a question for the owner.
  *   duplicate   two open cards in one project with the same title. Merging removes a card the owner made, so this
  *               is his: one grouped question per project.
- *   unreviewed  open cards carried over from the old todo list that nobody has touched since. Agents sort them;
- *               only the unclear ones go to him later. Counted here, never asked about here.
+ *   unreviewed  open cards carried over from the old todo list, at least UNREVIEWED_DAYS old, that nobody has
+ *               written a word on. Not "untouched": a bulk update on 2026-11-16 touched all 294 such cards, so the
+ *               time a card last changed cannot tell a review from a sweep; a comment can. Agents sort them; only
+ *               the unclear ones go to him later. Counted here, never asked about here.
  * The check moves nothing by itself.
  */
 export const IDLE_DAYS = 14
@@ -26,6 +28,8 @@ export interface StepRow {
   updatedAt: string
   createdAt: string
   fromTodo: boolean
+  /** Someone has written a comment on it. */
+  commented: boolean
 }
 
 export interface Finding { kind: "idle" | "duplicate" | "unreviewed"; projectId: string; project?: string; stepIds: string[]; titles: string[]; days?: number }
@@ -57,7 +61,7 @@ export function findStale(rows: StepRow[], nowMs: number): Finding[] {
   }
   const byProject = new Map<string, StepRow[]>()
   for (const r of open) {
-    if (r.fromTodo && r.statusKind === "open" && daysSince(r.updatedAt, nowMs) >= UNREVIEWED_DAYS) byProject.set(r.projectId, [...(byProject.get(r.projectId) ?? []), r])
+    if (r.fromTodo && r.statusKind === "open" && !r.commented && daysSince(r.createdAt, nowMs) >= UNREVIEWED_DAYS) byProject.set(r.projectId, [...(byProject.get(r.projectId) ?? []), r])
   }
   for (const [projectId, g] of byProject) out.push({ kind: "unreviewed", projectId, project: g[0].project, stepIds: g.map((x) => x.id), titles: g.map((x) => x.title) })
   return out

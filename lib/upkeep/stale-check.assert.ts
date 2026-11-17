@@ -8,7 +8,7 @@ const eq = (a: unknown, b: unknown, what: string) => {
 }
 const now = Date.parse("2026-11-17T12:00:00Z")
 const ago = (d: number) => new Date(now - d * 86_400_000).toISOString()
-const row = (id: string, o: Partial<StepRow>): StepRow => ({ id, projectId: "p1", project: "Planner", title: `t${id}`, status: "pending", statusKind: "open", updatedAt: ago(1), createdAt: ago(40), fromTodo: false, ...o })
+const row = (id: string, o: Partial<StepRow>): StepRow => ({ id, projectId: "p1", project: "Planner", title: `t${id}`, status: "pending", statusKind: "open", updatedAt: ago(1), createdAt: ago(40), fromTodo: false, commented: false, ...o })
 
 eq(titleKey("  Fix the  Login page. "), "fix the login page", "case, spacing and the trailing full stop do not matter")
 
@@ -20,12 +20,13 @@ const f = findStale([
   row("e", { title: "add search.", createdAt: ago(10) }),
   row("f", { title: "Add search", projectId: "p2", project: "BYB" }),
   row("g", { title: "Add search", statusKind: "done", status: "completed" }),
-  row("h", { fromTodo: true, updatedAt: ago(45) }),
-  row("i", { fromTodo: true, updatedAt: ago(5) }),
+  row("h", { fromTodo: true, createdAt: ago(45), updatedAt: ago(1) }),
+  row("i", { fromTodo: true, createdAt: ago(45), commented: true }),
+  row("j", { fromTodo: true, createdAt: ago(10) }),
 ], now)
 eq(f.filter((x) => x.kind === "idle").map((x) => [x.stepIds[0], x.days]), [["a", 20]], "in progress and still for 14 days or more is idle; 13 days is not; done cards never")
 eq(f.filter((x) => x.kind === "duplicate").map((x) => x.stepIds), [["d", "e"]], "same title in one project, both open, older first; another project or a finished card is not a twin")
-eq(f.filter((x) => x.kind === "unreviewed").map((x) => x.stepIds), [["h"]], "carried-over cards untouched for 30 days are counted; one touched recently is not")
+eq(f.filter((x) => x.kind === "unreviewed").map((x) => x.stepIds), [["h"]], "carried over, 30 days old and nobody has written on it: counted even if a sweep changed it yesterday; one with a comment, or a newer one, is not")
 eq(summarize(f), { idle: 1, duplicate: 1, unreviewed: 1 }, "the counts")
 
 const q = questionFor(f, "p1")

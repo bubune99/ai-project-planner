@@ -27,7 +27,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export function registerUpkeepTools(server: any): void {
   server.tool(
     "upkeep_stale_check",
-    `The stale-task check over your projects: cards in progress that have not moved in ${IDLE_DAYS} days (an agent puts these back to Up next with a note; never a question), open cards with the same title in one project (the owner's to merge: with ask=true, one question per project in his inbox, never twice while one is open), and cards carried over from the old todo list untouched for ${UNREVIEWED_DAYS} days (counted, for an agent to sort). Moves nothing. Every run is recorded (upkeep_runs).`,
+    `The stale-task check over your projects: cards in progress that have not moved in ${IDLE_DAYS} days (an agent puts these back to Up next with a note; never a question), open cards with the same title in one project (the owner's to merge: with ask=true, one question per project in his inbox, never twice while one is open), and cards carried over from the old todo list, ${UNREVIEWED_DAYS}+ days old, that nobody has written on (counted, for an agent to sort). Moves nothing. Every run is recorded (upkeep_runs).`,
     {
       projectId: z.string().optional().describe("Only this project"),
       ask: z.boolean().optional().describe("Put what is the owner's to decide into his inbox (default false: report only)"),
@@ -42,6 +42,7 @@ export function registerUpkeepTools(server: any): void {
         const rows = (await sql`
           SELECT s.id, s.project_id, p.name AS project, s.title, s.status, s.updated_at, s.created_at,
                  (s.source_todo_id IS NOT NULL) AS from_todo,
+                 EXISTS (SELECT 1 FROM step_comments c WHERE c.step_id = s.id) AS commented,
                  COALESCE(ps.kind, CASE s.status WHEN 'in-progress' THEN 'active' WHEN 'completed' THEN 'done'
                                                  WHEN 'blocked' THEN 'closed' WHEN 'failed' THEN 'closed' ELSE 'open' END) AS kind
             FROM project_steps s
@@ -54,7 +55,7 @@ export function registerUpkeepTools(server: any): void {
           id: String(r.id), projectId: String(r.project_id), project: String(r.project), title: String(r.title ?? ""),
           status: String(r.status), statusKind: r.kind as StepRow["statusKind"],
           updatedAt: new Date((r.updated_at ?? r.created_at) as string).toISOString(),
-          createdAt: new Date(r.created_at as string).toISOString(), fromTodo: Boolean(r.from_todo),
+          createdAt: new Date(r.created_at as string).toISOString(), fromTodo: Boolean(r.from_todo), commented: Boolean(r.commented),
         }))
         const findings = findStale(steps, Date.now())
         const counts = summarize(findings)
@@ -99,7 +100,7 @@ export function registerUpkeepTools(server: any): void {
           runId: run.id,
           checked: steps.length,
           ...counts,
-          idle: idle.slice(0, 50).map((f) => ({ taskId: f.stepIds[0], title: f.titles[0], project: f.project, daysStill: f.days })),
+          idleCards: idle.slice(0, 50).map((f) => ({ taskId: f.stepIds[0], title: f.titles[0], project: f.project, daysStill: f.days })),
           duplicates: findings.filter((f) => f.kind === "duplicate").slice(0, 50).map((f) => ({ project: f.project, title: f.titles[0], taskIds: f.stepIds })),
           unreviewedByProject: findings.filter((f) => f.kind === "unreviewed").map((f) => ({ project: f.project, count: f.stepIds.length })),
           asked,
