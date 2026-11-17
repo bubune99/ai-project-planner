@@ -23,8 +23,21 @@ export interface Step {
   gone?: string[]
 }
 
+/**
+ * What a workflow proves, which decides the states it is checked in. Owner 2026-11-17: "Clicking for functionality is
+ * one thing that needs to be checked only on light or dark mode. Ensuring colors are right is another thing. Ensuring
+ * behaviors and action states is important as well."
+ *   function  pressing it does the right thing: checked once, in the control's first state (the default)
+ *   look      colors, contrast and layout: checked in every state (each theme, each width), on a picture
+ *   states    hover, focus, pressed, disabled, loading, error, empty: checked once, in the first state
+ */
+export type WorkflowKind = "function" | "look" | "states"
+export const WORKFLOW_KINDS: readonly WorkflowKind[] = ["function", "look", "states"]
+
 export interface Workflow {
   name: string
+  /** What it proves; missing means "function". */
+  kind?: WorkflowKind
   /** The state to start from, in words. */
   before?: string
   steps: Step[]
@@ -129,10 +142,36 @@ export function checkKey(n: number, workflow: string, state: string): string {
   return [n, workflow, state].join(SEP)
 }
 
-/** Every check in the list, in the order they should be worked. */
-export function allChecks(list: Checklist): CheckRef[] {
+/** The states a workflow is checked in: every state for a look, the first state for anything else. */
+export function workflowStates(c: Pick<Control, "states">, w: Pick<Workflow, "kind">): string[] {
+  if (!c.states.length) return []
+  return w.kind === "look" ? [...c.states] : [c.states[0]]
+}
+
+const PROBLEM = new Set<string>(["failed", "flagged", "disputed"])
+
+/**
+ * The states a workflow is open in: the ones it is checked in, plus any other state where a problem is on record. A
+ * failure recorded before checks were sorted by kind never disappears; it stays open until it is cleared.
+ */
+export function checkStates(c: Pick<Control, "n" | "states">, w: Pick<Workflow, "name" | "kind">, results?: Result[]): string[] {
+  const need = new Set(workflowStates(c, w))
+  return c.states.filter((s) => need.has(s) || (results !== undefined && PROBLEM.has(checkState(results, checkKey(c.n, w.name, s)))))
+}
+
+/** Every check that can take a verdict: each workflow in each state, whether or not that state is required. */
+export function everyCheck(list: Checklist): CheckRef[] {
   const out: CheckRef[] = []
   for (const v of list.views) for (const c of v.controls) for (const w of c.workflows) for (const s of c.states) {
+    out.push({ key: checkKey(c.n, w.name, s), view: v.key, n: c.n, label: c.label, workflow: w.name, state: s })
+  }
+  return out
+}
+
+/** Every check in the list, in the order they should be worked. With the results, problems on record in other states are included. */
+export function allChecks(list: Checklist, results?: Result[]): CheckRef[] {
+  const out: CheckRef[] = []
+  for (const v of list.views) for (const c of v.controls) for (const w of c.workflows) for (const s of checkStates(c, w, results)) {
     out.push({ key: checkKey(c.n, w.name, s), view: v.key, n: c.n, label: c.label, workflow: w.name, state: s })
   }
   return out
@@ -167,6 +206,7 @@ export function validateChecklist(list: Checklist): Issue[] {
         if (names.has(w.name)) say(where, `Two workflows are named "${w.name}"`)
         names.add(w.name)
         if (!w.steps?.length) say(`${where}, ${w.name}`, "A workflow needs at least one step")
+        if (w.kind !== undefined && !WORKFLOW_KINDS.includes(w.kind)) say(`${where}, ${w.name}`, `A workflow's kind is one of ${WORKFLOW_KINDS.join(", ")}`)
         for (const s of w.steps ?? []) if (!s.do?.trim() || !s.expect?.trim()) say(`${where}, ${w.name}`, "Every step needs what to do and what to expect")
       }
       if (c.x < 0 || c.y < 0 || c.x + c.w > v.w + 1 || c.y + c.h > v.h + 1) say(where, "The control sits outside its view's picture")
@@ -224,7 +264,7 @@ export interface Summary {
 
 export function summarize(list: Checklist, results: Result[]): Summary {
   const s: Summary = { total: 0, cleared: 0, passed: 0, waived: 0, failed: 0, flagged: 0, disputed: 0, pending: 0, reviewed: 0, done: false }
-  for (const c of allChecks(list)) {
+  for (const c of allChecks(list, results)) {
     const st = checkState(results, c.key)
     s.total++
     s[st]++
@@ -236,7 +276,7 @@ export function summarize(list: Checklist, results: Result[]): Summary {
 
 /** The next check to work: the first that is not passed or waived. Failed and disputed ones come back before untouched ones. */
 export function nextCheck(list: Checklist, results: Result[]): (CheckRef & { state_now: CheckState }) | null {
-  const open = allChecks(list).map((c) => ({ ...c, state_now: checkState(results, c.key) })).filter((c) => c.state_now !== "passed" && c.state_now !== "waived")
+  const open = allChecks(list, results).map((c) => ({ ...c, state_now: checkState(results, c.key) })).filter((c) => c.state_now !== "passed" && c.state_now !== "waived")
   // Confirmed failures first, then the scan's unvalidated claims, then untouched checks. A dispute waits for the owner.
   return open.find((c) => c.state_now === "failed") ?? open.find((c) => c.state_now === "flagged") ?? open.find((c) => c.state_now === "pending") ?? open[0] ?? null
 }
@@ -256,7 +296,7 @@ export function hookLine(list: Checklist, results: Result[]): string {
 export function controlProgress(c: Control, results: Result[]): { cleared: number; total: number; worst: CheckState } {
   let cleared = 0, total = 0
   const seen = new Set<CheckState>()
-  for (const w of c.workflows) for (const s of c.states) {
+  for (const w of c.workflows) for (const s of checkStates(c, w, results)) {
     const st = checkState(results, checkKey(c.n, w.name, s))
     total++
     seen.add(st)
@@ -386,7 +426,7 @@ export interface LogEntry { at: string; actor: Actor; status: Verdict; key: stri
 
 /** Every verdict in the order it was given, in words. */
 export function auditLog(list: Checklist, results: Result[]): LogEntry[] {
-  const ref = new Map(allChecks(list).map((c) => [c.key, c]))
+  const ref = new Map(everyCheck(list).map((c) => [c.key, c]))
   const lastScan = new Map<string, string>()
   return [...results].sort((a, b) => a.at.localeCompare(b.at)).map((r) => {
     const c = ref.get(r.key)
@@ -421,7 +461,7 @@ export interface Scorecard {
 /** How well the whole arrangement is working, from the record alone. */
 export function scorecard(list: Checklist, results: Result[]): Scorecard {
   const s: Scorecard = { claims: 0, confirmed: 0, dismissed: 0, unvalidated: 0, scanAccuracy: null, passedFirstTime: 0, worked: 0, fixed: 0, caughtBySecondLook: 0 }
-  for (const c of allChecks(list)) {
+  for (const c of allChecks(list, results)) {
     const mine = results.filter((r) => r.key === c.key).sort((a, b) => a.at.localeCompare(b.at))
     let open: Result | null = null
     for (const r of mine) {

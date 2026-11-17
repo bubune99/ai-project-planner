@@ -69,9 +69,10 @@ ok("a link finds its control after a rescan renumbers the page or moves it to an
   assert.equal(findControl(null, ref("Search")), null)
 })
 
-ok("a control is verified only when every one of its checks has cleared", () => {
+ok("a control is verified when its required checks have cleared and no problem is on record", () => {
   assert.equal(controlState({ list, results: [] }, 1), "pending")
-  assert.equal(controlState({ list, results: [R("1|Use|Signed in", "builder", "passed", "t1")] }, 1), "pending")
+  // A press is checked once, in the first state (owner 2026-11-17); a problem recorded in another state still counts.
+  assert.equal(controlState({ list, results: [R("1|Use|Signed in", "builder", "passed", "t1")] }, 1), "passed")
   assert.equal(controlState({ list, results: [R("1|Use|Signed in", "builder", "passed", "t1"), R("1|Use|Phone", "builder", "passed", "t2")] }, 1), "passed")
   assert.equal(controlState({ list, results: [R("1|Use|Signed in", "builder", "passed", "t1"), R("1|Use|Phone", "scan", "failed", "t2")] }, 1), "flagged")
   assert.equal(controlState({ list, results: [R("1|Use|Phone", "scan", "failed", "t2"), R("1|Use|Phone", "reviewer", "failed", "t3")] }, 1), "failed")

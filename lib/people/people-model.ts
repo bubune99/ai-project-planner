@@ -176,7 +176,7 @@ export function findControl(list: Checklist | null | undefined, ref: ControlRef 
 
 /** Where a control stands, across all of its checks: one failure fails it, one open claim flags it, and it is verified only when every check has cleared. */
 export function controlState(page: PageRecord, n: number): Exclude<StepState, "unbuilt" | "missing"> {
-  const states = allChecks(page.list).filter((c) => c.n === n).map((c) => checkState(page.results, c.key))
+  const states = allChecks(page.list, page.results).filter((c) => c.n === n).map((c) => checkState(page.results, c.key))
   if (states.some((s) => s === "failed" || s === "disputed")) return "failed"
   if (states.some((s) => s === "flagged")) return "flagged"
   if (states.length && states.every((s) => s === "passed" || s === "waived")) return "passed"

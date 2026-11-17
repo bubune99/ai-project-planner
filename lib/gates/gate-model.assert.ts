@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { intakeQuestions, scanFindings } from "./gate-model"
-import { EVIDENCE_DAYS, allChecks, checkKey, checkState, controlProgress, diffChecklists, hookLine, imagesToExpire, nextCheck, summarize, validateChecklist, type CheckState, type Checklist, type Result, type StoredImage } from "./gate-model"
+import { EVIDENCE_DAYS, allChecks, everyCheck, workflowStates, checkKey, checkState, controlProgress, diffChecklists, hookLine, imagesToExpire, nextCheck, summarize, validateChecklist, type CheckState, type Checklist, type Result, type StoredImage } from "./gate-model"
 
 let n = 0
 const ok = (name: string, fn: () => void) => { fn(); n++; console.log("ok ", name) }
@@ -10,7 +10,7 @@ const list: Checklist = {
   route: "/catalog",
   views: [
     { key: "page", name: "Page", w: 1000, h: 400, controls: [
-      { n: 1, label: "Menu", kind: "Button", x: 10, y: 10, w: 80, h: 30, shared: true, states: ["Dark", "Light"], workflows: [{ name: "Open", steps: [step] }, { name: "Close", steps: [step] }] },
+      { n: 1, label: "Menu", kind: "Button", x: 10, y: 10, w: 80, h: 30, shared: true, states: ["Dark", "Light"], workflows: [{ name: "Open", kind: "look", steps: [step] }, { name: "Close", kind: "look", steps: [step] }] },
       { n: 2, label: "Impact graph", kind: "Link", x: 900, y: 60, w: 90, h: 30, states: ["Signed in"], workflows: [{ name: "Go", steps: [step] }] },
     ] },
     { key: "menu", name: "Menu open", w: 300, h: 600, controls: [
@@ -259,6 +259,38 @@ ok("plan: the owner is included when their request, the rules and common sense s
   assert.equal(isSensitive(p({})), false)
   // Every answer says why.
   assert.ok(decideChange(p({}), ctx).why.length > 20)
+})
+
+ok("by kind (owner 2026-11-17): a press and an action state are checked once, a look in every state", () => {
+  const S = ["Desktop, dark", "Desktop, light", "Tablet", "Phone"]
+  const c = { states: S }
+  assert.deepEqual(workflowStates(c, {}), ["Desktop, dark"], "no kind is a press")
+  assert.deepEqual(workflowStates(c, { kind: "function" }), ["Desktop, dark"])
+  assert.deepEqual(workflowStates(c, { kind: "states" }), ["Desktop, dark"])
+  assert.deepEqual(workflowStates(c, { kind: "look" }), S)
+  assert.deepEqual(workflowStates({ states: [] }, { kind: "look" }), [])
+  const docs: Checklist = { route: "/docs", views: [{ key: "page", name: "Page", w: 1000, h: 800, controls: [
+    { n: 1, label: "Save", kind: "Button", x: 1, y: 1, w: 10, h: 10, states: S, workflows: [{ name: "Click it", steps: [step] }, { name: "Hover and focus", kind: "states", steps: [step] }, { name: "Reads in every theme", kind: "look", steps: [step] }] },
+  ] }] }
+  // 1 press + 1 state check + 4 looks = 6, where every workflow in every state was 12.
+  assert.equal(allChecks(docs).length, 6)
+  assert.deepEqual(allChecks(docs).map((x) => x.state), ["Desktop, dark", "Desktop, dark", "Desktop, dark", "Desktop, light", "Tablet", "Phone"])
+  assert.equal(controlProgress(docs.views[0].controls[0], []).total, 6)
+  assert.ok(validateChecklist({ ...docs, views: [{ ...docs.views[0], controls: [{ ...docs.views[0].controls[0], workflows: [{ name: "X", kind: "colour" as never, steps: [step] }] }] }] }).some((i) => /kind is one of/.test(i.message)))
+  assert.equal(validateChecklist(docs).length, 0)
+  // A failure recorded in a state that is no longer required stays open until it is cleared.
+  const R2 = (key: string, actor: "builder" | "reviewer", status: "passed" | "failed", at: string) => ({ key, actor, status, at, note: status === "failed" ? "cut off" : undefined }) as never
+  const pressDark = "1|Click it|Desktop, dark", pressPhone = "1|Click it|Phone"
+  const withOld = [R2(pressPhone, "builder", "failed", "t1")]
+  assert.equal(allChecks(docs, withOld).length, 7)
+  assert.ok(allChecks(docs, withOld).some((x) => x.key === pressPhone))
+  assert.equal(summarize(docs, withOld).failed, 1)
+  assert.equal(nextCheck(docs, withOld)!.key, pressPhone, "the old failure comes first")
+  assert.equal(controlProgress(docs.views[0].controls[0], withOld).worst, "failed")
+  // Cleared, it drops out again; a verdict on any state is accepted.
+  const cleared = [...withOld, R2(pressPhone, "builder", "passed", "t2"), R2(pressDark, "builder", "passed", "t3")]
+  assert.equal(allChecks(docs, cleared).length, 6)
+  assert.equal(everyCheck(docs).length, 12)
 })
 
 console.log(`${n} checks passed in all`)

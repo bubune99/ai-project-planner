@@ -8,7 +8,7 @@ import { sql } from "@/lib/db/client"
 import { checkMarker, failedCheckCard } from "@/lib/intake/check-card"
 import { closeFixCards, upsertFixCard } from "@/lib/intake/check-card-store"
 import {
-  alignToPrevious, allChecks, auditLog, checkKey, mergePartial, splitFindings, checkState, diffChecklists, sameCriteria, scanFindings, scorecard, standingKeys,
+  alignToPrevious, allChecks, everyCheck, auditLog, checkKey, mergePartial, splitFindings, checkState, diffChecklists, sameCriteria, scanFindings, scorecard, standingKeys,
   hookLine, imagesToExpire, nextCheck, summarize, validateChecklist,
   type Actor, type Checklist, type Region, type Result, type StoredImage, type Verdict,
 } from "./gate-model"
@@ -102,7 +102,7 @@ export async function saveChecklist(a: { projectId: string; userId: string; list
   // so what was true of it before has to be looked at again.
   let reopened = 0
   if (partial && partial.touched.length) {
-    const now = await resultsOf(row.id), again = allChecks(list).filter((c) => partial.touched.includes(c.n) && ["passed", "waived"].includes(checkState(now, c.key)))
+    const now = await resultsOf(row.id), again = everyCheck(list).filter((c) => partial.touched.includes(c.n) && ["passed", "waived"].includes(checkState(now, c.key)))
     if (again.length) {
       await sql`
         INSERT INTO gate_results (checklist_id, check_key, actor, status, note, created_by)
@@ -135,7 +135,7 @@ const allControls = (l: Checklist) => l.views.reduce((t, v) => t + v.controls.le
 /** Records one verdict on each of the given checks. */
 export async function recordResults(a: { checklist: ChecklistRow; userId: string; keys: string[]; actor: Actor; status: Verdict; note?: string }) {
   if (a.status === "waived" && a.actor !== "owner") throw new GateError("Only the owner can waive a check")
-  const known = new Set(allChecks(a.checklist.doc).map((c) => c.key))
+  const known = new Set(everyCheck(a.checklist.doc).map((c) => c.key))
   const unknown = a.keys.filter((k) => !known.has(k))
   if (!a.keys.length) throw new GateError("Pass at least one check key")
   if (unknown.length) throw new GateError(`Not on this checklist: ${unknown.slice(0, 5).join(", ")}`)
@@ -189,7 +189,7 @@ export async function attachImage(a: { checklist: ChecklistRow; userId: string; 
   const [viewKey, shotId] = a.refKey.split("@")
   const view = doc.views.find((v) => v.key === viewKey)
   if (a.kind === "view" && (!view || (shotId !== undefined && !(view.shots ?? []).some((s) => s.id === shotId)))) throw new GateError(`No view "${a.refKey}" on this checklist`)
-  if (a.kind === "evidence" && !allChecks(doc).some((c) => c.key === a.refKey)) throw new GateError(`No check "${a.refKey}" on this checklist`)
+  if (a.kind === "evidence" && !everyCheck(doc).some((c) => c.key === a.refKey)) throw new GateError(`No check "${a.refKey}" on this checklist`)
   const raw = Buffer.from(a.imageBase64.replace(/^data:image\/\w+;base64,/, ""), "base64")
   if (raw.length > 4 * 1024 * 1024) throw new GateError("Image is over 4 MB")
   const type = imageType(raw)
@@ -315,7 +315,7 @@ export async function loadPage(row: ChecklistRow) {
   return {
     id: row.id, route: row.route, title: row.title, version: row.version, env: row.env, build: row.build, createdAt: iso(row.created_at),
     // What the scan flagged and nobody has validated yet, with what it claimed: the validator's work list.
-    flagged: allChecks(row.doc).filter((c) => checkState(results, c.key) === "flagged").map((c) => ({ key: c.key, n: c.n, label: c.label, view: c.view, claim: results.filter((r) => r.key === c.key && r.actor === "scan").at(-1)?.note ?? "" })),
+    flagged: allChecks(row.doc, results).filter((c) => checkState(results, c.key) === "flagged").map((c) => ({ key: c.key, n: c.n, label: c.label, view: c.view, claim: results.filter((r) => r.key === c.key && r.actor === "scan").at(-1)?.note ?? "" })),
     // Who deals with what. Errors are found, confirmed and fixed by agents and are never the owner's question.
     // Matters of taste (it works, but may not look the way they like) are the owner's to judge.
     ...(() => {

@@ -10,7 +10,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { AlertTriangle, Check, Minus, ThumbsUp, X } from "lucide-react"
-import { allChecks, checkKey, checkState, controlProgress, shotAt, type Shot, type CheckState, type Checklist, type Control, type LogEntry, type Result, type Scorecard, type Summary, type View } from "@/lib/gates/gate-model"
+import { allChecks, checkKey, checkState, controlProgress, shotAt, checkStates, type Shot, type CheckState, type Checklist, type Control, type LogEntry, type Result, type Scorecard, type Summary, type View } from "@/lib/gates/gate-model"
 import { GuidesSection } from "./GuidesSection"
 import { ago, useJson } from "./shared"
 import { stableUrls, type Kept } from "@/lib/gates/stable-urls"
@@ -31,8 +31,8 @@ interface PageData {
  */
 function RecordSection({ data, onPick, onDecide }: { data: PageData; onPick: (n: number) => void; onDecide: (key: string, status: "passed" | "failed", note: string) => void }) {
   const log = data.log ?? [], sc = data.score, yours = data.yours ?? []
-  const failing = allChecks(data.checklist).filter((c) => checkState(data.results, c.key) === "failed")
-  const flagged = allChecks(data.checklist).filter((c) => checkState(data.results, c.key) === "flagged")
+  const failing = allChecks(data.checklist, data.results).filter((c) => checkState(data.results, c.key) === "failed")
+  const flagged = allChecks(data.checklist, data.results).filter((c) => checkState(data.results, c.key) === "flagged")
   const noteOf = (key: string) => [...data.results].reverse().find((r) => r.key === key && r.note)?.note
   const pct = (n: number, of: number) => (of ? `${Math.round((n / of) * 100)}%` : "none yet")
   // The newest picture kept as proof for a check, shown beside its entries in the log.
@@ -487,7 +487,7 @@ export function ChecksTab({ projectId }: { projectId: string }) {
               <span className="opx-ck-num">{chosen.c.n}</span>
               <h3>{chosen.c.label}</h3>
               <span className="opx-muted">
-                {chosen.c.kind}, {chosen.c.workflows.length} workflow{chosen.c.workflows.length === 1 ? "" : "s"} in {chosen.c.states.length} state{chosen.c.states.length === 1 ? "" : "s"}. It passes when all of them pass.
+                {chosen.c.kind}, {chosen.c.workflows.length} workflow{chosen.c.workflows.length === 1 ? "" : "s"}. A press is checked once; a look is checked in each of its {chosen.c.states.length} state{chosen.c.states.length === 1 ? "" : "s"}. It passes when all of them pass.
                 {chosen.c.shared && " It is on every page, so passing here passes it everywhere."}
               </span>
             </header>
@@ -551,7 +551,7 @@ export function ChecksTab({ projectId }: { projectId: string }) {
                     ))}
                   </ol>
                   <footer>
-                    {chosen.c.states.map((state) => {
+                    {checkStates(chosen.c, w, data.results).map((state) => {
                       const key = checkKey(chosen.c.n, w.name, state), now = checkState(data.results, key)
                       const last = [...data.results].reverse().find((r) => r.key === key && r.note)
                       const evidence = data.images.find((i) => i.kind === "evidence" && i.key === key)
