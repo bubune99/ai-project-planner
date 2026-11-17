@@ -42,6 +42,9 @@ const topLevel = (s: Step[]) => s.filter((x) => !x.is_subtask && !x.parent_task_
 
 export function TaskList({ projectId }: { projectId: string }) {
   const { data, loading, error, reload } = useJson(`/api/projects/${projectId}/steps`)
+  // The project's own columns (e.g. "requested" is its Requests column) name and color a status the board's way.
+  const { data: statusData } = useJson<{ statuses?: { key: string; label: string; color: string }[] }>(`/api/projects/${projectId}/statuses`)
+  const own = useMemo(() => new Map((statusData?.statuses || []).map((x) => [x.key, x])), [statusData])
   const { tipProps, node } = useHoverTip()
   const [busy, setBusy] = useState<string | null>(null)
   const steps = useMemo(() => topLevel(unwrap<Step[]>(data, "steps") || []), [data])
@@ -70,7 +73,7 @@ export function TaskList({ projectId }: { projectId: string }) {
           <div key={s.id} className={`opx-lv${done ? " dn" : ""}`} {...tipProps(s.description)}>
             <button className={`opx-ck${done ? " on" : ""}`} aria-label={done ? `Reopen ${s.title}` : `Mark ${s.title} done`} disabled={busy === s.id} onClick={() => toggle(s)} />
             <b>{s.title}</b>
-            <span className="opx-row" style={{ gap: 6, fontSize: 12.5 }}><i className="opx-dot" style={{ background: STATUS_COLOR[s.status || ""] || "#8a94a3", width: 7, height: 7 }} />{STATUS_LABEL[s.status || ""] || s.status}</span>
+            <span className="opx-row" style={{ gap: 6, fontSize: 12.5 }}><i className="opx-dot" style={{ background: own.get(s.status || "")?.color || STATUS_COLOR[s.status || ""] || "#8a94a3", width: 7, height: 7 }} />{own.get(s.status || "")?.label || STATUS_LABEL[s.status || ""] || s.status}</span>
             <Priority p={s.priority} />
             <span style={{ fontSize: 13, color: late ? "var(--opx-hot)" : "var(--opx-muted)" }}>{r ? fmtDate(r.end) : "—"}</span>
             <span className="opx-pg"><i style={{ width: `${done ? 100 : s.progress || 0}%` }} /></span>
