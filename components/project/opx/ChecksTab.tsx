@@ -321,6 +321,10 @@ export function ChecksTab({ projectId }: { projectId: string }) {
   const list = pages.data?.pages ?? []
   const current = list.find((p) => p.id === pageId) ?? list[0] ?? null
   const page = useJson<PageData>(current ? `/api/projects/${projectId}/gates/${current.id}` : null)
+  // Is the stored picture still what is live? Worked out from what has shipped since (lib/gates/fresh-model.ts).
+  // Walk 2026-11-17: Checks showed a 3-day-old picture with no word that it was out of date; only People and flows said so.
+  const fresh = useJson<{ pages: { route: string; state: "current" | "behind" | "unknown"; line: string }[] }>(`/api/projects/${projectId}/gates/ships`)
+  const freshPage = current ? fresh.data?.pages?.find((p) => p.route === current.route) : undefined
   const [pick, setPick] = useState<number | null>(null)
   const [settle, setSettle] = useState<string | null>(null)
   const [note, setNote] = useState("")
@@ -434,11 +438,10 @@ export function ChecksTab({ projectId }: { projectId: string }) {
             {data.changes.added.length > 0 && ` New since the last version: ${names(data.changes.added)}.`}
           </p>
         )}
+        {data && freshPage && (
+          <p className={`opx-pf-age ${freshPage.state === "behind" ? "behind" : "current"}`} data-testid="checks-picture-age">{freshPage.line}</p>
+        )}
       </section>
-
-      {data && <RecordSection data={data} onPick={(n) => { setPick(n); setSettle(null) }} onDecide={(key, status, text) => { void verdictWith(key, status, text) }} />}
-
-      <PlanSection projectId={projectId} route={current.route} tick={planTick} onPick={(n) => { setPick(n); setSettle(null) }} />
 
       {!data && <section className="opx-sec"><p className="opx-muted">{page.error ? `This checklist could not be loaded: ${page.error}` : "Loading this page's checklist..."}</p></section>}
 
@@ -582,6 +585,10 @@ export function ChecksTab({ projectId }: { projectId: string }) {
           </section>
         </div>
       )}
+
+      {/* The record and the plan come after the page and its controls (walk 2026-11-17: density 2, the picture sat below them). */}
+      {data && <RecordSection data={data} onPick={(n) => { setPick(n); setSettle(null) }} onDecide={(key, status, text) => { void verdictWith(key, status, text) }} />}
+      <PlanSection projectId={projectId} route={current.route} tick={planTick} onPick={(n) => { setPick(n); setSettle(null) }} />
       <GuidesSection />
     </div>
   )
