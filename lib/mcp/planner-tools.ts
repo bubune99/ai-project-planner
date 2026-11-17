@@ -977,7 +977,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
     // ==========================================
     server.tool(
       "update_task",
-      "Update a task/subtask: status, progress, title, description, priority, tags, due date. Requires write access.",
+      "Update a task/subtask: status, progress, title, description, priority, tags, due date, or move it to another project (projectId; its subtasks go with it). Requires write access to both projects.",
       {
         taskId: z.string().describe("The task ID"),
         title: z.string().optional(),
@@ -988,15 +988,36 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         tags: z.array(z.string()).optional().describe("Replaces the full tag list"),
         dueDate: z.string().nullable().optional(),
         workKind: z.enum(["task", "initiative", "upkeep", "owner"]).optional().describe("'owner' for something only the owner can do (keys, dashboards, accounts, payments): shown as Needs you and never sent to an agent. Change what kind of card it is. An initiative is never in progress itself."),
+        projectId: z.string().uuid().optional().describe("Move the task, with its subtasks, to this project: for work filed on the wrong project. A subtask cannot be moved on its own."),
         claimedBy: z.string().max(80).optional().describe("Your agent name. With status 'in-progress' it marks you as holding the card, so the board shows who has it. Moving it out of in-progress lets go."),
       },
-      async ({ taskId, title, description, status, priority, progress, tags, dueDate, claimedBy, workKind }) => {
+      async ({ taskId, title, description, status, priority, progress, tags, dueDate, claimedBy, workKind, projectId }) => {
         try {
           requireMcpScope("write")
-          const [step] = await sql`
-            SELECT project_id, status, work_kind FROM project_steps WHERE id = ${taskId} AND deleted_at IS NULL
+          const [found] = await sql`
+            SELECT project_id, status, work_kind, parent_task_id FROM project_steps WHERE id = ${taskId} AND deleted_at IS NULL
           `
-          if (!step) return mcpError("Task not found")
+          if (!found) return mcpError("Task not found")
+          let step = found
+          if (projectId && projectId !== found.project_id) {
+            // Filed on the wrong project: it moves with its subtasks. Dependencies on cards of the old project are
+            // dropped, since a card cannot wait on another project's card.
+            if (found.parent_task_id) return mcpError("A subtask moves with its parent: move the parent task")
+            await requireMcpProjectWriteAccess(found.project_id)
+            await requireMcpProjectWriteAccess(projectId)
+            const ids = (await sql`
+              WITH RECURSIVE tree AS (
+                SELECT id FROM project_steps WHERE id = ${taskId}
+                UNION ALL SELECT s.id FROM project_steps s JOIN tree ON s.parent_task_id = tree.id
+              ) SELECT id FROM tree
+            `).map((r) => String(r.id))
+            await sql`
+              DELETE FROM step_dependencies
+               WHERE (step_id = ANY(${ids}::uuid[])) <> (depends_on_step_id = ANY(${ids}::uuid[]))
+            `
+            await sql`UPDATE project_steps SET project_id = ${projectId}, updated_at = NOW() WHERE id = ANY(${ids}::uuid[])`
+            step = { ...found, project_id: projectId }
+          }
           const kindAfter = workKind ?? step.work_kind
           const statusAfter = status ?? step.status
           if (kindAfter === "initiative" && statusAfter === "in-progress") {
