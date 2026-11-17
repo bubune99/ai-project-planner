@@ -63,7 +63,8 @@ export function OpxDashboard() {
           <div className="opx-muted">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</div>
           <h1 style={{ fontSize: 40 }}>{greet}{first ? `, ${first}` : ""}</h1>
           <div className="opx-muted" style={{ fontSize: 15 }}>
-            {n(questions.length, inboxQ.loading && inboxQ.data == null)} decisions waiting on you · {n(moving.length, projectsQ.loading && projectsQ.data == null)} projects moving · {n(counts.overdue, todosQ.loading && todosQ.data == null)} overdue
+            {/* The tile's own words ("Waiting on you"), and a singular for one (walk, 2026-11-16: "1 decisions"). */}
+            {n(questions.length, inboxQ.loading && inboxQ.data == null)} waiting on you · {n(moving.length, projectsQ.loading && projectsQ.data == null)} {moving.length === 1 ? "project" : "projects"} moving · {n(counts.overdue, todosQ.loading && todosQ.data == null)} overdue
           </div>
         </div>
         {/* Each figure opens the list it counts: they were plain tiles that led nowhere (owner, phone comment b143e615). */}
