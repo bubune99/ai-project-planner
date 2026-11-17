@@ -264,8 +264,9 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
           <button type="button" className="opx-btn sm" disabled={!history.future.length} onClick={redo}><Redo2 size={13} /> Redo</button>
         </div>
       )}
-      {linking && <p className="opx-pm-note" role="status">Click the step this line goes to. Esc cancels.</p>}
-      {placing && <p className="opx-pm-note" role="status">Click an empty place in a lane to put the step there. Esc cancels.</p>}
+      {/* A phone has no Esc key, so each of these modes has a Cancel to press. */}
+      {linking && <p className="opx-pm-note" role="status">Press the step this line goes to. <button type="button" className="opx-btn sm" onClick={() => setLinking(null)}>Cancel</button></p>}
+      {placing && <p className="opx-pm-note" role="status">Press an empty place in a lane to put the step there. <button type="button" className="opx-btn sm" onClick={() => setPlacing(false)}>Cancel</button></p>}
       <div ref={wrap} className={`opx-pm${lanes ? "" : " sub"}${placing ? " placing" : ""}`} onContextMenu={(e) => { if (can) e.preventDefault() }}>
         <ReactFlow
           key={`${pathKey || "top"}|${narrow ? "near" : "fit"}`} nodes={nodes} edges={edges} onNodesChange={onNodesChange} nodeTypes={nodeTypes}
