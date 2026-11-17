@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react"
 import { Controls, Handle, MarkerType, Panel, Position, ReactFlow, ReactFlowProvider, useNodesState, useReactFlow, type Edge, type Node, type NodeProps } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
-import { ArrowLeft, Layers, Redo2, Undo2 } from "lucide-react"
+import { ArrowLeft, Layers, Maximize2, Redo2, Undo2 } from "lucide-react"
 import {
   DIM, addInside, addLane, addLink, addNode, addStage, cellAt, cellFree, checkLayer, crumbs, doorOf, indexAt, isLanes, layerAt, moveLane, moveNode, moveStage, place,
   removeInside, removeLane, removeLink, removeNode, removeStage, renameLane, reorderNode, routeLink, setLink, setNode, setStage, splitLink, updateAt,
@@ -89,11 +89,15 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
   /** The thing last clicked. The toolbar's Change button opens its menu, so nothing depends on a right-click (a phone has none). */
   const [picked, setPicked] = useState<Target | null>(null)
   const [history, setHistory] = useState<{ past: Layer[]; future: Layer[] }>({ past: [], future: [] })
+  // Whole screen (owner, 2026-11-15, mock-ups approved 2026-11-16 "Build it as shown"): the map fills the screen,
+  // either to change it or just to look at it; Leave whole screen or Esc goes back.
+  const [whole, setWhole] = useState<null | "edit" | "view">(null)
+  const [showHelp, setShowHelp] = useState(false)
   const wrap = useRef<HTMLDivElement>(null)
   const { screenToFlowPosition, fitView, setViewport } = useReactFlow()
   // A path that no longer leads anywhere (what it went through was removed) falls back to the nearest layer that exists.
   const livePath = useMemo(() => { let p = path; while (p.length && !layerAt(map, p)) p = p.slice(0, -1); return p }, [map, path])
-  const layer = layerAt(map, livePath) ?? map, names = crumbs(map, livePath), lanes = isLanes(layer), can = !!onChange
+  const layer = layerAt(map, livePath) ?? map, names = crumbs(map, livePath), lanes = isLanes(layer), can = !!onChange && whole !== "view"
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   useEffect(() => { setNodes(toNodes(layer, linking)) }, [layer, linking, setNodes])
   const edges = useMemo(() => toEdges(layer.links, place(layer), lanes), [layer, lanes])
@@ -107,6 +111,14 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
   const [room, setRoom] = useState<number | null>(null)
   useLayoutEffect(() => { if (wrap.current) setRoom(wrap.current.clientWidth) }, [])
   const narrow = room != null ? room / mapWidth < 0.5 : typeof window !== "undefined" && window.innerWidth < 1100 && (window.innerWidth < 700 || (window.innerWidth - 80) / mapWidth < 0.75)
+  // While the map fills the screen the page under it does not scroll, and the drawing is fitted to its new room.
+  useEffect(() => {
+    if (!whole) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => { document.body.style.overflow = prev }
+  }, [whole])
+  useEffect(() => { const id = requestAnimationFrame(() => { if (!narrow) fitView({ padding: 0.04, duration: 200 }) }); return () => cancelAnimationFrame(id) }, [whole, fitView, narrow])
   useEffect(() => { setPicked(null) }, [pathKey])
   // What was picked may have been removed or moved since: only offer what is still there.
   const pickName = !picked ? null
@@ -134,8 +146,8 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
 
   // Keys, while the pointer is over the drawing: Esc closes what is open on top (a form, a menu, a line or step being
   // placed) and otherwise goes back one layer; Ctrl+Z undoes and Ctrl+Shift+Z (or Ctrl+Y) redoes.
-  const live = useRef({ float, linking, placing, depth: livePath.length, undo, redo })
-  live.current = { float, linking, placing, depth: livePath.length, undo, redo }
+  const live = useRef({ float, linking, placing, depth: livePath.length, undo, redo, whole })
+  live.current = { float, linking, placing, depth: livePath.length, undo, redo, whole }
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const s = live.current, typing = !!(e.target as HTMLElement)?.closest?.("input, textarea, [contenteditable]"), over = !!wrap.current?.matches(":hover, :focus-within")
@@ -143,6 +155,7 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
         if (s.float) setFloat(null)
         else if (s.linking || s.placing) { setLinking(null); setPlacing(false) }
         else if (s.depth && !typing && over) back()
+        else if (s.whole && !typing) setWhole(null)
       } else if ((e.ctrlKey || e.metaKey) && !typing && over && (e.key === "z" || e.key === "Z" || e.key === "y")) {
         e.preventDefault()
         if (e.key === "y" || e.shiftKey) s.redo(); else s.undo()
@@ -216,15 +229,26 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
   const inLane = (i: number) => layer.nodes.filter((n) => n.lane === i).length, inStage = (id: string) => layer.nodes.filter((n) => n.stage === id).length
 
   return (
-    <section className="opx-sec">
-      <nav className="opx-pm-crumb" aria-label="Where you are in the map">
+    <section className={`opx-sec${whole ? " opx-pm-whole" : ""}`} aria-label={whole ? `${rootName}, whole screen` : undefined}>
+      {whole && (
+        <div className="opx-pm-wholebar">
+          <b>{rootName}</b>
+          <span className="gap" />
+          {whole === "edit" && <button type="button" className={`opx-btn${showHelp ? " on" : ""}`} aria-expanded={showHelp} onClick={() => setShowHelp((v) => !v)}>How to change it</button>}
+          {!!onChange && <button type="button" className={`opx-btn${whole === "edit" ? " primary" : ""}`} aria-pressed={whole === "edit"} onClick={() => setWhole("edit")}>Change it</button>}
+          <button type="button" className={`opx-btn${whole === "view" ? " primary" : ""}`} aria-pressed={whole === "view"} onClick={() => { setWhole("view"); setFloat(null); setLinking(null); setPlacing(false) }}>Just look</button>
+          <button type="button" className="opx-btn" onClick={() => setWhole(null)}>Leave whole screen</button>
+        </div>
+      )}
+      {(!whole || livePath.length > 0) && <nav className="opx-pm-crumb" aria-label="Where you are in the map">
         {livePath.length > 0 && <button type="button" className="opx-btn sm primary" onClick={back}><ArrowLeft size={14} /> Back</button>}
         <button type="button" className={`opx-pm-step${livePath.length ? "" : " here"}`} onClick={() => setPath([])}>{rootName}</button>
         {names.map((name, i) => <span key={i} className="opx-pm-trail"><i aria-hidden="true">›</i><button type="button" className={`opx-pm-step${i === names.length - 1 ? " here" : ""}`} onClick={() => setPath(livePath.slice(0, i + 1))}>{name}</button></span>)}
-      </nav>
-      <p className="opx-muted">
+        {!whole && <button type="button" className="opx-btn sm" style={{ marginLeft: "auto" }} onClick={() => setWhole(onChange ? "edit" : "view")}><Maximize2 size={13} /> Whole screen</button>}
+      </nav>}
+      {(!whole || (whole === "edit" && showHelp)) && <p className="opx-muted">
         {layer.say ? `${layer.say} ` : ""}Grey lines go forward; orange dashed lines are loops. Click a step, lane, stage or line and press Change to rename, move or remove it. Double-click a stage or step to open what is inside it{livePath.length ? ", and Back (or Esc) to come out" : ""}.{can ? " A right-click opens the same menu. Drag a step to move it: it lands in the nearest free place and the lines follow." : " Drag to look around, scroll to zoom."}
-      </p>
+      </p>}
       {can && (
         <div className="opx-pm-bar" role="toolbar" aria-label="Change the map">
           <button type="button" className={`opx-btn sm${placing ? " on" : ""}`} onClick={() => { if (lanes) { setPlacing((p) => !p); setLinking(null) } else stepAfter() }}>Add a step</button>

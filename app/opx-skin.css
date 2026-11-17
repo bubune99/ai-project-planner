@@ -1251,3 +1251,12 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
 .opx-qchoice img { display: block; width: 100%; height: auto; max-height: 320px; object-fit: contain; border-radius: 8px; background: var(--opx-bg); }
 .opx-qchoice span { font-size: 14.5px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
 .opx-qchoice small { font-size: 13px; color: var(--opx-muted); line-height: 1.4; }
+
+/* The process map, whole screen (owner's idea 2026-11-15; mock-ups approved 2026-11-16). */
+.opx-sec.opx-pm-whole { position: fixed; inset: 0; z-index: 60; margin: 0; border-radius: 0; display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; background: var(--opx-bg); overflow: hidden; }
+.opx-pm-whole .opx-pm { flex: 1 1 auto; height: auto; min-height: 0; margin-top: 0; }
+.opx-pm-wholebar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.opx-pm-wholebar b { font-size: 16px; overflow-wrap: anywhere; }
+.opx-pm-wholebar .gap { flex: 1; }
+.opx-pm-wholebar .opx-btn { min-height: 40px; }
+@media (max-width: 700px) { .opx-pm-wholebar .opx-btn { min-height: 44px; } .opx-sec.opx-pm-whole { padding: 8px; } }
