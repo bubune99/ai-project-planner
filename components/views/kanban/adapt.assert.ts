@@ -258,6 +258,7 @@ eq(
   eq(card({ status: "in-progress", assigned_agent: null }).footnotes?.[0]?.label, "Nobody holds it", "in progress with nobody holding it says so")
   eq(card({ status: "pending" }).footnotes?.some((f) => /Sent|Nobody|With /.test(f.label)), false, "nothing is said outside In progress")
   eq(card({ status: "pending", in_line: true } as never).footnotes?.[0]?.label, "In line for an agent", "a started card in Up next says it is in line")
+  eq(toKanbanTask({ ...base, status: "completed", in_line: true } as never, { statusMap: { completed: { key: "completed", label: "Complete", kind: "done" } as never } }).footnotes?.some((f) => /In line/.test(f.label)), false, "a finished card is never in line, even with a job left open")
   eq(card({ status: "pending", in_line: false } as never).footnotes?.some((f) => /In line/.test(f.label)), false, "a card nobody started says nothing")
   eq(card({ status: "in-progress", claimed_by_id: "claude-code", claimed_at: at(5), in_line: true } as never).footnotes?.[0]?.label, "With claude-code", "once taken, who holds it wins")
   eq(card({ status: "pending", assigned_agent: "claude" }).assignees, [{ name: "claude" }], "elsewhere the assigned agent stays")

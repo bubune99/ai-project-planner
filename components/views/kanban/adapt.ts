@@ -149,14 +149,15 @@ function kindOf(step: Pick<BoardStep, "status">, statusMap: Record<string, Proje
 
 const INITIATIVE_WORD = { campaign: "Campaign", phase: "Phase", sprint: "Sprint" } as const
 /** Who has the card, in words for its footer: the agent holding it, or that it was sent and not picked up (lib/work/pipeline.ts). */
-export function holderLine(step: BoardStep, now: Date): { label: string; title: string } | null {
+export function holderLine(step: BoardStep, now: Date, done = false): { label: string; title: string } | null {
   const h = holding(step as unknown as WorkRow, now)
   if (h?.state === "held") return { label: `With ${h.by}`, title: "The agent working on it now" }
   if (h?.state === "sent") return { label: "Sent, waiting for an agent", title: "Sent to the project's agents; it shows who has it once one picks it up" }
   if (h?.state === "nobody") return { label: "Nobody holds it", title: "In progress with no agent holding it: agents put it back" }
   // Started from Up next: it stays in Up next until an agent takes it, so the card itself says it is in line
   // (walk 2026-11-17: after the toast faded nothing showed that Start had worked).
-  if ((step as BoardStep & { in_line?: boolean }).in_line) return { label: "In line for an agent", title: "Started: sent to the project's agents; it moves to In Progress when one takes it" }
+  // A finished card is never in line, even when a job for it was left open.
+  if (!done && (step as BoardStep & { in_line?: boolean }).in_line) return { label: "In line for an agent", title: "Started: sent to the project's agents; it moves to In Progress when one takes it" }
   return null
 }
 
@@ -184,7 +185,7 @@ export function toKanbanTask(step: BoardStep, opts: AdaptOptions): KanbanTask {
     due,
     dueSoon,
     progress: toProgress(step, isDone),
-    footnotes: [...(opts.showProject ? [{ label: (step as BoardStep & { project_name?: string }).project_name ?? "Project", title: "The project this card belongs to" }] : []), ...(holderLine(step, opts.today ?? new Date()) ? [holderLine(step, opts.today ?? new Date())!] : []), ...toFootnotes(step, opts)],
+    footnotes: [...(opts.showProject ? [{ label: (step as BoardStep & { project_name?: string }).project_name ?? "Project", title: "The project this card belongs to" }] : []), ...(holderLine(step, opts.today ?? new Date(), isDone) ? [holderLine(step, opts.today ?? new Date(), isDone)!] : []), ...toFootnotes(step, opts)],
     subtasks: toSubtaskList(step, opts),
     done: isDone,
   }
