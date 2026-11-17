@@ -100,7 +100,9 @@ const handler = createMcpHandler(
     // We intentionally do NOT set sessionIdGenerator: the streamable path has
     // no Redis-backed session store, so advertising a session id would be a
     // lie that breaks strict clients on their second request.
-    redisUrl: process.env.REDIS_URL || process.env.KV_URL,
+    // The legacy /sse + /message transport needed a Redis store; the Upstash store was dropped on 2026-11-17
+    // (owner's call). Clients use the streamable HTTP transport at /mcp, so SSE is switched off rather than broken.
+    disableSse: true,
     basePath: "",
     verboseLogs: true,
     maxDuration: 60,

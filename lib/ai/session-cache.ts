@@ -1,22 +1,14 @@
 /**
- * Session Cache for AI Chat
+ * Session cache for the AI chat: switched off. Every message is read from Postgres (ai_messages).
  *
- * Provides Redis-based caching for:
- * - Session metadata (conversation ID, user ID, activity status)
- * - Message history (for fast retrieval without DB queries)
+ * It was an Upstash (Redis) cache in front of those reads. On 2026-11-17 the database check C3 found that store
+ * shared by production and staging, and it was answering "temporarily rate-limited", so the cache worked nowhere.
+ * The owner's call the same day: drop Upstash; anything worth keeping lives in Neon ("Neon should have vector if
+ * we need it"). Postgres already holds every message, so the chat loses nothing but a cache.
  *
- * Gracefully degrades to DB-only mode if Redis is unavailable.
+ * The interface is kept so callers need no change: nothing is cached, isAvailable() is false, and every read falls
+ * through to the database exactly as it did whenever Redis was missing.
  */
-
-import { safeRedis, isRedisConfigured } from '@/lib/redis'
-
-// TTL constants
-const SESSION_TTL = 30 * 60 // 30 minutes
-const MESSAGES_TTL = 2 * 60 * 60 // 2 hours
-
-// Key patterns
-const getSessionKey = (visitorId: string) => `ai:session:${visitorId}`
-const getMessagesKey = (conversationId: string) => `ai:messages:${conversationId}`
 
 export interface SessionData {
   conversationId: string
@@ -36,132 +28,39 @@ export interface CachedMessage {
   metadata?: Record<string, unknown>
 }
 
-/**
- * Session Cache API
- */
 export const sessionCache = {
-  /**
-   * Check if Redis caching is available
-   */
   isAvailable(): boolean {
-    return isRedisConfigured
-  },
-
-  /**
-   * Get session data for a visitor
-   */
-  async getSession(visitorId: string): Promise<SessionData | null> {
-    return safeRedis.get<SessionData>(getSessionKey(visitorId))
-  },
-
-  /**
-   * Create or update session data
-   */
-  async setSession(visitorId: string, data: SessionData): Promise<boolean> {
-    const success = await safeRedis.set(
-      getSessionKey(visitorId),
-      { ...data, lastActivity: Date.now() },
-      { ex: SESSION_TTL }
-    )
-    return success
-  },
-
-  /**
-   * Update session activity timestamp
-   */
-  async touchSession(visitorId: string): Promise<boolean> {
-    const session = await this.getSession(visitorId)
-    if (session) {
-      return this.setSession(visitorId, {
-        ...session,
-        lastActivity: Date.now(),
-      })
-    }
     return false
   },
-
-  /**
-   * Clear session data
-   */
-  async clearSession(visitorId: string): Promise<boolean> {
-    return safeRedis.del(getSessionKey(visitorId))
+  async getSession(_visitorId: string): Promise<SessionData | null> {
+    return null
   },
-
-  /**
-   * Get cached message history for a conversation
-   */
-  async getMessages(conversationId: string): Promise<CachedMessage[]> {
-    const messages = await safeRedis.lrange<CachedMessage>(
-      getMessagesKey(conversationId),
-      0,
-      -1
-    )
-    return messages || []
+  async setSession(_visitorId: string, _data: SessionData): Promise<boolean> {
+    return false
   },
-
-  /**
-   * Cache multiple messages (usually when loading from DB)
-   */
-  async cacheMessages(
-    conversationId: string,
-    messages: CachedMessage[]
-  ): Promise<boolean> {
-    if (messages.length === 0) return true
-
-    const key = getMessagesKey(conversationId)
-    // Clear existing and push all messages
-    await safeRedis.del(key)
-
-    for (const msg of messages) {
-      await safeRedis.rpush(key, {
-        ...msg,
-        timestamp: msg.timestamp || Date.now(),
-      })
-    }
-
-    await safeRedis.expire(key, MESSAGES_TTL)
-    return true
+  async touchSession(_visitorId: string): Promise<boolean> {
+    return false
   },
-
-  /**
-   * Add a single message to the cache
-   */
-  async addMessage(
-    conversationId: string,
-    message: CachedMessage
-  ): Promise<boolean> {
-    const key = getMessagesKey(conversationId)
-    const success = await safeRedis.rpush(key, {
-      ...message,
-      timestamp: message.timestamp || Date.now(),
-    })
-
-    if (success) {
-      await safeRedis.expire(key, MESSAGES_TTL)
-    }
-    return success
+  async clearSession(_visitorId: string): Promise<boolean> {
+    return false
   },
-
-  /**
-   * Clear message cache for a conversation
-   */
-  async clearMessages(conversationId: string): Promise<boolean> {
-    return safeRedis.del(getMessagesKey(conversationId))
+  async getMessages(_conversationId: string): Promise<CachedMessage[]> {
+    return []
   },
-
-  /**
-   * Get message count for a conversation
-   */
-  async getMessageCount(conversationId: string): Promise<number> {
-    const messages = await this.getMessages(conversationId)
-    return messages.length
+  async cacheMessages(_conversationId: string, _messages: CachedMessage[]): Promise<boolean> {
+    return false
   },
-
-  /**
-   * Check if conversation has cached messages
-   */
-  async hasMessages(conversationId: string): Promise<boolean> {
-    return safeRedis.exists(getMessagesKey(conversationId))
+  async addMessage(_conversationId: string, _message: CachedMessage): Promise<boolean> {
+    return false
+  },
+  async clearMessages(_conversationId: string): Promise<boolean> {
+    return false
+  },
+  async getMessageCount(_conversationId: string): Promise<number> {
+    return 0
+  },
+  async hasMessages(_conversationId: string): Promise<boolean> {
+    return false
   },
 }
 
