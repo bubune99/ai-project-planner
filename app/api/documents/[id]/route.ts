@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
 import { getAuthContext } from "@/lib/auth/auth-utils";
+import { deleteMultipleFromR2, isR2Configured } from "@/lib/storage/r2-client";
 import { mergeEnvelopeForPatch, envelopeForSql } from "@/lib/api/envelope-helpers";
 import { decodeTitleEntities, decodeMarkdownAmpEntities } from "@/lib/text/decode-entities";
 
@@ -119,14 +120,29 @@ export async function DELETE(
 
     const document = docResult[0];
 
-    // The stored file is kept: a delete can be undone for a day (POST ./restore). Removing the
-    // stored copies of documents deleted longer ago is upkeep, not this request's job.
+    // The stored file is kept: a delete can be undone for a day (POST ./restore).
     // Soft delete in database
     await sql`
       UPDATE documents
       SET deleted_at = NOW()
       WHERE id = ${id}
     `;
+
+    // Upkeep, on the same person's next delete (card fbd8680c): the stored copies of their documents deleted more
+    // than a day ago (past Undo) are removed, 25 at a time. A failure here never fails this delete.
+    try {
+      const old = (await sql`
+        SELECT id, blob_key FROM documents
+         WHERE user_id = ${userId} AND deleted_at < NOW() - INTERVAL '1 day' AND blob_key IS NOT NULL
+         ORDER BY deleted_at LIMIT 25
+      `) as { id: string; blob_key: string }[];
+      if (old.length && isR2Configured()) {
+        await deleteMultipleFromR2(old.map((d) => d.blob_key));
+        await sql`UPDATE documents SET blob_key = NULL, blob_url = NULL WHERE id = ANY(${old.map((d) => d.id)}::uuid[])`;
+      }
+    } catch (sweepError) {
+      console.error("[documents] sweeping old deleted files failed", sweepError instanceof Error ? sweepError.message : sweepError);
+    }
 
     // Log to execution history
     await sql`
