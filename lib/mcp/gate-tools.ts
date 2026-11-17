@@ -35,7 +35,7 @@ const controlSchema = z.object({
   draft: z.boolean().optional().describe("True while its workflows are the scanner's guesses; written criteria are never overwritten by drafts"),
   issues: z.array(z.string()).optional().describe("What is wrong with the control itself (no name, covered, too small, dead link). Each becomes a failed check"),
   states: z.array(z.string()).describe("Each workflow is checked once per state, e.g. Dark theme, Phone width"),
-  workflows: z.array(z.object({ name: z.string(), before: z.string().optional(), steps: z.array(stepSchema) })),
+  workflows: z.array(z.object({ name: z.string(), kind: z.enum(["function", "look", "states"]).optional().describe("What it proves: function (a press does the right thing; checked once, in the first state; the default), look (colors, contrast, layout; checked in every state, from a picture), states (hover, focus, pressed, disabled, loading, error, empty; checked once)"), before: z.string().optional(), steps: z.array(stepSchema) })),
 })
 const viewSchema = z.object({
   key: z.string().describe("page, or a short key for what opened: menu, search, delete-dialog"),
