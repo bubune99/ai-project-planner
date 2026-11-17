@@ -1,7 +1,7 @@
 import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
-import { getAuthContext, verifyProjectOwnership } from "@/lib/auth/auth-utils"
+import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
 import { verifyCollaboratorAccess } from "@/lib/auth/collaboration-access"
 
 export const dynamic = "force-dynamic"
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
     if (!authContext) {
       return errorResponse(ErrorCodes.UNAUTHORIZED, 'Unauthorized', 401)
     }
-    if (!(await verifyProjectOwnership(id, authContext.userId))) {
+    if (!(await verifyProjectWriteAccess(id, authContext.userId))) {
       return errorResponse(ErrorCodes.NOT_FOUND, 'Project not found', 404)
     }
     if (!(await verifyCollaboratorAccess(id, authContext.userId, "editor"))) {

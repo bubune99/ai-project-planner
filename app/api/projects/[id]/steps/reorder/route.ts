@@ -11,7 +11,7 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
-import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils";
+import { getAuthContext, verifyProjectWriteAccess } from "@/lib/auth/auth-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +31,7 @@ export async function POST(
     const { userId } = authContext;
     const { id: projectId } = await params;
 
-    const hasAccess = await verifyProjectOwnership(projectId, userId);
+    const hasAccess = await verifyProjectWriteAccess(projectId, userId);
     if (!hasAccess) {
       return NextResponse.json(
         { error: "Project not found", code: "NOT_FOUND" },

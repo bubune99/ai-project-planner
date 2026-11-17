@@ -121,7 +121,7 @@ export async function PATCH(
     const { id: projectId, stepId } = await params;
 
     // Verify project ownership
-    const hasAccess = await verifyProjectOwnership(projectId, userId);
+    const hasAccess = await verifyProjectWriteAccess(projectId, userId);
     if (!hasAccess) {
       return NextResponse.json(
         { error: "Project not found", code: "NOT_FOUND" },
@@ -347,7 +347,7 @@ export async function DELETE(
     const { id: projectId, stepId } = await params;
 
     // Verify project ownership
-    const hasAccess = await verifyProjectOwnership(projectId, userId);
+    const hasAccess = await verifyProjectWriteAccess(projectId, userId);
     if (!hasAccess) {
       return NextResponse.json(
         { error: "Project not found", code: "NOT_FOUND" },

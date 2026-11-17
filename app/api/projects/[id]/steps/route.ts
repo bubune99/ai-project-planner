@@ -116,7 +116,7 @@ export async function POST(
     const { id: projectId } = await params;
 
     // Verify project ownership
-    const hasAccess = await verifyProjectOwnership(projectId, userId);
+    const hasAccess = await verifyProjectWriteAccess(projectId, userId);
     if (!hasAccess) {
       return NextResponse.json(
         { error: "Project not found", code: "NOT_FOUND" },

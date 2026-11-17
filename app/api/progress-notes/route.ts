@@ -7,7 +7,7 @@
 
 import { sql } from "@/lib/db/client";
 import { type NextRequest, NextResponse } from "next/server";
-import { getAuthContext, verifyProjectOwnership } from "@/lib/auth/auth-utils";
+import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils";
 import { buildEnvelopeForWrite, envelopeForSql, stampEnvelopeOrigin } from "@/lib/api/envelope-helpers";
 
 export const dynamic = "force-dynamic"
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify user owns this project
-    const hasAccess = await verifyProjectOwnership(projectId, userId);
+    const hasAccess = await verifyProjectWriteAccess(projectId, userId);
     if (!hasAccess) {
       return NextResponse.json(
         { error: "Project not found", code: "NOT_FOUND" },

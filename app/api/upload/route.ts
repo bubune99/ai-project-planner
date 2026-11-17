@@ -8,7 +8,7 @@ import {
   isR2Configured,
   getPublicUrl,
 } from "@/lib/storage/r2-client";
-import { getAuthContext } from "@/lib/auth/auth-utils";
+import { getAuthContext, verifyProjectWriteAccess } from "@/lib/auth/auth-utils";
 import { checkRateLimit, HOUR_MS } from "@/lib/rate-limit";
 
 /** Uploads (direct or presigned) per user per hour. */
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     // Verify project ownership before allowing upload
     const { verifyProjectOwnership } = await import("@/lib/auth/auth-utils");
-    const hasAccess = await verifyProjectOwnership(projectId, userId);
+    const hasAccess = await verifyProjectWriteAccess(projectId, userId);
     if (!hasAccess) {
       return NextResponse.json(
         { error: "Project not found or access denied" },

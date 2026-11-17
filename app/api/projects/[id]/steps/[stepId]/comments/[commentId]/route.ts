@@ -5,7 +5,7 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
-import { getAuthContext, verifyProjectOwnership } from "@/lib/auth/auth-utils";
+import { getAuthContext, verifyProjectWriteAccess } from "@/lib/auth/auth-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +17,7 @@ export async function PATCH(
     const auth = await getAuthContext();
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { id: projectId, stepId, commentId } = await params;
-    if (!(await verifyProjectOwnership(projectId, auth.userId))) {
+    if (!(await verifyProjectWriteAccess(projectId, auth.userId))) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
     const b = await request.json();
@@ -45,7 +45,7 @@ export async function DELETE(
     const auth = await getAuthContext();
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { id: projectId, stepId, commentId } = await params;
-    if (!(await verifyProjectOwnership(projectId, auth.userId))) {
+    if (!(await verifyProjectWriteAccess(projectId, auth.userId))) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
     const [deleted] = await sql`

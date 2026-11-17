@@ -1,7 +1,7 @@
 import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
-import { getAuthContext, verifyProjectOwnership } from '@/lib/auth/auth-utils'
+import { getAuthContext, verifyProjectWriteAccess } from '@/lib/auth/auth-utils'
 import { advanceDate, isValidFrequency, type RecurringFrequency } from '@/lib/service-schedule'
 import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
 
@@ -109,7 +109,7 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
       return errorResponse(ErrorCodes.VALIDATION_ERROR, 'Invalid frequency', 400)
     }
     if (projectId) {
-      const hasAccess = await verifyProjectOwnership(projectId, userId)
+      const hasAccess = await verifyProjectWriteAccess(projectId, userId)
       if (!hasAccess) return errorResponse(ErrorCodes.FORBIDDEN, 'No access to that project', 403)
     }
 

@@ -1,7 +1,7 @@
 import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
-import { getAuthContext, verifyProjectOwnership } from '@/lib/auth/auth-utils'
+import { getAuthContext, verifyProjectWriteAccess } from '@/lib/auth/auth-utils'
 import type { Todo } from '@/lib/types'
 import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
 
@@ -198,7 +198,7 @@ export async function PATCH(
 
     // Verify ownership for cross-domain links
     if (projectId !== undefined && projectId !== null) {
-      const hasProjectAccess = await verifyProjectOwnership(projectId, userId)
+      const hasProjectAccess = await verifyProjectWriteAccess(projectId, userId)
       if (!hasProjectAccess) {
         return errorResponse(ErrorCodes.FORBIDDEN, 'You do not have access to this project', 403)
       }

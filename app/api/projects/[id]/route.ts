@@ -1,7 +1,7 @@
 import { sql } from '@/lib/db/client'
 import { NextRequest, NextResponse } from 'next/server'
 import { successResponse, errorResponse } from '@/lib/api-utils'
-import { getAuthContext, verifyProjectOwnership } from '@/lib/auth/auth-utils'
+import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from '@/lib/auth/auth-utils'
 import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
 
 export const dynamic = "force-dynamic"
@@ -133,7 +133,7 @@ export async function PATCH(
     const { id } = await params
 
     // Verify ownership
-    const hasAccess = await verifyProjectOwnership(id, userId)
+    const hasAccess = await verifyProjectWriteAccess(id, userId)
     if (!hasAccess) {
       return errorResponse('NOT_FOUND', 'Project not found', 404)
     }
@@ -241,7 +241,7 @@ export async function DELETE(
     const { id } = await params
 
     // Verify ownership
-    const hasAccess = await verifyProjectOwnership(id, userId)
+    const hasAccess = await verifyProjectWriteAccess(id, userId)
     if (!hasAccess) {
       return errorResponse('NOT_FOUND', 'Project not found', 404)
     }

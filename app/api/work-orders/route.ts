@@ -16,7 +16,7 @@
 import { sql, pool } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
-import { getAuthContext, verifyProjectOwnership } from '@/lib/auth/auth-utils'
+import { getAuthContext, verifyProjectWriteAccess } from '@/lib/auth/auth-utils'
 import { buildEnvelopeForWrite, envelopeForSql } from '@/lib/api/envelope-helpers'
 import { composeFromSpecs, composeFromTemplate, type StepSpec } from '@/lib/work-orders/compose'
 
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify project ownership
-    const hasAccess = await verifyProjectOwnership(projectId, userId)
+    const hasAccess = await verifyProjectWriteAccess(projectId, userId)
     if (!hasAccess) {
       return errorResponse(ErrorCodes.FORBIDDEN, 'No access to this project', 403)
     }
