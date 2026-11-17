@@ -99,6 +99,9 @@ export function mayClaim(row: ItemRow, a: { agent: string; projectId?: string | 
   // unclaimed
   if (same(r.askedBy)) return { ok: true, takenOver: false }
   if (!row.projectId) return r.askedBy ? { ok: false, why: `This answer is for ${r.askedBy} and has no project another agent could claim it through.` } : { ok: true, takenOver: false }
+  // No project given is not "a different project" (2026-11-17: an agent handed the answer at session start was told
+  // it belonged elsewhere, when it had only left projectId out).
+  if (!a.projectId) return { ok: false, why: `Say which project you are working on: pass projectId ${row.projectId}${r.askedBy ? `, or claim it as ${r.askedBy}` : ""}.` }
   if (a.projectId !== row.projectId) return { ok: false, why: "This answer belongs to a different project." }
   if (!r.askedBy) return { ok: true, takenOver: false }
   const waited = row.answeredAt ? (a.now - new Date(row.answeredAt).getTime()) / 60000 : Infinity

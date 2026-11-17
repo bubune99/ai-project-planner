@@ -38,6 +38,13 @@ t("an agent on a different project, or with no name, is refused", () => {
   assert.equal(mayClaim(row(), { agent: "  ", projectId: "p1", now: NOW }).ok, false)
 })
 
+t("leaving the project out says so, rather than calling it a different project", () => {
+  const r = mayClaim(row({ askedBy: "mcp-client" }), { agent: "other", now: NOW })
+  assert.equal(r.ok, false); assert.match((r as { why: string }).why, /pass projectId p1/)
+  const r2 = mayClaim(row(), { agent: "other", now: NOW })
+  assert.match((r2 as { why: string }).why, /pass projectId p1, or claim it as claude-code@planner/)
+})
+
 t("an answer nobody is recorded as asking goes to the project at once", () => {
   assert.deepEqual(mayClaim(row({ askedBy: "mcp-client" }), { agent: "other", projectId: "p1", now: NOW }), { ok: true, takenOver: false })
 })
