@@ -135,6 +135,18 @@ Use, in order:
 A clean suite licenses you to proceed; it never proves the feature works. A Gantt
 chart that fabricated dates for 414 of 477 rows passed every static check here.
 
+**After applying a migration to staging, before production**, run the trigger smoke test: it fires every
+table's triggers once (insert, update, delete) inside savepoints that are always rolled back, and fails on a
+broken trigger (the `NEW.step_id` bug reached production because nothing did this):
+
+```
+SMOKE_DATABASE_URL=<staging branch connection string> npx -y tsx@4.23.15 scripts/db/trigger-smoke.ts
+```
+
+It reads only `SMOKE_DATABASE_URL`, never `.env`. The same SQL is in `scripts/db/trigger-smoke.sql` for a console.
+Before writing to a table, read its triggers: `documents` saves the old file as a new version whenever
+`blob_url` changes.
+
 **Vercel/Neon MCP caveat:** both MCP tokens are scoped to a different team than
 the one serving this project (`team_03avQDMAwaw3MDbkDtyo6faG`,
 `prj_09LYJD7w176maoMmL1AFgaJkR5Eh`). `list_projects` returns nothing for it. Use
