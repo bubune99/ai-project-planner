@@ -264,9 +264,9 @@ export async function middleware(request: NextRequest) {
       );
     }
 
-    // For pages, let them load - they can handle auth state client-side.
-    // Start from a fresh stripped copy so no partially-set identity leaks through.
-    return continueWith(stripIdentityHeaders(request));
+    // Fail closed: when the sign-in check itself fails (an auth outage), a protected page goes to sign-in, as it
+    // would with no session, instead of loading for whoever asked. Public pages never reach here (handled above).
+    return NextResponse.redirect(new URL("/sign-in", request.url));
   }
 }
 
