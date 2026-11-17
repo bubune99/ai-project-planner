@@ -22,6 +22,7 @@ import { registerWorkChannelTools } from "./work-channel-tools"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import { sql } from "@/lib/db/client"
+import { resolveStepId } from "@/lib/mcp/resolve-step-id"
 import { resetLimits } from "@/lib/rate-limit"
 import { getAiLimitStatus } from "@/lib/ai/usage-store"
 import { isPlatformAdmin } from "@/lib/auth/platform-admin"
@@ -990,7 +991,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
       "update_task",
       "Update a task/subtask: status, progress, title, description, priority, tags, due date, or move it to another project (projectId; its subtasks go with it). Requires write access to both projects.",
       {
-        taskId: z.string().describe("The task ID"),
+        taskId: z.string().describe("The task ID: the full id, or its first 6+ characters (as gates prints it)"),
         title: z.string().optional(),
         description: z.string().optional(),
         status: z.string().optional().describe("Status key (built-in or custom project status)"),
@@ -1002,9 +1003,10 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         projectId: z.string().uuid().optional().describe("Move the task, with its subtasks, to this project: for work filed on the wrong project. A subtask cannot be moved on its own."),
         claimedBy: z.string().max(80).optional().describe("Your agent name. With status 'in-progress' it marks you as holding the card, so the board shows who has it. Moving it out of in-progress lets go."),
       },
-      async ({ taskId, title, description, status, priority, progress, tags, dueDate, claimedBy, workKind, projectId }) => {
+      async ({ taskId: taskIdInput, title, description, status, priority, progress, tags, dueDate, claimedBy, workKind, projectId }) => {
         try {
           requireMcpScope("write")
+          const taskId = await resolveStepId(sql as never, getMcpUserId(), taskIdInput)
           const [found] = await sql`
             SELECT project_id, status, work_kind, parent_task_id FROM project_steps WHERE id = ${taskId} AND deleted_at IS NULL
           `
@@ -1096,13 +1098,14 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
       "add_task_comment",
       "Add a comment to a task — use to leave progress notes, findings, or handoff context visible in the board UI. Requires write access.",
       {
-        taskId: z.string().describe("The task ID"),
+        taskId: z.string().describe("The task ID: the full id, or its first 6+ characters (as gates prints it)"),
         body: z.string().describe("Comment text (markdown ok)"),
         authorLabel: z.string().optional().describe("Display label, e.g. the agent name (default 'agent')"),
       },
-      async ({ taskId, body, authorLabel }) => {
+      async ({ taskId: taskIdInput, body, authorLabel }) => {
         try {
           requireMcpScope("write")
+          const taskId = await resolveStepId(sql as never, getMcpUserId(), taskIdInput)
           const [step] = await sql`
             SELECT project_id FROM project_steps WHERE id = ${taskId} AND deleted_at IS NULL
           `
@@ -1129,12 +1132,13 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
       "assign_task",
       "Assign a task to an AI agent. Requires write access.",
       {
-        taskId: z.string().describe("The task ID"),
+        taskId: z.string().describe("The task ID: the full id, or its first 6+ characters (as gates prints it)"),
         agentName: z.enum(["v0", "claude", "gemini", "gpt"]).describe("The agent name"),
       },
-      async ({ taskId, agentName }) => {
+      async ({ taskId: taskIdInput, agentName }) => {
         try {
           requireMcpScope("write")
+          const taskId = await resolveStepId(sql as never, getMcpUserId(), taskIdInput)
 
           // Get the step's project to check write access
           const [step] = await sql`
