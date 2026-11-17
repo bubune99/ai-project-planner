@@ -128,6 +128,9 @@ export interface SurfaceDependency {
   id: string
   from_surface_id: string
   to_surface_id: string
+  /** The ends' readable names, joined in by GET /api/catalog/dependencies (null if a surface is gone). */
+  from_canonical_id?: string | null
+  to_canonical_id?: string | null
   kind: DependencyKind
   confidence: number
   auto_detected_by: AutoDetectedBy

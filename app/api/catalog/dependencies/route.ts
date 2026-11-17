@@ -34,14 +34,17 @@ export async function GET(request: NextRequest) {
     }
 
     const rows = await sql`
-      SELECT *
-      FROM surface_dependencies
-      WHERE user_id = ${userId}
-        AND deleted_at IS NULL
-        AND (${fromSurfaceId}::uuid IS NULL OR from_surface_id = ${fromSurfaceId})
-        AND (${toSurfaceId}::uuid IS NULL OR to_surface_id = ${toSurfaceId})
-        AND (${kind}::text IS NULL OR kind = ${kind})
-      ORDER BY created_at DESC
+      -- Each end's readable name comes with the row (card 0e706c9b): the page showed 24 characters of a UUID.
+      SELECT d.*, f.canonical_id AS from_canonical_id, t.canonical_id AS to_canonical_id
+      FROM surface_dependencies d
+      LEFT JOIN surfaces f ON f.id = d.from_surface_id
+      LEFT JOIN surfaces t ON t.id = d.to_surface_id
+      WHERE d.user_id = ${userId}
+        AND d.deleted_at IS NULL
+        AND (${fromSurfaceId}::uuid IS NULL OR d.from_surface_id = ${fromSurfaceId})
+        AND (${toSurfaceId}::uuid IS NULL OR d.to_surface_id = ${toSurfaceId})
+        AND (${kind}::text IS NULL OR d.kind = ${kind})
+      ORDER BY d.created_at DESC
       LIMIT ${limit}
     `
     return successResponse(rows, { total: rows.length })

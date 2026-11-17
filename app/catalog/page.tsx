@@ -104,6 +104,7 @@ interface DepRowProps {
 
 function DepRow({ dep, direction, onNavigate }: DepRowProps) {
   const targetId = direction === "outgoing" ? dep.to_surface_id : dep.from_surface_id
+  const targetName = (direction === "outgoing" ? dep.to_canonical_id : dep.from_canonical_id) || targetId
   return (
     <div className="j-row j-between" style={{ gap: 8, padding: "5px 0", borderBottom: "1px solid var(--j-hairline)" }}>
       <div className="j-row" style={{ gap: 6, minWidth: 0 }}>
@@ -111,10 +112,10 @@ function DepRow({ dep, direction, onNavigate }: DepRowProps) {
         <button
           className="j-btn j-btn-ghost"
           style={{ padding: "1px 6px", fontSize: 12, fontFamily: "inherit", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-          onClick={() => onNavigate(targetId)}
-          title={targetId}
+          onClick={() => onNavigate(targetName)}
+          title={targetName}
         >
-          {targetId.slice(0, 24)}…
+          {targetName}
         </button>
       </div>
       {dep.confidence != null && (
