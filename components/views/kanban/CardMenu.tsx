@@ -8,8 +8,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { CheckCircle2, Copy, Maximize2, MoreHorizontal, Pencil, Trash2, Undo2 } from "lucide-react"
+import { CheckCircle2, Copy, Hash, Link2, Maximize2, MoreHorizontal, Pencil, Trash2, Undo2 } from "lucide-react"
+import { toast } from "sonner"
 import type { BoardStep } from "@/lib/types"
+
+/** Copies text and says so; a browser that refuses (no permission, not https) is told plainly. */
+function copy(text: string, done: string) {
+  if (!navigator.clipboard) { toast.error("This browser would not copy it"); return }
+  navigator.clipboard.writeText(text).then(() => toast.success(done), () => toast.error("This browser would not copy it"))
+}
 
 export interface CardMenuProps {
   step: BoardStep
@@ -51,25 +58,13 @@ export function CardMenu({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
-          {/* Segmented quick-actions header, as ClickUp does: clipboard
-              actions sit above the list instead of padding it out. */}
-          <div className="flex gap-1 p-1">
-            <button
-              className="flex-1 rounded-sm border border-border px-1.5 py-1 text-[12px] text-muted-foreground hover:bg-accent hover:text-foreground"
-              onClick={() => {
-                const url = `${window.location.origin}${window.location.pathname}?step=${step.id}`
-                navigator.clipboard?.writeText(url)
-              }}
-            >
-              Copy link
-            </button>
-            <button
-              className="flex-1 rounded-sm border border-border px-1.5 py-1 text-[12px] text-muted-foreground hover:bg-accent hover:text-foreground"
-              onClick={() => navigator.clipboard?.writeText(step.id)}
-            >
-              Copy ID
-            </button>
-          </div>
+          {/* Real menu items: choosing one closes the menu, the arrow keys reach them, and the copy is confirmed. */}
+          <DropdownMenuItem onClick={() => copy(`${window.location.origin}/project/${step.project_id}?tab=tasks&step=${step.id}`, "Link copied")}>
+            <Link2 className="mr-1" /> Copy link
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => copy(step.id, "ID copied")}>
+            <Hash className="mr-1" /> Copy ID
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => onOpen(step)}>
             <Maximize2 className="mr-1" /> Open

@@ -229,12 +229,14 @@ export default function ProjectDashboardPage() {
   const searchParams = useSearchParams()
   // Settings › Views & defaults; applied once the project has loaded.
   const [ui, setUi] = useState<ReturnType<typeof uiOf>>({})
-  const rawTab  = searchParams.get("tab") || ui.defaultTab || "overview"
+  // A link that names a card (?step=, from a card's Copy link) opens it on the board, whatever the default tab is.
+  const linkedStep = searchParams.get("step")
+  const rawTab  = searchParams.get("tab") || (linkedStep ? "tasks" : null) || ui.defaultTab || "overview"
   const legacyView = rawTab === "gantt" ? "timeline" : rawTab === "calendar" ? "calendar" : null
   const activeTab  = legacyView ? "tasks" : (LEGACY_TABS[rawTab] ?? rawTab)
   const viewParam = searchParams.get("view") as TaskView | null
-  const taskView: TaskView = (legacyView || (viewParam && TASK_VIEWS.includes(viewParam) ? viewParam : TASK_VIEWS.includes(ui.defaultTaskView as TaskView) ? ui.defaultTaskView : "board")) as TaskView
-  const focusStepId = searchParams.get("step")
+  const taskView: TaskView = (legacyView || (viewParam && TASK_VIEWS.includes(viewParam) ? viewParam : linkedStep ? "board" : TASK_VIEWS.includes(ui.defaultTaskView as TaskView) ? ui.defaultTaskView : "board")) as TaskView
+  const focusStepId = linkedStep
   const setUrl = useCallback((next: Record<string, string | null>) => {
     const q = new URLSearchParams(searchParams.toString())
     for (const [k, v] of Object.entries(next)) v === null ? q.delete(k) : q.set(k, v)
