@@ -109,6 +109,8 @@ export function registerWorkChannelTools(server: any): void {
           SELECT s.id, s.title, s.priority, s.order_index, s.assigned_agent
             FROM project_steps s
            WHERE s.project_id = ${a.projectId} AND s.deleted_at IS NULL AND s.status = 'pending' AND s.parent_task_id IS NULL
+             -- Never a card only the owner can do (075) or an initiative: the same cards the plugin's queue skips.
+             AND COALESCE(s.work_kind, 'task') NOT IN ('owner', 'initiative')
              AND NOT EXISTS (SELECT 1 FROM agent_jobs j WHERE j.parent_step_id = s.id AND j.status = 'awaiting-unlock')
            ORDER BY s.order_index NULLS LAST
            LIMIT 400
