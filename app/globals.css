@@ -173,7 +173,11 @@ body::before {
   flex-direction: column;
   gap: 22px;
   overflow-y: auto;
+  /* One scrollbar per screen (owner): on a short screen (a phone held sideways) the rail still scrolls, without a bar
+     of its own beside the page's. */
+  scrollbar-width: none;
 }
+.j-sidebar::-webkit-scrollbar { display: none; }
 .j-brand {
   display: flex;
   align-items: center;
