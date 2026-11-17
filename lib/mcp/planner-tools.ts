@@ -14,6 +14,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import { sql } from "@/lib/db/client"
+import { resolveStepId } from "@/lib/mcp/resolve-step-id"
 import { decodeTitleEntities, decodeMarkdownAmpEntities } from "@/lib/text/decode-entities"
 import {
   fetchEntityEnvelope,
@@ -858,7 +859,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
       "update_task",
       "Update a task/subtask: status, progress, title, description, priority, tags, due date. Requires write access.",
       {
-        taskId: z.string().describe("The task ID"),
+        taskId: z.string().describe("The task ID: the full id, or its first 6+ characters (as gates prints it)"),
         title: z.string().optional(),
         description: z.string().optional(),
         status: z.string().optional().describe("Status key (built-in or custom project status)"),
@@ -867,9 +868,10 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         tags: z.array(z.string()).optional().describe("Replaces the full tag list"),
         dueDate: z.string().nullable().optional(),
       },
-      async ({ taskId, title, description, status, priority, progress, tags, dueDate }) => {
+      async ({ taskId: taskIdInput, title, description, status, priority, progress, tags, dueDate }) => {
         try {
           requireMcpScope("write")
+          const taskId = await resolveStepId(sql as never, getMcpUserId(), taskIdInput)
           const [step] = await sql`
             SELECT project_id FROM project_steps WHERE id = ${taskId} AND deleted_at IS NULL
           `
@@ -930,13 +932,14 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
       "add_task_comment",
       "Add a comment to a task — use to leave progress notes, findings, or handoff context visible in the board UI. Requires write access.",
       {
-        taskId: z.string().describe("The task ID"),
+        taskId: z.string().describe("The task ID: the full id, or its first 6+ characters (as gates prints it)"),
         body: z.string().describe("Comment text (markdown ok)"),
         authorLabel: z.string().optional().describe("Display label, e.g. the agent name (default 'agent')"),
       },
-      async ({ taskId, body, authorLabel }) => {
+      async ({ taskId: taskIdInput, body, authorLabel }) => {
         try {
           requireMcpScope("write")
+          const taskId = await resolveStepId(sql as never, getMcpUserId(), taskIdInput)
           const [step] = await sql`
             SELECT project_id FROM project_steps WHERE id = ${taskId} AND deleted_at IS NULL
           `
@@ -963,12 +966,13 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
       "assign_task",
       "Assign a task to an AI agent. Requires write access.",
       {
-        taskId: z.string().describe("The task ID"),
+        taskId: z.string().describe("The task ID: the full id, or its first 6+ characters (as gates prints it)"),
         agentName: z.enum(["v0", "claude", "gemini", "gpt"]).describe("The agent name"),
       },
-      async ({ taskId, agentName }) => {
+      async ({ taskId: taskIdInput, agentName }) => {
         try {
           requireMcpScope("write")
+          const taskId = await resolveStepId(sql as never, getMcpUserId(), taskIdInput)
 
           // Get the step's project to check write access
           const [step] = await sql`
