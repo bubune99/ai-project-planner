@@ -8,17 +8,19 @@
  *        { action: "status", id, status: "active" | "draft" }
  */
 import { type NextRequest, NextResponse } from "next/server"
-import { getAuthContext, verifyProjectOwnership } from "@/lib/auth/auth-utils"
+import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
 import { GateError } from "@/lib/gates/store"
 import { installDefaults, listGuides, rulesFor, saveGuide, setGuideStatus } from "@/lib/gates/guide-store"
 
 export const dynamic = "force-dynamic"
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-async function projectOf(raw: unknown, userId: string): Promise<string | null | false> {
+/** Reading a project's guides needs to be on the project; saving one to it needs write access (viewers may not). */
+async function projectOf(raw: unknown, userId: string, write = false): Promise<string | null | false> {
   if (raw === undefined || raw === null || raw === "") return null
-  if (typeof raw !== "string" || !UUID.test(raw) || !(await verifyProjectOwnership(raw, userId))) return false
-  return raw
+  if (typeof raw !== "string" || !UUID.test(raw)) return false
+  const ok = write ? await verifyProjectWriteAccess(raw, userId) : await verifyProjectOwnership(raw, userId)
+  return ok ? raw : false
 }
 
 export async function GET(request: NextRequest) {
@@ -47,7 +49,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true })
     }
     if (b?.action === "save" && b.guide && typeof b.guide === "object") {
-      const projectId = await projectOf(b.projectId, auth.userId)
+      const projectId = await projectOf(b.projectId, auth.userId, true)
       if (projectId === false) return NextResponse.json({ error: "Project not found" }, { status: 404 })
       const g = b.guide
       return NextResponse.json(await saveGuide(auth.userId, {

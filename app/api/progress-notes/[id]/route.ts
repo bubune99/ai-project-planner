@@ -1,18 +1,19 @@
 /**
  * Remove a note from a project's activity, or bring it back (Undo). Project Overview check, 2026-11-15: a note could
  * not be removed or corrected from the page. A removal is a flag in the note's metadata (the table has no deleted
- * column), so Undo is exact. Allowed for the person who wrote the note and for the project's owner.
+ * column), so Undo is exact. Allowed for the person who wrote the note and for anyone who may write to the project.
  */
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db/client"
-import { getAuthContext, verifyProjectOwnership } from "@/lib/auth/auth-utils"
+import { getAuthContext, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 async function mayChange(id: string, userId: string): Promise<boolean> {
   const [n] = (await sql`SELECT project_id, user_id FROM progress_notes WHERE id = ${id}`) as { project_id: string; user_id: string | null }[]
   if (!n) return false
-  return n.user_id === userId || (await verifyProjectOwnership(n.project_id, userId))
+  // The writer, or someone who may write to the project (a viewer may not remove other people's notes; card d81ee324 sweep).
+  return n.user_id === userId || (await verifyProjectWriteAccess(n.project_id, userId))
 }
 
 async function setRemoved(request: NextRequest, params: Promise<{ id: string }>, removed: boolean) {
