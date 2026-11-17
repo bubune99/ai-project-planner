@@ -25,7 +25,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     })
   } catch (error: any) {
     console.error("Get business context error:", error)
-    return NextResponse.json({ error: "Failed to get business context", details: error.message }, { status: 500 })
+    return NextResponse.json({ error: "Failed to get business context" }, { status: 500 })
   }
 }
 
@@ -119,6 +119,6 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
     })
   } catch (error: any) {
     console.error("Save business context error:", error)
-    return NextResponse.json({ error: "Failed to save business context", details: error.message }, { status: 500 })
+    return NextResponse.json({ error: "Failed to save business context" }, { status: 500 })
   }
 }

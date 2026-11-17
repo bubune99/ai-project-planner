@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error("[Conversations API] GET error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch conversations", details: error.message },
+      { error: "Failed to fetch conversations" },
       { status: 500 }
     );
   }
@@ -131,7 +131,7 @@ export async function PATCH(request: NextRequest) {
   } catch (error: any) {
     console.error("[Conversations API] PATCH error:", error);
     return NextResponse.json(
-      { error: "Failed to update conversation", details: error.message },
+      { error: "Failed to update conversation" },
       { status: 500 }
     );
   }
@@ -176,7 +176,7 @@ export async function DELETE(request: NextRequest) {
   } catch (error: any) {
     console.error("[Conversations API] DELETE error:", error);
     return NextResponse.json(
-      { error: "Failed to delete conversation", details: error.message },
+      { error: "Failed to delete conversation" },
       { status: 500 }
     );
   }

@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error("[History API] Error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch chat history", details: error.message },
+      { error: "Failed to fetch chat history" },
       { status: 500 }
     );
   }
@@ -115,7 +115,7 @@ export async function DELETE() {
   } catch (error: any) {
     console.error("[History API] DELETE error:", error);
     return NextResponse.json(
-      { error: "Failed to delete chat history", details: error.message },
+      { error: "Failed to delete chat history" },
       { status: 500 }
     );
   }
