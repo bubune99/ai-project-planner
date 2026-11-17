@@ -3904,13 +3904,18 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           const actualLimit = Math.min(limit || 5, 20)
           const searchTypes = types || ["project", "idea", "todo", "task", "decision", "document"]
           const results: Record<string, unknown[]> = {}
+          // Every word must appear, in any order, in the title or text (card 662c85de: the whole query was matched as
+          // one string, so any natural multi-word query found nothing).
+          const words = query.trim().split(/\s+/).filter(Boolean).slice(0, 8)
+          if (!words.length) return mcpError("Say what to search for")
+          const pats = words.map((w) => `%${w.replace(/[\\%_]/g, (c) => `\\${c}`)}%`)
 
           if (searchTypes.includes("project")) {
             const projects = await sql`
               SELECT id, name as title, description, 'project' as type
               FROM projects
               WHERE user_id = ${userId} AND deleted_at IS NULL
-                AND (name ILIKE ${'%' + query + '%'} OR description ILIKE ${'%' + query + '%'})
+                AND NOT EXISTS (SELECT 1 FROM unnest(${pats}::text[]) w WHERE concat_ws(' ', name, description) NOT ILIKE w)
               LIMIT ${actualLimit}
             `
             results.projects = projects.map((p: Record<string, unknown>) => ({
@@ -3923,7 +3928,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
               SELECT id, title, description, 'idea' as type
               FROM ideas
               WHERE user_id = ${userId} AND deleted_at IS NULL
-                AND (title ILIKE ${'%' + query + '%'} OR description ILIKE ${'%' + query + '%'})
+                AND NOT EXISTS (SELECT 1 FROM unnest(${pats}::text[]) w WHERE concat_ws(' ', title, description) NOT ILIKE w)
               LIMIT ${actualLimit}
             `
             results.ideas = ideas.map((i: Record<string, unknown>) => ({
@@ -3936,7 +3941,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
               SELECT id, title, description, 'todo' as type
               FROM todos
               WHERE user_id = ${userId} AND deleted_at IS NULL
-                AND (title ILIKE ${'%' + query + '%'} OR description ILIKE ${'%' + query + '%'})
+                AND NOT EXISTS (SELECT 1 FROM unnest(${pats}::text[]) w WHERE concat_ws(' ', title, description) NOT ILIKE w)
               LIMIT ${actualLimit}
             `
             results.todos = todos.map((t: Record<string, unknown>) => ({
@@ -3950,7 +3955,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
               SELECT s.id, s.title, s.description, s.status, p.name AS project
                 FROM project_steps s JOIN projects p ON p.id = s.project_id AND p.deleted_at IS NULL
                WHERE p.user_id = ${userId} AND s.deleted_at IS NULL
-                 AND (s.title ILIKE ${'%' + query + '%'} OR s.description ILIKE ${'%' + query + '%'})
+                 AND NOT EXISTS (SELECT 1 FROM unnest(${pats}::text[]) w WHERE concat_ws(' ', s.title, s.description) NOT ILIKE w)
                ORDER BY s.updated_at DESC
                LIMIT ${actualLimit}
             `
@@ -3964,7 +3969,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
               SELECT id, title, summary as description, 'decision' as type
               FROM mlp_why_decisions
               WHERE user_id = ${userId}
-                AND (title ILIKE ${'%' + query + '%'} OR summary ILIKE ${'%' + query + '%'})
+                AND NOT EXISTS (SELECT 1 FROM unnest(${pats}::text[]) w WHERE concat_ws(' ', title, summary) NOT ILIKE w)
               LIMIT ${actualLimit}
             `
             results.decisions = decisions.map((d: Record<string, unknown>) => ({
@@ -3978,7 +3983,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
               FROM documents d
               JOIN projects p ON d.project_id = p.id
               WHERE p.user_id = ${userId} AND d.deleted_at IS NULL
-                AND (d.title ILIKE ${'%' + query + '%'} OR d.content ILIKE ${'%' + query + '%'})
+                AND NOT EXISTS (SELECT 1 FROM unnest(${pats}::text[]) w WHERE concat_ws(' ', d.title, d.content) NOT ILIKE w)
               LIMIT ${actualLimit}
             `
             results.documents = documents.map((d: Record<string, unknown>) => ({
