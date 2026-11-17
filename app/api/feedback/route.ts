@@ -157,6 +157,18 @@ async function cardForReport(reportId: string, b: any): Promise<{ id: string; co
     } catch (e: any) {
       console.error("[feedback] evaluation card was not made", reportId, e?.message)
     }
+    // The page the report is about shows its checks as out of date until it is rescanned (card 8142d4c7, part 2).
+    if (typeof b.route === "string" && b.route.startsWith("/")) {
+      try {
+        await sql`
+          INSERT INTO gate_ships (project_id, env, sha, routes, everywhere, files, note, created_by)
+          VALUES (${card.projectId}, 'report', ${`report:${reportId}`}, ${JSON.stringify([b.route.split("?")[0].slice(0, 300)])}::jsonb, false, 0, ${`Report: ${card.title}`.slice(0, 300)}, ${b.reporterName || null})
+          ON CONFLICT (project_id, env, sha) DO NOTHING
+        `
+      } catch (e: any) {
+        console.error("[feedback] page not marked out of date", reportId, e?.message)
+      }
+    }
     await sql`
       UPDATE feedback SET project_id = ${card.projectId},
              metadata = COALESCE(metadata, '{}'::jsonb) || ${JSON.stringify({ kind, picked, stepId: step.id })}::jsonb

@@ -35,9 +35,9 @@ const ship = (at: string, routes: string[], everywhere = false): Ship => ({ sha:
 t("behind when a ship touched the page after the picture; counts and dates them", () => {
   const f = freshness({ capturedAt: "2026-11-13T12:00:00Z", route: "/todos", projectReports: true, ships: [ship("2026-11-12T00:00:00Z", ["/todos"]), ship("2026-11-14T10:00:00Z", ["/todos"]), ship("2026-11-14T22:00:00Z", [], true), ship("2026-11-14T23:00:00Z", ["/ideas"])] })
   assert.equal(f.state, "behind"); assert.equal(f.behindBy, 2); assert.equal(f.since, "2026-11-14T10:00:00Z")
-  assert.match(f.line, /^Out of date: taken Nov 13, and 2 changes have shipped/)
+  assert.match(f.line, /^Out of date: taken Nov 13, and 2 changes have shipped on this page/)
   const one = freshness({ capturedAt: "2026-11-13T12:00:00Z", route: "/todos", projectReports: true, ships: [ship("2026-11-14T10:00:00Z", ["/todos"])] })
-  assert.match(one.line, /1 change has shipped to this page since \(Nov 14\)\./)
+  assert.match(one.line, /1 change has shipped on this page since \(Nov 14\)\./)
 })
 
 t("current only when the project reports ships and none touched the page since", () => {
@@ -65,6 +65,16 @@ t("a ship report is cleaned, and a bad one is refused with the reason", () => {
   assert.throws(() => parseShip({ sha: "58c8e5b", env: "preview", files: [] }), ShipError)
   assert.throws(() => parseShip({ sha: "58c8e5b", env: "staging" }), ShipError)
   assert.equal(parseShip({ sha: "58c8e5b", env: "staging", everywhere: true }).everywhere, true)
+})
+
+t("a report on the page makes it behind too, and says so", () => {
+  const f = freshness({ capturedAt: "2026-11-13T12:00:00Z", route: "/sops", projectReports: true, ships: [
+    { sha: "report:1", env: "report", routes: ["/sops"], everywhere: false, at: "2026-11-15T12:00:00Z" },
+    { sha: "abc", env: "production", routes: ["/sops"], everywhere: false, at: "2026-11-14T12:00:00Z" },
+  ] })
+  assert.equal(f.state, "behind")
+  assert.equal(f.behindBy, 2)
+  assert.match(f.line, /1 change has shipped and 1 report was made on this page since \(Nov 14 to Nov 15\)\./)
 })
 
 console.log(`\n${n} fresh-model checks passed`)

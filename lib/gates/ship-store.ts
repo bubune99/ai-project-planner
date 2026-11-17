@@ -47,5 +47,5 @@ export async function projectFreshness(projectId: string) {
   } catch { pages = [] }
   const reports = available && ships.length > 0
   const byPage = pages.map((p) => ({ id: p.id, route: p.route, capturedAt: p.captured_at ? iso(p.captured_at) : null, ...freshness({ capturedAt: p.captured_at ? iso(p.captured_at) : null, route: p.route, ships, projectReports: reports }) }))
-  return { reports, lastShip: ships[0] ?? null, pages: byPage, ...staleCount(byPage) }
+  return { reports, lastShip: ships.find((s) => s.env !== "report") ?? null, pages: byPage, ...staleCount(byPage) }
 }

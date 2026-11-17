@@ -84,7 +84,10 @@ export function freshness(a: { capturedAt: string | null; route: string; ships: 
     .sort((x, y) => new Date(x.at).getTime() - new Date(y.at).getTime())
   if (missed.length) {
     const n = missed.length
-    return { state: "behind", behindBy: n, since: missed[0].at, line: `Out of date: taken ${day(a.capturedAt)}, and ${n} ${n === 1 ? "change has" : "changes have"} shipped to this page since (${day(missed[0].at)}${n > 1 ? ` to ${day(missed[n - 1].at)}` : ""}).` }
+    // A report on the page counts like a ship (card 8142d4c7): the page is rescanned before its checks are trusted.
+    const reported = missed.filter((s) => s.env === "report").length, shipped = n - reported
+    const what = [shipped ? `${shipped} ${shipped === 1 ? "change has" : "changes have"} shipped` : "", reported ? `${reported} ${reported === 1 ? "report was" : "reports were"} made` : ""].filter(Boolean).join(" and ")
+    return { state: "behind", behindBy: n, since: missed[0].at, line: `Out of date: taken ${day(a.capturedAt)}, and ${what} on this page since (${day(missed[0].at)}${n > 1 ? ` to ${day(missed[n - 1].at)}` : ""}).` }
   }
   if (!a.projectReports) return { state: "unknown", behindBy: 0, since: null, line: `Taken ${day(a.capturedAt)}. No shipped changes have been reported for this project yet, so this cannot be confirmed current.` }
   return { state: "current", behindBy: 0, since: null, line: `Current: taken ${day(a.capturedAt)}, and nothing has shipped to this page since.` }
