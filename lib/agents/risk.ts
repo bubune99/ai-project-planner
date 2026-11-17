@@ -42,7 +42,7 @@ export const PLANNER_TOOL_RISK: Readonly<Record<string, PlannerToolMeta>> = {
   list_decisions: R, list_document_versions: R, list_documents: R, list_ideas: R, list_phases: R, list_projects: R,
   list_sources_for_job: R, list_sources_for_step: R, list_stale_surfaces: R, list_todos: R, list_workers: R,
   catch_me_up: R, my_work: R, show_unit: R, go_to: R, planner_agent_guide: R, project_workload: R, find_cards: R, list_reports: R, get_card: R, wait_for_work: R, read_document: R, resolve_workspace: R, search_chats: R, search_memory: R,
-  flow_get: R, flow_diff: R, flow_frames: R, queue_answers: R, list_blockers: R,
+  flow_get: R, flow_diff: R, flow_frames: R, queue_answers: R, list_blockers: R, upkeep_runs: R,
 
   // ── finance (money domain): never in the in-app chat ──
   get_finance_summary: FIN_R, list_accounts: FIN_R, list_transactions: FIN_R,
@@ -57,7 +57,7 @@ export const PLANNER_TOOL_RISK: Readonly<Record<string, PlannerToolMeta>> = {
 
   // ── live writes to plan data (become proposals in slice S3) ──
   add_decision_node: W, add_idea_facet: W, add_task_comment: W, assign_task: W, compose_work_order: W,
-  queue_claim: W, queue_done: W, raise_blocker: W, resolve_blocker: W, create_agent_job: W, create_decision: W, create_document: W, create_event: W, create_idea: W, create_project: W,
+  queue_claim: W, queue_done: W, raise_blocker: W, resolve_blocker: W, upkeep_stale_check: W, create_agent_job: W, create_decision: W, create_document: W, create_event: W, create_idea: W, create_project: W,
   create_source: W, create_task: W, propose_feature: W, create_todo: W, declare_dependency: W, entity_link: W,
   library_create_protocol: W, library_create_skill: W, library_create_template: W, mark_stale: W, promote_idea: W,
   register_surface: W, reorder_todos: W, score_prompt: W, score_template: W, transition_phase: W, update_document: W,
