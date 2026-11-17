@@ -18,6 +18,7 @@ import { registerGateTools } from "./gate-tools"
 import { registerQueueTools } from "./queue-tools"
 import { registerBlockerTools } from "./blocker-tools"
 import { registerUpkeepTools } from "./upkeep-tools"
+import { registerWorkChannelTools } from "./work-channel-tools"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { z } from "zod"
 import { sql } from "@/lib/db/client"
@@ -7215,4 +7216,5 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
   registerQueueTools(server)
   registerBlockerTools(server)
   registerUpkeepTools(server)
+  registerWorkChannelTools(server)
 }
