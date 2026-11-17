@@ -63,12 +63,15 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
     }
 
     const body = await request.json()
-    const { newPhase, completedBy, description } = body
+    const { newPhase, description } = body
+    // Who completed the phase is the signed-in caller, never a name sent in the body (review 2026-10-08, card
+    // d81ee324: completedBy was trusted as sent). The field is still accepted from old clients and ignored.
+    const completedBy = authContext.userId
 
-    if (!newPhase || !completedBy) {
+    if (!newPhase) {
       return errorResponse(
         ErrorCodes.VALIDATION_ERROR,
-        'newPhase and completedBy are required',
+        'newPhase is required',
         400
       )
     }

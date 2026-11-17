@@ -15,6 +15,8 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { isPlatformAdmin } from '@/lib/auth/platform-admin'
+
 
 export const dynamic = 'force-dynamic'
 
@@ -99,6 +101,9 @@ export async function POST(_request: NextRequest) {
   try {
     const auth = await getAuthContext()
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    // The index covers every user's records, so rebuilding it is the platform owner's alone (review 2026-10-08,
+    // card d81ee324: any signed-in user could run this full refresh).
+    if (!isPlatformAdmin(auth.userId)) return errorResponse(ErrorCodes.FORBIDDEN, 'Platform owner only', 403)
     const started = Date.now()
     await sql`REFRESH MATERIALIZED VIEW CONCURRENTLY envelope_search_index`
     const r = await sql`SELECT COUNT(*)::int AS n FROM envelope_search_index`
