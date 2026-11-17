@@ -282,7 +282,7 @@ export default function SkillsPage() {
         )}
 
         {/* Master + Detail layout */}
-        <div className={`opx-md${selected ? " has-sel" : ""}`}>
+        <div className={`opx-mdl${selected ? " has-sel" : ""}`}>
           {/* Master list */}
           <div style={{ width: 340, flexShrink: 0 }}>
             {loading && skills.length === 0 ? (

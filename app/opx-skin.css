@@ -1133,18 +1133,19 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
 @media (max-width: 760px) { .opx-plain-list a, a.opx-agr, button.opx-link { min-height: 44px; } }
 /* A list beside the details of the chosen item. In a narrow room only one of the two is shown: the list until
    something is chosen, then its details (their own Close button goes back). The list had a fixed width, so on a
-   phone the details were left a strip about 50 pixels wide. */
+   phone the details were left a strip about 50 pixels wide. Named opx-mdl: opx-md is the document reader's class
+   (shared.tsx), and sharing it laid every document out as side-by-side columns (walk 2026-11-17). */
 .opx-mdc { container-type: inline-size; }
-.opx-md { display: flex; gap: 14px; align-items: flex-start; }
-.opx-md > :nth-child(2) { flex: 1; min-width: 0; }
+.opx-mdl { display: flex; gap: 14px; align-items: flex-start; }
+.opx-mdl > :nth-child(2) { flex: 1; min-width: 0; }
 @container (max-width: 760px) {
-  .opx-md > :first-child { width: 100% !important; }
-  .opx-md.has-sel > :first-child { display: none; }
-  .opx-md:not(.has-sel) > :nth-child(2) { display: none; }
+  .opx-mdl > :first-child { width: 100% !important; }
+  .opx-mdl.has-sel > :first-child { display: none; }
+  .opx-mdl:not(.has-sel) > :nth-child(2) { display: none; }
 }
 @container (max-width: 760px) {
-  .opx-md.has-sel > :nth-child(2) button[aria-label="Close"], .opx-md.has-sel > :nth-child(2) button[title="Close"] { width: auto; padding: 0 14px; gap: 6px; border-radius: 999px; }
-  .opx-md.has-sel > :nth-child(2) button[aria-label="Close"]::after, .opx-md.has-sel > :nth-child(2) button[title="Close"]::after { content: "Back to the list"; font-size: 13px; }
+  .opx-mdl.has-sel > :nth-child(2) button[aria-label="Close"], .opx-mdl.has-sel > :nth-child(2) button[title="Close"] { width: auto; padding: 0 14px; gap: 6px; border-radius: 999px; }
+  .opx-mdl.has-sel > :nth-child(2) button[aria-label="Close"]::after, .opx-mdl.has-sel > :nth-child(2) button[title="Close"]::after { content: "Back to the list"; font-size: 13px; }
 }
 /* Where a value or a list will be, before it is known. Still, not blinking: it must not startle. */
 .opx-wait { display: inline-block; vertical-align: -0.08em; height: 0.82em; min-width: 1.2ch; border-radius: 6px; background: color-mix(in srgb, currentColor 14%, transparent); }

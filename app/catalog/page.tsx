@@ -717,7 +717,7 @@ export default function CatalogPage() {
         {err && <div className="j-pill j-neg" style={{ alignSelf: "flex-start" }}>{err}</div>}
 
         {/* Master + Detail */}
-        <div className={`opx-md${selected ? " has-sel" : ""}`}>
+        <div className={`opx-mdl${selected ? " has-sel" : ""}`}>
           {/* Master pane */}
           <div style={{ width: 360, flexShrink: 0 }}>
             {loading && surfaces.length === 0 ? (
