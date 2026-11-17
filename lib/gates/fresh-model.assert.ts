@@ -14,6 +14,18 @@ t("a page file gives its route; groups and api do not appear", () => {
   assert.equal(routeOfFile("components/x.tsx"), null)
 })
 
+t("with imports resolved by the sender, a component marks only the pages it was sent with", () => {
+  const p = parseShip({ sha: "f2b658d6", env: "production", reach: "imports", routes: ["/project/[id]"], everywhere: false, files: ["components/board/card.tsx", "lib/mcp/x.ts"] })
+  assert.deepEqual([p.routes, p.everywhere], [["/project/[id]"], false])
+  const none = parseShip({ sha: "f2b658d6", env: "production", reach: "imports", routes: [], everywhere: false, files: ["lib/mcp/resolve-step-id.ts"] })
+  assert.deepEqual([none.routes, none.everywhere], [[], false]) // an MCP-only change reaches no page
+  // styles, assets and named shared files still count as every page; so does the sender saying so
+  assert.equal(parseShip({ sha: "f2b658d6", env: "staging", reach: "imports", routes: [], files: ["app/globals.css"] }).everywhere, true)
+  assert.equal(parseShip({ sha: "f2b658d6", env: "staging", reach: "imports", routes: ["/"], everywhere: true, files: ["components/nav.tsx"] }).everywhere, true)
+  // an older sender (no reach) keeps the old rule
+  assert.equal(parseShip({ sha: "f2b658d6", env: "staging", files: ["components/board/card.tsx"] }).everywhere, true)
+})
+
 t("what a ship touches: named pages, or everywhere for anything shared", () => {
   assert.deepEqual(shipTouches(["app/todos/page.tsx", "docs/a.md", "lib/x.assert.ts"]), { routes: ["/todos"], everywhere: false })
   assert.equal(shipTouches(["app/opx-skin.css"]).everywhere, true)
