@@ -41,6 +41,14 @@ export default function SignInPage() {
           <SignIn fullPage={false} />
         </div>
 
+        <p className="text-center text-gray-500 text-sm mt-4">
+          By signing in you agree to our 
+          <Link href="/privacy" className="text-blue-400 hover:text-blue-300 transition-colors">
+            privacy note
+          </Link>
+          .
+        </p>
+
         <p className="text-center text-gray-400 mt-6">
           Don&apos;t have an account?{" "}
           <Link

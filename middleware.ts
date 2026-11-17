@@ -22,6 +22,7 @@ const PUBLIC_ROUTES = [
   "/",
   "/sign-in",
   "/sign-up",
+  "/privacy", // the privacy note: read before signing in (owner approved, 2026-11-17)
   "/api/health",
   "/api/auth", // Stack Auth API routes
   "/handler", // Stack Auth handler
