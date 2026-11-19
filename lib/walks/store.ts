@@ -5,6 +5,8 @@ import { coverage, findingKey, fixIn, openFindings, parseWalk, settleIn, walkLin
 
 import { walkErrorCard } from "@/lib/intake/check-card"
 import { upsertFixCard } from "@/lib/intake/check-card-store"
+import { latestChecklists, recordResults } from "@/lib/gates/store"
+import { walkVerdicts } from "./walk-checks"
 
 export class WalkError extends Error {}
 
@@ -42,7 +44,24 @@ export async function saveWalk(a: { projectId: string; userId: string; raw: unkn
       console.error("[walks] walk saved but a fix card was not made", row.id, e instanceof Error ? e.message : e)
     }
   }
-  return { id: row.id, line: walkLine(walk), findings: walk.findings.length, cards }
+  // A press made on a walk clears that control's function check (owner, 2026-11-17: "walks are main and checks cover
+  // buttons that might not have been clicked"). Recorded as the walker's verdict; a reviewer or the owner can still differ.
+  let cleared = 0
+  if (walk.steps.some((s) => s.control)) {
+    try {
+      const rows = await latestChecklists(a.projectId)
+      const verdicts = walkVerdicts(walk, rows.map((r) => ({ route: r.route, list: r.doc })))
+      for (const v of verdicts) {
+        const checklist = rows.find((r) => r.route === v.route)
+        if (!checklist) continue
+        await recordResults({ checklist, userId: a.userId, keys: [v.key], actor: a.actor === "owner" ? "owner" : "builder", status: v.status, note: v.note })
+        cleared++
+      }
+    } catch (e) {
+      console.error("[walks] walk saved but its presses were not recorded on the checks", row.id, e instanceof Error ? e.message : e)
+    }
+  }
+  return { id: row.id, line: walkLine(walk), findings: walk.findings.length, cards, checks: cleared }
 }
 
 /** The line in a task's description that ties it to a finding the owner said to change. */

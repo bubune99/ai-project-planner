@@ -281,6 +281,14 @@ async function shownKeys(checklistId: string): Promise<Set<string>> {
 }
 
 /** Every page of a project that has a checklist: its latest version and where it stands. */
+/** The latest checklist of every page in a project, without its verdicts. */
+export async function latestChecklists(projectId: string): Promise<ChecklistRow[]> {
+  return (await sql`
+    SELECT DISTINCT ON (route) id, project_id, route, version, title, env, build, doc, created_at
+    FROM gate_checklists WHERE project_id = ${projectId} ORDER BY route, version DESC
+  `) as ChecklistRow[]
+}
+
 export async function listPages(projectId: string) {
   const rows = (await sql`
     SELECT DISTINCT ON (route) id, project_id, route, version, title, env, build, doc, created_at

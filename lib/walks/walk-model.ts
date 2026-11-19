@@ -24,6 +24,10 @@ export interface WalkStep {
   saw: string
   /** Did it go as expected. */
   ok: boolean
+  /** The page it happened on, when it differs from where the walk began. */
+  route?: string
+  /** The control pressed, by its label as the page's checklist names it: a walk's press clears that control's function check. */
+  control?: { label: string; kind?: string }
 }
 /**
  * The six things every screen a person uses is judged on (the human-centered audit). Each is scored 1 to 5 on a walk.
@@ -147,7 +151,11 @@ export function parseWalk(raw: unknown): { walk: Walk; errors: string[] } {
   if (!OUTCOMES.includes(o.outcome as Outcome)) errors.push("Say how it ended: reached, blocked or gave_up")
   const steps = list(o.steps, LIMITS.steps).map((s, i) => {
     const r = (s && typeof s === "object" ? s : {}) as Record<string, unknown>
-    const step = { did: text(r.did), expected: text(r.expected), saw: text(r.saw), ok: r.ok !== false }
+    const route = typeof r.route === "string" && r.route.startsWith("/") ? r.route.slice(0, 300) : undefined
+    const c = (r.control && typeof r.control === "object" ? r.control : null) as Record<string, unknown> | null
+    const label = c ? text(c.label).slice(0, 200) : ""
+    const control = label ? { label, ...(typeof c?.kind === "string" && c.kind ? { kind: c.kind.slice(0, 40) } : {}) } : undefined
+    const step: WalkStep = { did: text(r.did), expected: text(r.expected), saw: text(r.saw), ok: r.ok !== false, ...(route ? { route } : {}), ...(control ? { control } : {}) }
     if (!step.did || !step.saw) errors.push(`Step ${i + 1} needs what was done and what was seen`)
     return step
   })
