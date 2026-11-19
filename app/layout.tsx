@@ -18,6 +18,7 @@ import { AssistantDock } from "@/components/ade/AssistantDock"
 import { Toaster } from "sonner"
 import "./globals.css"
 import "./opx-skin.css"
+import { StagingMark } from "@/components/StagingMark"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" })
 
@@ -69,6 +70,7 @@ export default function RootLayout({
         <AskSheet />
         <Attention />
         <UnitMarker />
+        <StagingMark />
         <Suspense fallback={null}>
           <AssistantDock />
         </Suspense>

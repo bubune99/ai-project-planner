@@ -1242,6 +1242,10 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
 /* The pins keep their look but take a 44px press on a phone, like everything else pressed there. */
 @media (max-width: 700px) {
   .opx-ck-pin::before { content: ""; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); border-radius: 999px; }
+  /* Audit log rows and "See the picture" were 20px and 15px presses at 440 wide (task 313a8e5f, 2026-11-19).
+     Block, not flex, so the bold verdict and the control's name stay one sentence. */
+  .opx-ck-log li > div > button { display: block; min-height: 44px; padding: 12px 0; text-align: left; }
+  .opx-ck-ev { display: inline-flex; align-items: center; min-height: 44px; }
 }
 
 /* An inbox question whose options each come with a picture (a design choice): the picture is the button. */

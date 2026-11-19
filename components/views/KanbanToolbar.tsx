@@ -112,7 +112,9 @@ export function KanbanToolbar({
         />
       </div>
 
-      <div className="flex-1" />
+      {/* Pushes the view controls right on a wide screen. Hidden on a phone, where the row wraps and an empty spacer
+          left a gap before Group (owner comment 4999ccf1, "The drop downs need review"). */}
+      <div className="hidden sm:block flex-1" aria-hidden="true" />
 
       {/* Group by */}
       <Select value={groupBy} onValueChange={(v) => onGroupByChange(v as GroupBy)}>
