@@ -842,6 +842,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         title: z.string().describe("Task title"),
         description: z.string().optional(),
         status: z.string().optional().describe("Board column, when you know it. Otherwise give kind and the column follows: fix or asked_now start in Up next (pending), idea waits in Requests (requested). With neither, a title naming a fault (Fix: ..., ... is broken) starts in Up next; anything else in Requests."),
+        agent: z.string().max(80).optional().describe("Your name as an agent (your session or folder name). Shown on the card as who made it; defaults to the name of your API key"),
         kind: z.enum(["fix", "asked_now", "idea"]).optional().describe("What the card is: fix (something found broken), asked_now (the owner asked for it now; quote them in the description), idea (a feature or thought for later)"),
         // 'urgent' was missing here while create_todo accepted it, so urgent
         // project work could not be expressed as a task at all — a quiet reason
@@ -855,7 +856,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         workKind: z.enum(["task", "initiative", "upkeep", "owner"]).optional().describe("'owner' for something only the owner can do (keys, dashboards, accounts, payments): shown as Needs you and never sent to an agent. 'initiative' for a campaign, phase or sprint whose tasks sit under it (never in progress itself; its tasks are); 'upkeep' for an agent's maintenance work; default 'task'."),
         rationale: z.string().optional().describe("Why this exists: recorded as why.rationale in its 5W+H envelope (the agent contract asks for one on every create)"),
       },
-      async ({ projectId, title, description, status, kind, priority, parentTaskId, tags, dueDate, estimatedHours, phase, workKind, rationale }) => {
+      async ({ projectId, title, description, status, kind, priority, parentTaskId, tags, dueDate, estimatedHours, phase, workKind, rationale, agent }) => {
         try {
           requireMcpScope("write")
           const [resolvedId, error] = resolveProjectId(projectId)
@@ -869,7 +870,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           // Owner, 2026-11-16: "some tasks really do need to get broken down into actionable steps but we need a good way to see
           // that". An initiative holds tasks; agents take the tasks, so the initiative itself is never in progress.
           if (workKind === "initiative" && statusKey === "in-progress") return mcpError("An initiative is never in progress itself: put it in Up next and take one of its tasks")
-          const BUILTIN = ["requested", "pending", "in-progress", "completed", "blocked", "paused", "failed"]
+          const BUILTIN = ["requested", "pending", "in-progress", "completed", "blocked", "paused", "failed", "closed"]
           if (!BUILTIN.includes(statusKey)) {
             const custom = await sql`
               SELECT 1 FROM project_statuses
@@ -889,10 +890,14 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             SELECT COALESCE(MAX(order_index), 0) AS max_order
             FROM project_steps WHERE project_id = ${resolvedId} AND deleted_at IS NULL
           `
+          // Who made the card (owner, 2026-11-19: "each card shows who made it"): the agent's own name, else its key's.
+          const ctx = getMcpContext()
+          const [keyRow] = agent?.trim() ? [] : await sql`SELECT name FROM api_keys WHERE id = ${ctx.apiKeyId}`.catch(() => [])
+          const createdBy = (agent?.trim() || (keyRow as { name?: string } | undefined)?.name || "agent").slice(0, 80)
           const [task] = await sql`
             INSERT INTO project_steps (
               project_id, title, description, status, phase, stage,
-              estimated_hours, priority, order_index, parent_task_id, tags, end_date, work_kind, progress
+              estimated_hours, priority, order_index, parent_task_id, tags, end_date, work_kind, progress, created_by
             ) VALUES (
               ${resolvedId}, ${title}, ${description || ""}, ${statusKey},
               -- phase and stage are NOT NULL. Writing "" left every step in an
@@ -910,7 +915,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
               ${dueDate || null},
               ${workKind || "task"},
               -- A task created already done is 100%, not 0% (card 9e6284c8: a completed task read 0%).
-              CASE WHEN step_status_kind(${resolvedId}::uuid, ${statusKey}) = 'done' THEN 100 ELSE 0 END
+              CASE WHEN step_status_kind(${resolvedId}::uuid, ${statusKey}) = 'done' THEN 100 ELSE 0 END,
+              ${createdBy}
             )
             RETURNING id, title, status, parent_task_id
           `
@@ -1004,9 +1010,10 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         dueDate: z.string().nullable().optional(),
         workKind: z.enum(["task", "initiative", "upkeep", "owner"]).optional().describe("'owner' for something only the owner can do (keys, dashboards, accounts, payments): shown as Needs you and never sent to an agent. Change what kind of card it is. An initiative is never in progress itself."),
         projectId: z.string().uuid().optional().describe("Move the task, with its subtasks, to this project: for work filed on the wrong project. A subtask cannot be moved on its own."),
+        reason: z.string().max(500).optional().describe("Why the card will not be done. Required with status 'closed' (obsolete, duplicate, decided against); shown on the card"),
         claimedBy: z.string().max(80).optional().describe("Your agent name. With status 'in-progress' it marks you as holding the card, so the board shows who has it. Moving it out of in-progress lets go."),
       },
-      async ({ taskId: taskIdInput, title, description, status, priority, progress, tags, dueDate, claimedBy, workKind, projectId }) => {
+      async ({ taskId: taskIdInput, title, description, status, priority, progress, tags, dueDate, claimedBy, workKind, projectId, reason }) => {
         try {
           requireMcpScope("write")
           const taskId = await resolveStepId(sql as never, getMcpUserId(), taskIdInput)
@@ -1040,10 +1047,13 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             return mcpError("An initiative is never in progress itself: put it in Up next (or leave it where it is) and take one of its tasks")
           }
           await requireMcpProjectWriteAccess(step.project_id)
+          // Closing says why (owner, 2026-11-19): agents read it before proposing the same thing again.
+          if (status === "closed" && !reason?.trim()) return mcpError("Closing a card needs a reason: pass reason (obsolete, duplicate of <id>, or decided against, and why)")
+          const closedNote = status === "closed" ? JSON.stringify({ closed: { why: reason!.trim(), at: new Date().toISOString(), by: claimedBy?.trim() || "agent" } }) : null
 
           let statusKind: string | null = null
           if (status) {
-            const BUILTIN = ["requested", "pending", "in-progress", "completed", "blocked", "paused", "failed"]
+            const BUILTIN = ["requested", "pending", "in-progress", "completed", "blocked", "paused", "failed", "closed"]
             if (!BUILTIN.includes(status)) {
               const custom = await sql`
                 SELECT 1 FROM project_statuses
@@ -1069,6 +1079,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
                 tags = CASE WHEN ${setTags} THEN ${cleanTags}::text[] ELSE tags END,
                 end_date = CASE WHEN ${setDue} THEN ${dueDate ?? null}::timestamp ELSE end_date END,
                 work_kind = COALESCE(${workKind || null}, work_kind),
+                metadata = CASE WHEN ${closedNote}::text IS NOT NULL THEN COALESCE(metadata, '{}'::jsonb) || ${closedNote}::jsonb ELSE metadata END,
                 -- In progress only while an agent holds it (lib/work/pipeline.ts): taking it records who, leaving lets go.
                 claimed_by_id = CASE WHEN ${status || null}::text = 'in-progress' THEN COALESCE(${claimedBy || null}, claimed_by_id, 'agent')
                                      WHEN ${status || null}::text IS NOT NULL THEN NULL ELSE claimed_by_id END,

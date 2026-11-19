@@ -161,6 +161,21 @@ export function holderLine(step: BoardStep, now: Date, done = false): { label: s
   return null
 }
 
+/** Who made the card (owner, 2026-11-19: "each card shows who made it"). Nothing for cards made before it was recorded. */
+export function authorLine(step: BoardStep): { label: string; title: string } | null {
+  const by = (step as BoardStep & { created_by?: string | null }).created_by?.trim()
+  if (!by) return null
+  return by === "owner" ? { label: "By you", title: "You made this card" } : { label: `By ${by}`, title: "The agent that made this card" }
+}
+
+/** Why a closed card will not be done, from metadata.closed (owner, 2026-11-19). */
+export function closedLine(step: BoardStep): { label: string; title: string } | null {
+  if (step.status !== "closed") return null
+  const why = ((step.metadata as { closed?: { why?: string } } | null)?.closed?.why ?? "").trim()
+  if (!why) return { label: "Closed", title: "Closed with no reason recorded" }
+  return { label: `Closed: ${why.length > 60 ? `${why.slice(0, 57)}...` : why}`, title: why }
+}
+
 export function toKanbanTask(step: BoardStep, opts: AdaptOptions): KanbanTask {
   const isDone = kindOf(step, opts.statusMap) === "done"
   const workKind = (step as BoardStep & { work_kind?: string }).work_kind
@@ -185,7 +200,7 @@ export function toKanbanTask(step: BoardStep, opts: AdaptOptions): KanbanTask {
     due,
     dueSoon,
     progress: toProgress(step, isDone),
-    footnotes: [...(opts.showProject ? [{ label: (step as BoardStep & { project_name?: string }).project_name ?? "Project", title: "The project this card belongs to" }] : []), ...(holderLine(step, opts.today ?? new Date(), isDone) ? [holderLine(step, opts.today ?? new Date(), isDone)!] : []), ...toFootnotes(step, opts)],
+    footnotes: [...(opts.showProject ? [{ label: (step as BoardStep & { project_name?: string }).project_name ?? "Project", title: "The project this card belongs to" }] : []), ...(holderLine(step, opts.today ?? new Date(), isDone) ? [holderLine(step, opts.today ?? new Date(), isDone)!] : []), ...[closedLine(step), authorLine(step)].filter((x): x is { label: string; title: string } => x !== null), ...toFootnotes(step, opts)],
     subtasks: toSubtaskList(step, opts),
     done: isDone,
   }

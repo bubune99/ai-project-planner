@@ -14,7 +14,7 @@ import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from
 export const dynamic = "force-dynamic"
 
 // Must mirror the project_steps_status_check / priority CHECK constraints
-const VALID_STATUSES = ["requested", "pending", "in-progress", "completed", "blocked", "paused", "failed"];
+const VALID_STATUSES = ["requested", "pending", "in-progress", "completed", "blocked", "paused", "failed", "closed"];
 // "urgent" added by migration 056 so tasks can express the same urgency
 // todos always could. Before that, urgent project work literally had no
 // valid task priority, which pushed it into the todo list instead.
@@ -192,13 +192,18 @@ export async function POST(
 
     const maxOrder = maxOrderResult[0]?.max_order || 0;
 
+    // Who made the card (owner, 2026-11-19): the owner's own session, unless an API key made it or an agent working
+    // through the owner's tab said so with agent: true.
+    const viaKey = (request.headers.get("authorization") ?? "").startsWith("Bearer ") || !!request.headers.get("x-api-key");
+    const createdBy = viaKey || body.agent === true ? "agent" : "owner";
+
     // Create the step
     const result = await sql`
       INSERT INTO project_steps (
         project_id, title, description, status, phase, stage,
         estimated_hours, assigned_agent, priority, tasks,
         acceptance_criteria, version_id, metadata, order_index,
-        start_date, end_date, parent_task_id, tags
+        start_date, end_date, parent_task_id, tags, created_by
       )
       VALUES (
         ${projectId}, ${title}, ${description || ""}, ${status},
@@ -214,7 +219,7 @@ export async function POST(
         ${JSON.stringify(stepTasks)}::jsonb,
         ${JSON.stringify(acceptance_criteria)}::jsonb, ${version_id || null},
         ${JSON.stringify(metadata)}::jsonb, ${maxOrder + 1},
-        ${start_date || null}, ${end_date || null}, ${parent_task_id || null}, ${tags}::text[]
+        ${start_date || null}, ${end_date || null}, ${parent_task_id || null}, ${tags}::text[], ${createdBy}
       )
       RETURNING *
     `;

@@ -184,6 +184,11 @@ export interface KanbanBoardProps
   onAddTask?: (columnId: string) => void;
   /** Click (not drag) on a card body. */
   onTaskOpen?: (task: KanbanTask, columnId: string) => void;
+  /** Added: columns drawn as a narrow bar with their name and count; pressing it opens the column. */
+  collapsed?: string[];
+  /** Added: columns whose header carries a Hide button (with onToggleCollapsed). */
+  collapsible?: string[];
+  onToggleCollapsed?: (columnId: string) => void;
 }
 
 type DragState = {
@@ -213,6 +218,9 @@ export const KanbanBoard = React.forwardRef<HTMLDivElement, KanbanBoardProps>(
       onToggleSubtask,
       onAddTask,
       onTaskOpen,
+      collapsed,
+      collapsible,
+      onToggleCollapsed,
       ...props
     },
     ref,
@@ -646,6 +654,24 @@ export const KanbanBoard = React.forwardRef<HTMLDivElement, KanbanBoardProps>(
           <LayoutGroup>
             {cols.map((col) => {
               const isTarget = slot?.col === col.id && !!drag;
+              if (collapsed?.includes(col.id)) {
+                // A collapsed column takes no drops: closing a card asks why, so it is done from the card or by
+                // opening the column first.
+                return (
+                  <div key={col.id} data-kanban-column={col.id} data-collapsed=""
+                    className={cn("w-[64px] shrink-0 rounded-[22px] bg-[var(--opx-card,#fff)] p-1.5", SQUIRCLE)}>
+                    <button type="button" aria-expanded={false}
+                      aria-label={`Show the ${col.name} column, ${col.tasks.length} card${col.tasks.length === 1 ? "" : "s"}`}
+                      onClick={() => onToggleCollapsed?.(col.id)}
+                      className="flex min-h-[160px] w-full flex-col items-center gap-2 rounded-[16px] px-1 py-3 text-[13px] font-medium hover:bg-black/[0.04] dark:hover:bg-white/[0.06]">
+                      <span style={col.accentHex ? { backgroundColor: col.accentHex } : undefined}
+                        className={cn("h-2 w-2 shrink-0 rounded-full", !col.accentHex && ACCENT_DOT[col.accent ?? "slate"])} />
+                      <span className="tabular-nums">{col.tasks.length}</span>
+                      <span style={{ writingMode: "vertical-rl" }}>{col.name}</span>
+                    </button>
+                  </div>
+                );
+              }
               return (
                 <div
                   key={col.id}
@@ -664,6 +690,7 @@ export const KanbanBoard = React.forwardRef<HTMLDivElement, KanbanBoardProps>(
                   <ColumnHeader
                     col={col}
                     menu={renderColumnMenu?.(col)}
+                    onHide={collapsible?.includes(col.id) && onToggleCollapsed ? () => onToggleCollapsed(col.id) : undefined}
                     /* while a card is in the air the counts show where it
                        would land, not where it came from */
                     count={
@@ -875,11 +902,14 @@ function ColumnHeader({
   col,
   count,
   menu,
+  onHide,
 }: {
   col: KanbanColumn;
   count: number;
   /** Supplied by renderColumnMenu. Upstream's dots were inert. */
   menu?: React.ReactNode;
+  /** Added: folds the column back into a narrow bar. */
+  onHide?: () => void;
 }) {
   return (
     <div className="flex items-center gap-2 px-1">
@@ -906,6 +936,12 @@ function ColumnHeader({
       </motion.span>
       {/* only one way to add a task, and it lives at the foot of the column */}
       <span className="ml-auto flex items-center">
+        {onHide && (
+          <button type="button" onClick={onHide} aria-label={`Hide the ${col.name} column`}
+            className="min-h-8 rounded-full px-2.5 text-[12.5px] font-medium text-neutral-600 hover:bg-black/[0.06] dark:text-neutral-300 dark:hover:bg-white/[0.09]">
+            Hide
+          </button>
+        )}
         {/* A column with no menu shows no button: the "..." that stood here did nothing when pressed. */}
         {menu}
       </span>

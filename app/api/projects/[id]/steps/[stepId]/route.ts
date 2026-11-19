@@ -154,7 +154,7 @@ export async function PATCH(
     } = body;
 
     // Validate status: built-in values or a custom project status key
-    const VALID_STATUSES = ["requested", "pending", "in-progress", "completed", "blocked", "paused", "failed"];
+    const VALID_STATUSES = ["requested", "pending", "in-progress", "completed", "blocked", "paused", "failed", "closed"];
     const status = rawStatus === "review" ? "in-progress" : rawStatus; // legacy clients sent "review"
     let statusKind: string | null = null;
     if (status) {

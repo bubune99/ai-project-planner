@@ -240,7 +240,16 @@ export function TaskDetailModal({
           </DialogTitle>
           <div className="flex items-center gap-2 pr-8">
             {/* Status pill + advance */}
-            <Select value={step.status} onValueChange={(v) => patch({ status: v })}>
+            <Select value={step.status} onValueChange={(v) => {
+              // Closing says why, as on the board (owner, 2026-11-19).
+              if (v === "closed" && step.status !== "closed") {
+                const why = window.prompt(`Close "${step.title}"? It will not be done. Why?`)
+                if (why === null || !why.trim()) return
+                patch({ status: v, metadata: { ...(step.metadata || {}), closed: { why: why.trim(), at: new Date().toISOString(), by: "owner" } } })
+                return
+              }
+              patch({ status: v })
+            }}>
               <SelectTrigger
                 className="w-[170px] h-8 border-0 font-medium"
                 style={{ backgroundColor: (current?.color ?? "#87909e") + "26", color: current?.color ?? "#87909e" }}

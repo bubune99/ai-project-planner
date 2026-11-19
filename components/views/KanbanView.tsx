@@ -50,6 +50,8 @@ interface BoardPrefs {
   showCompleted: boolean
   expandSubtasks: boolean
   collapsed: string[]
+  /** The Closed column starts collapsed at the end of the board (owner, 2026-11-19). */
+  showClosed?: boolean
 }
 
 const DEFAULT_PREFS: BoardPrefs = {
@@ -556,7 +558,14 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
         return
       }
 
-      const patch = patchForMove(prefs.groupBy, to.col)
+      let patch = patchForMove(prefs.groupBy, to.col)
+      // Closing a card says why: agents read it before proposing the same thing again (owner, 2026-11-19).
+      if (patch && prefs.groupBy === "status" && to.col === "closed") {
+        const step = stepById.get(taskId)
+        const why = window.prompt(`Close "${step?.title ?? "this card"}"? It will not be done. Why?`)
+        if (why === null || !why.trim()) { resyncBoard(); return }
+        patch = { ...patch, metadata: { ...(step?.metadata || {}), closed: { why: why.trim(), at: new Date().toISOString(), by: "owner" } } }
+      }
       if (!patch) {
         // e.g. dropping onto a synthetic column there is no way to persist
         toast.info("That column can't be set from the board")
@@ -567,7 +576,7 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
       const col = columns.find((c) => c.key === to.col)
       if (col) toast.success(`Moved to ${col.label}`)
     },
-    [prefs.sortBy, prefs.groupBy, columnSteps, columns, persistColumnOrder, patchStep, resyncBoard]
+    [prefs.sortBy, prefs.groupBy, columnSteps, columns, persistColumnOrder, patchStep, resyncBoard, stepById]
   )
 
   /**
@@ -655,6 +664,9 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
               columns={boardColumns}
               label="Project board"
               onTaskMove={handleTaskMove}
+              collapsed={prefs.groupBy === "status" && !prefs.showClosed ? ["closed"] : undefined}
+              collapsible={prefs.groupBy === "status" ? ["closed"] : undefined}
+              onToggleCollapsed={(id) => { if (id === "closed") setPrefs((p) => ({ ...p, showClosed: !p.showClosed })) }}
               onTaskOpen={(task: KanbanTask) => {
                 const step = stepById.get(task.id)
                 if (step) openDetail(step)

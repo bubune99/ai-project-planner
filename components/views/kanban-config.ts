@@ -42,6 +42,9 @@ export const DEFAULT_STATUSES: ProjectStatus[] = [
   { key: "paused", label: "Paused", color: "#f59e0b", kind: "open" },
   { key: "failed", label: "Failed", color: "#e11d48", kind: "closed" },
   { key: "completed", label: "Complete", color: "#22c55e", kind: "done" },
+  // Owner, 2026-11-19: cards that will not be done (obsolete, duplicate, decided against) go here with the reason,
+  // collapsed at the end of the board. Paused is for work that is only on hold.
+  { key: "closed", label: "Closed", color: "#64748b", kind: "closed" },
 ]
 
 /** Palette offered when creating/recoloring a status column. */
@@ -58,7 +61,7 @@ export function statusColumns(statuses: ProjectStatus[], usingDefaults: boolean)
     dotClass: "",
     colorHex: s.color,
     // Only the rarely-used built-ins auto-hide; custom columns always show
-    hideWhenEmpty: usingDefaults && (s.key === "paused" || s.key === "failed"),
+    hideWhenEmpty: usingDefaults && (s.key === "paused" || s.key === "failed" || s.key === "closed"),
   }))
 }
 

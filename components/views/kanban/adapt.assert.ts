@@ -10,7 +10,8 @@ import {
   toProgress,
   toKanbanTask,
   toKanbanColumns,
-  toFootnotes, toSubtaskList } from "./adapt"
+  toFootnotes, toSubtaskList, authorLine, closedLine } from "./adapt"
+import type { BoardStep } from "@/lib/types"
 
 let pass = 0
 let fail = 0
@@ -273,6 +274,16 @@ eq(
   eq(list, [{ id: "a", title: "First", done: true }, { id: "b", title: "Second", done: false }], "a card lists its subtasks with whether each is done")
   eq(toSubtaskList({ id: "x", title: "Lone", status: "pending" } as never, { subtasksOf: () => [], statusMap: {} } as never), [], "a card without subtasks lists none")
 }
+
+// Who made the card, and why a closed card will not be done (owner, 2026-11-19).
+eq(authorLine({ created_by: "owner" } as never)?.label, "By you", "a card the owner made")
+eq(authorLine({ created_by: "ai-project-planner" } as never)?.label, "By ai-project-planner", "a card an agent made")
+eq(authorLine({ created_by: null } as never), null, "an older card says nothing")
+eq(closedLine({ status: "closed", metadata: { closed: { why: "Duplicate of 54dae72c" } } } as never)?.label, "Closed: Duplicate of 54dae72c", "the reason shows")
+eq(closedLine({ status: "paused", metadata: { closed: { why: "x" } } } as never), null, "only a closed card")
+eq(closedLine({ status: "closed", metadata: null } as never)?.label, "Closed", "closed with no reason")
+eq(closedLine({ status: "closed", metadata: { closed: { why: "a".repeat(80) } } } as never)?.label.length, 68, "a long reason is shortened on the card")
+eq(toKanbanTask({ ...base, status: "requested", created_by: "owner" } as never, { statusMap }).footnotes?.some((f) => f.label === "By you"), true, "the author reaches the card")
 
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)

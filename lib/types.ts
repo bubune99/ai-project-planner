@@ -186,7 +186,7 @@ export interface KanbanTask {
 
 // Raw project_steps row as served by GET /api/projects/[id]/steps.
 // Statuses/priorities mirror the DB CHECK constraints — no UI-side remapping.
-export type StepStatus = "pending" | "in-progress" | "completed" | "blocked" | "paused" | "failed"
+export type StepStatus = "requested" | "pending" | "in-progress" | "completed" | "blocked" | "paused" | "failed" | "closed"
 /**
  * Mirrors the project_steps.priority CHECK constraint. Migration 056 widened
  * that constraint to accept 'urgent' so urgent todos could be backfilled as
