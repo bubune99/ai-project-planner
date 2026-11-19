@@ -11,6 +11,7 @@
  * Pure move: the tool bodies are unchanged from the route.
  */
 
+import { startingColumn } from "@/lib/tasks/column"
 import { registerCatchupTools } from "./catchup-tools"
 import { registerUiTools } from "./ui-tools"
 import { registerFlowTools } from "./flow-tools"
@@ -840,7 +841,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         projectId: z.string().optional().describe("Project ID (uses active project if not specified)"),
         title: z.string().describe("Task title"),
         description: z.string().optional(),
-        status: z.string().optional().describe("Board column. Default 'requested' (Requests: nobody works on it until the owner moves it to action). Use 'pending' (Up next) only when the owner asked for it now, and 'in-progress' with update_task claimedBy when you are taking it yourself."),
+        status: z.string().optional().describe("Board column, when you know it. Otherwise give kind and the column follows: fix or asked_now start in Up next (pending), idea waits in Requests (requested). With neither, a title naming a fault (Fix: ..., ... is broken) starts in Up next; anything else in Requests."),
+        kind: z.enum(["fix", "asked_now", "idea"]).optional().describe("What the card is: fix (something found broken), asked_now (the owner asked for it now; quote them in the description), idea (a feature or thought for later)"),
         // 'urgent' was missing here while create_todo accepted it, so urgent
         // project work could not be expressed as a task at all — a quiet reason
         // agents routed 492 items to todos instead. Allowed by migration 056.
@@ -853,7 +855,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         workKind: z.enum(["task", "initiative", "upkeep", "owner"]).optional().describe("'owner' for something only the owner can do (keys, dashboards, accounts, payments): shown as Needs you and never sent to an agent. 'initiative' for a campaign, phase or sprint whose tasks sit under it (never in progress itself; its tasks are); 'upkeep' for an agent's maintenance work; default 'task'."),
         rationale: z.string().optional().describe("Why this exists: recorded as why.rationale in its 5W+H envelope (the agent contract asks for one on every create)"),
       },
-      async ({ projectId, title, description, status, priority, parentTaskId, tags, dueDate, estimatedHours, phase, workKind, rationale }) => {
+      async ({ projectId, title, description, status, kind, priority, parentTaskId, tags, dueDate, estimatedHours, phase, workKind, rationale }) => {
         try {
           requireMcpScope("write")
           const [resolvedId, error] = resolveProjectId(projectId)
@@ -862,7 +864,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
 
           // Owner, 2026-11-16: "I don't think all 84 of those should be in up next rightnow". Up next means in line for
           // an agent now, so a new card waits in Requests unless it is asked for now.
-          const statusKey = status || "requested"
+          // Owner, 2026-11-19: a fix or something asked for now goes to Up next; ideas wait (lib/tasks/column.ts).
+          const statusKey = startingColumn({ status, kind, title })
           // Owner, 2026-11-16: "some tasks really do need to get broken down into actionable steps but we need a good way to see
           // that". An initiative holds tasks; agents take the tasks, so the initiative itself is never in progress.
           if (workKind === "initiative" && statusKey === "in-progress") return mcpError("An initiative is never in progress itself: put it in Up next and take one of its tasks")
