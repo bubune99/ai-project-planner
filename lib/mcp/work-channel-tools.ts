@@ -88,7 +88,7 @@ export function registerWorkChannelTools(server: any): void {
         `) as Evidence["changes"]
         const [card] = (await sql`
           SELECT COALESCE(ps.kind, CASE s.status WHEN 'in-progress' THEN 'active' WHEN 'completed' THEN 'done'
-                 WHEN 'blocked' THEN 'closed' WHEN 'failed' THEN 'closed' ELSE 'open' END) AS kind
+                 WHEN 'blocked' THEN 'closed' WHEN 'failed' THEN 'closed' WHEN 'closed' THEN 'closed' ELSE 'open' END) AS kind
             FROM project_steps s LEFT JOIN project_statuses ps ON ps.project_id = s.project_id AND ps.key = s.status AND ps.deleted_at IS NULL
            WHERE s.id = ${a.taskId}
         `) as { kind: Evidence["cardKind"] }[]

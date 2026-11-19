@@ -44,7 +44,7 @@ export function registerUpkeepTools(server: any): void {
                  (s.source_todo_id IS NOT NULL) AS from_todo,
                  EXISTS (SELECT 1 FROM step_comments c WHERE c.step_id = s.id) AS commented,
                  COALESCE(ps.kind, CASE s.status WHEN 'in-progress' THEN 'active' WHEN 'completed' THEN 'done'
-                                                 WHEN 'blocked' THEN 'closed' WHEN 'failed' THEN 'closed' ELSE 'open' END) AS kind
+                                                 WHEN 'blocked' THEN 'closed' WHEN 'failed' THEN 'closed' WHEN 'closed' THEN 'closed' ELSE 'open' END) AS kind
             FROM project_steps s
             JOIN projects p ON p.id = s.project_id AND p.deleted_at IS NULL AND p.user_id = ${userId}
             LEFT JOIN project_statuses ps ON ps.project_id = s.project_id AND ps.key = s.status AND ps.deleted_at IS NULL
