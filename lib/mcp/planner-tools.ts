@@ -249,7 +249,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           summary:
             "AI Project Planner — agent workflow contract. The planner is the orchestration substrate for AI-assisted dev: it knows what to build, in what order, with what skills, and tracks outcomes back. Always check in.",
           contract_principles: [
-            "Every entity has a 5W+H envelope (documentation_5wh). When you create rows, the API auto-derives; you can override by passing documentation_5wh in the body.",
+            "Every entity has a 5W+H envelope (documentation_5wh), derived by the tool on create. Tools do not take documentation_5wh as a field (a call naming a field its tool does not take is refused): give the why in rationale where a tool has it, otherwise in the description.",
             "Every write operation MUST come with a rationale (the WHY dimension). API auto-fills with a 'Created via X' sentinel in legacy mode, but you should provide explicit rationale.",
             "Work happens in work_orders → work_order_steps. Steps are claimed by agents; agents check in on every event (progress, blocker, completion).",
             "On failure: ALWAYS call record_attempt to capture lessons_learned. The next agent will see it via prior_art lookup automatically.",

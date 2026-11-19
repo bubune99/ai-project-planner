@@ -13,6 +13,8 @@ import { NextRequest } from "next/server"
 import { validateMcpApiKey, runWithMcpContext, type McpContext } from "@/lib/auth/mcp-context"
 import { registerPlannerTools } from "@/lib/mcp/planner-tools"
 import { checkRateLimit, HOUR_MS } from "@/lib/rate-limit"
+import { collectTools } from "@/lib/agents/tool-bridge"
+import { callProblems, problemText } from "@/lib/mcp/strict-args"
 
 /** MCP requests per API key per minute. */
 const MCP_REQUESTS_PER_MINUTE = 120
@@ -31,6 +33,35 @@ async function calledTools(request: NextRequest): Promise<string[]> {
   } catch {
     return []
   }
+}
+
+/** Each tool's field names, built once per instance from the same registration the endpoint serves. */
+let fieldLists: Promise<Map<string, string[]>> | null = null
+function toolFields(): Promise<Map<string, string[]>> {
+  fieldLists ??= collectTools(registerPlannerTools).then((tools) => new Map([...tools.values()].map((t) => [t.name, Object.keys(t.shape)])))
+  return fieldLists
+}
+
+/**
+ * A call naming a field its tool does not take is answered with an error instead of running with that field
+ * dropped (lib/mcp/strict-args.ts). A batch with one such call runs none of its calls. Null when every call is fine.
+ */
+async function refuseUnknownFields(request: NextRequest): Promise<Response | null> {
+  if (request.method !== "POST") return null
+  let body: unknown
+  try { body = await request.clone().json() } catch { return null }
+  const fields = await toolFields()
+  const problems = callProblems(body, (t) => fields.get(t))
+  if (!problems.length) return null
+  const msgs = Array.isArray(body) ? body : [body]
+  const answer = (id: unknown, text: string) => ({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text }], isError: true } })
+  const replies = msgs
+    .filter((m) => m && typeof m === "object" && "id" in m)
+    .map((m) => {
+      const p = problems.find((x) => x.id === (m as { id: unknown }).id)
+      return answer((m as { id: unknown }).id, p ? problemText(p) : "Not run: another call in this batch named a field its tool does not take.")
+    })
+  return new Response(JSON.stringify(Array.isArray(body) ? replies : replies[0]), { status: 200, headers: { "Content-Type": "application/json" } })
 }
 
 function tooManyRequests(message: string) {
@@ -153,6 +184,9 @@ async function handleWithAuth(request: NextRequest) {
       return tooManyRequests(`Rate limit: catalog_scan_now is limited to ${CATALOG_SCANS_PER_HOUR} per hour per API key.`)
     }
   }
+
+  const refused = await refuseUnknownFields(request)
+  if (refused) return refused
 
   // Run handler with MCP context
   return runWithMcpContext(context, () => handler(request))
