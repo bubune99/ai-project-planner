@@ -1,5 +1,5 @@
 /**
- * A small "Staging" tab at the top of every page on a preview deployment (the staging site), and nothing on
+ * A small "Staging" tab on the right edge of every page on a preview deployment (the staging site), and nothing on
  * production. Found 2026-11-14: staging and production looked identical, so the owner commented on staging thinking
  * it was production, and his waiting questions "vanished" (task 99434bc2). It never takes a press: pointer-events none.
  */
@@ -11,13 +11,15 @@ export function StagingMark() {
       aria-label="This is the staging site"
       style={{
         position: "fixed",
-        top: 0,
-        left: "50%",
-        transform: "translateX(-50%)",
+        // Right edge, half way down: at the top it sat over the phone header's search and theme buttons (440 wide).
+        top: "50%",
+        right: 0,
+        transform: "translateY(-50%)",
+        writingMode: "vertical-rl",
         zIndex: 2147483000,
         pointerEvents: "none",
-        padding: "1px 12px 3px",
-        borderRadius: "0 0 8px 8px",
+        padding: "10px 2px",
+        borderRadius: "8px 0 0 8px",
         background: "#f59e0b",
         color: "#1c1917",
         fontSize: 12,
