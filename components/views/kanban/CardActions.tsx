@@ -66,7 +66,8 @@ export function CardActions({
         <Check className="h-3.5 w-3.5" strokeWidth={2.25} />
       </button>
       {/* An "only you" card is never sent to an agent, so it has no Start (lib/work/pipeline.ts startMove). */}
-      {activeKey && !isDone && !isActive && step.work_kind !== "owner" && (
+      {/* A closed card will not be done, so it is never sent to an agent either. */}
+      {activeKey && !isDone && !isActive && step.work_kind !== "owner" && step.status !== "closed" && (
         <button
           type="button"
           className={btn}

@@ -757,7 +757,8 @@ export const KanbanBoard = React.forwardRef<HTMLDivElement, KanbanBoardProps>(
 
                   {/* Added: upstream's button had no handler. Hidden when the
                       caller has nothing for it to do. */}
-                  {onAddTask && (
+                  {/* A collapsible column (Closed) takes no new cards: closing one asks why. */}
+                  {onAddTask && !collapsible?.includes(col.id) && (
                     <button
                       type="button"
                       aria-label={`Add task to ${col.name}`}
