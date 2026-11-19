@@ -1,4 +1,5 @@
 {
+  "crons": [{ "path": "/api/cron/upkeep", "schedule": "0 12 * * *" }],
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "functions": {

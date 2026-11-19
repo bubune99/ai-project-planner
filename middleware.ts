@@ -158,6 +158,11 @@ export async function middleware(request: NextRequest) {
     return continueWith(requestHeaders);
   }
 
+  // Scheduled jobs check their own CRON_SECRET (app/api/cron/*); the scheduler has no session.
+  if (pathname.startsWith("/api/cron/")) {
+    return continueWith(requestHeaders);
+  }
+
   // MCP endpoint owns its own auth (Bearer aipp_). On a missing/invalid key it
   // returns 401 WITH a WWW-Authenticate header pointing at the protected-resource
   // metadata — which is how OAuth-capable MCP clients (Claude Desktop) discover
