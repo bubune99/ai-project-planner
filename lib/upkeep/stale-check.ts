@@ -30,9 +30,21 @@ export interface StepRow {
   fromTodo: boolean
   /** Someone has written a comment on it. */
   commented: boolean
+  /** The card's text; a card filed by a page check names its check on a "check:" line. */
+  description?: string
 }
 
 export interface Finding { kind: "idle" | "duplicate" | "unreviewed"; projectId: string; project?: string; stepIds: string[]; titles: string[]; days?: number }
+
+/**
+ * The page check a card was filed for ("check: <route> :: <control>|<workflow>|<state>"), or "". Two cards for
+ * different checks are not twins even when two controls share a label: each closes itself when its own check passes
+ * (BYB 2026-11-20, both "Fix in Settings" links).
+ */
+export function checkOf(description: string | undefined): string {
+  const m = /^check:\s*(.+)$/m.exec(String(description ?? ""))
+  return m ? m[1].trim() : ""
+}
 
 /** A title as a person reads it: case, spacing and trailing punctuation do not make two titles different. */
 export function titleKey(title: string): string {
@@ -50,7 +62,7 @@ export function findStale(rows: StepRow[], nowMs: number): Finding[] {
   }
   const groups = new Map<string, StepRow[]>()
   for (const r of open) {
-    const k = `${r.projectId}\u0000${titleKey(r.title)}`
+    const k = `${r.projectId}\u0000${titleKey(r.title)}\u0000${checkOf(r.description)}`
     if (!titleKey(r.title)) continue
     groups.set(k, [...(groups.get(k) ?? []), r])
   }

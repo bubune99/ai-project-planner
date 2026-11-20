@@ -11,7 +11,7 @@ import { findStale, questionFor, summarize, type StepRow } from "./stale-check"
 export async function runStaleCheck({ userId, projectId, ask, by }: { userId: string; projectId?: string; ask?: boolean; by?: string }) {
     // Only the caller's own projects: a question goes to the caller's own inbox.
     const rows = (await sql`
-      SELECT s.id, s.project_id, p.name AS project, s.title, s.status, s.updated_at, s.created_at,
+      SELECT s.id, s.project_id, p.name AS project, s.title, s.description, s.status, s.updated_at, s.created_at,
              (s.source_todo_id IS NOT NULL) AS from_todo,
              EXISTS (SELECT 1 FROM step_comments c WHERE c.step_id = s.id) AS commented,
              COALESCE(ps.kind, CASE s.status WHEN 'in-progress' THEN 'active' WHEN 'completed' THEN 'done'
@@ -23,7 +23,7 @@ export async function runStaleCheck({ userId, projectId, ask, by }: { userId: st
          AND (${projectId ?? null}::uuid IS NULL OR s.project_id = ${projectId ?? null}::uuid)
     `) as Record<string, unknown>[]
     const steps: StepRow[] = rows.map((r) => ({
-      id: String(r.id), projectId: String(r.project_id), project: String(r.project), title: String(r.title ?? ""),
+      id: String(r.id), projectId: String(r.project_id), project: String(r.project), title: String(r.title ?? ""), description: r.description == null ? undefined : String(r.description),
       status: String(r.status), statusKind: r.kind as StepRow["statusKind"],
       updatedAt: new Date((r.updated_at ?? r.created_at) as string).toISOString(),
       createdAt: new Date(r.created_at as string).toISOString(), fromTodo: Boolean(r.from_todo), commented: Boolean(r.commented),

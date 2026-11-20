@@ -1,5 +1,5 @@
 /* Run: npx -y tsx@4.23.15 lib/upkeep/stale-check.assert.ts */
-import { findStale, questionFor, summarize, titleKey, type StepRow } from "./stale-check"
+import { checkOf, findStale, questionFor, summarize, titleKey, type StepRow } from "./stale-check"
 
 let pass = 0, fail = 0
 const eq = (a: unknown, b: unknown, what: string) => {
@@ -28,6 +28,18 @@ eq(f.filter((x) => x.kind === "idle").map((x) => [x.stepIds[0], x.days]), [["a",
 eq(f.filter((x) => x.kind === "duplicate").map((x) => x.stepIds), [["d", "e"]], "same title in one project, both open, older first; another project or a finished card is not a twin")
 eq(f.filter((x) => x.kind === "unreviewed").map((x) => x.stepIds), [["h"]], "carried over, 30 days old and nobody has written on it: counted even if a sweep changed it yesterday; one with a comment, or a newer one, is not")
 eq(summarize(f), { idle: 1, duplicate: 1, unreviewed: 1 }, "the counts")
+
+// Two cards a page check filed for two different checks share a title when two controls share a label (BYB 2026-11-20:
+// both "Fix in Settings" links). Each closes itself when its own check passes, so they are not twins.
+const fromChecks = findStale([
+  row("k", { title: "Bug: Fix in Settings fails Go and come back", description: "...\ncheck: /admin/email :: 8|Go and come back|Desktop, dark" }),
+  row("l", { title: "Bug: Fix in Settings fails Go and come back", description: "...\ncheck: /admin/email :: 9|Go and come back|Desktop, dark" }),
+  row("m", { title: "Bug: Read it fails", description: "check: /x :: 1|Read it|Desktop" }),
+  row("n", { title: "Bug: Read it fails", description: "check: /x :: 1|Read it|Desktop" }),
+], now)
+eq(fromChecks.filter((x) => x.kind === "duplicate").map((x) => x.stepIds), [["m", "n"]], "different checks are not twins; the same check filed twice is")
+eq(checkOf("a\ncheck: /p :: 3|Click it|Phone\nmore"), "/p :: 3|Click it|Phone", "the check line is read from the description")
+eq(checkOf("no check here"), "", "no check line, no check")
 
 const q = questionFor(f, "p1")
 eq(q?.question, "1 card has a twin with the same title in Planner. Merge them?", "one question per project, in plain words")
