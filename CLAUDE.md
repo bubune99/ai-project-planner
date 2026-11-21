@@ -64,7 +64,7 @@ Every entity (idea, todo, work_order_step, prompt, skill, etc.) has a `documenta
 - `where.project_id` (auto from active project; optional for user-scoped entities like ideas/todos)
 - `why.rationale` (**YOU MUST PROVIDE** on creates — legacy mode auto-stamps "Auto-derived: created via X API endpoint" but explicit rationale is the contract)
 
-When creating any entity, pass `documentation_5wh: { why: { rationale: "...", constraints: [...], relates_to: [...] }, how: { approach: "...", success_criteria: [...] } }` to enrich beyond the auto-derived skeleton.
+The tools derive the envelope themselves and **do not take `documentation_5wh` as a field**. Give the why in `rationale` where a tool has it (create_task does), otherwise in the description. Verified 2026-11-19: none of the 24 create tools accepted it, so every envelope sent that way was silently dropped; the MCP endpoint now refuses any field a tool does not take, naming the fields it does.
 
 ### Prod alias
 
