@@ -285,7 +285,9 @@ export function nextCheck(list: Checklist, results: Result[]): (CheckRef & { sta
 export function hookLine(list: Checklist, results: Result[]): string {
   const s = summarize(list, results), next = nextCheck(list, results)
   if (!s.total) return `${list.route} has no checks yet.`
-  if (!next) return `All ${s.total} checks on ${list.route} are cleared. You may finish; the evidence goes to the reviewer.`
+  // Not "You may finish": a cleared page is not the end of a session (owner, 2026-11-21: "you are reverting from the
+  // ability to do long running tasks"). The board decides when the work is done.
+  if (!next) return `All ${s.total} checks on ${list.route} are cleared; the evidence goes to the reviewer. Take the next card on the board.`
   const waiting = next.state_now === "disputed" ? " It is disputed and waits for the owner."
     : next.state_now === "failed" ? " It failed last time: fix it, then check it again."
     : next.state_now === "flagged" ? " The scan flagged it and nobody has validated that yet: look at the real thing against the criterion, then confirm it or dismiss it as the reviewer, with what you saw." : ""

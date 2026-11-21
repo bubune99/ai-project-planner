@@ -90,7 +90,7 @@ ok("next sends the builder to failures first, then untouched checks, and to noth
 ok("the hook line names the exact next check and never lets the agent finish early", () => {
   assert.match(hookLine(list, []), /^0 of 6 checks cleared on \/catalog\. Next: control 1, Menu: "Open" in "Dark"\. You cannot finish/)
   assert.match(hookLine(list, [R(k(1), "builder", "failed", "t1")]), /control 1, Menu: "Open" in "Light"\. It failed last time/)
-  assert.match(hookLine(list, allChecks(list).map((c) => R(c.key, "builder", "passed", "t1"))), /^All 6 checks on \/catalog are cleared\. You may finish/)
+  assert.match(hookLine(list, allChecks(list).map((c) => R(c.key, "builder", "passed", "t1"))), /^All 6 checks on \/catalog are cleared; the evidence goes to the reviewer\. Take the next card/)
 })
 
 ok("a control's progress counts its own checks and reports its worst state", () => {
