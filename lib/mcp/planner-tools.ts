@@ -16,6 +16,7 @@ import { registerCatchupTools } from "./catchup-tools"
 import { registerUiTools } from "./ui-tools"
 import { registerFlowTools } from "./flow-tools"
 import { registerGateTools } from "./gate-tools"
+import { registerDirectionTools } from "./direction-tools"
 import { registerQueueTools } from "./queue-tools"
 import { registerBlockerTools } from "./blocker-tools"
 import { registerUpkeepTools } from "./upkeep-tools"
@@ -7241,6 +7242,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
   // Flow-first planning: flows, branches, owner-approved merges, button checks (lib/mcp/flow-tools.ts)
   registerFlowTools(server)
   registerGateTools(server)
+  // Direction: how the owner wants each kind of decision made (lib/mcp/direction-tools.ts)
+  registerDirectionTools(server)
   registerQueueTools(server)
   registerBlockerTools(server)
   registerUpkeepTools(server)

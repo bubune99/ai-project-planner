@@ -15,6 +15,7 @@ import { TaskList, TaskTimeline, TaskCalendar } from "@/components/project/opx/T
 import { DocsTab } from "@/components/project/opx/DocsTab"
 import { ChecksTab } from "@/components/project/opx/ChecksTab"
 import { ChangesTab } from "@/components/project/opx/ChangesTab"
+import { DirectionTab } from "@/components/project/opx/DirectionTab"
 import { PeopleFlowsTab } from "@/components/project/opx/PeopleFlowsTab"
 import { ScrollRow } from "@/components/project/opx/ScrollRow"
 import { NeedsYou, useNeedsYou } from "@/components/project/opx/NeedsYou"
@@ -49,6 +50,7 @@ const TABS = [
   { id: "tasks",      label: "Tasks" },
   { id: "docs",       label: "Docs & files" },
   { id: "decisions",  label: "Ideas & decisions" },
+  { id: "direction",  label: "Direction" },
   { id: "metrics",    label: "Metrics" },
   { id: "people",     label: "People and flows" },
   { id: "checks",     label: "Checks" },
@@ -258,6 +260,9 @@ export default function ProjectDashboardPage() {
    */
   const stepsQ = useJson(projectId ? `/api/projects/${projectId}/steps` : null)
   const waiting = useNeedsYou(projectId, stepsQ.data)
+  // Build decisions waiting on the owner in the Direction tab (lib/direction): counted on the tab, never guessed.
+  const directionQ = useJson<{ doc?: { upcoming?: { status: string }[] } }>(`/api/projects/${projectId}/direction`)
+  const directionWaiting = directionQ.data?.doc?.upcoming?.filter((u) => u.status === "waiting").length ?? 0
 
   const fetchProjectData = useCallback(async (silent = false) => {
     try {
@@ -356,6 +361,7 @@ export default function ProjectDashboardPage() {
             {tab.label}{tab.id === "tasks" && <em>{openTasks}</em>}
             {tab.id === "changes" && waiting.value.changes.length > 0 && <em>{waiting.value.changes.length}</em>}
             {tab.id === "people" && waiting.value.yours.length > 0 && <em>{waiting.value.yours.length}</em>}
+            {tab.id === "direction" && directionWaiting > 0 && <em>{directionWaiting}</em>}
           </button>
         ))}
       </ScrollRow>
@@ -380,6 +386,7 @@ export default function ProjectDashboardPage() {
       {activeTab === "people"    && <PeopleFlowsTab projectId={projectId} />}
       {activeTab === "checks"    && <ChecksTab projectId={projectId} />}
       {activeTab === "changes"   && <ChangesTab projectId={projectId} />}
+      {activeTab === "direction" && <DirectionTab projectId={projectId} />}
       {activeTab === "finance"   && <MoneyTab projectId={projectId} project={project} onChange={() => fetchProjectData(true)} />}
       {activeTab === "settings"  && <SettingsTab projectId={projectId} project={project} onChange={() => fetchProjectData(true)} />}
     </div>

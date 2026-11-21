@@ -1268,3 +1268,28 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
 
 /* Subtasks in place (2026-11-17): the list's subtask count is a 44px target on touch widths. */
 @media (max-width: 1023px) { .opx-lv .opx-chip[aria-expanded] { min-height: 44px; } }
+
+/* Direction tab (components/project/opx/DirectionTab.tsx) */
+.opx-dir { display: grid; gap: 16px; }
+.opx-dir-lead { margin: 0 0 12px; font-size: 13.5px; line-height: 1.5; max-width: 80ch; }
+.opx-dir-none { margin: 0; color: var(--opx-muted); font-size: 13.5px; }
+.opx-dir-notice { margin: 10px 0 0; font-size: 13px; color: var(--opx-warn); }
+.opx-dir-area { margin-top: 14px; }
+.opx-dir-area h3 { font-size: 14px; font-weight: 600; margin: 0 0 6px; }
+.opx-dir-list { list-style: none; margin: 0; padding: 0; }
+.opx-dir-item { padding: 12px 0; border-top: 1px solid var(--opx-line); display: grid; gap: 4px; min-width: 0; }
+.opx-dir-item:first-child { border-top: 0; }
+.opx-dir-item p { margin: 0; font-size: 13.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.opx-dir-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.opx-dir-head b { font-weight: 600; font-size: 14px; }
+.opx-dir-mode { margin-left: auto; }
+.opx-dir-mode .opx-seg button { padding: 4px 11px; font-size: 12.5px; }
+.opx-dir-small { font-size: 12.5px; }
+.opx-dir-note .opx-btn { margin-left: 6px; }
+.opx-dir-item > .opx-btn, .opx-dir-item > .opx-row { justify-self: start; margin-top: 4px; }
+.opx-dir-edit { display: grid; gap: 6px; margin-top: 4px; max-width: 640px; }
+@media (max-width: 640px) {
+  .opx-dir-mode { margin-left: 0; width: 100%; }
+  .opx-dir-mode .opx-seg { display: flex; width: 100%; }
+  .opx-dir-mode .opx-seg button { flex: 1; padding: 6px 4px; }
+}
