@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
-  MAX_WAYS, STEP_WORD, areaMeaning, cellKind, everyStep, findControl, freshId, orphans, refOf, sameRef, scoreFlow, shiftSpans, stepState,
+  MAX_WAYS, OWNER, STEP_WORD, areaMeaning, cellKind, everyStep, findControl, freshId, isReviewed, markReviewed, orphans, proposedByOf, refOf, sameRef, scoreFlow, shiftSpans, stepState, waitingForReview,
   type ControlRef, type FlowDoc, type PageRecord, type Person, type Step, type StepState,
 } from "@/lib/people/people-model"
 import { shotAt, type Checklist, type Result, type View } from "@/lib/gates/gate-model"
@@ -178,6 +178,7 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
   const scores = doc.flows.map((f) => scoreFlow(records, f))
   const total = (k: "n" | "ok" | "gap") => scores.reduce((t, s) => t + s[k], 0)
   const loose = curPage ? orphans(curPage.route, curPage.checklist, doc) : []
+  const waiting = waitingForReview(doc)
   const allIds = () => [...doc.people, ...doc.personas, ...doc.flows, ...doc.areas, ...doc.flows.flatMap((f) => everyStep(f)), ...doc.flows.flatMap((f) => f.steps.flatMap((s) => s.ways ?? []))].map((x) => x.id)
   const seed = Date.now() % 100000
 
@@ -308,6 +309,7 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
           {mine.map((f) => { const s = scoreFlow(records, f); return (
             <button type="button" key={f.id} className={`opx-pf-row${f.id === flow.id ? " on" : ""}`} onClick={() => setFlowId(f.id)}>
               <b>{f.name}</b>
+              {!isReviewed(f) && <small data-testid="row-waiting">{can ? "Waiting for your review" : "Waiting for the owner's review"}</small>}
               <small>{s.ok} of {s.n} steps verified{s.bad ? `, ${s.bad} failing` : ""}{s.gap ? `, ${s.gap} with nothing behind ${s.gap === 1 ? "it" : "them"}` : ""}</small>
               {s.n > 0 && <span className="opx-pf-bar"><i className="ok" style={{ width: `${(s.ok / s.n) * 100}%` }} /><i className="bad" style={{ width: `${(s.bad / s.n) * 100}%` }} /><i className="gap" style={{ width: `${(s.gap / s.n) * 100}%` }} /></span>}
             </button>
@@ -319,6 +321,18 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
           <div>
             <div className="opx-pf-head"><Ed as="h3" value={flow.name} label="Use case name" required can={can} onSave={(v) => edit((d) => { d.flows.find((x) => x.id === flow.id)!.name = v })} />
               {can && <button type="button" className="opx-btn sm" onClick={() => edit((d) => { d.flows = d.flows.filter((x) => x.id !== flow.id); for (const q of d.personas) delete q.at[flow.id]; setFlowId(null) })}>Remove this use case</button>}</div>
+            <div className="opx-pf-ways" data-testid="use-case-review">
+              <small>Proposed by {proposedByOf(flow) === OWNER ? (can ? "you" : "the owner") : proposedByOf(flow)}</small>
+              {isReviewed(flow)
+                ? <><span className="opx-pf-tag">{can ? "Reviewed by you" : "Reviewed by the owner"}</span>{can && <button type="button" className="opx-btn sm" aria-label={`Mark "${flow.name}" not reviewed`} onClick={() => edit((d) => { d.flows = markReviewed(d, flow.id, false).flows })}>Mark not reviewed</button>}</>
+                : <><span className="opx-pf-tag">{can ? "Waiting for your review" : "Waiting for the owner's review"}</span>{can && <button type="button" className="opx-btn sm" aria-label={`Mark "${flow.name}" reviewed`} onClick={() => edit((d) => { d.flows = markReviewed(d, flow.id, true).flows })}>Mark reviewed</button>}</>}
+            </div>
+            {!isReviewed(flow) && (flow.sinceReview?.length ?? 0) > 0 && (
+              <div className="opx-pf-box" data-testid="since-review">
+                <h4>Changed since {can ? "you" : "the owner"} reviewed it</h4>
+                <ul>{flow.sinceReview!.map((line, i) => <li key={i}>{line}</li>)}</ul>
+              </div>
+            )}
             <div className="opx-pf-lens"><small>Why {person.name.toLowerCase()} does this, and what they look for</small><Ed as="div" value={flow.lens} hint="Say how their background shapes what they want here." label="Why they do this" can={can} onSave={(v) => edit((d) => { d.flows.find((x) => x.id === flow.id)!.lens = v })} /></div>
             <div className="opx-pf-ways"><small>Seen as</small>
               {ways.map((q) => <button type="button" key={q.id} className={`opx-pf-way${q.id === persona?.id ? " on" : ""}`} onClick={() => setPersonaId(q.id)}>{q.name}</button>)}
@@ -468,6 +482,14 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
 
           {person && (
             <section className="opx-sec opx-pf-body">
+              {doc.flows.length > 0 && (
+                <div className="opx-pf-ways" data-testid="review-count">
+                  {waiting.length === 0
+                    ? <small>{can ? "You have reviewed every use case." : "The owner has reviewed every use case."}</small>
+                    : <><small><b>{waiting.length}</b> {waiting.length === 1 ? "use case is" : "use cases are"} waiting for {can ? "your" : "the owner's"} review</small>
+                      {waiting.map((f) => <button type="button" key={f.id} className={`opx-pf-way${f.id === flow?.id ? " on" : ""}`} aria-label={`Open the use case "${f.name}", which is waiting for review`} onClick={() => { setPersonId(f.who); setFlowId(f.id); setPersonaId(null); setRemoving(null); setView("flow") }}>{f.name}</button>)}</>}
+                </div>
+              )}
               <Seg value={view} label="How to look at it" options={[["flow", "By use case"], ["page", "By page, comparing users"]]} onChange={setView} />
               {view === "page" ? pageView() : flowView()}
             </section>

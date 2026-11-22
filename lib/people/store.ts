@@ -4,10 +4,10 @@
  * access first.
  */
 import { sql } from "@/lib/db/client"
-import { describeChanges, emptyDoc, parseDoc, type FlowDoc } from "./people-model"
+import { describeChanges, emptyDoc, parseDoc, reviewRefusals, settleReview, type FlowDoc } from "./people-model"
 
 export class FlowError extends Error {
-  constructor(message: string, readonly status: 400 | 409 = 400) { super(message) }
+  constructor(message: string, readonly status: 400 | 403 | 409 = 400) { super(message) }
 }
 
 const iso = (d: string | Date) => new Date(d).toISOString()
@@ -29,12 +29,20 @@ export async function loadFlows(projectId: string) {
 /**
  * Saves the whole document. `baseVersion` is the version the sender was looking at: if someone else saved since, the
  * save is refused rather than silently overwriting them. Nothing changed means nothing is written or recorded.
+ *
+ * Whether a use case is reviewed is the owner's to say: an agent's save that marks one reviewed (or puts one back) is
+ * refused, and an agent's change to a reviewed use case's goal or steps is stored as waiting for his review again.
  */
 export async function saveFlows(a: { projectId: string; userId: string; raw: unknown; baseVersion: number; actor: "owner" | "agent" }): Promise<{ doc: FlowDoc; version: number; lines: string[] }> {
-  const { doc, errors } = parseDoc(a.raw)
+  const { doc: sent, errors } = parseDoc(a.raw)
   if (errors.length) throw new FlowError(errors.slice(0, 6).join(". "))
   const current = await loadFlows(a.projectId)
   if (current.version !== a.baseVersion) throw new FlowError("Someone else changed this since you opened it. It has been reloaded; make your change again.", 409)
+  if (a.actor === "agent") {
+    const refused = reviewRefusals(current.doc, sent)
+    if (refused.length) throw new FlowError(refused.slice(0, 4).join(". "), 403)
+  }
+  const doc = settleReview(current.doc, sent, { actor: a.actor })
   const lines = describeChanges(current.doc, doc)
   if (!lines.length) return { doc: current.doc, version: current.version, lines }
   const next = current.version + 1, json = JSON.stringify(doc)

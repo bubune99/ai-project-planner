@@ -34,7 +34,20 @@ export interface Step { id: string; does: string; expects: string; data: string;
  */
 export interface Way { id: string; label: string; steps: Step[]; ends: boolean }
 export const MAX_WAYS = 4
-export interface UseCase { id: string; who: string; name: string; lens: string; steps: Step[] }
+/**
+ * `proposedBy`, `reviewed` and `sinceReview` are the owner's review of the list (owner, 2026-11-16: agents propose
+ * the use cases, "but it is something that I need to review in all situations"). A use case without them was written
+ * before this was recorded: it reads as proposed by the owner and reviewed. Stored only when they say otherwise.
+ */
+export interface UseCase {
+  id: string; who: string; name: string; lens: string; steps: Step[]
+  /** Who put it on the list: left out for the owner, else the agent's name. */
+  proposedBy?: string
+  /** Left out when the owner has reviewed it; false while it waits for him. */
+  reviewed?: boolean
+  /** What agents changed in its goal or steps since he last reviewed it, oldest first. */
+  sinceReview?: string[]
+}
 export interface Area { id: string; route: string; name: string; ref?: ControlRef | null; does: Record<string, string> }
 export interface FlowDoc { people: Person[]; personas: Persona[]; flows: UseCase[]; areas: Area[] }
 
@@ -43,7 +56,7 @@ export const everyStep = (flow: Pick<UseCase, "steps">): Step[] => flow.steps.fl
 
 export const emptyDoc = (): FlowDoc => ({ people: [], personas: [], flows: [], areas: [] })
 
-const LIMITS = { people: 20, personas: 40, flows: 80, steps: 40, areas: 80, text: 600 }
+const LIMITS = { people: 20, personas: 40, flows: 80, steps: 40, areas: 80, text: 600, name: 60, since: 8 }
 const PERSON_TEXT = ["name", "background", "wants", "context", "frustrations", "may", "mayNot", "basis"] as const
 
 /**
@@ -100,8 +113,12 @@ export function parseDoc(raw: unknown): { doc: FlowDoc; errors: string[] } {
     }
     const who = typeof o.who === "string" ? o.who : ""
     if (!pIds.has(who)) errors.push(`${where} belongs to a person who is not in the list`)
+    const proposedBy = text(o.proposedBy, `${where} "proposed by"`).slice(0, LIMITS.name)
+    if (o.reviewed !== undefined && typeof o.reviewed !== "boolean") errors.push(`${where}: "reviewed" must be true or false`)
+    const since = (Array.isArray(o.sinceReview) ? o.sinceReview : []).map((x) => (typeof x === "string" ? x.replace(/\s+/g, " ").trim().slice(0, LIMITS.text) : "")).filter(Boolean).slice(-LIMITS.since)
     return {
       id: id(o.id, where, fIds), who, name: text(o.name, `${where} name`, true), lens: text(o.lens, `${where} lens`),
+      ...(proposedBy ? { proposedBy } : {}), ...(typeof o.reviewed === "boolean" ? { reviewed: o.reviewed } : {}), ...(since.length ? { sinceReview: since } : {}),
       steps: arr(o.steps, "steps").map((s, k) => {
         const sw = `${where}, step ${k + 1}`, step = readStep(s, sw)
         if (obj(s).ways === undefined) return step
@@ -239,29 +256,118 @@ export function describeChanges(before: FlowDoc, after: FlowDoc): string[] {
   group("person", before.people, after.people, [...PERSON_TEXT])
   group("persona", before.personas, after.personas, ["name", "habit", "cares", "at", "who"])
   group("use case", before.flows, after.flows, ["name", "lens", "who"], (x, y) => {
-    const A = byId(everyStep(x)), B = byId(everyStep(y))
-    for (const s of y.steps) {
-      const was = (A.get(s.id)?.ways ?? []).map((w) => `${w.label}${w.ends ? " (ends)" : ""}`).join(", "), now = (s.ways ?? []).map((w) => `${w.label}${w.ends ? " (ends)" : ""}`).join(", ")
-      if (A.has(s.id) && was !== now) out.push(now ? `Use case "${y.name}": "${s.does}" is now a choice: ${now}` : `Use case "${y.name}": "${s.does}" is no longer a choice`)
-    }
-    for (const s of everyStep(y)) if (!A.has(s.id)) out.push(`Use case "${y.name}": added the step "${s.does}"`)
-    for (const s of everyStep(x)) if (!B.has(s.id)) out.push(`Use case "${y.name}": removed the step "${s.does}"`)
-    for (const s of everyStep(y)) {
-      const p = A.get(s.id)
-      if (!p) continue
-      const ch = (["does", "expects", "data", "note"] as const).filter((k) => (p[k] ?? "") !== (s[k] ?? ""))
-      if (ch.length) out.push(`Use case "${y.name}": reworded the step "${s.does}"`)
-      if (!sameRef(p.ref, s.ref) && (p.ref || s.ref)) out.push(`Use case "${y.name}": the step "${s.does}" ${s.ref ? `now points at "${s.ref.label}"` : "no longer points at anything on the page"}`)
-    }
-    const kept = (ids: string[], other: Map<string, Step>) => ids.filter((i) => other.has(i)).join(" ")
-    if (kept(x.steps.map((s) => s.id), B) !== kept(y.steps.map((s) => s.id), A)) out.push(`Use case "${y.name}": the steps were put in a different order`)
+    for (const c of stepChanges(x, y)) out.push(`Use case "${y.name}": ${c.line}`)
+    if (isReviewed(x) !== isReviewed(y)) out.push(isReviewed(y) ? `Marked use case "${y.name}" reviewed` : `Use case "${y.name}" is back to not reviewed`)
   })
+  const had = new Set(before.flows.map((f) => f.id))
+  for (const y of after.flows) if (!had.has(y.id) && !isReviewed(y)) out.push(`Use case "${y.name}" waits for the owner's review (proposed by ${proposedByOf(y)})`)
   group("page part", before.areas, after.areas, ["name", "does", "ref", "route"])
+  return out
+}
+/** What changed in a use case's steps, each as the end of a sentence. `link` marks a change to what a step points at only. */
+function stepChanges(x: Pick<UseCase, "steps">, y: Pick<UseCase, "steps">): { line: string; link: boolean }[] {
+  const out: { line: string; link: boolean }[] = []
+  const said = (line: string, link = false) => out.push({ line, link })
+  const byId = (a: Step[]) => new Map(a.map((s) => [s.id, s]))
+  const A = byId(everyStep(x)), B = byId(everyStep(y))
+  for (const s of y.steps) {
+    const was = (A.get(s.id)?.ways ?? []).map((w) => `${w.label}${w.ends ? " (ends)" : ""}`).join(", "), now = (s.ways ?? []).map((w) => `${w.label}${w.ends ? " (ends)" : ""}`).join(", ")
+    if (A.has(s.id) && was !== now) said(now ? `"${s.does}" is now a choice: ${now}` : `"${s.does}" is no longer a choice`)
+  }
+  for (const s of everyStep(y)) if (!A.has(s.id)) said(`added the step "${s.does}"`)
+  for (const s of everyStep(x)) if (!B.has(s.id)) said(`removed the step "${s.does}"`)
+  for (const s of everyStep(y)) {
+    const p = A.get(s.id)
+    if (!p) continue
+    const ch = (["does", "expects", "data", "note"] as const).filter((k) => (p[k] ?? "") !== (s[k] ?? ""))
+    if (ch.length) said(`reworded the step "${s.does}"`)
+    if (!sameRef(p.ref, s.ref) && (p.ref || s.ref)) said(`the step "${s.does}" ${s.ref ? `now points at "${s.ref.label}"` : "no longer points at anything on the page"}`, true)
+  }
+  const kept = (ids: string[], other: Map<string, Step>) => ids.filter((i) => other.has(i)).join(" ")
+  if (kept(x.steps.map((s) => s.id), B) !== kept(y.steps.map((s) => s.id), A)) said("the steps were put in a different order")
   return out
 }
 const FIELD_WORD: Record<string, string> = {
   background: "who they are", wants: "what they want", context: "when and where they use it", frustrations: "what gets in their way", may: "what they may do", mayNot: "what they may not",
   basis: "where it comes from", habit: "the habit", cares: "what they care about", at: "where they start and stop", who: "who it belongs to", lens: "why they do it", does: "who uses it and how", ref: "what it points at", route: "the page",
+}
+
+// ---- who proposed a use case, and whether the owner has reviewed it ----
+
+export const OWNER = "owner"
+/** What an agent is called when it gave no name. */
+export const UNNAMED_AGENT = "an agent"
+const isOwnerName = (s: string | undefined) => !s || s.trim().toLowerCase() === OWNER
+export const proposedByOf = (f: Pick<UseCase, "proposedBy">): string => (isOwnerName(f.proposedBy) ? OWNER : f.proposedBy!)
+export const isReviewed = (f: Pick<UseCase, "reviewed">): boolean => f.reviewed !== false
+/** The use cases the owner has not reviewed yet, in the order they are listed. */
+export const waitingForReview = (doc: Pick<FlowDoc, "flows">): UseCase[] => doc.flows.filter((f) => !isReviewed(f))
+
+/** A use case with its review fields written the one way they are stored: only what differs from "the owner's, reviewed". */
+function withReview(f: UseCase, proposedBy: string, reviewed: boolean, since: string[]): UseCase {
+  const { proposedBy: _p, reviewed: _r, sinceReview: _s, ...rest } = f
+  return { ...rest, ...(isOwnerName(proposedBy) ? {} : { proposedBy }), ...(reviewed ? {} : { reviewed: false, ...(since.length ? { sinceReview: since.slice(-LIMITS.since) } : {}) }) }
+}
+
+/**
+ * What changed in a use case's goal or steps, each as the end of a sentence ("reworded the step ..."). Pointing a step
+ * at a control on the page is not one: it says what does the step, not what the step is.
+ */
+export function goalOrStepChanges(x: UseCase, y: UseCase): string[] {
+  const out: string[] = []
+  if (x.name !== y.name) out.push(`renamed it from "${x.name}" to "${y.name}"`)
+  if (x.lens !== y.lens) out.push("changed why they do it")
+  if (x.who !== y.who) out.push("gave it to another person")
+  return [...out, ...stepChanges(x, y).filter((c) => !c.link).map((c) => c.line)]
+}
+
+/** The owner's own edit: a new document with one use case marked reviewed (which clears what changed) or not. */
+export function markReviewed(doc: FlowDoc, flowId: string, reviewed: boolean): FlowDoc {
+  if (!doc.flows.some((f) => f.id === flowId)) return doc
+  return { ...doc, flows: doc.flows.map((f) => (f.id === flowId ? withReview(f, proposedByOf(f), reviewed, []) : f)) }
+}
+
+/**
+ * What an agent's save may not do to the review, in words; empty means it can be saved. Only the owner, in a signed-in
+ * browser session, marks a use case reviewed or puts it back, and who proposed one is a record, not a field to edit.
+ * Sending a use case back as it was read, or without these fields, is never refused: settleReview fills them in.
+ */
+export function reviewRefusals(before: FlowDoc, sent: FlowDoc): string[] {
+  const out: string[] = []
+  const was = new Map(before.flows.map((f) => [f.id, f]))
+  for (const y of sent.flows) {
+    const x = was.get(y.id), where = `Use case "${y.name}"`
+    if (!x) {
+      if (y.proposedBy && isOwnerName(y.proposedBy)) out.push(`${where}: an agent cannot record a use case as proposed by the owner. Leave "proposedBy" out or give the agent's name`)
+      if (y.reviewed === true) out.push(`${where}: only the owner, signed in, can mark a use case reviewed. A use case an agent adds waits for his review`)
+      continue
+    }
+    if (y.proposedBy && proposedByOf(y) !== proposedByOf(x)) out.push(`${where}: who proposed a use case is not changed after it is listed (it was ${proposedByOf(x) === OWNER ? "the owner" : proposedByOf(x)})`)
+    const changed = goalOrStepChanges(x, y).length > 0
+    if (y.reviewed === true && (!isReviewed(x) || changed)) out.push(`${where}: only the owner, signed in, can mark a use case reviewed${changed && isReviewed(x) ? `. An agent's change to its goal or steps puts it back to not reviewed; leave "reviewed" out` : ""}`)
+    if (y.reviewed === false && isReviewed(x) && !changed) out.push(`${where}: only the owner, signed in, can put a reviewed use case back to not reviewed`)
+  }
+  return out
+}
+
+/**
+ * The document as it is stored after a save, with the review settled. The owner's save is kept as he sent it. An
+ * agent's save keeps who proposed each use case, lists a new one under the agent's name as waiting for review, and puts
+ * a reviewed one back to not reviewed when its goal or steps changed, keeping what changed. Call reviewRefusals first.
+ */
+export function settleReview(before: FlowDoc, sent: FlowDoc, by: { actor: "owner" | "agent"; name?: string }): FlowDoc {
+  if (by.actor === "owner") return { ...sent, flows: sent.flows.map((y) => withReview(y, proposedByOf(y), isReviewed(y), y.sinceReview ?? [])) }
+  const given = (by.name ?? "").replace(/\s+/g, " ").trim().slice(0, LIMITS.name), name = isOwnerName(given) ? UNNAMED_AGENT : given
+  const Name = name.charAt(0).toUpperCase() + name.slice(1)
+  const was = new Map(before.flows.map((f) => [f.id, f]))
+  return { ...sent, flows: sent.flows.map((y) => {
+    const x = was.get(y.id)
+    if (!x) return withReview(y, isOwnerName(y.proposedBy) ? name : y.proposedBy!, false, [])
+    const changed = goalOrStepChanges(x, y), reviewed = isReviewed(x) && !changed.length
+    // What changed is kept only for a use case he had reviewed; one he has never reviewed is new to him as a whole.
+    const since = isReviewed(x) || x.sinceReview?.length ? [...(x.sinceReview ?? []), ...changed.map((c) => `${Name} ${c}`)] : []
+    return withReview(y, proposedByOf(x), reviewed, since)
+  }) }
 }
 
 /**
