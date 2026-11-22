@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { sql } from "@/lib/db/client"
 import { getAuthContext } from "@/lib/auth/auth-utils"
+import { withPartWaiting } from "@/lib/work/part-waiting"
 
 export const dynamic = "force-dynamic"
 
@@ -35,7 +36,8 @@ export async function GET() {
       ORDER BY mine.name ASC, ps.order_index ASC, ps.created_at ASC
       LIMIT 3000
     `
-    return NextResponse.json({ steps })
+    // Shipped with a part waiting on the caller's answer: read from the card's records, never stored (card 2f95e84a).
+    return NextResponse.json({ steps: await withPartWaiting(auth.userId, steps as { id: string; project_id: string }[]) })
   } catch (error) {
     console.error("GET /api/steps failed:", error)
     return NextResponse.json({ error: "Couldn't load the cards" }, { status: 500 })

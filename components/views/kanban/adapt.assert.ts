@@ -10,7 +10,7 @@ import {
   toProgress,
   toKanbanTask,
   toKanbanColumns,
-  toFootnotes, toSubtaskList, authorLine, closedLine } from "./adapt"
+  toFootnotes, toSubtaskList, authorLine, closedLine, standingLine } from "./adapt"
 import type { BoardStep } from "@/lib/types"
 
 let pass = 0
@@ -284,6 +284,16 @@ eq(closedLine({ status: "paused", metadata: { closed: { why: "x" } } } as never)
 eq(closedLine({ status: "closed", metadata: null } as never)?.label, "Closed", "closed with no reason")
 eq(closedLine({ status: "closed", metadata: { closed: { why: "a".repeat(80) } } } as never)?.label.length, 68, "a long reason is shortened on the card")
 eq(toKanbanTask({ ...base, status: "requested", created_by: "owner" } as never, { statusMap }).footnotes?.some((f) => f.label === "By you"), true, "the author reaches the card")
+
+// Shipped, part waiting on the owner (card 2f95e84a): said on the card in words, in whichever column it really is.
+{
+  const w = { label: "Shipped, part waiting on you", questionId: "q1", question: "Run the paid model on A7?", ship: { sha: "0f9af3f9", repo: "bubune99/crypto-collab", target: "main", at: "2026-11-17T19:58:00Z", left: null } }
+  eq(standingLine({ status: "blocked", part_waiting: w } as never), { label: "Shipped, part waiting on you", title: "It is live. Waiting on your answer: Run the paid model on A7?" }, "a shipped card with a question open says so, and names the question")
+  eq(toKanbanTask({ ...base, status: "blocked", part_waiting: w } as never, { statusMap }).standing?.label, "Shipped, part waiting on you", "it reaches a blocked card")
+  eq(toKanbanTask({ ...base, status: "completed", part_waiting: w } as never, { statusMap }).standing?.label, "Shipped, part waiting on you", "and a finished one, which is no longer shown as only complete")
+  eq(toKanbanTask({ ...base, status: "blocked", part_waiting: null } as never, { statusMap }).standing, undefined, "a card blocked with no ship says nothing extra: plain Blocked")
+  eq(toKanbanTask({ ...base, status: "blocked" } as never, { statusMap }).standing, undefined, "a card from a list that does not look it up says nothing")
+}
 
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)

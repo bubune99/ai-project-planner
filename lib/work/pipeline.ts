@@ -81,6 +81,60 @@ export function whenQuestionAnswered(status: string, hold: OpenHold | null, ques
   return othersOpen.length ? { holdFor: othersOpen[0] } : { to: "pending" }
 }
 
+/*
+  Shipped, part waiting on the owner (card 2f95e84a). A card whose work is live but where one part needs his answer
+  could only be shown as Blocked (which hid that it shipped) or Complete (which hid that he owes an answer). It is
+  not a column and nobody types it: it is read from two records the card already has. `gates shipped` writes a note
+  on each card a production ship finishes or moves on (step_comments, author "gates shipped"), and the commit it names
+  has a production ship record (gate_ships); and a question in his inbox is open about the card.
+*/
+export const SHIP_NOTE_AUTHOR = "gates shipped"
+/** The two notes a production ship leaves on a card. Staging notes start with other words and are never a ship. */
+const SHIP_NOTE = /^(?:Done and live|Moved on): (\S+)@([0-9a-f]{7,40}) on (\S+?)\. Seen: /i
+export interface ShipNote { sha: string; repo: string; target: string; /** What the ship said is still to do, when it moved the card on. */ left: string | null }
+/** What a comment on a card says shipped to production, or null when it is not such a note. */
+export function readShipNote(authorLabel: string | null | undefined, body: string | null | undefined): ShipNote | null {
+  if (authorLabel !== SHIP_NOTE_AUTHOR) return null
+  const text = String(body ?? "").trim(), m = SHIP_NOTE.exec(text)
+  if (!m) return null
+  const left = /\. Still to do: ([\s\S]+)$/.exec(text)?.[1].trim() || null
+  return { sha: m[2].toLowerCase(), repo: m[1], target: m[3], left }
+}
+
+export interface CardShip extends ShipNote { /** When the ship record says it went live. */ at: string }
+const sameCommit = (a: string, b: string) => a.length >= 7 && b.length >= 7 && (a.startsWith(b) || b.startsWith(a))
+/**
+ * The card's newest ship: a note from `gates shipped` whose commit has a production ship record. A note alone is a
+ * comment; a ship record alone names no card.
+ */
+export function shipOf(notes: { authorLabel: string | null; body: string; at: string }[], recorded: { sha: string; at: string }[]): CardShip | null {
+  const newestFirst = [...notes].sort((a, b) => b.at.localeCompare(a.at))
+  for (const n of newestFirst) {
+    const note = readShipNote(n.authorLabel, n.body)
+    const rec = note && recorded.find((r) => sameCommit(String(r.sha).toLowerCase(), note.sha))
+    if (note && rec) return { ...note, at: rec.at }
+  }
+  return null
+}
+
+export const PART_WAITING = "Shipped, part waiting on you"
+export interface PartWaiting { label: string; questionId: string; question: string; ship: CardShip }
+/**
+ * Is this card shipped with a part still waiting on the owner? `openQuestions` are his unanswered questions about
+ * the card, oldest first.
+ *   blocked   the question its blocker names must be one of them (that is the one shown)
+ *   finished  any open question about it (the oldest is shown)
+ * Anything else follows the rules above: no ship is plain Blocked, an answered question returns the card to Up next,
+ * a card blocked on another card or with no question named says its own reason.
+ */
+export function partWaiting(card: { status: string; kind: string }, hold: OpenHold | null, openQuestions: { id: string; text: string }[], ship: CardShip | null): PartWaiting | null {
+  if (!ship) return null
+  const q = card.status === "blocked"
+    ? (hold && hold.waitingOn === "owner" && hold.questionId ? openQuestions.find((x) => x.id === hold.questionId) : undefined)
+    : card.kind === "done" ? openQuestions[0] : undefined
+  return q ? { label: PART_WAITING, questionId: q.id, question: q.text, ship } : null
+}
+
 /** How long a card may sit in progress, sent but not picked up, before it is shown as a fault. */
 export const PICKUP_MINUTES = 30
 export type Holding = { state: "held"; by: string; since: string | null } | { state: "sent"; since: string } | { state: "nobody" }

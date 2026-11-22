@@ -16,7 +16,7 @@ import { RichText } from "@/components/shared/RichText"
 import { addPicture, cardPictures, fileUrl, kindLabel, overall, proposalParts, removePicture, stepTree, withoutPictures, type Picture } from "@/lib/work/card-view"
 import { holderLine } from "./kanban/adapt"
 import Link from "next/link"
-import { useJson, ago } from "@/components/project/opx/shared"
+import { useJson, ago, fmtDate } from "@/components/project/opx/shared"
 import type { InboxItem } from "@/lib/inbox"
 import type { ProjectStatus } from "./kanban-config"
 
@@ -137,7 +137,11 @@ export function CardProposal({ metadata }: { metadata: Record<string, unknown> |
   )
 }
 
-/** The owner's open questions that hold this card: what each asks, and that it waits on him (card f473b5d4). */
+/**
+ * The owner's open questions that hold this card: what each asks, and that it waits on him (card f473b5d4). When the
+ * card's work is already live (card 2f95e84a) the heading says so and names the ship, so a blocked card is not read as
+ * unfinished and a finished one is not read as owing nothing.
+ */
 export function CardQuestions({ step }: { step: BoardStep }) {
   const q = useJson<{ data?: InboxItem[] }>(`/api/inbox?step=${step.id}`)
   const { reload } = q
@@ -145,7 +149,8 @@ export function CardQuestions({ step }: { step: BoardStep }) {
   const first = useRef(true)
   useEffect(() => { if (first.current) { first.current = false; return } reload() }, [step.status, reload])
   const items = q.data?.data ?? []
-  const heading = <h4 className="text-[13px] font-semibold text-muted-foreground mb-2">Waiting on you</h4>
+  const w = step.part_waiting ?? null
+  const heading = <h4 className="text-[13px] font-semibold text-muted-foreground mb-2">{w ? w.label : "Waiting on you"}</h4>
   if (q.error) {
     return (
       <section data-testid="card-questions" role="alert">
@@ -165,6 +170,12 @@ export function CardQuestions({ step }: { step: BoardStep }) {
   return (
     <section data-testid="card-questions">
       {heading}
+      {w && (
+        <p className="mb-2 text-sm leading-relaxed [overflow-wrap:anywhere]" data-testid="card-shipped">
+          The work is live: {w.ship.repo} at {w.ship.sha.slice(0, 8)} on {w.ship.target}, shipped {fmtDate(w.ship.at)}.
+          {w.ship.left ? ` Still to do: ${w.ship.left}` : ""}
+        </p>
+      )}
       <ul className="space-y-2">
         {items.map((i) => (
           <li key={i.id} className="rounded-lg bg-accent/40 px-3 py-2.5">

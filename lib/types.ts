@@ -226,6 +226,8 @@ export interface BoardStep {
   work_kind?: "task" | "initiative" | "upkeep" | "owner"
   claimed_by_id?: string | null
   claimed_at?: string | null
+  /** Shipped, with a part waiting on the owner's answer (lib/work/pipeline.ts partWaiting). Set by the list routes; never stored. */
+  part_waiting?: import("@/lib/work/pipeline").PartWaiting | null
 }
 
 export interface Phase {

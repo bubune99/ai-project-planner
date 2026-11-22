@@ -6,6 +6,7 @@
  */
 
 import { sendIfMoved } from "@/lib/work/send";
+import { withPartWaiting } from "@/lib/work/part-waiting";
 import type { WorkRow } from "@/lib/work/pipeline";
 import { type NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
@@ -69,7 +70,8 @@ export async function GET(
       ORDER BY ps.order_index ASC, ps.created_at ASC
     `;
 
-    return NextResponse.json({ steps });
+    // Shipped with a part waiting on the caller's answer: read from the card's records, never stored (card 2f95e84a).
+    return NextResponse.json({ steps: await withPartWaiting(userId, steps as { id: string; project_id: string }[]) });
   } catch (error: unknown) {
     console.error("Error fetching steps:", error);
     const message = error instanceof Error ? error.message : "Unknown error";

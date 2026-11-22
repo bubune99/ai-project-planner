@@ -1,6 +1,6 @@
 // npx -y tsx@4.23.15 lib/work/pipeline.assert.ts
 import assert from "node:assert/strict"
-import { faultOf, holding, jobFor, rollup, sendsOnMove, type WorkRow, startMove, whenQuestionAsked, whenQuestionAnswered, type OpenHold } from "./pipeline"
+import { faultOf, holding, jobFor, rollup, sendsOnMove, type WorkRow, startMove, whenQuestionAsked, whenQuestionAnswered, type OpenHold, PART_WAITING, partWaiting, readShipNote, shipOf } from "./pipeline"
 
 let n = 0
 const ok = (name: string, fn: () => void) => { fn(); n++; console.log("ok  ", name) }
@@ -106,6 +106,66 @@ ok("a card finished, moved by the owner, or blocked again for another reason is 
   assert.equal(whenQuestionAnswered("blocked", hold(), "q1", []), null)
   assert.equal(whenQuestionAnswered("blocked", hold({ waitingOn: "card", dependsOnCard: true }), "q1", []), null)
   assert.equal(whenQuestionAnswered("blocked", null, "q1", []), null)
+})
+
+// Shipped, part waiting on the owner (card 2f95e84a). The notes are the exact words `gates shipped` writes on a card.
+const LIVE_CLOSE = "Done and live: bubune99/crypto-collab@0f9af3f9 on main. Seen: the A7 panel on crypto.example.com shows the new model picker"
+const LIVE_ADVANCE = "Moved on: bubune99/crypto-collab@0f9af3f9 on main. Seen: the A7 panel shows the model picker. Still to do: the paid model run, which waits on the owner"
+const STAGING_CLOSE = "On staging, not yet in production (bubune99/crypto-collab@0f9af3f9 on staging). Seen: the panel on staging. The card closes when this reaches production."
+const STAGING_ADVANCE = "Moved on (staging only): bubune99/crypto-collab@0f9af3f9 on staging. Seen: the panel on staging. Still to do: production"
+const note = (body: string, at = "2026-11-17T20:00:00Z", authorLabel = "gates shipped") => ({ authorLabel, body, at })
+const RECORDED = [{ sha: "0f9af3f9c2d1e0aa11223344556677889900aabb", at: "2026-11-17T19:58:00Z" }]
+
+ok("a ship note is read only from what `gates shipped` wrote, and only production counts as live", () => {
+  assert.deepEqual(readShipNote("gates shipped", LIVE_CLOSE), { sha: "0f9af3f9", repo: "bubune99/crypto-collab", target: "main", left: null })
+  assert.deepEqual(readShipNote("gates shipped", LIVE_ADVANCE), { sha: "0f9af3f9", repo: "bubune99/crypto-collab", target: "main", left: "the paid model run, which waits on the owner" })
+  assert.equal(readShipNote("gates shipped", STAGING_CLOSE), null, "staging is never shipped")
+  assert.equal(readShipNote("gates shipped", STAGING_ADVANCE), null)
+  assert.equal(readShipNote("claude-code", LIVE_CLOSE), null, "the same words from anyone else are a comment, not a ship")
+  assert.equal(readShipNote(null, LIVE_CLOSE), null)
+  assert.equal(readShipNote("gates shipped", "It shipped, trust me"), null)
+  assert.equal(readShipNote("gates shipped", "Done and live: repo@nothex on main. Seen: x"), null)
+})
+
+ok("a card has shipped only when its note's commit has a production ship record; the newest one is shown", () => {
+  assert.deepEqual(shipOf([note(LIVE_ADVANCE)], RECORDED), { sha: "0f9af3f9", repo: "bubune99/crypto-collab", target: "main", at: "2026-11-17T19:58:00Z", left: "the paid model run, which waits on the owner" })
+  assert.equal(shipOf([note(LIVE_ADVANCE)], []), null, "a note with no ship record behind it is not a ship")
+  assert.equal(shipOf([note(LIVE_ADVANCE)], [{ sha: "aaaaaaa1", at: "2026-11-17T19:58:00Z" }]), null, "another commit's record does not count")
+  assert.equal(shipOf([note(STAGING_CLOSE)], RECORDED), null)
+  assert.equal(shipOf([], RECORDED), null)
+  assert.equal(shipOf([note("Just a comment", undefined, "owner")], RECORDED), null)
+  const two = shipOf([note(LIVE_ADVANCE, "2026-11-17T20:00:00Z"), note("Done and live: bubune99/crypto-collab@1234abcd on main. Seen: the run finished on the live page", "2026-11-19T09:00:00Z")], [...RECORDED, { sha: "1234abcd", at: "2026-11-19T08:55:00Z" }])
+  assert.equal(two?.sha, "1234abcd"); assert.equal(two?.left, null)
+  assert.equal(shipOf([note(LIVE_CLOSE)], [{ sha: "0f9af3f", at: "2026-11-17T19:58:00Z" }])?.sha, "0f9af3f9", "a record kept with a 7-character commit still matches")
+})
+
+const SHIP = shipOf([note(LIVE_ADVANCE)], RECORDED)
+const Q1 = { id: "q1", text: "Run the paid model on A7? It costs about $4." }, Q2 = { id: "q2", text: "Keep the old picker too?" }
+
+ok("no ship and an open question: plain Blocked", () => {
+  assert.equal(partWaiting({ status: "blocked", kind: "closed" }, hold({ waitingOn: "owner", questionId: "q1" }), [Q1], null), null)
+})
+
+ok("a ship and an open question that holds the card: shipped, part waiting on you, naming the question", () => {
+  const w = partWaiting({ status: "blocked", kind: "closed" }, hold({ waitingOn: "owner", questionId: "q1" }), [Q2, Q1], SHIP)
+  assert.equal(PART_WAITING, "Shipped, part waiting on you")
+  assert.deepEqual(w, { label: PART_WAITING, questionId: "q1", question: Q1.text, ship: SHIP })
+})
+
+ok("a finished card with a ship and an open question about it is not shown as simply complete", () => {
+  assert.deepEqual(partWaiting({ status: "completed", kind: "done" }, null, [Q2, Q1], SHIP), { label: PART_WAITING, questionId: "q2", question: Q2.text, ship: SHIP })
+  assert.equal(partWaiting({ status: "completed", kind: "done" }, null, [], SHIP), null, "finished with nothing owed is complete")
+  assert.equal(partWaiting({ status: "completed", kind: "done" }, null, [Q1], null), null, "no recorded ship: the existing rule")
+})
+
+ok("when the question is answered, or the card waits on something else, it follows the existing rule", () => {
+  assert.equal(partWaiting({ status: "blocked", kind: "closed" }, hold({ waitingOn: "owner", questionId: "q1" }), [], SHIP), null, "answered: no longer open")
+  assert.equal(partWaiting({ status: "pending", kind: "open" }, null, [], SHIP), null, "back in Up next after the answer")
+  assert.equal(partWaiting({ status: "blocked", kind: "closed" }, hold({ waitingOn: "card", dependsOnCard: true }), [Q1], SHIP), null, "blocked on another card")
+  assert.equal(partWaiting({ status: "blocked", kind: "closed" }, hold({ waitingOn: "owner" }), [Q1], SHIP), null, "blocked on the owner with no question named")
+  assert.equal(partWaiting({ status: "blocked", kind: "closed" }, null, [Q1], SHIP), null)
+  assert.equal(partWaiting({ status: "in-progress", kind: "active" }, null, [Q1], SHIP), null, "an agent is on it: it is in progress")
+  assert.equal(partWaiting({ status: "closed", kind: "closed" }, null, [Q1], SHIP), null, "closed will not be done")
 })
 
 console.log(`\n${n} pipeline checks passed`)

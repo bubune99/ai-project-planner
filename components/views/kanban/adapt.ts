@@ -176,6 +176,15 @@ export function closedLine(step: BoardStep): { label: string; title: string } | 
   return { label: `Closed: ${why.length > 60 ? `${why.slice(0, 57)}...` : why}`, title: why }
 }
 
+/**
+ * Shipped, with a part waiting on the owner (card 2f95e84a): the words for the card, and the question behind them.
+ * The list routes work it out (lib/work/pipeline.ts partWaiting); the card stays in the column it is really in.
+ */
+export function standingLine(step: BoardStep): { label: string; title: string } | null {
+  const w = step.part_waiting
+  return w ? { label: w.label, title: `It is live. Waiting on your answer: ${w.question}` } : null
+}
+
 export function toKanbanTask(step: BoardStep, opts: AdaptOptions): KanbanTask {
   const isDone = kindOf(step, opts.statusMap) === "done"
   const workKind = (step as BoardStep & { work_kind?: string }).work_kind
@@ -202,6 +211,7 @@ export function toKanbanTask(step: BoardStep, opts: AdaptOptions): KanbanTask {
     progress: toProgress(step, isDone),
     footnotes: [...(opts.showProject ? [{ label: (step as BoardStep & { project_name?: string }).project_name ?? "Project", title: "The project this card belongs to" }] : []), ...(holderLine(step, opts.today ?? new Date(), isDone) ? [holderLine(step, opts.today ?? new Date(), isDone)!] : []), ...[closedLine(step), authorLine(step)].filter((x): x is { label: string; title: string } => x !== null), ...toFootnotes(step, opts)],
     subtasks: toSubtaskList(step, opts),
+    standing: standingLine(step) ?? undefined,
     done: isDone,
   }
 }

@@ -199,6 +199,12 @@ see in the UI and that is wrong." Since migration 071 (main d7019fe) the project
   unless another open question still holds it or it was finished or moved meanwhile. Rules: `whenQuestionAsked` /
   `whenQuestionAnswered` in `lib/work/pipeline.ts`; SQL: `lib/work/question-hold.ts`. Leave `stepId` out when no card
   waits on the answer.
+- **"Shipped, part waiting on you" is read, never typed.** It is not a column or a status. A card shows it when
+  `gates shipped` left its production note on the card (`step_comments`, author `gates shipped`), that commit has a
+  production row in `gate_ships`, and one of the owner's questions about the card is still open: a blocked card must
+  name that question, a finished one needs any. Rules: `readShipNote` / `shipOf` / `partWaiting` in
+  `lib/work/pipeline.ts`; reads: `lib/work/part-waiting.ts`, set as `part_waiting` by the two card list routes. The
+  note's leading words are the link: change them in far-gates `lib-cards.mjs` and the check here together.
 - **Features are proposed** with `propose_feature` (goal, what, deliverable, proof, why) into Requests; nothing is built
   before the owner approves it.
 - **`todos` is the owner's own list**: only actions only he can do. Migrations 056–058 copied 432 to-dos into steps

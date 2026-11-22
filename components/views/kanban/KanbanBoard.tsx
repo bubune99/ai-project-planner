@@ -103,6 +103,8 @@ export interface KanbanTask {
   priority?: Priority;
   /** "Phase", "Campaign", "Sprint" for an initiative, "Upkeep" for an agent's maintenance; nothing for a plain task. */
   kind?: string;
+  /** Added: where the card really stands when its column cannot say it, in words ("Shipped, part waiting on you"). */
+  standing?: { label: string; title: string };
   /** Short label with an icon, e.g. "Web app". */
   category?: string;
   /** Icon key, or your own node. */
@@ -1089,6 +1091,11 @@ function CardShell({
       )}
 
       <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[12px] text-[var(--opx-muted,#5a687c)]">
+        {task.standing && (
+          <span title={task.standing.title} className={cn(CHIP, "font-medium bg-[var(--opx-soft,#eef1f5)] text-[var(--opx-ink,#1c2430)]", SQUIRCLE)} data-card-standing>
+            {task.standing.label}
+          </span>
+        )}
         {task.kind && (
           <span className={cn(CHIP, "font-medium bg-[var(--opx-soft,#eef1f5)] text-[var(--opx-ink,#1c2430)]", SQUIRCLE)} data-card-kind>
             {task.kind}
