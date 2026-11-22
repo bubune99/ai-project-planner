@@ -14,6 +14,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const auth = await getAuthContext()
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const { id: projectId, checklistId } = await params
+    if (!UUID.test(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     if (!(await verifyProjectOwnership(projectId, auth.userId))) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     const row = UUID.test(checklistId) ? await getChecklist(checklistId) : null
     if (!row || row.project_id !== projectId) return NextResponse.json({ error: "Checklist not found" }, { status: 404 })

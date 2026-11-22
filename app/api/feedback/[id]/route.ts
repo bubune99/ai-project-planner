@@ -9,6 +9,7 @@ import { successResponse, errorResponse, ErrorCodes } from "@/lib/api-utils";
 import { getAuthContext } from "@/lib/auth/auth-utils";
 import { isPlatformAdmin } from "@/lib/auth/platform-admin";
 import { mergeEnvelopeForPatch, envelopeForSql } from "@/lib/api/envelope-helpers";
+import { isUuid } from "@/lib/api/ids";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
     if (!isPlatformAdmin(auth.userId)) return errorResponse(ErrorCodes.FORBIDDEN, "Only the owner can change a report", 403);
 
     const { id } = await ctx.params;
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, "Feedback not found", 404);
     const b = await request.json().catch(() => ({}));
 
     if (b.status && !STATUS.includes(b.status)) {

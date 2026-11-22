@@ -89,6 +89,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
     // Taking an answer back is the owner's own act: a signed-in session only, never an agent's key.
     if (auth.authType !== "session") return errorResponse(ErrorCodes.FORBIDDEN, "Only the owner can take an answer back", 403)
     const { id } = await params
+    if (!UUID.test(id)) return errorResponse(ErrorCodes.NOT_FOUND, "Not found", 404)
     const found = await answeredRow(id, auth.userId)
     if (!found) return errorResponse(ErrorCodes.NOT_FOUND, "Not found", 404)
     const verdict = mayUndo(found.row)

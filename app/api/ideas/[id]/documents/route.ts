@@ -12,6 +12,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
 import { buildEnvelopeForWrite, envelopeForSql } from '@/lib/api/envelope-helpers'
+import { isUuid } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,6 +40,7 @@ export async function GET(
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     const { userId } = auth
     const { id: ideaId } = await params
+    if (!isUuid(ideaId)) return errorResponse(ErrorCodes.NOT_FOUND, 'Idea not found', 404)
 
     if (!(await userOwnsIdea(ideaId, userId))) {
       return errorResponse(ErrorCodes.NOT_FOUND, 'Idea not found', 404)
@@ -69,6 +71,7 @@ export async function POST(
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     const { userId } = auth
     const { id: ideaId } = await params
+    if (!isUuid(ideaId)) return errorResponse(ErrorCodes.NOT_FOUND, 'Idea not found', 404)
 
     if (!(await userOwnsIdea(ideaId, userId))) {
       return errorResponse(ErrorCodes.NOT_FOUND, 'Idea not found', 404)

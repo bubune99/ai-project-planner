@@ -3,6 +3,7 @@ import { sql } from "@/lib/db/client"
 import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
 import { verifyCollaboratorAccess } from "@/lib/auth/collaboration-access"
 import { buildEnvelopeForWrite, envelopeForSql } from "@/lib/api/envelope-helpers"
+import { isUuid } from "@/lib/api/ids"
 
 export const dynamic = "force-dynamic"
 
@@ -15,6 +16,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     if (!authContext) {
       return NextResponse.json({ error: "Unauthorized", code: "AUTH_REQUIRED" }, { status: 401 })
     }
+    if (!isUuid(id)) return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 })
     if (!(await verifyProjectOwnership(id, authContext.userId))) {
       return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 })
     }
@@ -41,6 +43,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
     if (!authContext) {
       return NextResponse.json({ error: "Unauthorized", code: "AUTH_REQUIRED" }, { status: 401 })
     }
+    if (!isUuid(id)) return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 })
     if (!(await verifyProjectWriteAccess(id, authContext.userId))) {
       return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 })
     }

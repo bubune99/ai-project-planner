@@ -10,6 +10,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
 import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
+import { isUuid } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,6 +23,7 @@ export async function GET(
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     const { userId } = auth
     const { id } = await params
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Prompt not found', 404)
     const rows = await sql`
       SELECT p.*, po.helpfulness_rate, po.helpful_count, po.unhelpful_count, po.fire_count AS view_fire_count, po.last_fired_at AS view_last_fired_at
       FROM prompts p
@@ -45,6 +47,7 @@ export async function PATCH(
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     const { userId } = auth
     const { id } = await params
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Prompt not found', 404)
     const body = await request.json()
 
     const existing = await sql`
@@ -111,6 +114,7 @@ export async function DELETE(
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     const { userId } = auth
     const { id } = await params
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Prompt not found', 404)
     const r = await sql`
       UPDATE prompts SET deleted_at = NOW()
       WHERE id = ${id} AND user_id = ${userId} AND deleted_at IS NULL

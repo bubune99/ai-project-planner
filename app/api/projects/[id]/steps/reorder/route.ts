@@ -12,6 +12,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
 import { getAuthContext, verifyProjectWriteAccess } from "@/lib/auth/auth-utils";
+import { isUuid } from "@/lib/api/ids";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export async function POST(
 
     const { userId } = authContext;
     const { id: projectId } = await params;
+    if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 });
 
     const hasAccess = await verifyProjectWriteAccess(projectId, userId);
     if (!hasAccess) {

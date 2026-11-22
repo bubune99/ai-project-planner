@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db/client"
 import { getAuthContext, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
 import { verifyCollaboratorAccess } from "@/lib/auth/collaboration-access"
+import { isUuid } from "@/lib/api/ids"
 
 export const dynamic = "force-dynamic"
 
@@ -17,6 +18,8 @@ export async function POST(
     if (!authContext) {
       return NextResponse.json({ error: "Unauthorized", code: "AUTH_REQUIRED" }, { status: 401 })
     }
+    if (!isUuid(id)) return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 })
+    if (!isUuid(requestId)) return NextResponse.json({ error: "Feature request not found" }, { status: 404 })
     if (!(await verifyProjectWriteAccess(id, authContext.userId))) {
       return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 })
     }

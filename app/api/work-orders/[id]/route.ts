@@ -11,6 +11,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
 import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
+import { isUuid } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -72,6 +73,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   try {
     const auth = await getAuthContext()
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    if (!isUuid(params.id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Work order not found', 404)
     const { userId } = auth
 
     const woRows = await sql`
@@ -137,6 +139,7 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
   try {
     const auth = await getAuthContext()
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    if (!isUuid(params.id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Work order not found', 404)
     const { userId } = auth
 
     const wo = await ownedWorkOrder(params.id, userId)
@@ -222,6 +225,7 @@ export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: s
   try {
     const auth = await getAuthContext()
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    if (!isUuid(params.id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Work order not found', 404)
     const { userId } = auth
 
     const result = await sql`

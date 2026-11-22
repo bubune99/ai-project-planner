@@ -9,6 +9,7 @@ import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from
 import { ownError } from "@/lib/api/error-text"
 import { listPages } from "@/lib/gates/store"
 import { FlowError, loadFlows, saveFlows } from "@/lib/people/store"
+import { isUuid } from "@/lib/api/ids"
 
 export const dynamic = "force-dynamic"
 type Ctx = { params: Promise<{ id: string }> }
@@ -18,6 +19,7 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
     const auth = await getAuthContext()
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const { id: projectId } = await params
+    if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     if (!(await verifyProjectOwnership(projectId, auth.userId))) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     const [flows, pages] = await Promise.all([loadFlows(projectId), listPages(projectId)])
     return NextResponse.json({ ...flows, pages: pages.map((p) => ({ id: p.id, route: p.route, title: p.title })), canEdit: await verifyProjectWriteAccess(projectId, auth.userId) })
@@ -32,6 +34,7 @@ export async function PUT(request: NextRequest, { params }: Ctx) {
     const auth = await getAuthContext()
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const { id: projectId } = await params
+    if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     if (!(await verifyProjectWriteAccess(projectId, auth.userId))) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     const b = await request.json().catch(() => null)
     if (!b || typeof b !== "object" || !Number.isInteger(b.baseVersion)) return NextResponse.json({ error: "Send { doc, baseVersion }" }, { status: 400 })

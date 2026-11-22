@@ -21,6 +21,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectOwnership } from '@/lib/auth/auth-utils'
+import { isUuid } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +30,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
   try {
     const auth = await getAuthContext()
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    if (!isUuid(params.id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Project not found', 404)
     const { userId } = auth
 
     const hasAccess = await verifyProjectOwnership(params.id, userId)

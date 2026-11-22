@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
 import { visibleStepPredicate, canWriteStep } from '@/lib/db/agent-task-access'
+import { isUuid } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -63,6 +64,7 @@ export async function GET(
     }
 
     const { id } = await params
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Agent not found', 404)
     const { searchParams } = new URL(request.url)
     const includeTask = searchParams.get('includeTask') === 'true'
     const includeConversations = searchParams.get('includeConversations') === 'true'
@@ -147,6 +149,7 @@ export async function PATCH(
     }
 
     const { id } = await params
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Agent not found', 404)
     const body = await request.json()
     const {
       description,
@@ -238,6 +241,7 @@ export async function DELETE(
     }
 
     const { id } = await params
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Agent not found', 404)
 
     // Check agent exists and get details
     const existing = await sql`

@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
 import { verifyCollaboratorAccess } from "@/lib/auth/collaboration-access"
+import { isUuid } from "@/lib/api/ids"
 
 export const dynamic = "force-dynamic"
 
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     if (!authContext) {
       return errorResponse(ErrorCodes.UNAUTHORIZED, 'Unauthorized', 401)
     }
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Project not found', 404)
     if (!(await verifyProjectOwnership(id, authContext.userId))) {
       return errorResponse(ErrorCodes.NOT_FOUND, 'Project not found', 404)
     }
@@ -55,6 +57,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
     if (!authContext) {
       return errorResponse(ErrorCodes.UNAUTHORIZED, 'Unauthorized', 401)
     }
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Project not found', 404)
     if (!(await verifyProjectWriteAccess(id, authContext.userId))) {
       return errorResponse(ErrorCodes.NOT_FOUND, 'Project not found', 404)
     }

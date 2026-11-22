@@ -4,6 +4,7 @@ import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectWriteAccess } from '@/lib/auth/auth-utils'
 import type { IdeaLifecycle } from '@/lib/db/schema'
 import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
+import { isUuid } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,6 +67,7 @@ export async function GET(
     if (!authContext) {
       return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     }
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Idea not found', 404)
 
     const { userId } = authContext
 
@@ -221,6 +223,7 @@ export async function PATCH(
     if (!authContext) {
       return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     }
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Idea not found', 404)
 
     const { userId } = authContext
 
@@ -361,6 +364,7 @@ export async function DELETE(
     if (!authContext) {
       return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     }
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Idea not found', 404)
 
     const { userId } = authContext
 

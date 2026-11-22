@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from "@/lib/api-utils";
 import { getAuthContext } from "@/lib/auth/auth-utils";
 import { getProjectAccess } from "@/lib/auth/collaboration-access";
 import { generateInviteToken, logActivity } from "@/lib/collaboration";
+import { isUuid } from "@/lib/api/ids";
 
 export const dynamic = "force-dynamic"
 
@@ -23,6 +24,8 @@ export async function GET(
 
     const { userId } = authContext;
     const { id: projectId, inviteId } = await params;
+    if (!isUuid(projectId)) return errorResponse("NOT_FOUND", "Project not found", 404);
+    if (!isUuid(inviteId)) return errorResponse("NOT_FOUND", "Invitation not found", 404);
 
     // Get user's access level
     const access = await getProjectAccess(projectId, userId);
@@ -88,6 +91,8 @@ export async function DELETE(
 
     const { userId } = authContext;
     const { id: projectId, inviteId } = await params;
+    if (!isUuid(projectId)) return errorResponse("NOT_FOUND", "Project not found", 404);
+    if (!isUuid(inviteId)) return errorResponse("NOT_FOUND", "Invitation not found", 404);
 
     // Get user's access level
     const access = await getProjectAccess(projectId, userId);
@@ -174,6 +179,8 @@ export async function PATCH(
     const authContext = await getAuthContext();
     if (!authContext) return errorResponse("UNAUTHORIZED", "Authentication required", 401);
     const { id: projectId, inviteId } = await params;
+    if (!isUuid(projectId)) return errorResponse("NOT_FOUND", "Project not found", 404);
+    if (!isUuid(inviteId)) return errorResponse("NOT_FOUND", "No pending invite with that id", 404);
     const access = await getProjectAccess(projectId, authContext.userId);
     if (!access) return errorResponse("NOT_FOUND", "Project not found", 404);
     if (!access.isOwner && access.role !== "admin") return errorResponse("FORBIDDEN", "Only the project owner or an admin can do this", 403);

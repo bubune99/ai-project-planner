@@ -12,6 +12,7 @@
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { isUuid } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,6 +24,7 @@ export async function POST(
     const auth = await getAuthContext()
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     const { id: templateId } = await params
+    if (!isUuid(templateId)) return errorResponse(ErrorCodes.NOT_FOUND, 'Feature template not found', 404)
     const body = await request.json()
 
     if (!body.project_id) {

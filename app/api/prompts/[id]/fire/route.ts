@@ -12,6 +12,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { isUuid } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +27,7 @@ export async function POST(
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     const { userId } = auth
     const { id: promptId } = await params
+    if (!isUuid(promptId)) return errorResponse(ErrorCodes.NOT_FOUND, 'Prompt not found', 404)
     const body = await request.json()
     const { fired_for_type, fired_for_id, trigger_event, check_in_id, outcome, outcome_notes } = body
 

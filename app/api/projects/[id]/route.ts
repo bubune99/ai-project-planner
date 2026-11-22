@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { successResponse, errorResponse } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from '@/lib/auth/auth-utils'
 import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
+import { isUuid } from '@/lib/api/ids'
 
 export const dynamic = "force-dynamic"
 
@@ -23,6 +24,7 @@ export async function GET(
 
     const { userId } = authContext
     const { id } = await params
+    if (!isUuid(id)) return errorResponse('NOT_FOUND', 'Project not found', 404)
 
     // Verify ownership
     const hasAccess = await verifyProjectOwnership(id, userId)
@@ -131,6 +133,7 @@ export async function PATCH(
 
     const { userId } = authContext
     const { id } = await params
+    if (!isUuid(id)) return errorResponse('NOT_FOUND', 'Project not found', 404)
 
     // Verify ownership
     const hasAccess = await verifyProjectWriteAccess(id, userId)
@@ -238,6 +241,7 @@ export async function DELETE(
 
     const { userId } = authContext
     const { id } = await params
+    if (!isUuid(id)) return errorResponse('NOT_FOUND', 'Project not found', 404)
 
     // Verify ownership
     const hasAccess = await verifyProjectWriteAccess(id, userId)

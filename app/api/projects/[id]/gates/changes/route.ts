@@ -11,6 +11,7 @@ import { getAuthContext, verifyProjectOwnerOnly, verifyProjectOwnership, verifyP
 import { ownError } from "@/lib/api/error-text"
 import { createChange, judgeChange, listChanges } from "@/lib/gates/change-store"
 import { GateError } from "@/lib/gates/store"
+import { isUuid } from "@/lib/api/ids"
 
 export const dynamic = "force-dynamic"
 type Ctx = { params: Promise<{ id: string }> }
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest, { params }: Ctx) {
     const auth = await getAuthContext()
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const { id: projectId } = await params
+    if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     if (!(await verifyProjectOwnership(projectId, auth.userId))) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     const out = await listChanges(projectId, request.nextUrl.searchParams.get("pictures") !== "0")
     return NextResponse.json({ ...out, canJudge: auth.authType === "session" && (await verifyProjectOwnerOnly(projectId, auth.userId)) })
@@ -34,6 +36,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     const auth = await getAuthContext()
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const { id: projectId } = await params
+    if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     if (!(await verifyProjectWriteAccess(projectId, auth.userId))) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     const b = await request.json().catch(() => null)
     const asOwner = auth.authType === "session" && b?.agent !== true

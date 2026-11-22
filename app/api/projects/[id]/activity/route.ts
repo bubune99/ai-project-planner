@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from "@/lib/api-utils";
 import { getAuthContext } from "@/lib/auth/auth-utils";
 import { getProjectAccess } from "@/lib/auth/collaboration-access";
 import type { CollaborationActionType } from "@/lib/db/schema";
+import { isUuid } from "@/lib/api/ids";
 
 export const dynamic = "force-dynamic"
 
@@ -29,6 +30,7 @@ export async function GET(
 
     const { userId } = authContext;
     const { id: projectId } = await params;
+    if (!isUuid(projectId)) return errorResponse("NOT_FOUND", "Project not found", 404);
 
     // Get user's access level - all collaborators can view activity
     const access = await getProjectAccess(projectId, userId);

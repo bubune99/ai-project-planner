@@ -10,6 +10,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
 import { ownError } from "@/lib/api/error-text"
 import { WalkError, listWalks, saveWalk, fixFinding, settleFinding } from "@/lib/walks/store"
+import { isUuid } from "@/lib/api/ids"
 
 export const dynamic = "force-dynamic"
 type Ctx = { params: Promise<{ id: string }> }
@@ -19,6 +20,7 @@ export async function GET(request: NextRequest, { params }: Ctx) {
     const auth = await getAuthContext()
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const { id: projectId } = await params
+    if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     if (!(await verifyProjectOwnership(projectId, auth.userId))) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     return NextResponse.json(await listWalks(projectId, request.nextUrl.searchParams.get("build")?.slice(0, 80) || undefined))
   } catch (error) {
@@ -32,6 +34,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     const auth = await getAuthContext()
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const { id: projectId } = await params
+    if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     if (!(await verifyProjectWriteAccess(projectId, auth.userId))) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     const b = await request.json().catch(() => null)
     // A signed-in session is the owner walking it themselves; an API key, or an agent using their tab (agent: true), is an agent.

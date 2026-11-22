@@ -5,6 +5,7 @@ import { getAuthContext, verifyProjectWriteAccess } from '@/lib/auth/auth-utils'
 import { userDay } from '@/lib/settings/user-day'
 import { advanceDate, isValidFrequency, type RecurringFrequency } from '@/lib/service-schedule'
 import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
+import { isUuid } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,6 +45,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   try {
     const authContext = await getAuthContext()
     if (!authContext) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    if (!isUuid(params.id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Service schedule not found', 404)
     const row = await getOwned(params.id, authContext.userId)
     if (!row) return errorResponse(ErrorCodes.NOT_FOUND, 'Service schedule not found', 404)
     return successResponse(transformSchedule(row))
@@ -65,6 +67,7 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
   try {
     const authContext = await getAuthContext()
     if (!authContext) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    if (!isUuid(params.id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Service schedule not found', 404)
     const { userId } = authContext
     const existing = await getOwned(params.id, userId)
     if (!existing) return errorResponse(ErrorCodes.NOT_FOUND, 'Service schedule not found', 404)
@@ -161,6 +164,7 @@ export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: s
   try {
     const authContext = await getAuthContext()
     if (!authContext) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    if (!isUuid(params.id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Service schedule not found', 404)
     const result = await sql`
       UPDATE service_schedules SET deleted_at = NOW(), is_active = false
       WHERE id = ${params.id} AND user_id = ${authContext.userId} AND deleted_at IS NULL

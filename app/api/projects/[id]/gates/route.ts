@@ -8,6 +8,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
 import { ownError } from "@/lib/api/error-text"
 import { GateError, listPages, saveChecklist } from "@/lib/gates/store"
+import { isUuid } from "@/lib/api/ids"
 
 export const dynamic = "force-dynamic"
 
@@ -16,6 +17,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     const auth = await getAuthContext()
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const { id: projectId } = await params
+    if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     if (!(await verifyProjectOwnership(projectId, auth.userId))) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     return NextResponse.json({ pages: await listPages(projectId) })
   } catch (error) {
@@ -29,6 +31,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const auth = await getAuthContext()
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const { id: projectId } = await params
+    if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     if (!(await verifyProjectWriteAccess(projectId, auth.userId))) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     const body = await request.json().catch(() => null)
     if (!body || typeof body.route !== "string" || !Array.isArray(body.views)) return NextResponse.json({ error: "Send { route, views }" }, { status: 400 })

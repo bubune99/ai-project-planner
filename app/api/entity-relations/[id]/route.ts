@@ -8,6 +8,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { isUuid } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +21,7 @@ export async function PATCH(
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     const { userId } = auth
     const { id } = await params
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Relation not found', 404)
     const body = await request.json()
     const { confidence, metadata } = body
 
@@ -62,6 +64,7 @@ export async function DELETE(
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     const { userId } = auth
     const { id } = await params
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Relation not found', 404)
 
     const result = await sql`
       UPDATE entity_relations

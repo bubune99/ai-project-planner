@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectWriteAccess } from '@/lib/auth/auth-utils'
 import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
+import { isUuid } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,6 +50,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   try {
     const authContext = await getAuthContext()
     if (!authContext) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    if (!isUuid(params.id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Protocol not found', 404)
     const rows = await sql`
       SELECT * FROM protocols
       WHERE id = ${params.id} AND user_id = ${authContext.userId} AND deleted_at IS NULL
@@ -67,6 +69,7 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
   try {
     const authContext = await getAuthContext()
     if (!authContext) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    if (!isUuid(params.id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Protocol not found', 404)
     const { userId } = authContext
     if (!(await ownedProtocol(params.id, userId))) {
       return errorResponse(ErrorCodes.NOT_FOUND, 'Protocol not found', 404)
@@ -142,6 +145,7 @@ export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: s
   try {
     const authContext = await getAuthContext()
     if (!authContext) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    if (!isUuid(params.id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Protocol not found', 404)
     const result = await sql`
       UPDATE protocols SET deleted_at = NOW()
       WHERE id = ${params.id} AND user_id = ${authContext.userId} AND deleted_at IS NULL

@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
 import { getAuthContext } from "@/lib/auth/auth-utils";
+import { isUuid } from "@/lib/api/ids";
 
 export const dynamic = "force-dynamic"
 
@@ -30,6 +31,7 @@ export async function GET(
         { status: 401 }
       );
     }
+    if (!isUuid(id)) return NextResponse.json({ error: "API key not found", code: "NOT_FOUND" }, { status: 404 });
 
     if (authContext.authType !== "session") {
       return NextResponse.json(
@@ -110,6 +112,7 @@ export async function PATCH(
         { status: 401 }
       );
     }
+    if (!isUuid(id)) return NextResponse.json({ error: "API key not found", code: "NOT_FOUND" }, { status: 404 });
 
     if (authContext.authType !== "session") {
       return NextResponse.json(
@@ -236,6 +239,7 @@ export async function DELETE(
         { status: 401 }
       );
     }
+    if (!isUuid(id)) return NextResponse.json({ error: "API key not found", code: "NOT_FOUND" }, { status: 404 });
 
     if (authContext.authType !== "session") {
       return NextResponse.json(

@@ -3,6 +3,7 @@ import { sql } from "@/lib/db/client"
 import { getAuthContext, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
 import { verifyCollaboratorAccess } from "@/lib/auth/collaboration-access"
 import { mergeEnvelopeForPatch, envelopeForSql } from "@/lib/api/envelope-helpers"
+import { isUuid } from "@/lib/api/ids"
 
 export const dynamic = "force-dynamic"
 
@@ -18,6 +19,8 @@ export async function PATCH(
     if (!authContext) {
       return NextResponse.json({ error: "Unauthorized", code: "AUTH_REQUIRED" }, { status: 401 })
     }
+    if (!isUuid(id)) return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 })
+    if (!isUuid(adrId)) return NextResponse.json({ error: "ADR not found" }, { status: 404 })
     if (!(await verifyProjectWriteAccess(id, authContext.userId))) {
       return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 })
     }

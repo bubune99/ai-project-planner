@@ -16,6 +16,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { isUuid } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,6 +57,7 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ id: stri
   try {
     const auth = await getAuthContext()
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    if (!isUuid(params.id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Work order not found', 404)
     const { userId } = auth
 
     // Ownership gate: only expose the timeline for a work order the caller owns.

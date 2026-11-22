@@ -2,6 +2,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { isUuid } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,6 +48,7 @@ export async function GET(
 
     const { userId } = authContext
     const { id } = await params
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Recurring transaction not found', 404)
 
     const transactions = await sql`
       SELECT
@@ -86,6 +88,7 @@ export async function PATCH(
 
     const { userId } = authContext
     const { id } = await params
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Recurring transaction not found', 404)
     const body = await request.json()
 
     // Verify ownership
@@ -170,6 +173,7 @@ export async function DELETE(
 
     const { userId } = authContext
     const { id } = await params
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Recurring transaction not found', 404)
 
     const result = await sql`
       DELETE FROM finance_recurring_transactions

@@ -12,6 +12,7 @@ import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from
 import { ownError } from "@/lib/api/error-text"
 import { ShipError } from "@/lib/gates/fresh-model"
 import { projectFreshness, recordShip } from "@/lib/gates/ship-store"
+import { isUuid } from "@/lib/api/ids"
 
 export const dynamic = "force-dynamic"
 type Ctx = { params: Promise<{ id: string }> }
@@ -21,6 +22,7 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
     const auth = await getAuthContext()
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const { id: projectId } = await params
+    if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     if (!(await verifyProjectOwnership(projectId, auth.userId))) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     return NextResponse.json(await projectFreshness(projectId))
   } catch (error) {
@@ -34,6 +36,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     const auth = await getAuthContext()
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const { id: projectId } = await params
+    if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     if (!(await verifyProjectWriteAccess(projectId, auth.userId))) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     const b = await request.json().catch(() => null)
     return NextResponse.json({ ok: true, ship: await recordShip({ projectId, userId: auth.userId, raw: b }), ...(await projectFreshness(projectId)) })

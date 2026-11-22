@@ -5,12 +5,15 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db/client"
 import { getAuthContext, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
+import { isUuid } from "@/lib/api/ids"
 
 export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string; stepId: string }> }) {
   try {
     const auth = await getAuthContext()
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const { id: projectId, stepId } = await params
+    if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 })
+    if (!isUuid(stepId)) return NextResponse.json({ error: "No recently deleted task with that id" }, { status: 404 })
     if (!(await verifyProjectWriteAccess(projectId, auth.userId))) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     const rows = (await sql`
       UPDATE project_steps SET deleted_at = NULL, updated_at = NOW()

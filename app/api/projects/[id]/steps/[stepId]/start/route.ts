@@ -9,6 +9,7 @@ import { sql } from "@/lib/db/client"
 import { getAuthContext, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
 import { startMove, type WorkRow } from "@/lib/work/pipeline"
 import { sendNow } from "@/lib/work/send"
+import { isUuid } from "@/lib/api/ids"
 
 export const dynamic = "force-dynamic"
 
@@ -17,6 +18,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     const auth = await getAuthContext()
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const { id: projectId, stepId } = await params
+    if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 })
+    if (!isUuid(stepId)) return NextResponse.json({ error: "Card not found" }, { status: 404 })
     if (!(await verifyProjectWriteAccess(projectId, auth.userId))) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }

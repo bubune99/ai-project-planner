@@ -30,6 +30,8 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
     const auth = await getAuthContext()
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const { id: projectId, checklistId } = await params
+    if (!UUID.test(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 })
+    if (!UUID.test(checklistId)) return NextResponse.json({ error: "Checklist not found" }, { status: 404 })
     if (!(await verifyProjectOwnership(projectId, auth.userId))) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     const row = await find(projectId, checklistId)
     if (!row) return NextResponse.json({ error: "Checklist not found" }, { status: 404 })
@@ -45,6 +47,8 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     const auth = await getAuthContext()
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const { id: projectId, checklistId } = await params
+    if (!UUID.test(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 })
+    if (!UUID.test(checklistId)) return NextResponse.json({ error: "Checklist not found" }, { status: 404 })
     if (!(await verifyProjectWriteAccess(projectId, auth.userId))) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     const checklist = await find(projectId, checklistId)
     if (!checklist) return NextResponse.json({ error: "Checklist not found" }, { status: 404 })

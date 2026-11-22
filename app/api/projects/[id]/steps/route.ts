@@ -11,6 +11,7 @@ import type { WorkRow } from "@/lib/work/pipeline";
 import { type NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
 import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils";
+import { isUuid } from "@/lib/api/ids";
 
 export const dynamic = "force-dynamic"
 
@@ -41,6 +42,7 @@ export async function GET(
 
     const { userId } = authContext;
     const { id: projectId } = await params;
+    if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 });
 
     // Verify project ownership
     const hasAccess = await verifyProjectOwnership(projectId, userId);
@@ -115,6 +117,7 @@ export async function POST(
 
     const { userId, authType } = authContext;
     const { id: projectId } = await params;
+    if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 });
 
     // Verify project ownership
     const hasAccess = await verifyProjectWriteAccess(projectId, userId);

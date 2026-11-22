@@ -6,6 +6,7 @@ import { getProjectAccess } from "@/lib/auth/collaboration-access";
 import { createInvitation, logActivity } from "@/lib/collaboration";
 import { checkInviteLimits } from "@/lib/collaboration/invite-limits";
 import type { CollaboratorRole } from "@/lib/db/schema";
+import { isUuid } from "@/lib/api/ids";
 
 export const dynamic = "force-dynamic"
 
@@ -25,6 +26,7 @@ export async function GET(
 
     const { userId } = authContext;
     const { id: projectId } = await params;
+    if (!isUuid(projectId)) return errorResponse("NOT_FOUND", "Project not found", 404);
 
     // Get user's access level
     const access = await getProjectAccess(projectId, userId);
@@ -99,6 +101,7 @@ export async function POST(
 
     const { userId } = authContext;
     const { id: projectId } = await params;
+    if (!isUuid(projectId)) return errorResponse("NOT_FOUND", "Project not found", 404);
 
     // Get user's access level
     const access = await getProjectAccess(projectId, userId);

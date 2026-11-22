@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
 import type { FacetType } from '@/lib/db/schema'
+import { isUuid } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,6 +56,8 @@ export async function GET(
     if (!authContext) {
       return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     }
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Idea not found', 404)
+    if (!isUuid(facetId)) return errorResponse(ErrorCodes.NOT_FOUND, 'Facet not found', 404)
 
     const { userId } = authContext
 
@@ -107,6 +110,8 @@ export async function PATCH(
     if (!authContext) {
       return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     }
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Idea not found', 404)
+    if (!isUuid(facetId)) return errorResponse(ErrorCodes.NOT_FOUND, 'Facet not found', 404)
 
     const { userId } = authContext
 
@@ -206,6 +211,8 @@ export async function DELETE(
     if (!authContext) {
       return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     }
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Idea not found', 404)
+    if (!isUuid(facetId)) return errorResponse(ErrorCodes.NOT_FOUND, 'Facet not found', 404)
 
     const { userId } = authContext
 

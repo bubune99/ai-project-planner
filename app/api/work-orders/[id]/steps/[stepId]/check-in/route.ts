@@ -20,6 +20,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
 import { recomputeReadySteps } from '@/lib/work-orders/recompute'
+import { isUuid } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -53,6 +54,8 @@ export async function POST(
   try {
     const auth = await getAuthContext()
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
+    if (!isUuid(params.id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Work order not found', 404)
+    if (!isUuid(params.stepId)) return errorResponse(ErrorCodes.NOT_FOUND, 'Step not found', 404)
     const { userId } = auth
 
     // Verify work order ownership

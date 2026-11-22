@@ -6,6 +6,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
 import { getAuthContext, verifyProjectWriteAccess } from "@/lib/auth/auth-utils";
+import { isUuid } from "@/lib/api/ids";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,9 @@ export async function PATCH(
     const auth = await getAuthContext();
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { id: projectId, stepId, commentId } = await params;
+    if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    if (!isUuid(stepId)) return NextResponse.json({ error: "Comment not found" }, { status: 404 });
+    if (!isUuid(commentId)) return NextResponse.json({ error: "Comment not found" }, { status: 404 });
     if (!(await verifyProjectWriteAccess(projectId, auth.userId))) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
@@ -45,6 +49,9 @@ export async function DELETE(
     const auth = await getAuthContext();
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { id: projectId, stepId, commentId } = await params;
+    if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    if (!isUuid(stepId)) return NextResponse.json({ error: "Comment not found" }, { status: 404 });
+    if (!isUuid(commentId)) return NextResponse.json({ error: "Comment not found" }, { status: 404 });
     if (!(await verifyProjectWriteAccess(projectId, auth.userId))) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }

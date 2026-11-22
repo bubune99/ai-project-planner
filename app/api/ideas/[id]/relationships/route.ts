@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getAuthContext } from "@/lib/auth/auth-utils"
 import { RelationshipsService } from "@/lib/services/relationships"
 import { sql } from "@/lib/db/client"
+import { isUuid } from "@/lib/api/ids"
 
 export const dynamic = "force-dynamic"
 
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!auth) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     }
+    if (!isUuid(ideaId)) return NextResponse.json({ success: false, error: "Idea not found" }, { status: 404 })
     if (!(await verifyIdeaAccess(ideaId, auth.userId))) {
       return NextResponse.json({ success: false, error: "Idea not found" }, { status: 404 })
     }
@@ -51,6 +53,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!auth) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     }
+    if (!isUuid(ideaId)) return NextResponse.json({ success: false, error: "Idea not found" }, { status: 404 })
 
     if (!(await verifyIdeaAccess(ideaId, auth.userId))) {
       return NextResponse.json({ success: false, error: "Idea not found" }, { status: 404 })

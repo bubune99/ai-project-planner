@@ -6,6 +6,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
 import { getAuthContext, verifyProjectOwnership } from "@/lib/auth/auth-utils";
+import { isUuid } from "@/lib/api/ids";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,8 @@ export async function GET(
     const auth = await getAuthContext();
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { id: projectId, stepId } = await params;
+    if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    if (!isUuid(stepId)) return NextResponse.json({ events: [] });
     if (!(await verifyProjectOwnership(projectId, auth.userId))) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }

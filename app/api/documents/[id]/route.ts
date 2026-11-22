@@ -4,6 +4,7 @@ import { getAuthContext } from "@/lib/auth/auth-utils";
 import { deleteMultipleFromR2, isR2Configured } from "@/lib/storage/r2-client";
 import { mergeEnvelopeForPatch, envelopeForSql } from "@/lib/api/envelope-helpers";
 import { decodeTitleEntities, decodeMarkdownAmpEntities } from "@/lib/text/decode-entities";
+import { isUuid } from "@/lib/api/ids";
 
 export const dynamic = "force-dynamic"
 
@@ -29,6 +30,7 @@ export async function GET(
 
     const { userId } = authContext;
     const { id } = await params;
+    if (!isUuid(id)) return NextResponse.json({ error: "Document not found" }, { status: 404 });
 
     // Ownership gate first: get_document_with_versions() filters by id only,
     // so without this the primary path below returned any user's document.
@@ -97,6 +99,7 @@ export async function DELETE(
 
     const { userId } = authContext;
     const { id } = await params;
+    if (!isUuid(id)) return NextResponse.json({ error: "Document not found" }, { status: 404 });
 
     // Get document details (with ownership check)
     const docResult = await sql`
@@ -207,6 +210,7 @@ export async function PATCH(
 
     const { userId } = authContext;
     const { id } = await params;
+    if (!isUuid(id)) return NextResponse.json({ error: "Document not found" }, { status: 404 });
     const body = await request.json();
     const { description, category } = body;
 

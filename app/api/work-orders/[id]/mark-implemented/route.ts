@@ -16,6 +16,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { isUuid } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,6 +29,7 @@ export async function POST(
     if (!auth) return errorResponse(ErrorCodes.UNAUTHORIZED, 'Authentication required', 401)
     const { userId } = auth
     const { id: workOrderId } = await params
+    if (!isUuid(workOrderId)) return errorResponse(ErrorCodes.NOT_FOUND, 'Work order not found', 404)
     const body = await request.json().catch(() => ({}))
     const outcome = (body.outcome === 'partial' ? 'partial' : 'success') as 'success' | 'partial'
     const summary = body.summary ?? null

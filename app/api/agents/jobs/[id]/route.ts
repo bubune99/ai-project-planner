@@ -2,6 +2,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { isUuid } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,6 +57,7 @@ export async function GET(
     }
 
     const { id } = await params
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Job not found', 404)
     const { searchParams } = new URL(request.url)
     const includeCheckpoints = searchParams.get('includeCheckpoints') !== 'false'
 
@@ -124,6 +126,7 @@ export async function PATCH(
     }
 
     const { id } = await params
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Job not found', 404)
     const body = await request.json()
 
     // Get current job (owner-scoped: another user's job is a 404)
@@ -390,6 +393,7 @@ export async function DELETE(
     }
 
     const { id } = await params
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Job not found', 404)
 
     // Get job first (owner-scoped: another user's job is a 404)
     const current = await sql`

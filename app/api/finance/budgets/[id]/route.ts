@@ -4,6 +4,7 @@ import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
 import { userDay } from '@/lib/settings/user-day'
 import { monthWindow } from '@/lib/settings/day'
+import { isUuid } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,6 +55,7 @@ export async function GET(
 
     const month = monthWindow((await userDay(userId)).today)
     const { id } = await params
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Budget not found', 404)
 
     const budgets = await sql`
       WITH current_spending AS (
@@ -112,6 +114,7 @@ export async function PATCH(
 
     const month = monthWindow((await userDay(userId)).today)
     const { id } = await params
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Budget not found', 404)
     const body = await request.json()
 
     // Verify ownership
@@ -215,6 +218,7 @@ export async function DELETE(
 
     const { userId } = authContext
     const { id } = await params
+    if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Budget not found', 404)
 
     const result = await sql`
       UPDATE finance_budgets
