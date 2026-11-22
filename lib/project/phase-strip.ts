@@ -17,7 +17,7 @@ export type StripPhase = {
   status: "done" | "active" | "upcoming"
 }
 
-const HEADING = /^\s*phase\s*(\d+)\s*[—–:\-]+\s*(.+?)\s*$/i
+export const HEADING = /^\s*phase\s*(\d+)\s*[—–:\-]+\s*(.+?)\s*$/i
 
 export function phaseStrip(steps: PhaseStepIn[]): { phases: StripPhase[]; outside: number } {
   const groups = new Map<number, PhaseStepIn[]>()
