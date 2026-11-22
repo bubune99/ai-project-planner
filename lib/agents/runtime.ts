@@ -12,7 +12,7 @@
  */
 
 import { anthropic } from "@ai-sdk/anthropic"
-import { generateText, stepCountIs, tool, type StopCondition, type Tool, type ToolSet } from "ai"
+import { generateText, stepCountIs, tool, type LanguageModel, type StopCondition, type Tool, type ToolSet } from "ai"
 import { z } from "zod"
 import { registerPlannerTools } from "@/lib/mcp/planner-tools"
 import { runWithMcpContext, type McpContext } from "@/lib/auth/mcp-context"
@@ -57,6 +57,16 @@ export interface AgentRequest {
    * durably; a failed record stops the run (fail closed).
    */
   spend: { budget: RunBudget; record: (tokens: number) => Promise<boolean> }
+  /**
+   * The model for an agent's model id, main agent and delegates alike. Omit
+   * for the real one. lib/agents/cost-kit passes a fake here, so whole turns
+   * run and are counted with no network and no tokens.
+   */
+  model?: (modelId: string) => LanguageModel
+}
+
+function modelFor(req: AgentRequest, modelId: string): LanguageModel {
+  return (req.model ?? anthropic)(modelId)
 }
 
 /** Stop on the agent's step cap, or once the request's token budget is spent. */
@@ -180,7 +190,7 @@ function delegateTool(parent: AgentDefinition, req: AgentRequest, trace?: TraceR
       const span = trace?.begin({ label: sub.id, title: `Asking the ${sub.name}`, kind: "agent", parentId: parentSpan })
       try {
         const result = await generateText({
-          model: anthropic(sub.model),
+          model: modelFor(req, sub.model),
           system: sub.instructions + contextBlock({ ...req, role: await roleFor(req) }),
           prompt: task,
           tools: await toolsFor(sub, req, trace, span),
@@ -210,7 +220,7 @@ function delegateTool(parent: AgentDefinition, req: AgentRequest, trace?: TraceR
  */
 export async function prepareAgent(agent: AgentDefinition, req: AgentRequest, trace?: TraceRecorder, rootSpan?: string) {
   return {
-    model: anthropic(agent.model),
+    model: modelFor(req, agent.model),
     system: agent.instructions + contextBlock({ ...req, role: await roleFor(req) }),
     tools: await toolsFor(agent, req, trace, rootSpan),
     stopWhen: stopFor(agent.maxSteps, req),
