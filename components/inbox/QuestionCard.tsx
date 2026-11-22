@@ -4,8 +4,8 @@
  * One question an agent asked the owner, answerable in place: its options as
  * full-width buttons, "Reply instead" for words, "Not now" to put it off for
  * this visit. Used by /inbox, the dashboard and a project's "Waiting on you" (one card, one name: walk 2026-11-16).
- * After answering it stays in place with what was chosen and "Change my answer". The project tag, the card it is
- * about and any address in its text are links (lib/inbox/links.ts).
+ * After answering it stays in place with what was chosen and "Change my answer". The project tag, the card it holds
+ * up (by its title) and any address in its text are links (lib/inbox/links.ts).
  */
 
 import { useState } from "react"
@@ -89,6 +89,11 @@ export function QuestionCard({ item, deferred, onDefer, onBringBack, onAnswered,
       }
       if (!res.ok) throw new Error(j?.error?.message || `HTTP ${res.status}`)
       const chosen = label === "reply" ? reply.trim() : label
+      // What the answer unblocked, said once: the card it held is back in line.
+      const cards: unknown = j?.data?.cards
+      for (const c of Array.isArray(cards) ? cards : []) {
+        if (c && c.moved === "pending" && typeof c.title === "string") toast.success(`"${c.title}" is back in Up next`)
+      }
       setDone(chosen)
       setSending(null)
       announceInbox(-1)
@@ -129,6 +134,12 @@ export function QuestionCard({ item, deferred, onDefer, onBringBack, onAnswered,
       <article className="j-card" data-answered aria-label={item.question}>
         <div className="j-row" style={{ gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 6 }}>{project}</div>
         <h2 style={{ fontSize: compact ? 15 : 16.5, fontWeight: 600, lineHeight: 1.4, margin: 0 }}>{item.question}</h2>
+        {hrefs.card && item.cardTitle && (
+          <p className="j-muted" style={{ fontSize: 13, lineHeight: 1.45, margin: "6px 0 0", overflowWrap: "anywhere" }}>
+            About the card{" "}
+            <Link href={hrefs.card} className="opx-link" style={{ fontSize: 13, textDecoration: "underline", textUnderlineOffset: 2 }}>{item.cardTitle}</Link>
+          </p>
+        )}
         <div className="j-row" style={{ gap: 10, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
           <span>You answered <b>{done}</b>.</span>
           <button className="j-btn j-btn-ghost" style={{ minHeight: 44 }} disabled={undoing} onClick={takeBack}>
@@ -148,8 +159,16 @@ export function QuestionCard({ item, deferred, onDefer, onBringBack, onAnswered,
           {item.askedBy ? `${item.askedBy} · ` : ""}{ago(item.askedAt)}
           {deferred ? " · put off" : ""}
         </span>
-        {hrefs.card && <Link href={hrefs.card} className="opx-link" style={{ fontSize: 12, marginLeft: "auto", textDecoration: "underline", textUnderlineOffset: 2 }}>Open the card</Link>}
+        {hrefs.card && !item.cardTitle && <Link href={hrefs.card} className="opx-link" style={{ fontSize: 12, marginLeft: "auto", textDecoration: "underline", textUnderlineOffset: 2 }}>Open the card</Link>}
       </div>
+
+      {/* The card this question holds up, by name: answering sends it back to Up next (card f473b5d4). */}
+      {hrefs.card && item.cardTitle && (
+        <p className="j-muted" data-question-card style={{ fontSize: 13, lineHeight: 1.45, margin: "0 0 8px", overflowWrap: "anywhere" }}>
+          Holds up the card{" "}
+          <Link href={hrefs.card} className="opx-link" style={{ fontSize: 13, textDecoration: "underline", textUnderlineOffset: 2 }}>{item.cardTitle}</Link>
+        </p>
+      )}
 
       <h2 style={{ fontSize: compact ? 15 : 16.5, fontWeight: 600, lineHeight: 1.4, margin: 0 }}><Linked text={item.question} /></h2>
 

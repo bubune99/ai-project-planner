@@ -53,6 +53,34 @@ export function startMove(r: WorkRow): StartMove {
   return { to: r.status === "pending" ? null : "pending", send: true }
 }
 
+/*
+  A question the owner has to answer holds its card (card f473b5d4). The questions and the work they hold up lived
+  apart: nine cards sat in progress with nobody on them while their questions waited in the inbox. Asking about a card
+  now blocks it and the card's blocker record names the question; his answer returns it to Up next.
+*/
+/** The card's open blocker record (step_blockers), as far as a question cares. */
+export interface OpenHold { questionId: string | null; waitingOn: string; dependsOnCard: boolean }
+/**
+ * What asking the owner about a card does to it. `kind` is the status's kind (done, closed, active, open).
+ *   block     move it to Blocked, waiting on the owner, naming the question
+ *   remember  it is already blocked waiting on the owner with no question named: name this one, keep its reason
+ *   null      leave it: finished or closed, or blocked for a reason of its own
+ */
+export function whenQuestionAsked(card: { status: string; kind: string }, hold: OpenHold | null): "block" | "remember" | null {
+  if (card.status === "blocked") return hold && hold.waitingOn === "owner" && !hold.questionId && !hold.dependsOnCard ? "remember" : null
+  if (card.kind === "done" || card.kind === "closed") return null
+  return "block"
+}
+/**
+ * What the owner's answer does to the card. Only a card still blocked on this very question moves: one he finished,
+ * moved, or that was blocked again for another reason stays where it is. While another question about the same card
+ * is still open (`othersOpen`, oldest first) the card stays blocked and names that one instead.
+ */
+export function whenQuestionAnswered(status: string, hold: OpenHold | null, questionId: string, othersOpen: string[]): { to: "pending" } | { holdFor: string } | null {
+  if (status !== "blocked" || !hold || hold.questionId !== questionId) return null
+  return othersOpen.length ? { holdFor: othersOpen[0] } : { to: "pending" }
+}
+
 /** How long a card may sit in progress, sent but not picked up, before it is shown as a fault. */
 export const PICKUP_MINUTES = 30
 export type Holding = { state: "held"; by: string; since: string | null } | { state: "sent"; since: string } | { state: "nobody" }

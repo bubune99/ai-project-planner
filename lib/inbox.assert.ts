@@ -2,7 +2,7 @@
  * Assertions for lib/inbox.ts. Run: npx -y tsx@4.23.15 lib/inbox.assert.ts
  * (not the pinned tsx 4.21.0 — see CLAUDE.md).
  */
-import { buildQuestionInput, toInboxItem, resolveAnswer, statusAfterAnswer, MAX_OPTIONS } from "./inbox"
+import { buildQuestionInput, toInboxItem, resolveAnswer, statusAfterAnswer, cardOfQuestion, MAX_OPTIONS } from "./inbox"
 
 let pass = 0, fail = 0
 function eq(name: string, got: unknown, want: unknown) {
@@ -67,6 +67,13 @@ eq("over-long reply rejected", resolveAnswer(item, { reply: "x".repeat(4001) }).
 // ── statusAfterAnswer ───────────────────────────────────────────────
 eq("a question is done once answered", statusAfterAnswer("question"), "completed")
 eq("a paused job goes back to the queue", statusAfterAnswer("unlock"), "queued")
+
+// ── cardOfQuestion (card f473b5d4) ──────────────────────────────────
+eq("the card a question was asked about", cardOfQuestion("s1", null), "s1")
+eq("asked about one card, named by another card's blocker: the one it was asked about", cardOfQuestion("s1", "s2"), "s1")
+eq("asked about no card, but a blocked card names it as what it waits on", cardOfQuestion(null, "s2"), "s2")
+eq("a question with no card has none", cardOfQuestion(null, null), null)
+eq("an empty id is no card", cardOfQuestion("  ", undefined), null)
 
 console.log(`${pass} passed, ${fail} failed`)
 if (fail) process.exit(1)

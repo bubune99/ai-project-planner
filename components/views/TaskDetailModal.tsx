@@ -35,7 +35,7 @@ import {
   type ProjectStatus,
 } from "./kanban-config"
 import { StepActivityPanel, StepTimer } from "./StepActivityPanel"
-import { CardDescription, CardPath, CardPictures, CardProposal, CardSteps } from "./CardStory"
+import { CardDescription, CardPath, CardPictures, CardProposal, CardQuestions, CardSteps } from "./CardStory"
 
 interface TaskDetailModalProps {
   step: BoardStep | null
@@ -299,6 +299,8 @@ export function TaskDetailModal({
         <div className="grid md:grid-cols-[minmax(0,1fr)_280px] gap-0">
           {/* Main column */}
           <div className="space-y-6 min-w-0 px-6 py-5">
+            <CardQuestions key={step.id} step={step} />
+
             <CardDescription text={step.description ?? ""} onSave={(d) => patch({ description: d })} />
 
             <CardProposal metadata={step.metadata} />
