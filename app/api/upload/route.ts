@@ -3,13 +3,13 @@ import { sql } from "@/lib/db/client";
 import crypto from "crypto";
 import {
   uploadToR2,
-  generateStorageKey,
   getSignedUploadUrl,
   isR2Configured,
   getPublicUrl,
 } from "@/lib/storage/r2-client";
 import { getAuthContext, verifyProjectWriteAccess } from "@/lib/auth/auth-utils";
 import { checkRateLimit, HOUR_MS } from "@/lib/rate-limit";
+import { MAX_UPLOAD_BYTES, extensionFor, storageKeyFor, uploadRefusal } from "@/lib/storage/upload-rules";
 
 /** Uploads (direct or presigned) per user per hour. */
 const UPLOADS_PER_HOUR = 30;
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     const description = formData.get("description") as string;
 
     // Validation
-    if (!file) {
+    if (!(file instanceof File)) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
@@ -81,43 +81,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file size (max 50MB)
-    const maxSize = 50 * 1024 * 1024;
-    if (file.size > maxSize) {
-      return NextResponse.json(
-        { error: "File too large. Maximum size is 50MB." },
-        { status: 400 }
-      );
-    }
-
-    // Validate file type
-    const allowedTypes = [
-      // Images
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "image/svg+xml",
-      "image/gif",
-      // Documents
-      "application/pdf",
-      "application/vnd.ms-excel",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "text/csv",
-      "text/plain",
-      "application/json",
-      // Design files
-      "application/x-sketch",
-      "application/vnd.figma",
-    ];
-
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json(
-        {
-          error: `Invalid file type: ${file.type}. Allowed types: images, PDFs, spreadsheets, documents.`,
-        },
-        { status: 400 }
-      );
+    // Size and type: what may be stored is decided in lib/storage/upload-rules.ts
+    const refusal = uploadRefusal({ type: file.type, size: file.size });
+    if (refusal) {
+      return NextResponse.json({ error: refusal }, { status: 400 });
     }
 
     // Calculate content hash for deduplication
@@ -144,8 +111,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Generate storage key with user isolation
-    const storageKey = generateStorageKey(userId, projectId, file.name);
+    // The stored name is made here (a random id and the ending for the allowed type). The name the browser sent
+    // is kept only as display metadata below: it never becomes part of the key.
+    const storageKey = storageKeyFor(userId, projectId, file.type, crypto.randomUUID());
+    if (!storageKey) {
+      return NextResponse.json({ error: "Project ID is not valid" }, { status: 400 });
+    }
 
     // Upload to Cloudflare R2
     const uploadResult = await uploadToR2(storageKey, buffer, file.type, {
@@ -244,8 +215,9 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * GET /api/upload?filename=xxx&projectId=yyy&contentType=zzz
- * Get presigned upload URL for client-side direct upload to R2
+ * GET /api/upload?projectId=yyy&contentType=zzz
+ * Get presigned upload URL for client-side direct upload to R2. Only for a project the caller may write to, only
+ * for an allowed type, and under a name made here.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -273,19 +245,31 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const filename = searchParams.get("filename");
     const projectId = searchParams.get("projectId");
-    const contentType = searchParams.get("contentType") || "application/octet-stream";
+    const contentType = searchParams.get("contentType") || "";
 
-    if (!filename || !projectId) {
+    if (!projectId) {
       return NextResponse.json(
-        { error: "Missing filename or projectId parameter" },
+        { error: "Missing projectId parameter" },
         { status: 400 }
       );
     }
 
-    // Generate storage key
-    const storageKey = generateStorageKey(userId, projectId, filename);
+    if (!extensionFor(contentType)) {
+      return NextResponse.json(
+        { error: "Missing or invalid contentType. Allowed types: images, PDFs, spreadsheets, documents." },
+        { status: 400 }
+      );
+    }
+
+    // The stored name is made here; a project id that is not an id gets no key and no lookup.
+    const storageKey = storageKeyFor(userId, projectId, contentType, crypto.randomUUID());
+    if (!storageKey || !(await verifyProjectWriteAccess(projectId, userId))) {
+      return NextResponse.json(
+        { error: "Project not found or access denied" },
+        { status: 403 }
+      );
+    }
 
     // Get presigned URL for direct upload
     const uploadUrl = await getSignedUploadUrl(storageKey, contentType, 3600);
@@ -294,7 +278,7 @@ export async function GET(request: NextRequest) {
       uploadUrl,
       storageKey,
       publicUrl: getPublicUrl(storageKey),
-      maxSize: 50 * 1024 * 1024, // 50MB
+      maxSize: MAX_UPLOAD_BYTES, // 50MB
       expiresIn: 3600, // 1 hour
     });
   } catch (error: unknown) {

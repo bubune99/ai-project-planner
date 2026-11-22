@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db/client"
 import { getAuthContext } from "@/lib/auth/auth-utils"
 import { getSignedDownloadUrl, isR2Configured } from "@/lib/storage/r2-client"
+import { downloadDisposition } from "@/lib/storage/upload-rules"
 
 export const dynamic = "force-dynamic"
 
@@ -20,17 +21,18 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   if (!UUID.test(id)) return NextResponse.json({ error: "Not found" }, { status: 404 })
   try {
     const [doc] = (await sql`
-      SELECT d.blob_key
+      SELECT d.blob_key, d.metadata->>'originalName' AS original_name
       FROM documents d
       LEFT JOIN projects p ON p.id = d.project_id
       WHERE d.id = ${id}
         AND d.deleted_at IS NULL
         AND d.blob_key IS NOT NULL
         AND (p.user_id = ${auth.userId} OR d.user_id = ${auth.userId})
-    `) as { blob_key: string }[]
+    `) as { blob_key: string; original_name: string | null }[]
     if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 })
     if (!isR2Configured()) return NextResponse.json({ error: "Storage is not configured" }, { status: 503 })
-    const url = await getSignedDownloadUrl(doc.blob_key, 600)
+    // The stored name is a random id: the download carries the name the file was uploaded under.
+    const url = await getSignedDownloadUrl(doc.blob_key, 600, downloadDisposition(doc.original_name, doc.blob_key))
     return NextResponse.redirect(url, { status: 302, headers: { "Cache-Control": "private, no-store" } })
   } catch (error) {
     console.error("GET /api/documents/:id/file failed:", error)

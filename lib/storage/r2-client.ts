@@ -138,16 +138,19 @@ export async function deleteMultipleFromR2(keys: string[]): Promise<void> {
 
 /**
  * Get a signed download URL (for private buckets)
+ * contentDisposition: the name the browser saves the file under (see downloadDisposition in upload-rules.ts)
  */
 export async function getSignedDownloadUrl(
   key: string,
-  expiresIn: number = 3600
+  expiresIn: number = 3600,
+  contentDisposition?: string
 ): Promise<string> {
   validateConfig();
 
   const command = new GetObjectCommand({
     Bucket: R2_BUCKET_NAME,
     Key: key,
+    ...(contentDisposition ? { ResponseContentDisposition: contentDisposition } : {}),
   });
 
   return getSignedUrl(r2Client, command, { expiresIn });
@@ -263,20 +266,6 @@ export async function listFilesInR2(
     size: item.Size || 0,
     lastModified: item.LastModified || new Date(),
   }));
-}
-
-/**
- * Generate a storage key for user files
- * Format: users/{userId}/projects/{projectId}/{timestamp}-{filename}
- */
-export function generateStorageKey(
-  userId: string,
-  projectId: string,
-  filename: string
-): string {
-  const timestamp = Date.now();
-  const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, "_");
-  return `users/${userId}/projects/${projectId}/${timestamp}-${sanitizedFilename}`;
 }
 
 /**
