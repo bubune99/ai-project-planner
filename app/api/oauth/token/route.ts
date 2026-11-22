@@ -23,6 +23,8 @@ import {
   sha256hex,
 } from "@/lib/oauth/store"
 import { parseScope, formatScope } from "@/lib/oauth/scope"
+import { checkRateLimit, clientIp } from "@/lib/rate-limit"
+import { PUBLIC_ROUTE_LIMITS, publicLimitKey } from "@/lib/public-route-limits"
 
 export const dynamic = "force-dynamic"
 
@@ -55,6 +57,13 @@ async function parseBody(request: NextRequest): Promise<Record<string, string>> 
 }
 
 export async function POST(request: NextRequest) {
+  // No signed-in caller here (declared public in security.config.json), so each address is limited before the
+  // body is read: 30 exchanges a minute. A connector makes one per connection.
+  const { limit, windowMs } = PUBLIC_ROUTE_LIMITS.oauthToken
+  if (!(await checkRateLimit(publicLimitKey("oauthToken", clientIp(request)), limit, windowMs))) {
+    return oauthError("too_many_requests", "Too many token requests from this address. Try again in a minute.", 429)
+  }
+
   let body: Record<string, string>
   try {
     body = await parseBody(request)

@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse } from "@/lib/api-utils";
 import { validateInvitation } from "@/lib/collaboration";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { PUBLIC_ROUTE_LIMITS, publicLimitKey } from "@/lib/public-route-limits";
 
 export const dynamic = "force-dynamic"
 
@@ -10,12 +12,20 @@ export const dynamic = "force-dynamic"
  *
  * This endpoint does not require authentication.
  * It returns basic invitation info for the acceptance page.
+ *
+ * Declared public in security.config.json: the long random token is the key. Each address may look
+ * invitations up 30 times a minute, far more than a person opening a link needs.
  */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
+    const { limit, windowMs } = PUBLIC_ROUTE_LIMITS.invitation;
+    if (!(await checkRateLimit(publicLimitKey("invitation", clientIp(request)), limit, windowMs))) {
+      return errorResponse("RATE_LIMITED", "Too many invitation lookups from this address. Try again in a minute.", 429);
+    }
+
     const { token } = await params;
 
     if (!token) {

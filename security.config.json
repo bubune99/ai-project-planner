@@ -1,0 +1,24 @@
+{
+  "$comment": [
+    "Routes that answer without a signed-in caller, on purpose. Read by the launch-readiness check",
+    "C1-ROUTE-AUTHZ, which matches each entry as \"<METHOD> <route path>\".",
+    "Every entry in publicRoutes must have a reason in publicRouteReasons saying what protects the route.",
+    "Declared by the owner on 2026-11-22 (planner question d1c10394): \"Declare all six public, with the tightenings\"."
+  ],
+  "publicRoutes": [
+    "GET /api/catalog/webhooks/github",
+    "GET /api/catalog/webhooks/vercel-deploy",
+    "GET /api/health",
+    "GET /api/invitations/[token]",
+    "POST /api/oauth/register",
+    "POST /api/oauth/token"
+  ],
+  "publicRouteReasons": {
+    "GET /api/catalog/webhooks/github": "A fixed answer that the GitHub webhook is deployed: it reads nothing and names no setting, and the POST beside it checks GitHub's signature.",
+    "GET /api/catalog/webhooks/vercel-deploy": "A fixed answer that the Vercel webhook is deployed: it reads nothing and names no setting, and the POST beside it checks Vercel's signature.",
+    "GET /api/health": "Uptime check that answers ok or error and the time, nothing else, limited to 60 requests a minute per address.",
+    "GET /api/invitations/[token]": "The handler asks for no sign-in, so an invited person can read their invitation: the 192-bit random token in the link is the key (stored as a hash, it expires and can be revoked), and lookups are limited to 30 a minute per address.",
+    "POST /api/oauth/register": "Open client registration for MCP connectors (RFC 7591), limited to 10 an hour per address with checked redirect addresses; a registered client gets nothing until a signed-in person approves it.",
+    "POST /api/oauth/token": "Code exchange for MCP connectors: it needs a single-use code, the exact redirect address and the PKCE verifier, and is limited to 30 requests a minute per address."
+  }
+}

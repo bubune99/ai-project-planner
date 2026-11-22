@@ -251,13 +251,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Healthcheck — quick way to verify the route is alive without sending a real payload
+// Says the route is deployed, and nothing about how it is set up: anyone can ask (declared public in
+// security.config.json), so it names no setting and does not say which are present.
 export async function GET() {
-  return NextResponse.json({
-    webhook: 'catalog/github',
-    ready: true,
-    requires: ['GITHUB_WEBHOOK_SECRET', 'CATALOG_DEFAULT_USER_ID'],
-    scanner_status: 'pending',
-    note: 'POST a GitHub push payload with X-Hub-Signature-256 header to trigger.',
-  })
+  return NextResponse.json({ webhook: 'catalog/github', alive: true })
 }

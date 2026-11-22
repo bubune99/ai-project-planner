@@ -186,11 +186,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Says the route is deployed, and nothing about how it is set up: anyone can ask (declared public in
+// security.config.json), so it names no setting and does not say which are present.
 export async function GET() {
-  return NextResponse.json({
-    webhook: 'catalog/vercel-deploy',
-    ready: true,
-    requires: ['VERCEL_WEBHOOK_SECRET', 'CATALOG_DEFAULT_USER_ID'],
-    note: 'POST a Vercel deployment payload to trigger.',
-  })
+  return NextResponse.json({ webhook: 'catalog/vercel-deploy', alive: true })
 }
