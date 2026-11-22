@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { contentOf, ruleId, toRules, type Guide, type GuideVersion } from "./guides"
-import { ledgerOf, ledgerWords, type CheckRecord } from "./guide-ledger"
+import { ledgerOf, ledgerWords, trialBegan, type CheckRecord } from "./guide-ledger"
 
 let n = 0
 const ok = (name: string, fn: () => void) => { fn(); n++; console.log("ok ", name) }
@@ -32,15 +32,15 @@ ok("nothing recorded is not a clean record: no counts at all, and the words carr
 ok("checked and none passed is a number, and is told apart from nothing recorded", () => {
   const l = ledgerOf(row(), [V(1)], [R("fits", "failed", 12), R("taps", "failed", 13, "app/y.tsx")])
   assert.deepEqual(l.checks, { owed: 2, passed: 0, failed: 2, waived: 0, open: 0, lastFailed: { at: "2026-11-13T09:00:00.000Z", file: "app/y.tsx" } })
-  assert.equal(ledgerWords(l, day).checks, "Checked 2 times: 0 passed, 2 failed. Last failed 2026-11-13 on app/y.tsx.")
+  assert.equal(ledgerWords(l, day).checks, "No file owes it now; results so far: 0 passed, 2 failed (app/y.tsx, 2026-11-13), 0 waived.")
 })
 
 ok("owed, passed, failed, waived and still owed are counted; the last failure says when and where", () => {
   const l = ledgerOf(row(), [V(1)], [R("fits", "passed", 12), R("fits", "failed", 14, "app/a.tsx"), R("taps", "failed", 13, "app/b.tsx"), R("taps", "waived", 15), R("fits", "open", 16), R("fits", "passed", 17)])
   assert.deepEqual(l.checks, { owed: 6, passed: 2, failed: 2, waived: 1, open: 1, lastFailed: { at: "2026-11-14T09:00:00.000Z", file: "app/a.tsx" } })
-  assert.equal(ledgerWords(l, day).checks, "Checked 6 times: 2 passed, 2 failed, 1 waived, 1 still owed. Last failed 2026-11-14 on app/a.tsx.")
+  assert.equal(ledgerWords(l, day).checks, "1 file owes it now; results so far: 2 passed, 2 failed (app/a.tsx, 2026-11-14), 1 waived.")
   const one = ledgerOf(row(), [V(1)], [R("fits", "passed", 12)])
-  assert.equal(ledgerWords(one, day).checks, "Checked 1 time: 1 passed, 0 failed.")
+  assert.equal(ledgerWords(one, day).checks, "No file owes it now; results so far: 1 passed, 0 failed, 0 waived.")
 })
 
 ok("in force in its current wording since the first version of the unbroken run that reads the same", () => {
@@ -87,7 +87,7 @@ ok("on trial: the same numbers since the trial began; moving the review date doe
   assert.equal(l.trial?.since, V(2).at)
   assert.deepEqual(l.trial?.checks, { owed: 2, passed: 2, failed: 0, waived: 0, open: 0, lastFailed: null })
   assert.equal(l.checks?.owed, 3)
-  assert.equal(ledgerWords(l, day).trial, "Since the trial began 2026-11-12: checked 2 times: 2 passed, 0 failed.")
+  assert.equal(ledgerWords(l, day).trial, "Since the trial began 2026-11-12: no file owes it now; results so far: 2 passed, 0 failed, 0 waived.")
   // On trial with nothing recorded since: said so, not shown as a clean run.
   const quiet = ledgerOf(row({ trialUntil: "2026-12-05" }), vs, [R("fits", "failed", 11)])
   assert.equal(quiet.trial?.checks, null)
@@ -111,6 +111,33 @@ ok("removed and put back: in force since it was put back, not since before it wa
   const trial = { trialUntil: "2026-12-05" }
   const tv = [V(1, trial, { change: "trial" }), V(2, trial, { change: "removed" }), V(3, trial, { change: "put-back", restoredFrom: 1 })]
   assert.equal(ledgerOf(row(trial), tv, []).trial?.since, V(3).at)
+})
+
+ok("a record that names a guide is that guide's and no other's; one that names none goes by its rule id", () => {
+  const mine = { ...row(), id: "g1" }
+  const recs: CheckRecord[] = [
+    // Tied to this guide as it arrived, under a check id it no longer has: still its own.
+    { rule: ruleId("Phone screens", "old-id"), guide: "g1", file: "a.tsx", at: "2026-11-12T09:00:00.000Z", result: "failed" },
+    // The same rule id, tied to another guide (a project's own statement of the same name): not this one's.
+    { rule: ruleId("Phone screens", "fits"), guide: "g2", file: "b.tsx", at: "2026-11-13T09:00:00.000Z", result: "failed" },
+    // Tied to no guide: by its rule id.
+    { rule: ruleId("Phone screens", "fits"), guide: null, file: "c.tsx", at: "2026-11-14T09:00:00.000Z", result: "passed" },
+  ]
+  assert.deepEqual(ledgerOf(mine, [V(1)], recs).checks, { owed: 2, passed: 1, failed: 1, waived: 0, open: 0, lastFailed: { at: "2026-11-12T09:00:00.000Z", file: "a.tsx" } })
+  // A guide whose id is not known claims only by rule id.
+  assert.equal(ledgerOf(row(), [V(1)], recs).checks?.owed, 1)
+})
+
+ok("records counted together in the database: each stands for n results; the trial is counted from its own list", () => {
+  const vs = [V(1), V(2, { trialUntil: "2026-11-30" }, { change: "trial" })]
+  const counted: CheckRecord[] = [{ ...R("fits", "passed", 20), n: 38 }, { ...R("taps", "failed", 19, "app/z.tsx"), n: 3 }, { ...R("fits", "open", 21), n: 2 }]
+  const l = ledgerOf(row({ trialUntil: "2026-11-30" }), vs, counted, [R("fits", "passed", 11), R("fits", "passed", 20), R("taps", "failed", 19, "app/z.tsx")])
+  assert.deepEqual(l.checks, { owed: 43, passed: 38, failed: 3, waived: 0, open: 2, lastFailed: { at: "2026-11-19T09:00:00.000Z", file: "app/z.tsx" } })
+  assert.equal(ledgerWords(l, day).checks, "2 files owe it now; results so far: 38 passed, 3 failed (app/z.tsx, 2026-11-19), 0 waived.")
+  // Only what came since the trial began (Nov 12) is counted for it, one each.
+  assert.deepEqual(l.trial?.checks, { owed: 2, passed: 1, failed: 1, waived: 0, open: 0, lastFailed: { at: "2026-11-19T09:00:00.000Z", file: "app/z.tsx" } })
+  assert.equal(trialBegan(row({ trialUntil: "2026-11-30" }), vs), V(2).at)
+  assert.equal(trialBegan(row(), vs), null)
 })
 
 console.log(`\n${n} checks passed`)

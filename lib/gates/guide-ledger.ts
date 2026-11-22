@@ -5,24 +5,31 @@
  *
  * 1. Since when a statement has been in force in its current wording, and since when it has been on trial. These
  *    come from the versions kept on every save (gate_guide_versions, migration 085).
- * 2. How many times its checks were owed, and how each ended. A statement's checks reach a project as rules
- *    (toRules), and the plugin records each one per file. TODAY THOSE RECORDS STAY IN THE PROJECT'S FOLDER
- *    (.gates/code.json) AND ARE NOT SENT TO THE PLANNER, so the store has none to give and every statement reads
- *    "No checks recorded yet". The counting below is ready for them: a CheckRecord is one time one check was owed on
- *    one file, named by the rule id the plugin already holds.
+ * 2. How its checks ended. A statement's checks reach a project as rules (toRules), and the plugin records each one
+ *    per file and sends the result to the planner (code-results.ts, migration 088). A CheckRecord is a result a
+ *    check came to on a file, named by the rule id the plugin holds and, when it was known as it arrived, by the
+ *    guide's id. What is counted is each change of result on a file (the first included), not every save of it.
+ *    Where the table is not there yet, or nothing has been sent, every statement reads "No checks recorded yet".
  *
  * Nothing recorded is never shown as a number: zero passed of zero owed would read like a clean record.
  */
 import { ruleId, type GuideContent, type GuideVersion } from "./guides"
 
-/** One time one check of a statement was owed on one file, and how it ended ("open": still owed). */
+/** A result one check of a statement came to on one file ("open": owed now, not yet settled). */
 export interface CheckRecord {
   /** The rule id the plugin was given for the check: ruleId(statement name, check id). */
   rule: string
+  /**
+   * The guide it was tied to when it arrived, when that was known. A record that names a guide is that guide's and
+   * no other's, whatever its rule id reads as now; one that names none goes by its rule id.
+   */
+  guide?: string | null
   file: string
-  /** When it was owed (ISO). */
+  /** When (ISO). When the record stands for several results, the newest of them, and `file` is that one's. */
   at: string
   result: "passed" | "failed" | "waived" | "open"
+  /** How many results this record stands for (counted in the database). One when not given. */
+  n?: number
 }
 
 export interface CheckCounts {
@@ -68,36 +75,47 @@ function runStart(versions: GuideVersion[], same: (c: GuideContent) => boolean):
 /** The counts for a set of records, or null when there are none. */
 export function countChecks(records: CheckRecord[]): CheckCounts | null {
   if (!records.length) return null
-  const of = (r: CheckRecord["result"]) => records.filter((x) => x.result === r).length
+  const of = (r: CheckRecord["result"]) => records.filter((x) => x.result === r).reduce((sum, x) => sum + (x.n ?? 1), 0)
   const last = records.filter((x) => x.result === "failed").reduce<CheckRecord | null>((a, b) => (!a || Date.parse(b.at) > Date.parse(a.at) ? b : a), null)
-  return { owed: records.length, passed: of("passed"), failed: of("failed"), waived: of("waived"), open: of("open"), lastFailed: last ? { at: last.at, file: last.file } : null }
+  return { owed: records.reduce((sum, x) => sum + (x.n ?? 1), 0), passed: of("passed"), failed: of("failed"), waived: of("waived"), open: of("open"), lastFailed: last ? { at: last.at, file: last.file } : null }
+}
+
+/** When the trial a statement is on began: the first version of the newest unbroken run with a review date. Null: permanent, or not kept. */
+export function trialBegan(guide: Pick<GuideContent, "trialUntil">, versions: GuideVersion[]): string | null {
+  return guide.trialUntil ? runStart(versions, (c) => !!c.trialUntil)?.at ?? null : null
 }
 
 /**
- * One guide's ledger. `guide` is the row as it stands (updatedAt: its last write, used only when no version was
- * kept); `versions` are its kept versions in any order; `records` may hold any statement's records, only this
- * one's are counted.
+ * One guide's ledger. `guide` is the row as it stands (id: used to claim the records that name it; updatedAt: its
+ * last write, used only when no version was kept); `versions` are its kept versions in any order; `records` may
+ * hold any statement's records, only this one's are counted. `sinceTrial` are the records the trial's numbers are
+ * counted from, one result each (those from before the trial began are left out here): the same list as `records`
+ * unless `records` were counted together in the database, where a line can span the day the trial began.
  */
-export function ledgerOf(guide: GuideContent & { updatedAt?: string | null }, versions: GuideVersion[], records: CheckRecord[]): Ledger {
+export function ledgerOf(guide: GuideContent & { id?: string; updatedAt?: string | null }, versions: GuideVersion[], records: CheckRecord[], sinceTrial: CheckRecord[] = records): Ledger {
   const now = wording(guide)
   const start = runStart(versions, (c) => wording(c) === now)
   const since = start ? { at: start.at, atLeast: start.change === "before" } : guide.updatedAt ? { at: guide.updatedAt, atLeast: true } : null
   const rules = new Set(guide.checks.map((c) => ruleId(guide.name, c.id)))
-  const mine = records.filter((r) => rules.has(r.rule))
+  const mine = (r: CheckRecord) => (r.guide ? r.guide === guide.id : rules.has(r.rule))
   let trial: Ledger["trial"] = null
   if (guide.trialUntil) {
-    const began = runStart(versions, (c) => !!c.trialUntil)?.at ?? null
-    trial = { since: began, checks: began ? countChecks(mine.filter((r) => Date.parse(r.at) >= Date.parse(began))) : null }
+    const began = trialBegan(guide, versions)
+    trial = { since: began, checks: began ? countChecks(sinceTrial.filter((r) => mine(r) && Date.parse(r.at) >= Date.parse(began))) : null }
   }
-  return { inForce: guide.status === "active", since, checks: countChecks(mine), trial }
+  return { inForce: guide.status === "active", since, checks: countChecks(records.filter(mine)), trial }
 }
 
-const times = (n: number) => `${n} time${n === 1 ? "" : "s"}`
-
+/**
+ * The counts in words. Two different things are said and kept apart: how many files owe the check now (a standing),
+ * and how often a file's result came to passed, failed or waived so far (a history: a file that failed and was then
+ * put right is one of each). A zero is said as a zero once anything is recorded; nothing recorded has its own words.
+ */
 function countWords(c: CheckCounts | null, day: (iso: string) => string): string {
   if (!c) return "No checks recorded yet."
-  const parts = [`${c.passed} passed`, `${c.failed} failed`, ...(c.waived ? [`${c.waived} waived`] : []), ...(c.open ? [`${c.open} still owed`] : [])]
-  return `Checked ${times(c.owed)}: ${parts.join(", ")}.${c.lastFailed ? ` Last failed ${day(c.lastFailed.at)} on ${c.lastFailed.file}.` : ""}`
+  const owing = c.open === 0 ? "No file owes it now" : `${c.open} file${c.open === 1 ? " owes" : "s owe"} it now`
+  const failed = `${c.failed} failed${c.lastFailed ? ` (${c.lastFailed.file}, ${day(c.lastFailed.at)})` : ""}`
+  return `${owing}; results so far: ${c.passed} passed, ${failed}, ${c.waived} waived.`
 }
 
 /** The ledger in words. `day` writes a moment as a date for the person reading (their own timezone). */

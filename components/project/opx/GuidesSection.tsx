@@ -94,7 +94,7 @@ export function GuidesSection() {
       {justRemoved && <RemovedNotice name={justRemoved.name} busy={busy} onUndo={() => putBack(justRemoved, true)} onDismiss={() => setJustRemoved(null)} />}
       {ledger.error && <Failed what="the statements' numbers" error={ledger.error} retry={ledger.reload} />}
       {ledger.data?.checkResultsKept === false && (
-        <p className="opx-muted">Each check's result is kept in the project's own folder and is not sent to the planner yet, so no statement has check numbers to show.</p>
+        <p className="opx-muted">No check result has reached the planner yet, so no statement has check numbers to show. They arrive as agents write files in a project's folder.</p>
       )}
       {(["stack", "statement"] as const).map((kind) => group(kind).length > 0 && (
         // Once touched, a list stays as the person left it. Before this, turning the last draft into a rule shut the

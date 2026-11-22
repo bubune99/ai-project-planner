@@ -12,7 +12,8 @@ import {
   historyOf, readChange, refusal, sameContent, savingOverRemoved, startingSet, storedContent, toRules, toStored, validateGuide, versionToPutBack, versionToRestore, withTrial,
   type Guide, type GuideContent, type GuideVersion, type Saver, type VersionChange,
 } from "./guides"
-import { ledgerOf, type CheckRecord, type Ledger } from "./guide-ledger"
+import { ledgerRecords } from "./code-result-store"
+import { ledgerOf, trialBegan, type Ledger } from "./guide-ledger"
 import { GateError } from "./store"
 
 type Row = Guide & { project_id: string | null; updated_at: string }
@@ -172,15 +173,10 @@ async function versionsOf(userId: string, id: string): Promise<GuideVersion[]> {
 }
 
 /**
- * No table holds the result of a statement's check on a file: the plugin keeps those in the project's folder
- * (.gates/code.json) and sends the planner nothing. gate_results holds page checks, keyed by control, workflow and
- * state, with no rule or statement on them. Until such records are sent, there are none to count.
- */
-const CHECK_RECORDS: CheckRecord[] = []
-
-/**
  * Every guide's ledger, by guide id: since when it has been in force as worded and on trial (from the versions
- * kept), and its check numbers (none are kept yet; see CHECK_RECORDS). Two queries however many guides there are.
+ * kept), and its check numbers (from the results the plugin sends: code-result-store.ts, migration 088, counted
+ * across all the person's projects). checkResultsKept is false, and every statement has no numbers, while that table
+ * is not there or holds nothing of theirs. Four queries at most however many guides there are.
  */
 export async function guideLedgers(userId: string, projectId?: string | null): Promise<{ checkResultsKept: boolean; ledgers: Record<string, Ledger> }> {
   const guides = await listGuides(userId, projectId)
@@ -190,9 +186,13 @@ export async function guideLedgers(userId: string, projectId?: string | null): P
   `) as (VersionRow & { guide_id: string })[]
   const byGuide = new Map<string, GuideVersion[]>()
   for (const r of rows) byGuide.set(r.guide_id, [...(byGuide.get(r.guide_id) ?? []), toVersion(r)])
+  const all = guides.map((g) => ({ guide: { ...storedContent(g), id: g.id, updatedAt: g.updated_at ? new Date(g.updated_at).toISOString() : null }, versions: byGuide.get(g.id) ?? [] }))
+  // The trials' own numbers need each result since the earliest trial began; without a trial that is not read at all.
+  const began = all.map((x) => trialBegan(x.guide, x.versions)).filter((at): at is string => !!at).sort()
+  const { kept, records, sinceTrial } = await ledgerRecords(userId, began[0] ?? null)
   const ledgers: Record<string, Ledger> = {}
-  for (const g of guides) ledgers[g.id] = ledgerOf({ ...storedContent(g), updatedAt: g.updated_at ? new Date(g.updated_at).toISOString() : null }, byGuide.get(g.id) ?? [], CHECK_RECORDS)
-  return { checkResultsKept: false, ledgers }
+  for (const x of all) ledgers[x.guide.id] = ledgerOf(x.guide, x.versions, records, sinceTrial)
+  return { checkResultsKept: kept, ledgers }
 }
 
 /** Every kept version of a guide, newest first: who, when, what changed, and the content so it can be read. */
