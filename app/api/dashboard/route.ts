@@ -2,6 +2,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { budgetFigures, monthFigures, type BudgetTotal, type TypeTotal } from '@/lib/finance/dashboard-figures'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,7 +14,7 @@ export const dynamic = 'force-dynamic'
  * - Projects: total, active, completed, blocked
  * - Ideas: total by lifecycle stage
  * - Todos: today, overdue, upcoming
- * - Finance: month spending, budget status
+ * - Finance: this month's spending and income, the monthly budgets in force
  * - Memory: decision count, recent lessons
  */
 export async function GET(request: NextRequest) {
@@ -72,27 +73,29 @@ export async function GET(request: NextRequest) {
       WHERE user_id = ${userId}
     `
 
-    // Get finance stats (this month)
-    const financeStats = await sql`
-      SELECT
-        COALESCE(SUM(CASE WHEN type = 'expense' THEN ABS(amount) ELSE 0 END), 0) as month_spending,
-        COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as month_income,
-        COUNT(*) as transaction_count
-      FROM transactions
+    // Finance, this month: finance_transactions and finance_budgets (migration 028). The rules are in lib/finance/dashboard-figures.
+    const monthTotals = await sql`
+      SELECT transaction_type, currency, SUM(amount) AS total, COUNT(*) AS count
+      FROM finance_transactions
       WHERE user_id = ${userId}
-        AND date >= DATE_TRUNC('month', CURRENT_DATE)
-        AND date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'
+        AND transaction_date >= DATE_TRUNC('month', CURRENT_DATE)
+        AND transaction_date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'
+      GROUP BY transaction_type, currency
     `
 
-    // Get budget status
-    const budgetStats = await sql`
-      SELECT
-        COALESCE(SUM(amount), 0) as total_budget,
-        COUNT(*) as budget_count
-      FROM budgets
+    // Budgets in force today: active, not deleted, and inside their own dates when they have them.
+    const budgetTotals = await sql`
+      SELECT period, currency, SUM(amount) AS total, COUNT(*) AS count
+      FROM finance_budgets
       WHERE user_id = ${userId}
         AND is_active = true
+        AND deleted_at IS NULL
+        AND (start_date IS NULL OR start_date <= CURRENT_DATE)
+        AND (end_date IS NULL OR end_date >= CURRENT_DATE)
+      GROUP BY period, currency
     `
+    const month = monthFigures(monthTotals as TypeTotal[])
+    const budgets = budgetFigures(budgetTotals as BudgetTotal[])
 
     // Get memory stats
     const memoryStats = await sql`
@@ -138,12 +141,16 @@ export async function GET(request: NextRequest) {
         overdue: parseInt(todoStats[0]?.overdue || '0'),
         upcoming: parseInt(todoStats[0]?.upcoming || '0')
       },
+      // A total is null when the money is in more than one currency; show "–" for it, never a sum.
       finance: {
-        monthSpending: parseFloat(financeStats[0]?.month_spending || '0'),
-        monthIncome: parseFloat(financeStats[0]?.month_income || '0'),
-        transactionCount: parseInt(financeStats[0]?.transaction_count || '0'),
-        totalBudget: parseFloat(budgetStats[0]?.total_budget || '0'),
-        budgetCount: parseInt(budgetStats[0]?.budget_count || '0')
+        monthSpending: month.monthSpending,
+        monthIncome: month.monthIncome,
+        transactionCount: month.transactionCount,
+        currency: month.currency,
+        monthlyBudget: budgets.monthlyBudget,
+        monthlyBudgetCount: budgets.monthlyBudgetCount,
+        budgetCount: budgets.budgetCount,
+        budgetCurrency: budgets.currency
       },
       memory: {
         decisions: parseInt(memoryStats[0]?.decisions || '0'),

@@ -2,6 +2,9 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { buildEnvelopeForWrite, envelopeForSql } from '@/lib/api/envelope-helpers'
+import { money } from '@/lib/finance/dashboard-figures'
+import { parseQuickTransaction, pickAccount, type OwnAccount } from '@/lib/finance/quick-capture'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,9 +22,12 @@ export const dynamic = 'force-dynamic'
  *   projectId?: string (for todo),
  *   priority?: string (for todo),
  *   dueDate?: string (for todo),
- *   category?: string (for idea/transaction),
- *   amount?: number (for transaction),
- *   transactionType?: 'income' | 'expense' (for transaction)
+ *   category?: string (for idea; for transaction, the name of one of the person's or the built-in categories),
+ *   // transaction (written to finance_transactions; rules in lib/finance/quick-capture.ts)
+ *   amount: number (required, above zero),
+ *   transactionType?: 'income' | 'expense' (default expense),
+ *   accountId?: string (required when the person has more than one account),
+ *   categoryId?: string, merchant?: string, notes?: string, date?: YYYY-MM-DD (default today)
  * }
  */
 export async function POST(request: NextRequest) {
@@ -138,46 +144,76 @@ export async function POST(request: NextRequest) {
       }
 
       case 'transaction': {
-        const {
-          description,
-          amount,
-          transactionType,
-          category,
-          merchant,
-          date,
-          notes
-        } = body
+        const parsed = parseQuickTransaction(body, new Date().toISOString().split('T')[0])
+        if (!parsed.ok) return errorResponse(ErrorCodes.VALIDATION_ERROR, parsed.message, 400)
+        const tx = parsed.value
 
-        if (amount === undefined || amount === null) {
-          return errorResponse(ErrorCodes.VALIDATION_ERROR, 'Amount is required for transaction', 400)
+        // A transaction belongs to one of the person's own open accounts (account_id is required).
+        const accounts = await sql`
+          SELECT id, currency FROM finance_accounts
+          WHERE user_id = ${userId} AND deleted_at IS NULL AND is_active = true
+        `
+        const picked = pickAccount(accounts as OwnAccount[], tx.accountId)
+        if (!picked.ok) return errorResponse(ErrorCodes.VALIDATION_ERROR, picked.message, 400)
+
+        // The category, by id or by name, among the person's own and the built-in ones.
+        let categoryId: string | null = null
+        if (tx.categoryId || tx.categoryName) {
+          const category = await sql`
+            SELECT id FROM finance_categories
+            WHERE (user_id = ${userId} OR user_id IS NULL)
+              AND ${tx.categoryId ? sql`id = ${tx.categoryId}` : sql`LOWER(name) = LOWER(${tx.categoryName})`}
+            ORDER BY user_id NULLS LAST, parent_id NULLS FIRST
+            LIMIT 1
+          `
+          if (category.length === 0) {
+            return errorResponse(ErrorCodes.VALIDATION_ERROR, `No category ${tx.categoryId ? 'with that id' : `named "${tx.categoryName}"`}`, 400)
+          }
+          categoryId = category[0].id
         }
 
+        // The same 5W+H envelope POST /api/finance/transactions writes.
+        const title = tx.description || tx.merchant || `${tx.transactionType} ${tx.amount} ${picked.account.currency}`
+        const envelope = buildEnvelopeForWrite(
+          body,
+          { userId, projectId: undefined, agentId: undefined },
+          { type: 'finance_transaction', title, summary: title, rationale: body?.documentation_5wh?.why?.rationale },
+          'legacy'
+        )
+
+        // The insert also moves the account's balance: trigger_update_account_balance (migration 028).
         const txResult = await sql`
-          INSERT INTO transactions (
-            user_id, description, amount, type, category, merchant, date, notes
+          INSERT INTO finance_transactions (
+            user_id, account_id, transaction_type, amount, currency,
+            category_id, description, merchant, notes, transaction_date, documentation_5wh
           ) VALUES (
             ${userId},
-            ${description?.trim() || 'Quick entry'},
-            ${Math.abs(amount)},
-            ${transactionType || 'expense'},
-            ${category?.trim() || null},
-            ${merchant?.trim() || null},
-            ${date || new Date().toISOString().split('T')[0]},
-            ${notes?.trim() || null}
+            ${picked.account.id},
+            ${tx.transactionType},
+            ${tx.amount},
+            ${picked.account.currency},
+            ${categoryId},
+            ${tx.description},
+            ${tx.merchant},
+            ${tx.notes},
+            ${tx.date},
+            ${envelope.ok ? envelopeForSql(envelope.envelope) : '{}'}::jsonb
           )
-          RETURNING id, description, amount, type, category, merchant, date, notes, created_at
+          RETURNING id, account_id, transaction_type, amount, currency, category_id, description, merchant, notes, transaction_date, created_at
         `
 
         result = {
           type: 'transaction',
           data: {
             id: txResult[0].id,
+            accountId: txResult[0].account_id,
             description: txResult[0].description,
-            amount: parseFloat(txResult[0].amount),
-            transactionType: txResult[0].type,
-            category: txResult[0].category,
+            amount: money(txResult[0].amount),
+            currency: txResult[0].currency,
+            transactionType: txResult[0].transaction_type,
+            categoryId: txResult[0].category_id,
             merchant: txResult[0].merchant,
-            date: txResult[0].date,
+            date: txResult[0].transaction_date,
             notes: txResult[0].notes,
             createdAt: txResult[0].created_at
           }

@@ -155,7 +155,8 @@ export type Documentation5WHPartial = z.infer<typeof Documentation5WHPartialSche
 
 export type EnvelopeBuildContext = {
   userId: string;
-  projectId: string;
+  /** Absent for what belongs to a person rather than a project (an idea, a todo, a transaction): scope_kind is then "user". */
+  projectId?: string;
   agentId?: string;
 };
 

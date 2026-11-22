@@ -11,13 +11,15 @@ export const dynamic = 'force-dynamic'
  * Aggregated view combining:
  * - Calendar events
  * - Todos with due dates
- * - Project milestones (from memory_when_events)
+ * - Milestones (from mlp_when_milestones)
  * - Upcoming bills (from finance_recurring_transactions)
  *
  * Query params:
  * - startDate: ISO date string (default: today)
  * - endDate: ISO date string (default: +30 days)
  * - types: comma-separated list of types to include (event,todo,milestone,bill)
+ *
+ * A read that fails fails the request: an agenda that silently lacks its milestones or bills looks complete.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -124,95 +126,86 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 3. Project Milestones (from memory_when_events if table exists)
+    // 3. Milestones: mlp_when_milestones (migration 027), the table /api/memory/when writes. It has no deleted_at.
     if (types.includes('milestone')) {
-      try {
-        const milestones = await sql`
-          SELECT
-            id,
-            title,
-            description,
-            target_date,
-            status,
-            milestone_type,
-            project_id,
-            idea_id
-          FROM memory_when_events
-          WHERE user_id = ${userId}
-            AND deleted_at IS NULL
-            AND target_date IS NOT NULL
-            AND target_date >= ${startDate}::date
-            AND target_date <= ${endDate}::date
-            AND status IN ('pending', 'achieved')
-          ORDER BY target_date ASC
-        `
+      const milestones = await sql`
+        SELECT
+          id,
+          title,
+          description,
+          target_date,
+          status,
+          milestone_type,
+          project_id,
+          idea_id
+        FROM mlp_when_milestones
+        WHERE user_id = ${userId}
+          AND target_date IS NOT NULL
+          AND target_date >= ${startDate}::date
+          AND target_date <= ${endDate}::date
+          AND status IN ('pending', 'achieved')
+        ORDER BY target_date ASC
+      `
 
-        for (const m of milestones) {
-          agendaItems.push({
-            id: m.id,
-            type: 'milestone',
-            title: m.title,
-            description: m.description,
-            startTime: m.target_date,
-            endTime: null,
-            isAllDay: true,
-            source: 'project',
-            sourceId: m.project_id || m.idea_id,
-            color: m.status === 'achieved' ? '#22c55e' : '#8b5cf6',
-            icon: 'flag',
-            status: m.status,
-            metadata: { milestoneType: m.milestone_type, projectId: m.project_id, ideaId: m.idea_id }
-          })
-        }
-      } catch {
-        // Table may not exist yet, skip silently
+      for (const m of milestones) {
+        agendaItems.push({
+          id: m.id,
+          type: 'milestone',
+          title: m.title,
+          description: m.description,
+          startTime: m.target_date,
+          endTime: null,
+          isAllDay: true,
+          source: 'project',
+          sourceId: m.project_id || m.idea_id,
+          color: m.status === 'achieved' ? '#22c55e' : '#8b5cf6',
+          icon: 'flag',
+          status: m.status,
+          metadata: { milestoneType: m.milestone_type, projectId: m.project_id, ideaId: m.idea_id }
+        })
       }
     }
 
     // 4. Upcoming Bills (from finance_recurring_transactions)
     if (types.includes('bill')) {
-      try {
-        const bills = await sql`
-          SELECT
-            r.id,
-            r.description,
-            r.merchant,
-            r.amount,
-            r.currency,
-            r.next_occurrence,
-            r.transaction_type,
-            c.name as category_name,
-            c.icon as category_icon,
-            c.color as category_color
-          FROM finance_recurring_transactions r
-          LEFT JOIN finance_categories c ON r.category_id = c.id
-          WHERE r.user_id = ${userId}
-            AND r.is_active = true
-            AND r.transaction_type = 'expense'
-            AND r.next_occurrence >= ${startDate}::date
-            AND r.next_occurrence <= ${endDate}::date
-          ORDER BY r.next_occurrence ASC
-        `
+      const bills = await sql`
+        SELECT
+          r.id,
+          r.description,
+          r.merchant,
+          r.amount,
+          r.currency,
+          r.next_occurrence,
+          r.transaction_type,
+          c.name as category_name,
+          c.icon as category_icon,
+          c.color as category_color
+        FROM finance_recurring_transactions r
+        LEFT JOIN finance_categories c ON r.category_id = c.id
+        WHERE r.user_id = ${userId}
+          AND r.is_active = true
+          AND r.transaction_type = 'expense'
+          AND r.next_occurrence >= ${startDate}::date
+          AND r.next_occurrence <= ${endDate}::date
+        ORDER BY r.next_occurrence ASC
+      `
 
-        for (const b of bills) {
-          agendaItems.push({
-            id: b.id,
-            type: 'bill',
-            title: b.merchant || b.description || 'Recurring Bill',
-            description: `${b.currency} ${parseFloat(b.amount).toFixed(2)} - ${b.category_name || 'Uncategorized'}`,
-            startTime: b.next_occurrence,
-            endTime: null,
-            isAllDay: true,
-            source: 'finance',
-            sourceId: b.id,
-            color: b.category_color || '#ef4444',
-            icon: b.category_icon || 'credit-card',
-            status: 'upcoming',
-            metadata: { amount: parseFloat(b.amount), currency: b.currency, category: b.category_name }
-          })
-        }
-      } catch {
-        // Table may not exist yet, skip silently
+      for (const b of bills) {
+        agendaItems.push({
+          id: b.id,
+          type: 'bill',
+          title: b.merchant || b.description || 'Recurring Bill',
+          description: `${b.currency} ${parseFloat(b.amount).toFixed(2)} - ${b.category_name || 'Uncategorized'}`,
+          startTime: b.next_occurrence,
+          endTime: null,
+          isAllDay: true,
+          source: 'finance',
+          sourceId: b.id,
+          color: b.category_color || '#ef4444',
+          icon: b.category_icon || 'credit-card',
+          status: 'upcoming',
+          metadata: { amount: parseFloat(b.amount), currency: b.currency, category: b.category_name }
+        })
       }
     }
 

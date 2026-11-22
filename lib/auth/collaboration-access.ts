@@ -198,7 +198,7 @@ export async function getProjectAccessList(projectId: string): Promise<{
   `;
 
   return {
-    owner: ownerResult[0],
+    owner: ownerResult[0] as { id: string; name: string | null; email: string; avatar_url: string | null },
     collaborators: collaborators as Array<{
       id: string;
       user_id: string;

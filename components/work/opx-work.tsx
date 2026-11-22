@@ -298,6 +298,8 @@ export function WorkCalendar({ refreshKey = 0, toolbar }: { refreshKey?: number;
 
   const keys = work?.statusKeys || {}
   return (
+    <>
+    {agendaQ.error && <Failed what="events, milestones and bills" error={agendaQ.error} retry={agendaQ.reload} />}
     <PlanCalendar
       items={items}
       loading={workQ.loading && !workQ.data}
@@ -322,6 +324,7 @@ export function WorkCalendar({ refreshKey = 0, toolbar }: { refreshKey?: number;
       }}
       toolbar={toolbar}
     />
+    </>
   )
 }
 

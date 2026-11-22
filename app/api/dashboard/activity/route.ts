@@ -2,6 +2,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { transactionLine, type TransactionLineRow } from '@/lib/finance/dashboard-figures'
 
 export const dynamic = 'force-dynamic'
 
@@ -137,32 +138,36 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Get recent transactions
+    // Recent transactions: finance_transactions (migration 028), the category by its name.
     if (types.includes('transaction')) {
       const transactionActivity = await sql`
         SELECT
-          id,
-          description as title,
-          amount,
-          type,
-          category,
-          date as timestamp
-        FROM transactions
-        WHERE user_id = ${userId}
-        ORDER BY date DESC, created_at DESC
+          t.id,
+          t.description,
+          t.merchant,
+          t.amount,
+          t.currency,
+          t.transaction_type,
+          c.name AS category,
+          t.transaction_date AS timestamp
+        FROM finance_transactions t
+        LEFT JOIN finance_categories c ON c.id = t.category_id
+        WHERE t.user_id = ${userId}
+        ORDER BY t.transaction_date DESC, t.created_at DESC
         LIMIT ${Math.ceil(limit / 4)}
       `
 
       transactionActivity.forEach(t => {
+        const line = transactionLine(t as TransactionLineRow)
         activities.push({
           id: `transaction-${t.id}`,
           type: 'transaction',
-          action: t.type === 'income' ? 'received' : 'spent',
-          title: t.title || 'Transaction',
-          description: `${t.type === 'income' ? '+' : '-'}$${Math.abs(parseFloat(t.amount)).toFixed(2)} - ${t.category || 'Uncategorized'}`,
+          action: line.action,
+          title: t.description || t.merchant || 'Transaction',
+          description: line.description,
           entityId: t.id,
           timestamp: t.timestamp,
-          metadata: { amount: t.amount, type: t.type, category: t.category }
+          metadata: { amount: t.amount, currency: t.currency, type: t.transaction_type, category: t.category }
         })
       })
     }

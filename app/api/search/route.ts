@@ -2,6 +2,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { money } from '@/lib/finance/dashboard-figures'
 
 export const dynamic = 'force-dynamic'
 
@@ -178,51 +179,56 @@ export async function GET(request: NextRequest) {
       counts.todos = parseInt(todoCount[0]?.count || '0')
     }
 
-    // Search transactions
+    // Search transactions: finance_transactions (migration 028); a category is matched and shown by its name.
     if (domains.includes('transactions')) {
       const transactionResults = await sql`
         SELECT
-          id,
-          description,
-          amount,
-          type,
-          category,
-          merchant,
-          date,
-          notes
-        FROM transactions
-        WHERE user_id = ${userId}
+          t.id,
+          t.description,
+          t.amount,
+          t.currency,
+          t.transaction_type,
+          c.name AS category,
+          t.merchant,
+          t.transaction_date,
+          t.notes
+        FROM finance_transactions t
+        LEFT JOIN finance_categories c ON c.id = t.category_id
+        WHERE t.user_id = ${userId}
           AND (
-            description ILIKE ${searchPattern}
-            OR category ILIKE ${searchPattern}
-            OR merchant ILIKE ${searchPattern}
-            OR notes ILIKE ${searchPattern}
+            t.description ILIKE ${searchPattern}
+            OR c.name ILIKE ${searchPattern}
+            OR t.merchant ILIKE ${searchPattern}
+            OR t.notes ILIKE ${searchPattern}
           )
         ORDER BY
-          CASE WHEN description ILIKE ${searchPattern} THEN 0 ELSE 1 END,
-          date DESC
+          CASE WHEN t.description ILIKE ${searchPattern} THEN 0 ELSE 1 END,
+          t.transaction_date DESC
         LIMIT ${limit}
       `
       results.transactions = transactionResults.map(t => ({
         id: t.id,
         type: 'transaction',
         title: t.description || t.merchant || 'Transaction',
-        amount: parseFloat(t.amount),
-        transactionType: t.type,
+        amount: money(t.amount),
+        currency: t.currency,
+        transactionType: t.transaction_type,
         category: t.category,
         merchant: t.merchant,
-        date: t.date,
+        date: t.transaction_date,
         notes: t.notes
       }))
 
       const transactionCount = await sql`
-        SELECT COUNT(*) as count FROM transactions
-        WHERE user_id = ${userId}
+        SELECT COUNT(*) as count
+        FROM finance_transactions t
+        LEFT JOIN finance_categories c ON c.id = t.category_id
+        WHERE t.user_id = ${userId}
           AND (
-            description ILIKE ${searchPattern}
-            OR category ILIKE ${searchPattern}
-            OR merchant ILIKE ${searchPattern}
-            OR notes ILIKE ${searchPattern}
+            t.description ILIKE ${searchPattern}
+            OR c.name ILIKE ${searchPattern}
+            OR t.merchant ILIKE ${searchPattern}
+            OR t.notes ILIKE ${searchPattern}
           )
       `
       counts.transactions = parseInt(transactionCount[0]?.count || '0')
