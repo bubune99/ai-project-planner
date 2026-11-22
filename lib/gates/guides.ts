@@ -121,6 +121,9 @@ export function validateGuide(g: Guide): Issue[] {
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
 
+/** The id a check is given as a rule. A record of that rule being checked is tied back to its statement by it. */
+export const ruleId = (guideName: string, checkId: string) => `${slug(guideName)}-${checkId}`
+
 /** The rules a set of guides compiles to. Drafts are left out: a preference still being worked out holds nobody up. */
 export function toRules(guides: Guide[]): Rule[] {
   const rules: Rule[] = []
@@ -129,7 +132,7 @@ export function toRules(guides: Guide[]): Rule[] {
     const globs = g.applies.files?.length ? g.applies.files : ["**/*.{ts,tsx,js,jsx,mjs}"]
     for (const c of g.checks) for (const match of globs) {
       rules.push({
-        id: `${slug(g.name)}-${c.id}`, match, from: g.name,
+        id: ruleId(g.name, c.id), match, from: g.name,
         ...(g.applies.imports?.length ? { imports: g.applies.imports } : {}),
         ...(c.auto ? { auto: c.auto, say: c.say } : { manual: c.say }),
         ...(g.skill ? { skill: g.skill } : {}),

@@ -6,6 +6,7 @@ import {
   historyOf, refusal, sameContent, storedContent, toRules, validateGuide, versionToRestore, withTrial,
   type Guide, type GuideContent, type GuideVersion, type Saver, type VersionChange,
 } from "./guides"
+import { ledgerOf, type CheckRecord, type Ledger } from "./guide-ledger"
 import { GateError } from "./store"
 
 type Row = Guide & { project_id: string | null; updated_at: string }
@@ -114,17 +115,45 @@ export async function setGuideTrial(userId: string, id: string, until: string | 
   if (!sameContent(current, next)) await writeVersion(userId, id, next, by, change)
 }
 
+type VersionRow = { version: number; saved_by: "owner" | "agent" | "before"; saved_by_name: string; change: VersionChange; restored_from: number | null; content: unknown; created_at: string | Date }
+
+const toVersion = (r: VersionRow): GuideVersion => ({
+  version: r.version, at: new Date(r.created_at).toISOString(), change: r.change,
+  by: r.saved_by === "agent" ? { kind: "agent", name: r.saved_by_name } : { kind: r.saved_by },
+  ...(r.restored_from === null ? {} : { restoredFrom: r.restored_from }),
+  content: storedContent(r.content),
+})
+
 async function versionsOf(userId: string, id: string): Promise<GuideVersion[]> {
   const rows = (await sql`
     SELECT version, saved_by, saved_by_name, change, restored_from, content, created_at
     FROM gate_guide_versions WHERE guide_id = ${id}::uuid AND user_id = ${userId} ORDER BY version
-  `) as { version: number; saved_by: "owner" | "agent" | "before"; saved_by_name: string; change: VersionChange; restored_from: number | null; content: unknown; created_at: string | Date }[]
-  return rows.map((r) => ({
-    version: r.version, at: new Date(r.created_at).toISOString(), change: r.change,
-    by: r.saved_by === "agent" ? { kind: "agent", name: r.saved_by_name } : { kind: r.saved_by },
-    ...(r.restored_from === null ? {} : { restoredFrom: r.restored_from }),
-    content: storedContent(r.content),
-  }))
+  `) as VersionRow[]
+  return rows.map(toVersion)
+}
+
+/**
+ * No table holds the result of a statement's check on a file: the plugin keeps those in the project's folder
+ * (.gates/code.json) and sends the planner nothing. gate_results holds page checks, keyed by control, workflow and
+ * state, with no rule or statement on them. Until such records are sent, there are none to count.
+ */
+const CHECK_RECORDS: CheckRecord[] = []
+
+/**
+ * Every guide's ledger, by guide id: since when it has been in force as worded and on trial (from the versions
+ * kept), and its check numbers (none are kept yet; see CHECK_RECORDS). Two queries however many guides there are.
+ */
+export async function guideLedgers(userId: string, projectId?: string | null): Promise<{ checkResultsKept: boolean; ledgers: Record<string, Ledger> }> {
+  const guides = await listGuides(userId, projectId)
+  const rows = (await sql`
+    SELECT guide_id, version, saved_by, saved_by_name, change, restored_from, content, created_at
+    FROM gate_guide_versions WHERE user_id = ${userId} ORDER BY guide_id, version
+  `) as (VersionRow & { guide_id: string })[]
+  const byGuide = new Map<string, GuideVersion[]>()
+  for (const r of rows) byGuide.set(r.guide_id, [...(byGuide.get(r.guide_id) ?? []), toVersion(r)])
+  const ledgers: Record<string, Ledger> = {}
+  for (const g of guides) ledgers[g.id] = ledgerOf({ ...storedContent(g), updatedAt: g.updated_at ? new Date(g.updated_at).toISOString() : null }, byGuide.get(g.id) ?? [], CHECK_RECORDS)
+  return { checkResultsKept: false, ledgers }
 }
 
 /** Every kept version of a guide, newest first: who, when, what changed, and the content so it can be read. */

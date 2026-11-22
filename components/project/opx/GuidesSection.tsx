@@ -9,8 +9,10 @@
 
 import { useState } from "react"
 import { trialLabel, trialOf, type Guide, type TrialState } from "@/lib/gates/guides"
+import type { Ledger } from "@/lib/gates/guide-ledger"
 import { HistoryDialog, TrialDialog } from "./GuideHistory"
-import { useJson } from "./shared"
+import { LedgerLines } from "./GuideLedger"
+import { Failed, useJson } from "./shared"
 
 const SOURCE: Record<Guide["source"], string> = { owner: "From you", research: "From research", agent: "Suggested by an agent" }
 
@@ -24,6 +26,8 @@ const isDue = (t: TrialState) => t.state === "trial" && t.due
 
 export function GuidesSection() {
   const { data, error, reload } = useJson<{ guides: Guide[] }>("/api/gates/guides")
+  /** Each statement's numbers. Loaded beside the list, so the list still shows when these do not. */
+  const ledger = useJson<{ checkResultsKept: boolean; ledgers: Record<string, Ledger> }>("/api/gates/guides?ledger=1")
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   /** Which lists the person has opened or closed by hand. Until they touch one, Statements opens itself when a draft waits. */
@@ -42,7 +46,7 @@ export function GuidesSection() {
     } catch {
       return "Could not reach the planner. Nothing was saved."
     } finally {
-      reload()
+      reload(); ledger.reload()
     }
   }
 
@@ -71,6 +75,10 @@ export function GuidesSection() {
         </p>
       )}
       {problem && <p className="opx-ck-note">{problem}</p>}
+      {ledger.error && <Failed what="the statements' numbers" error={ledger.error} retry={ledger.reload} />}
+      {ledger.data?.checkResultsKept === false && (
+        <p className="opx-muted">Each check's result is kept in the project's own folder and is not sent to the planner yet, so no statement has check numbers to show.</p>
+      )}
       {(["stack", "statement"] as const).map((kind) => group(kind).length > 0 && (
         // Once touched, a list stays as the person left it. Before this, turning the last draft into a rule shut the
         // Statements list under the person's hand, because "open" followed the number of drafts.
@@ -88,6 +96,7 @@ export function GuidesSection() {
                   ? <b>{trialLabel(g, today)}</b>
                   : <span className="opx-muted">{trialLabel(g, today)}</span>)}
                 <span>{g.summary}</span>
+                {g.kind === "statement" && <LedgerLines ledger={ledger.data?.ledgers[g.id]} loading={ledger.loading} onTrial={g.status === "active" && trialOf(g, today).state === "trial"} />}
                 <ol>{g.checks.map((c) => <li key={c.id}>{c.say}<small>{c.auto ? "Checked automatically" : "Checked by the agent, with what it saw"}</small></li>)}</ol>
                 <span className="opx-muted">
                   Applies to {[g.applies.files?.join(", "), g.applies.imports?.length ? `files that use ${g.applies.imports.join(", ")}` : ""].filter(Boolean).join("; ")}.

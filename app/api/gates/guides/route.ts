@@ -3,6 +3,7 @@
  *
  * GET  /api/gates/guides[?projectId=][&as=rules]  the guides, or the rules they compile to (for the plugin)
  * GET  /api/gates/guides?versions=<guide id>      every kept version of one guide, newest first
+ * GET  /api/gates/guides?ledger=1[&projectId=]    each guide's numbers, by guide id (rules: lib/gates/guide-ledger.ts)
  * POST /api/gates/guides
  *        { action: "install-defaults" }
  *        { action: "save", guide: { kind, name, summary, skill?, applies, checks, status, source, basis }, projectId? }
@@ -16,7 +17,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
 import { GateError } from "@/lib/gates/store"
-import { installDefaults, listGuides, listGuideVersions, restoreGuideVersion, rulesFor, saveGuide, setGuideStatus, setGuideTrial } from "@/lib/gates/guide-store"
+import { guideLedgers, installDefaults, listGuides, listGuideVersions, restoreGuideVersion, rulesFor, saveGuide, setGuideStatus, setGuideTrial } from "@/lib/gates/guide-store"
 import { clientDay, type Saver } from "@/lib/gates/guides"
 
 export const dynamic = "force-dynamic"
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest) {
       if (!UUID.test(versionsOf)) return NextResponse.json({ error: "Send the guide's id" }, { status: 400 })
       return NextResponse.json(await listGuideVersions(auth.userId, versionsOf))
     }
+    if (request.nextUrl.searchParams.get("ledger") === "1") return NextResponse.json(await guideLedgers(auth.userId, projectId))
     if (request.nextUrl.searchParams.get("as") === "rules") return NextResponse.json(await rulesFor(auth.userId, projectId))
     return NextResponse.json({ guides: await listGuides(auth.userId, projectId) })
   } catch (error) {
