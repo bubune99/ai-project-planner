@@ -699,6 +699,17 @@ const CONTENT = [
   Q("from", "If it is worked out: from what, and when does it change?", "This is what the figure is checked against."),
   Q("empty", "What shows when there is nothing yet?", "An empty state nobody designed is a blank or a wrong zero."),
 ]
+// Anything that shows many rows of the same kind: a table, a task list, an inbox, a ledger.
+// Owner, 2026-11-15: "we need to have a system for filters and questions and gates of reasoning to keep in mind for
+// future projects as well". Each question is something My work lacked when he first used it.
+const ROWS = [
+  Q("onrow", "For every field a row shows: can it be changed on the row itself? Name each field that cannot.", "A list that shows a status, a priority and a date but only lets one be changed sends the person to another screen for the rest."),
+  Q("narrow", "How is a long list narrowed? Each filter is a dropdown on the column it filters, and the columns combine. Chips are only for three or fewer options that fit one line on a phone. Which filter breaks this?", "A row of chips wraps onto several lines and is detached from what it filters."),
+  Q("several", "Can several rows be selected and changed together, and can that be undone?", "Anything done to one row will be wanted for twenty."),
+  Q("reach", "With hundreds of rows, are the actions for what is selected in reach wherever the list is scrolled?", "A bar at the end of a long list is a bar nobody can use."),
+  Q("remove", "Can a row be removed here, and brought back?", "A list that only grows is a list nobody trusts."),
+  Q("long", "What does it look like with 400 rows, and how does someone see what is old or no longer true?", "Lists are designed with ten rows and lived in with hundreds."),
+]
 const BY_KIND: Record<string, IntakeQuestion[]> = {
   Field: [Q("kept", "What happens to what is typed: where is it kept, and what else changes because of it?", "This is the action check for the field."), Q("refused", "What must be refused, which other ways of writing the same thing must still be accepted (spaces, capitals, symbols, a pasted value), and what does the person see then?", "Limits nobody stated are limits nobody checks. Accept what people type and keep one exact form (Postel's Law)."), Q("fill", "What can be filled in for them: a sensible default, the last value, something worked out?", "Every system keeps some complexity; the product should carry it, not the person (Tesler's Law), and a field left open takes as long as it is given (Parkinson's Law).")],
   Button: [Q("changes", "What does pressing it change?", "This is the action check for the button."), Q("undo", "Can it be undone? If not, is the person asked first?", "Anything that cannot be undone is the owner's to approve."), Q("answer", "What does the person see within 0.4 seconds of pressing it, and at the end, how do they know it worked?", "A reply under 0.4 seconds keeps people working (Doherty Threshold); the end of an action is what they remember of it (Peak-End Rule). Is it big enough and near where they are looking (Fitts's Law)?")],
@@ -716,25 +727,95 @@ const BY_KIND: Record<string, IntakeQuestion[]> = {
     Q("found", "How does someone who was never told find each action?", "This decides what is a visible button and what may hide in a menu. People start without reading anything (Paradox of the Active User) and expect it to work like tools they already use (Jakob's Law)."),
     Q("unfinished", "Is unfinished work shown where they will see it next time, so it can be picked up?", "Unfinished things stay on people's minds (Zeigarnik Effect); the product should hold them instead."),
   ],
-  // Anything that shows many rows of the same kind: a table, a task list, an inbox, a ledger.
-  // Owner, 2026-11-15: "we need to have a system for filters and questions and gates of reasoning to keep in mind for
-  // future projects as well". Each question is something My work lacked when he first used it.
-  List: [
-    Q("onrow", "For every field a row shows: can it be changed on the row itself? Name each field that cannot.", "A list that shows a status, a priority and a date but only lets one be changed sends the person to another screen for the rest."),
-    Q("narrow", "How is a long list narrowed? Each filter is a dropdown on the column it filters, and the columns combine. Chips are only for three or fewer options that fit one line on a phone. Which filter breaks this?", "A row of chips wraps onto several lines and is detached from what it filters."),
-    Q("several", "Can several rows be selected and changed together, and can that be undone?", "Anything done to one row will be wanted for twenty."),
-    Q("reach", "With hundreds of rows, are the actions for what is selected in reach wherever the list is scrolled?", "A bar at the end of a long list is a bar nobody can use."),
-    Q("remove", "Can a row be removed here, and brought back?", "A list that only grows is a list nobody trusts."),
-    Q("long", "What does it look like with 400 rows, and how does someone see what is old or no longer true?", "Lists are designed with ten rows and lived in with hundreds."),
-  ],
+  List: ROWS,
   Text: CONTENT,
   Card: [...CONTENT, Q("order", "What is the most important thing in it, is that the first thing seen, and is it the only thing that stands out?", "This is what its layout is judged against. People notice what serves their goal (Selective Attention) and remember the one thing that differs (Von Restorff Effect): one standout, not five."), Q("together", "Do the things that belong together sit closer to each other than to anything else, look alike, and come in a few small groups?", "Nearness, likeness and connection are how people see what belongs together (Law of Proximity, Similarity, Common Region, Uniform Connectedness); small groups are easier to take in (Chunking).")],
   Chart: [...CONTENT, Q("agrees", "Which figures elsewhere must it agree with?", "A chart is right only if it matches the numbers it is drawn from."), Q("simple", "Can it be read at a glance? How many series, colors or slices does it use?", "People read a picture in its simplest form (Law of Pr\u00e4gnanz) and hold about seven things (Miller's Law).")],
+  // A list of rows set out in columns. Everything a list is asked, and what the columns add.
+  Table: [
+    ...ROWS,
+    Q("sort", "Which columns can it be sorted by, how does the heading show which one and which way, and is a filter for a column on that column's own heading?", "A table sorted by nothing the person chose hides what they came for; an order they cannot see is one they cannot trust."),
+    Q("wide", "At phone width, which columns stay, which go, and how is what went still reached? Does anything spill out of the screen or get cut off?", "A table is designed at desktop width and read on a phone. What spills or is cut off is an error, not a matter of taste."),
+  ],
+  // Several fields filled in together and sent with one button.
+  Form: [
+    Q("names", "Which fields have no name a screen reader can read, tied to that field and still shown once something is typed?", "A field with no name cannot be found or filled by someone who does not see it, and a name that vanishes on typing has to be remembered (Working Memory)."),
+    Q("accepts", "For each field: which ways of writing the same thing are taken (spaces, capitals, symbols, a pasted value), and what is filled in for the person already?", "Accept what people type and keep one exact form (Postel's Law); what the product can fill in, the person should not have to (Tesler's Law)."),
+    Q("sends", "Does the button say what it sends, and does it say what it sends to whom or where when that is not plain? What is kept, and what else changes because of it?", "A button that says Submit or OK does not tell the person what pressing it will do. This is the action check for the form."),
+    Q("wrong", "When something is refused, is it said beside the field it is about, in words that say how to put it right, with everything already typed kept?", "A form that clears itself on a mistake is filled in once. What the person sees at the end is what they remember of it (Peak-End Rule)."),
+    Q("leave", "What happens to what is typed if the person leaves before sending: is it kept, or are they asked first?", "Unfinished things stay on people's minds (Zeigarnik Effect); typed work lost without a word is not forgiven."),
+  ],
+  // A box that opens over the page and holds the person there until it is dealt with.
+  Dialog: [
+    Q("closes", "Every way it closes: choosing something, pressing outside it, Esc. Which of these is missing?", "A dialog that only closes one way traps the person who opened it by accident."),
+    Q("reach", "Can what it does also be reached from something visible on the page?", "What is only behind a right-click or a shortcut is not found by someone who was never told."),
+    Q("focus", "When it opens, where does typing go, does Tab stay inside it, and when it closes, is the person put back where they were?", "Someone using the keyboard is otherwise left typing into the page behind it, or dropped at the top of the page when it closes."),
+    Q("typed", "If something was typed in it and it is closed without sending, is that kept, or is the person asked first?", "Pressing outside by accident must not throw away what was typed."),
+    Q("sends", "Does each of its buttons say what it does, and if one cannot be undone, is the safe choice the one Esc and pressing outside take?", "Buttons that say Yes, No or OK make the person read the question twice. Anything that cannot be undone is the owner's to approve."),
+  ],
+  // The controls that narrow a list or a table.
+  "Filter bar": [
+    Q("column", "Is each filter a dropdown on the column it filters, with chips used only where there are three or fewer options that fit on one line on a phone? Which filter breaks this?", "A row of chips wraps onto several lines and is detached from what it filters."),
+    Q("combine", "Do the filters combine, so that two set together show only what matches both, and does search work together with them?", "People narrow by more than one thing at once. A filter that resets another is two half filters."),
+    Q("showing", "Can the person see at a glance that the list is filtered and by what, how many rows are left, and clear one filter or all of them in one press?", "A filtered list that looks like the whole list makes people think rows are missing."),
+    Q("none", "What shows when nothing matches, and does it say which filters are on and offer to clear them?", "An empty state nobody designed reads as lost data."),
+    Q("kept", "Are the filters still set after opening a row and coming back, and after a reload?", "A filter that resets on every return is set again each time, and people stop using it."),
+  ],
 }
+
+/** Every kind of thing that has its own questions, in the order they were written. Any other kind is asked what a button is asked. */
+export const PLAYBOOK_KINDS: readonly string[] = Object.keys(BY_KIND)
 
 /** The questions to settle about a planned item, by what kind of thing it is. */
 export function intakeQuestions(kind: string | undefined): IntakeQuestion[] {
   return [...ALWAYS, ...(BY_KIND[kind ?? ""] ?? BY_KIND.Button)]
+}
+
+/*
+ * The checks each of these kinds owes on a page, whatever the page is. They are the same rules as the questions
+ * above, written as something to do and something to see. A scan that finds one of these on a page can give it
+ * these workflows; whoever checks it replaces the words in general with what this one shows.
+ */
+const W = (name: string, kind: WorkflowKind, steps: Step[], before?: string): Workflow => ({ name, kind, ...(before ? { before } : {}), steps })
+const LOOK = (what: string): Workflow => W("Look", "look", [{ do: `Look at the ${what} in this state`, expect: "Every word can be read, nothing is cut off or spills out, and nothing sits on top of anything else" }])
+const KIND_WORKFLOWS: Record<string, Workflow[]> = {
+  Table: [
+    W("Change on the row", "function", [{ do: "Change one field of a row on the row itself", expect: "The row shows the new value, and it is still there after a reload" }]),
+    W("Sort by a column", "function", [{ do: "Press a column heading", expect: "The rows are in that column's order and the heading shows which way" }, { do: "Press it again", expect: "The order is the other way round" }]),
+    W("Change several", "function", [{ do: "Select several rows", expect: "The actions for what is selected are in reach without scrolling" }, { do: "Change them together, then undo", expect: "All of them changed, and all of them are back" }]),
+    W("Nothing and too many", "states", [{ do: "Open it with no rows", expect: "It says there is nothing yet and what to do next" }, { do: "Open it with hundreds of rows", expect: "It still answers, and what is old can be told from what is new" }]),
+    LOOK("table"),
+  ],
+  Form: [
+    W("Send it", "function", [{ do: "Fill in every field the way a person would type it and press the button", expect: "The button said what it sends, what was typed is kept, and the person is told it worked" }]),
+    W("Names", "function", [{ do: "Go through the fields with Tab and a screen reader", expect: "Every field is reached in order and says its own name" }]),
+    W("Send it wrong", "states", [{ do: "Leave out something it needs, or type something it must refuse, and press the button", expect: "Nothing is sent, the reason is said beside the field, and everything else typed is still there" }]),
+    W("Leave before sending", "function", [{ do: "Type in a field, then leave the page without sending", expect: "What was typed is kept, or the person is asked first" }]),
+    LOOK("form"),
+  ],
+  Dialog: [
+    W("Close by choosing", "function", [{ do: "Open it and choose something in it", expect: "It does what was chosen and closes" }]),
+    W("Close by pressing outside", "function", [{ do: "Open it and press anywhere outside it", expect: "It closes and nothing has changed" }]),
+    W("Close with Esc", "function", [{ do: "Open it and press Esc", expect: "It closes, nothing has changed, and focus is back on what opened it" }]),
+    W("Keyboard stays inside", "function", [{ do: "Open it and press Tab until it comes round again", expect: "Focus started inside it and never went to the page behind" }]),
+    LOOK("dialog"),
+  ],
+  "Filter bar": [
+    W("Narrow by one column", "function", [{ do: "Pick a value in one column's filter", expect: "Only rows with that value are left, and it shows that the list is filtered and by what" }]),
+    W("Combine two", "function", [{ do: "Pick a value in a second column's filter", expect: "Only rows that match both are left" }]),
+    W("Clear", "function", [{ do: "Clear one filter", expect: "Its rows are back and the other filter still holds" }, { do: "Clear them all", expect: "Every row is back" }]),
+    W("Nothing matches", "states", [{ do: "Pick filters that no row matches", expect: "It says nothing matches, names the filters that are on, and offers to clear them" }]),
+    W("Still set on return", "function", [{ do: "Set a filter, open a row, and come back", expect: "The filter is still set" }]),
+    LOOK("filter bar"),
+  ],
+}
+
+/**
+ * The workflows a thing of this kind owes, as a fresh copy the caller may change. Empty for kinds whose workflows
+ * are written by the scan from the control itself (a button, a field, a link).
+ */
+export function kindWorkflows(kind: string | undefined): Workflow[] {
+  return structuredClone(KIND_WORKFLOWS[kind ?? ""] ?? [])
 }
 
 /**

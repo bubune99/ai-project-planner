@@ -467,3 +467,75 @@ ok("what reaches the owner depends on how involved they choose to be, and is nev
 })
 
 console.log(`${n} checks passed in all`)
+
+import { PLAYBOOK_KINDS, kindWorkflows, validateChecklist as validate } from "./gate-model"
+
+// Card 505118a8: what a table, a form, a dialog and a filter bar must each do, written once.
+ok("a table, a form, a dialog and a filter bar each have their own questions", () => {
+  const own = (kind: string) => intakeQuestions(kind).map((q) => q.id).slice(3)
+  for (const kind of ["Table", "Form", "Dialog", "Filter bar"]) {
+    assert.ok(PLAYBOOK_KINDS.includes(kind), kind)
+    assert.deepEqual(intakeQuestions(kind).map((q) => q.id).slice(0, 3), ["purpose", "who", "flow"], kind)
+    assert.ok(own(kind).length >= 4, `${kind} has its own questions`)
+    assert.notDeepEqual(own(kind), own("Button"), `${kind} no longer falls back to a button's questions`)
+    assert.equal(new Set(own(kind)).size, own(kind).length, `${kind}: no question id twice`)
+    for (const q of intakeQuestions(kind).slice(3)) {
+      assert.ok(q.ask.includes("?") && q.why.length > 20, `${kind}.${q.id} is a question with a reason`)
+      assert.equal(q.owner, false, `${kind}.${q.id} is answered from the code or the page, not by the owner`)
+    }
+  }
+  // A table is a list of rows with columns: everything a list is asked, and what the columns add.
+  assert.deepEqual(own("Table").slice(0, 6), own("List"))
+  assert.deepEqual(own("Table").slice(6), ["sort", "wide"])
+  // A dialog closes three ways, like anything that opens over the page.
+  assert.deepEqual(own("Dialog"), ["closes", "reach", "focus", "typed", "sends"])
+  assert.match(intakeQuestions("Dialog").find((q) => q.id === "closes")!.ask, /choosing something, pressing outside it, Esc/)
+  // A form's fields have names, take what people type, and its button says what it sends.
+  assert.deepEqual(own("Form"), ["names", "accepts", "sends", "wrong", "leave"])
+  assert.match(intakeQuestions("Form").find((q) => q.id === "names")!.ask, /name a screen reader can read/)
+  assert.match(intakeQuestions("Form").find((q) => q.id === "sends")!.ask, /say what it sends/)
+  // A filter is a dropdown on its column; chips only for three or fewer options.
+  assert.deepEqual(own("Filter bar"), ["column", "combine", "showing", "none", "kept"])
+  assert.match(intakeQuestions("Filter bar").find((q) => q.id === "column")!.ask, /dropdown on the column it filters.*three or fewer/)
+})
+
+ok("the kinds that were there before ask exactly what they asked before", () => {
+  const ids = (kind?: string) => intakeQuestions(kind).map((q) => q.id).slice(3)
+  const before: Record<string, string[]> = {
+    Field: ["kept", "refused", "fill"], Button: ["changes", "undo", "answer"], Switch: ["changes", "default"], Tab: ["changes"], Link: [],
+    Menu: ["closes", "reach", "choices"], Editor: ["complete", "between", "tidy", "undo", "found", "unfinished"],
+    List: ["onrow", "narrow", "several", "reach", "remove", "long"], Text: ["source", "from", "empty"],
+    Card: ["source", "from", "empty", "order", "together"], Chart: ["source", "from", "empty", "agrees", "simple"],
+  }
+  for (const [kind, want] of Object.entries(before)) assert.deepEqual(ids(kind), want, kind)
+  assert.deepEqual(PLAYBOOK_KINDS, [...Object.keys(before), "Table", "Form", "Dialog", "Filter bar"])
+  // A kind nobody has written a playbook for is still asked what a button is asked.
+  assert.deepEqual(ids("Unknown"), before.Button)
+  assert.deepEqual(ids(undefined), before.Button)
+  // An answer saved against an older kind's question still counts.
+  const s = intakeStatus([E("m", "Row menu", "agent", { kind: "Menu", answers: { closes: { text: "All three", by: "agent", basis: "evidence", at: "t" } } })])
+  assert.equal(s.reasoned, 1)
+  assert.equal(s.questions, 6)
+})
+
+ok("each new kind names the workflows it owes, and a saved checklist takes them as they are", () => {
+  for (const kind of ["Table", "Form", "Dialog", "Filter bar"]) {
+    const flows = kindWorkflows(kind)
+    assert.ok(flows.length >= 3, kind)
+    assert.ok(flows.some((w) => w.kind === "look"), `${kind} is looked at in every state`)
+    const made: Checklist = { route: "/x", views: [{ key: "page", name: "Page", w: 100, h: 100, controls: [{ n: 1, label: kind, kind, x: 0, y: 0, w: 50, h: 50, states: ["Dark", "Light"], workflows: flows }] }] }
+    assert.deepEqual(validate(made), [], kind)
+  }
+  assert.deepEqual(kindWorkflows("Dialog").filter((w) => w.name.startsWith("Close")).map((w) => w.name), ["Close by choosing", "Close by pressing outside", "Close with Esc"])
+  // The caller gets its own copy: changing it does not change what the next caller gets.
+  kindWorkflows("Dialog")[0].steps[0].do = "changed"
+  assert.notEqual(kindWorkflows("Dialog")[0].steps[0].do, "changed")
+  // Kinds whose workflows the scan already writes get nothing from here.
+  assert.deepEqual(kindWorkflows("Button"), [])
+  assert.deepEqual(kindWorkflows(undefined), [])
+  // A checklist saved before these kinds existed is still sound, and still has the same checks.
+  assert.deepEqual(validate(list), [])
+  assert.equal(allChecks(list).length, 6)
+})
+
+console.log(`${n} checks passed in all`)
