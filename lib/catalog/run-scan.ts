@@ -14,10 +14,12 @@
  */
 
 import { sql } from "@/lib/db/client"
+import { resolveCatalogUserId } from "./resolve-user"
 import type { ScanType, ScanTrigger, Surface, SurfaceDependency } from "./types"
 
 export interface RunScanInput {
-  userId: string
+  /** Whose catalog this is. Left out, CATALOG_DEFAULT_USER_ID is used; with neither, the scan throws NO_CATALOG_USER. */
+  userId?: string | null
   projectRoot: string
   /** Optional: relative file paths to scan. If omitted, full tree. */
   files?: string[]
@@ -48,11 +50,13 @@ export interface RunScanResult {
 
 /**
  * Run a catalog scan end-to-end. Always writes a catalog_scan_events row
- * (even on failure — scan_type='skipped' + skip_reason).
+ * (even on failure — scan_type='skipped' + skip_reason), except when no user
+ * can be resolved: then it throws and writes nothing.
  */
 export async function runCatalogScan(input: RunScanInput): Promise<RunScanResult> {
   const t0 = Date.now()
-  const userId = input.userId
+  // Throws before anything is read or written: every row, the audit row included, needs a user.
+  const userId = resolveCatalogUserId(input.userId, process.env)
   const triggeredBy = input.triggeredBy
   const projectId = input.projectId ?? null
   const eventMetadata = input.eventMetadata ?? {}

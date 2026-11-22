@@ -67,6 +67,11 @@ export interface ScanOptions {
    * If omitted, the scanner does a full-tree discovery.
    */
   files?: string[]
+  /**
+   * Folders (relative to the root) a full-tree discovery must not enter, on top of the built-in ones
+   * (node_modules, .next, ...). Ignored when `files` is given: a caller naming files has already chosen.
+   */
+  skipDirs?: string[]
   /** Git commit SHA for first/last_seen stamping - passed through to warnings only; callers embed in DetectedSurface via persist layer */
   commitSha?: string
   /** Branch name - same */
@@ -91,7 +96,7 @@ export async function scanPaths(opts: ScanOptions): Promise<ScanResult> {
   if (files && files.length > 0) {
     candidates = files
   } else {
-    candidates = await discoverAllFiles(projectRoot)
+    candidates = await discoverAllFiles(projectRoot, opts.skipDirs ?? [])
   }
   const { accepted: scanFiles, rejected } = confineFiles(projectRoot, candidates)
   for (const rel of rejected) {
@@ -257,7 +262,7 @@ export async function scanPaths(opts: ScanOptions): Promise<ScanResult> {
 // File discovery
 // ============================================================================
 
-async function discoverAllFiles(projectRoot: string): Promise<string[]> {
+async function discoverAllFiles(projectRoot: string, skipDirs: readonly string[]): Promise<string[]> {
   const skipDirPatterns = Array.from(SKIP_DIRS).map((d) => `!**/${d}/**`)
   const patterns = [
     "lib/db/migrations/*.sql",
@@ -291,7 +296,10 @@ async function discoverAllFiles(projectRoot: string): Promise<string[]> {
     cwd: projectRoot,
     dot: true,
     followSymbolicLinks: false,
-    ignore: Array.from(SKIP_DIRS).map((d) => `**/${d}/**`),
+    ignore: [
+      ...Array.from(SKIP_DIRS).map((d) => `**/${d}/**`),
+      ...skipDirs.map((d) => `${fg.escapePath(d.replace(/\\/g, "/").replace(/\/+$/, ""))}/**`),
+    ],
   })
   return found
 }

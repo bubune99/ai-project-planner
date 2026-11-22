@@ -1,7 +1,7 @@
 /**
  * Unit tests for lib/catalog/scan.ts
  *
- * Run with: npx tsx lib/catalog/scan.test.ts
+ * Run with: npx -y tsx@4.23.15 lib/catalog/scan.test.ts
  *
  * Tests cover:
  *   - SQL migration file parsing (db_table, db_column, db_enum, db_matview)
@@ -410,6 +410,26 @@ export async function POST(req: Request) {
 }
 
 // ============================================================================
+// Test: skipDirs keeps a full scan out of the named folders
+// ============================================================================
+
+async function testSkipDirs(): Promise<void> {
+  const dir = makeTempDir()
+  writeFile(dir, "lib/db/migrations/001_kept.sql", `CREATE TABLE kept_table (id UUID PRIMARY KEY);`)
+  writeFile(dir, "vercel.json", JSON.stringify({ framework: "nextjs" }))
+
+  const all = await scanPaths({ projectRoot: dir })
+  assert(all.detected_surfaces.some((s) => s.canonical_id === "db:kept_table"), "full scan finds the table without skipDirs")
+
+  const skipped = await scanPaths({ projectRoot: dir, skipDirs: ["lib/db/"] })
+  assert(!skipped.detected_surfaces.some((s) => s.canonical_id === "db:kept_table"), "skipDirs keeps the scan out of lib/db")
+  assert(skipped.detected_surfaces.some((s) => s.canonical_id === "config:vercel.json"), "skipDirs leaves the rest of the tree alone")
+  assert(!skipped.scanned_files.some((f) => f.startsWith("lib/db/")), "skipped files are not listed as scanned")
+
+  fs.rmSync(dir, { recursive: true, force: true })
+}
+
+// ============================================================================
 // Run all tests
 // ============================================================================
 
@@ -428,6 +448,7 @@ async function main(): Promise<void> {
     ["Scan type targeted vs full", testScanTypeTargeted],
     ["Webhook endpoint", testWebhookEndpoint],
     ["MCP tools in lib/mcp", testMcpToolsInLib],
+    ["skipDirs", testSkipDirs],
   ]
 
   for (const [name, fn] of tests) {
