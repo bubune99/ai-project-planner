@@ -11,6 +11,7 @@
  */
 import { type NextRequest, NextResponse } from "next/server"
 import { getAuthContext, verifyProjectOwnerOnly, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
+import { ownError } from "@/lib/api/error-text"
 import { GateError, attachExtract, attachImage, clearOwnerVerdict, getChecklist, loadPage, recordResults } from "@/lib/gates/store"
 
 export const dynamic = "force-dynamic"
@@ -87,7 +88,9 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     }
     return NextResponse.json({ error: "Unknown action" }, { status: 400 })
   } catch (error) {
-    if (error instanceof GateError) return NextResponse.json({ error: error.message }, { status: 400 })
+    // A GateError is this app's own sentence for the person; anything else is logged and answered plainly.
+    const ours = ownError(error, GateError)
+    if (ours) return NextResponse.json({ error: ours.message }, { status: 400 })
     console.error("gate write failed", error)
     return NextResponse.json({ error: "Could not save that" }, { status: 500 })
   }

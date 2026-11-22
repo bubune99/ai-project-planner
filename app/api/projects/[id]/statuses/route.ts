@@ -38,8 +38,8 @@ export async function GET(
     `;
     return NextResponse.json({ statuses });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: "Failed to list statuses", details: message }, { status: 500 });
+    console.error("Failed to list statuses:", error);
+    return NextResponse.json({ error: "Failed to list statuses" }, { status: 500 });
   }
 }
 
@@ -85,7 +85,7 @@ export async function POST(
     `;
     return NextResponse.json({ status }, { status: 201 });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: "Failed to create status", details: message }, { status: 500 });
+    console.error("Failed to create status:", error);
+    return NextResponse.json({ error: "Failed to create status" }, { status: 500 });
   }
 }

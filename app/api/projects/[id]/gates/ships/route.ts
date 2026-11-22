@@ -9,6 +9,7 @@
  */
 import { type NextRequest, NextResponse } from "next/server"
 import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
+import { ownError } from "@/lib/api/error-text"
 import { ShipError } from "@/lib/gates/fresh-model"
 import { projectFreshness, recordShip } from "@/lib/gates/ship-store"
 
@@ -37,7 +38,9 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     const b = await request.json().catch(() => null)
     return NextResponse.json({ ok: true, ship: await recordShip({ projectId, userId: auth.userId, raw: b }), ...(await projectFreshness(projectId)) })
   } catch (error) {
-    if (error instanceof ShipError) return NextResponse.json({ error: error.message }, { status: 400 })
+    // A ShipError is this app's own sentence for the person; anything else is logged and answered plainly.
+    const ours = ownError(error, ShipError)
+    if (ours) return NextResponse.json({ error: ours.message }, { status: 400 })
     console.error("ship save failed", error)
     return NextResponse.json({ error: "Could not record what shipped" }, { status: 500 })
   }

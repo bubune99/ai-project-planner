@@ -47,8 +47,8 @@ export async function PATCH(
     if (!status) return NextResponse.json({ error: "Status not found" }, { status: 404 });
     return NextResponse.json({ status });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: "Failed to update status", details: message }, { status: 500 });
+    console.error("Failed to update status:", error);
+    return NextResponse.json({ error: "Failed to update status" }, { status: 500 });
   }
 }
 
@@ -85,7 +85,7 @@ export async function DELETE(
     // The moved tasks' ids let an Undo put them back in the column (POST ./restore).
     return NextResponse.json({ success: true, reassigned: moved.length, reassigned_to: reassignTo, moved_ids: moved.map((m) => String(m.id)), key: deleted.key });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: "Failed to delete status", details: message }, { status: 500 });
+    console.error("Failed to delete status:", error);
+    return NextResponse.json({ error: "Failed to delete status" }, { status: 500 });
   }
 }

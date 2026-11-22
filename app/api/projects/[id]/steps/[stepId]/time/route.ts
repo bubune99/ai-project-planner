@@ -55,8 +55,8 @@ export async function GET(
     `;
     return NextResponse.json({ entries, running: running || null, totalSeconds: totals.total_seconds });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: "Failed to list time entries", details: message }, { status: 500 });
+    console.error("Failed to list time entries:", error);
+    return NextResponse.json({ error: "Failed to list time entries" }, { status: 500 });
   }
 }
 
@@ -112,7 +112,7 @@ export async function POST(
 
     return NextResponse.json({ error: "action must be 'start' or 'stop'" }, { status: 400 });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: "Failed to update timer", details: message }, { status: 500 });
+    console.error("Failed to update timer:", error);
+    return NextResponse.json({ error: "Failed to update timer" }, { status: 500 });
   }
 }

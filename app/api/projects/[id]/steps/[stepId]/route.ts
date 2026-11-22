@@ -71,9 +71,8 @@ export async function GET(
     return NextResponse.json({ step: stepResult[0] });
   } catch (error: unknown) {
     console.error("Error fetching step:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to fetch step", details: message },
+      { error: "Failed to fetch step" },
       { status: 500 }
     );
   }
@@ -317,9 +316,8 @@ export async function PATCH(
     });
   } catch (error: unknown) {
     console.error("Error updating step:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to update step", details: message },
+      { error: "Failed to update step" },
       { status: 500 }
     );
   }
@@ -402,9 +400,8 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
     console.error("Error deleting step:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to delete step", details: message },
+      { error: "Failed to delete step" },
       { status: 500 }
     );
   }

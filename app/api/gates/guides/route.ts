@@ -21,6 +21,7 @@
  */
 import { type NextRequest, NextResponse } from "next/server"
 import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
+import { ownError } from "@/lib/api/error-text"
 import { GateError } from "@/lib/gates/store"
 import { guideLedgers, installDefaults, listGuides, listGuideVersions, listRemovedGuides, putBackGuide, removeGuide, restoreGuideVersion, rulesFor, saveGuide, setGuideStatus, setGuideTrial } from "@/lib/gates/guide-store"
 import { clientDay, refusal, type Saver } from "@/lib/gates/guides"
@@ -52,7 +53,9 @@ export async function GET(request: NextRequest) {
     if (request.nextUrl.searchParams.get("as") === "rules") return NextResponse.json(await rulesFor(auth.userId, projectId))
     return NextResponse.json({ guides: await listGuides(auth.userId, projectId) })
   } catch (error) {
-    if (error instanceof GateError) return NextResponse.json({ error: error.message }, { status: 404 })
+    // A GateError is this app's own sentence for the person; anything else is logged and answered plainly.
+    const ours = ownError(error, GateError)
+    if (ours) return NextResponse.json({ error: ours.message }, { status: 404 })
     console.error("guides load failed", error)
     return NextResponse.json({ error: "Could not load the guides" }, { status: 500 })
   }
@@ -100,7 +103,9 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ error: "Unknown action" }, { status: 400 })
   } catch (error) {
-    if (error instanceof GateError) return NextResponse.json({ error: error.message }, { status: 400 })
+    // A GateError is this app's own sentence for the person; anything else is logged and answered plainly.
+    const ours = ownError(error, GateError)
+    if (ours) return NextResponse.json({ error: ours.message }, { status: 400 })
     console.error("guides write failed", error)
     return NextResponse.json({ error: "Could not save that" }, { status: 500 })
   }

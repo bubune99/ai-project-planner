@@ -74,9 +74,8 @@ export async function GET(
     return NextResponse.json({ steps: await withPartWaiting(userId, steps as { id: string; project_id: string }[]) });
   } catch (error: unknown) {
     console.error("Error fetching steps:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to fetch steps", details: message },
+      { error: "Failed to fetch steps" },
       { status: 500 }
     );
   }
@@ -272,9 +271,8 @@ export async function POST(
     return NextResponse.json({ step }, { status: 201 });
   } catch (error: unknown) {
     console.error("Error creating step:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to create step", details: message },
+      { error: "Failed to create step" },
       { status: 500 }
     );
   }

@@ -32,8 +32,8 @@ export async function PATCH(
     if (!comment) return NextResponse.json({ error: "Comment not found" }, { status: 404 });
     return NextResponse.json({ comment });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: "Failed to update comment", details: message }, { status: 500 });
+    console.error("Failed to update comment:", error);
+    return NextResponse.json({ error: "Failed to update comment" }, { status: 500 });
   }
 }
 
@@ -56,7 +56,7 @@ export async function DELETE(
     if (!deleted) return NextResponse.json({ error: "Comment not found" }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: "Failed to delete comment", details: message }, { status: 500 });
+    console.error("Failed to delete comment:", error);
+    return NextResponse.json({ error: "Failed to delete comment" }, { status: 500 });
   }
 }

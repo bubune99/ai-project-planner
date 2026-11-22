@@ -31,7 +31,7 @@ export async function GET(
     `;
     return NextResponse.json({ events });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: "Failed to list activity", details: message }, { status: 500 });
+    console.error("Failed to list activity:", error);
+    return NextResponse.json({ error: "Failed to list activity" }, { status: 500 });
   }
 }

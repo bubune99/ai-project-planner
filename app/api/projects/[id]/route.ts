@@ -214,9 +214,8 @@ export async function PATCH(
     })
   } catch (error: unknown) {
     console.error('Update project error:', error)
-    const message = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json(
-      { error: 'Failed to update project', details: message },
+      { error: 'Failed to update project' },
       { status: 500 }
     )
   }
@@ -265,9 +264,8 @@ export async function DELETE(
     })
   } catch (error: unknown) {
     console.error('Delete project error:', error)
-    const message = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json(
-      { error: 'Failed to delete project', details: message },
+      { error: 'Failed to delete project' },
       { status: 500 }
     )
   }

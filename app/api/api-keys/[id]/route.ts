@@ -81,9 +81,8 @@ export async function GET(
     });
   } catch (error: unknown) {
     console.error("Get API key error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to get API key", details: message },
+      { error: "Failed to get API key" },
       { status: 500 }
     );
   }
@@ -212,9 +211,8 @@ export async function PATCH(
     });
   } catch (error: unknown) {
     console.error("Update API key error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to update API key", details: message },
+      { error: "Failed to update API key" },
       { status: 500 }
     );
   }
@@ -284,9 +282,8 @@ export async function DELETE(
     });
   } catch (error: unknown) {
     console.error("Revoke API key error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to revoke API key", details: message },
+      { error: "Failed to revoke API key" },
       { status: 500 }
     );
   }

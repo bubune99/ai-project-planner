@@ -31,6 +31,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { modelFor, modelOptions, todayIn } from "@/lib/settings/preferences";
 import { preferencesOrNone } from "@/lib/settings/preferences-store";
 import { isUuid } from "@/lib/ai/chat-format";
+import { errorText } from "@/lib/chat/view";
 import {
   getOrCreateConversation,
   getOrCreateConversationById,
@@ -299,7 +300,9 @@ export async function POST(request: Request) {
           ...prepared,
           messages: fullHistory,
           onError: ({ error }) => {
-            trace.end(root, { status: "error", detail: error instanceof Error ? error.message.slice(0, 60) : "Failed" });
+            // The model's or a tool's own error text stays in the log; the person's trace says only that it failed.
+            console.error("[Chat] POST /api/chat run failed:", error);
+            trace.end(root, { status: "error", detail: "Failed" });
           },
           onFinish: async ({ text, toolCalls, toolResults, totalUsage, steps }) => {
             const toolCount = steps.reduce((n, st) => n + st.toolCalls.length, 0);
@@ -331,7 +334,10 @@ export async function POST(request: Request) {
 
         writer.merge(result.toUIMessageStream({ sendReasoning: true }));
       },
-      onError: (error) => (error instanceof Error ? error.message : "Agent run failed"),
+      onError: (error) => {
+        console.error("[Chat] POST /api/chat stream failed:", error);
+        return errorText(500, null);
+      },
     });
 
     return createUIMessageStreamResponse({
@@ -343,7 +349,6 @@ export async function POST(request: Request) {
     return new Response(
       JSON.stringify({
         error: "Failed to process chat request",
-        details: error instanceof Error ? error.message : "Unknown error",
       }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
@@ -428,7 +433,6 @@ export async function DELETE(request: Request) {
     return new Response(
       JSON.stringify({
         error: "Failed to delete conversation",
-        details: error instanceof Error ? error.message : "Unknown error",
       }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );

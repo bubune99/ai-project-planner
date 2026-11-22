@@ -6,6 +6,7 @@
  */
 import { type NextRequest, NextResponse } from "next/server"
 import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
+import { ownError } from "@/lib/api/error-text"
 import { listPages } from "@/lib/gates/store"
 import { FlowError, loadFlows, saveFlows } from "@/lib/people/store"
 
@@ -40,7 +41,9 @@ export async function PUT(request: NextRequest, { params }: Ctx) {
     const saved = await saveFlows({ projectId, userId: auth.userId, raw: b.doc, baseVersion: b.baseVersion, actor })
     return NextResponse.json({ ok: true, actor, ...saved })
   } catch (error) {
-    if (error instanceof FlowError) return NextResponse.json({ error: error.message }, { status: error.status })
+    // A FlowError is this app's own sentence for the person; anything else is logged and answered plainly.
+    const ours = ownError(error, FlowError)
+    if (ours) return NextResponse.json({ error: ours.message }, { status: ours.status })
     console.error("people and flows save failed", error)
     return NextResponse.json({ error: "Could not save people and flows" }, { status: 500 })
   }

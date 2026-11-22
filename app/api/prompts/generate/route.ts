@@ -93,10 +93,10 @@ export async function GET(request: NextRequest) {
       prompt,
       ...promptData,
     })
-  } catch (error: any) {
+  } catch (error) {
     console.error("Generate prompt error:", error)
     return NextResponse.json(
-      { error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

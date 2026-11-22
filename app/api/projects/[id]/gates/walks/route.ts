@@ -8,6 +8,7 @@
  */
 import { type NextRequest, NextResponse } from "next/server"
 import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
+import { ownError } from "@/lib/api/error-text"
 import { WalkError, listWalks, saveWalk, fixFinding, settleFinding } from "@/lib/walks/store"
 
 export const dynamic = "force-dynamic"
@@ -54,7 +55,9 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     }
     return NextResponse.json({ ok: true, ...(await saveWalk({ projectId, userId: auth.userId, raw: b, actor })) })
   } catch (error) {
-    if (error instanceof WalkError) return NextResponse.json({ error: error.message }, { status: 400 })
+    // A WalkError is this app's own sentence for the person; anything else is logged and answered plainly.
+    const ours = ownError(error, WalkError)
+    if (ours) return NextResponse.json({ error: ours.message }, { status: 400 })
     console.error("walk save failed", error)
     return NextResponse.json({ error: "Could not save the walk" }, { status: 500 })
   }

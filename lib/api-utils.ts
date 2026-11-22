@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { detailsForCaller } from './api/error-text'
 
 /**
  * Standard API Response Envelope
@@ -38,7 +39,10 @@ export function successResponse<T>(
 }
 
 /**
- * Create an error response
+ * Create an error response.
+ *
+ * `details` reaches the caller only for a problem with the request (below 500). On a failure of ours it is the
+ * database's or a library's text, so it is logged here and left out of the answer (lib/api/error-text.ts).
  */
 export function errorResponse(
     code: string,
@@ -46,13 +50,15 @@ export function errorResponse(
     status: number = 500,
     details?: any
 ): NextResponse<ApiResponse> {
+    const shown = detailsForCaller(status, details)
+    if (details != null && shown === undefined) console.error(`[API] ${status} ${code}: ${message}`, details)
     return NextResponse.json(
         {
             success: false,
             error: {
                 code,
                 message,
-                details,
+                details: shown,
             },
         },
         { status }

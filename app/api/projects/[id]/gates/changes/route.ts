@@ -8,6 +8,7 @@
  */
 import { type NextRequest, NextResponse } from "next/server"
 import { getAuthContext, verifyProjectOwnerOnly, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
+import { ownError } from "@/lib/api/error-text"
 import { createChange, judgeChange, listChanges } from "@/lib/gates/change-store"
 import { GateError } from "@/lib/gates/store"
 
@@ -45,7 +46,9 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     if (b?.action === "create") return NextResponse.json({ ok: true, ...(await createChange({ projectId, userId: auth.userId, actor: asOwner ? "owner" : "agent", raw: b })) })
     return NextResponse.json({ error: "Unknown action" }, { status: 400 })
   } catch (error) {
-    if (error instanceof GateError) return NextResponse.json({ error: error.message }, { status: 400 })
+    // A GateError is this app's own sentence for the person; anything else is logged and answered plainly.
+    const ours = ownError(error, GateError)
+    if (ours) return NextResponse.json({ error: ours.message }, { status: 400 })
     console.error("changes write failed", error)
     return NextResponse.json({ error: "Could not save" }, { status: 500 })
   }

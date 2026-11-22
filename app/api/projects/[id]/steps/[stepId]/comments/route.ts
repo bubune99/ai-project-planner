@@ -32,8 +32,8 @@ export async function GET(
     `;
     return NextResponse.json({ comments });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: "Failed to list comments", details: message }, { status: 500 });
+    console.error("Failed to list comments:", error);
+    return NextResponse.json({ error: "Failed to list comments" }, { status: 500 });
   }
 }
 
@@ -61,7 +61,7 @@ export async function POST(
     `;
     return NextResponse.json({ comment }, { status: 201 });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: "Failed to create comment", details: message }, { status: 500 });
+    console.error("Failed to create comment:", error);
+    return NextResponse.json({ error: "Failed to create comment" }, { status: 500 });
   }
 }

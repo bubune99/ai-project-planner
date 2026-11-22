@@ -70,9 +70,8 @@ export async function GET(
     return NextResponse.json({ document });
   } catch (error: unknown) {
     console.error("Get document error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to get document", details: message },
+      { error: "Failed to get document" },
       { status: 500 }
     );
   }
@@ -176,9 +175,8 @@ export async function DELETE(
     });
   } catch (error: unknown) {
     console.error("Delete error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Delete failed", details: message },
+      { error: "Delete failed" },
       { status: 500 }
     );
   }
@@ -271,9 +269,8 @@ export async function PATCH(
     });
   } catch (error: unknown) {
     console.error("Update error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Update failed", details: message },
+      { error: "Update failed" },
       { status: 500 }
     );
   }

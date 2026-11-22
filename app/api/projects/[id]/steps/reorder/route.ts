@@ -77,9 +77,8 @@ export async function POST(
     return NextResponse.json({ success: true, count: stepIds.length });
   } catch (error: unknown) {
     console.error("Error reordering steps:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to reorder steps", details: message },
+      { error: "Failed to reorder steps" },
       { status: 500 }
     );
   }
