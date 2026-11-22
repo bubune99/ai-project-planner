@@ -13,7 +13,7 @@
 import { z } from "zod"
 import { sql } from "@/lib/db/client"
 import { getMcpUserId, requireMcpScope } from "@/lib/auth/mcp-context"
-import { QueueError, claimPatch, donePatch, itemState, mayClaim, mayUndo, planChangeNote, routing, whereItWent, type ItemRow } from "@/lib/queue/item-state"
+import { QueueError, claimPatch, donePatch, itemState, mayClaim, mayUndo, planChangeNote, routing, wakeFor, whereItWent, type ItemRow } from "@/lib/queue/item-state"
 
 function ok(data: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(data) }] }
@@ -124,14 +124,15 @@ export function registerQueueTools(server: any): void {
       since: z.string().optional().describe("ISO time: only jobs sent after it (default: now minus 60 seconds)"),
       projectId: z.string().optional().describe("Only this project's answers and jobs"),
       timeoutSec: z.number().int().min(1).max(55).optional().describe("How long to hold the call (default 45)"),
+      seen: z.array(z.string().max(80)).max(500).optional().describe("Question ids you were already handed and are not acting on: the call does not wake for these again"),
     },
-    async ({ since, projectId, timeoutSec }: { since?: string; projectId?: string; timeoutSec?: number }) => {
+    async ({ since, projectId, timeoutSec, seen }: { since?: string; projectId?: string; timeoutSec?: number; seen?: string[] }) => {
       try {
         const userId = getMcpUserId()
         const from = since && !Number.isNaN(Date.parse(since)) ? new Date(since).toISOString() : new Date(Date.now() - 60000).toISOString()
         const until = Date.now() + Math.min(timeoutSec ?? 45, 55) * 1000
         for (;;) {
-          const answers = (await openAnswers(userId, { projectId, sinceDays: 30 })).filter((i) => i.state === "unclaimed")
+          const answers = wakeFor(await openAnswers(userId, { projectId, sinceDays: 30 }), seen)
           const jobs = (await sql`
             SELECT id, title, priority, input, created_at FROM agent_jobs
              WHERE created_by = ${userId} AND status = 'pending' AND created_at > ${from}::timestamptz

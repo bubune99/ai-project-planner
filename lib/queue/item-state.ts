@@ -163,3 +163,13 @@ export function undoPatch(metadata: Record<string, unknown> | null, a: { was: st
   const m = metadata ?? {}, before = Array.isArray(m.takenBack) ? (m.takenBack as unknown[]).slice(-9) : []
   return { ...m, takenBack: [...before, { at: new Date(a.now).toISOString(), was: a.was }] }
 }
+
+/**
+ * The answers a held call wakes for: the unpicked ones the caller has not already been handed. Without this a call
+ * returned at once for as long as any answer on the account stayed unpicked (often another project's), so a
+ * listener never held and looped until the key's allowance was used up (card 565bf3f6).
+ */
+export function wakeFor<T extends { questionId: string; state: string }>(items: T[], seen: readonly string[] = []): T[] {
+  const known = new Set(seen)
+  return items.filter((i) => i.state === "unclaimed" && !known.has(i.questionId))
+}

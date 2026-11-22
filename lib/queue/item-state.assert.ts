@@ -1,6 +1,6 @@
 // npx -y tsx@4.23.15 lib/queue/item-state.assert.ts
 import assert from "node:assert/strict"
-import { QueueError, claimPatch, donePatch, itemState, mayClaim, mayUndo, planChangeNote, undoPatch, routing, whereItWent, type ItemRow } from "./item-state"
+import { QueueError, claimPatch, donePatch, itemState, mayClaim, mayUndo, planChangeNote, undoPatch, routing, wakeFor, whereItWent, type ItemRow } from "./item-state"
 
 let n = 0
 const t = (name: string, fn: () => void) => { fn(); n++; console.log("ok  ", name) }
@@ -109,6 +109,13 @@ t("an answer can be taken back only while nothing has acted on it", () => {
   assert.equal(m.askedFrom, "/work")
   assert.deepEqual(m.takenBack, [{ at: "2026-11-15T12:00:00.000Z", was: "Merge" }])
   assert.equal((undoPatch(m, { was: "Keep", now: 0 }).takenBack as unknown[]).length, 2)
+})
+
+t("a held call wakes only for unpicked answers the caller has not been handed", () => {
+  const items = [{ questionId: "a", state: "unclaimed" }, { questionId: "b", state: "claimed" }, { questionId: "c", state: "unclaimed" }]
+  assert.deepEqual(wakeFor(items).map((i) => i.questionId), ["a", "c"])
+  assert.deepEqual(wakeFor(items, ["a"]).map((i) => i.questionId), ["c"])
+  assert.deepEqual(wakeFor(items, ["a", "c", "zz"]), [])
 })
 
 console.log(`\n${n} item-state checks passed`)
