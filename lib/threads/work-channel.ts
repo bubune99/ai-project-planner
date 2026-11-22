@@ -71,6 +71,22 @@ export function reviewFinish(claim: FinishClaim, ev: Evidence): Review {
   return { verdict: requests.length ? "sent_back" : "accepted", requests }
 }
 
+/**
+ * Which of a send-back's requests need a new message. A request already open for this agent on this project with the
+ * same words is not asked again: one ship that closes many cards owes its before/after pair once, not once per card
+ * (card 3408dfbe: a ship closing 36 cards raised 36 identical requests, each needing its own answer).
+ */
+export function splitRequests(requests: string[], open: { id: string; body: string }[]): { ask: string[]; standing: { id: string; body: string }[] } {
+  const byBody = new Map(open.map((o) => [o.body.trim(), o]))
+  const ask: string[] = [], standing: { id: string; body: string }[] = []
+  for (const r of requests) {
+    const have = byBody.get(r.trim())
+    if (have) { if (!standing.some((x) => x.id === have.id)) standing.push(have) }
+    else if (!ask.includes(r)) ask.push(r)
+  }
+  return { ask, standing }
+}
+
 export interface Card { id: string; title: string; priority: string | null; orderIndex: number | null; kind: string; assignedTo?: string | null; needsOwner?: boolean }
 const PRI: Record<string, number> = { critical: 0, urgent: 0, high: 1, medium: 2, normal: 2, low: 3 }
 

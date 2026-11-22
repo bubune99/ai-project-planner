@@ -15,7 +15,7 @@
 import { z } from "zod"
 import { sql } from "@/lib/db/client"
 import { getMcpUserId, requireMcpScope, verifyMcpProjectAccess } from "@/lib/auth/mcp-context"
-import { assignText, isRealProof, nextCard, reviewFinish, type Card, type Evidence } from "@/lib/threads/work-channel"
+import { assignText, isRealProof, nextCard, reviewFinish, type Card, type Evidence, splitRequests } from "@/lib/threads/work-channel"
 
 function ok(data: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(data) }] }
@@ -97,10 +97,13 @@ export function registerWorkChannelTools(server: any): void {
         const finished = await post({ projectId: a.projectId, taskId: a.taskId, agent: a.agent, side: "session", kind: "finished", body: a.proof, proof: { sha, visible: !!a.visible, deploys: a.deploys !== false } })
         if (review.verdict === "sent_back") {
           await post({ projectId: a.projectId, taskId: a.taskId, agent: a.agent, side: "platform", kind: "sent_back", body: `Not accepted yet: ${review.requests.length} thing${review.requests.length === 1 ? "" : "s"} missing.`, replyTo: finished.id })
-          const requests = []
-          for (const r of review.requests) {
+          // A request already open for this agent with the same words is not asked again (one pair serves every card a ship closes).
+          const open = (await sql`SELECT id, body FROM work_messages WHERE agent = ${a.agent} AND project_id = ${a.projectId} AND kind = 'request' AND status = 'open'`) as { id: string; body: string }[]
+          const { ask, standing } = splitRequests(review.requests, open)
+          const requests = standing.map((o) => ({ requestId: o.id, ask: o.body, alreadyAsked: true }))
+          for (const r of ask) {
             const m = await post({ projectId: a.projectId, taskId: a.taskId, agent: a.agent, side: "platform", kind: "request", body: r, replyTo: finished.id })
-            requests.push({ requestId: m.id, ask: r })
+            requests.push({ requestId: m.id, ask: r, alreadyAsked: false })
           }
           return ok({ verdict: "sent_back", requests, next_actions: ["Do each request, then answer it with work_reply({ requestId, body: what you saw }); then call work_finished again."] })
         }

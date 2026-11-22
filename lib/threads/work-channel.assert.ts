@@ -1,5 +1,5 @@
 /* Run: npx -y tsx@4.23.15 lib/threads/work-channel.assert.ts */
-import { assignText, isRealProof, nextCard, reviewFinish, sameCommit, type Evidence } from "./work-channel"
+import { assignText, isRealProof, nextCard, reviewFinish, sameCommit, type Evidence, splitRequests } from "./work-channel"
 
 let pass = 0, fail = 0
 const eq = (a: unknown, b: unknown, what: string) => {
@@ -38,6 +38,15 @@ eq(nextCard(cards)?.id, "e", "most urgent open card nobody holds, first in order
 eq(nextCard(cards, "e")?.id, "b", "never the card just finished")
 eq(nextCard([]), null, "nothing left")
 eq(assignText({ id: "x", title: "X", priority: null, orderIndex: null, kind: "open", needsOwner: true }).includes("ask_owner"), true, "a card that waits on the owner: raise his question first")
+
+// One ship, many cards: the same request is asked once.
+const pair = "This change can be seen, but there is no before/after pair for 491a281c. Send one (gates change after --build 491a281c) so the owner can judge it."
+const first = splitRequests([pair, "The card is not finished on the board."], [])
+eq(first.ask.length, 2, "nothing open yet: both are asked")
+const second = splitRequests([pair, "The card is not finished on the board."], [{ id: "r1", body: pair }])
+eq(JSON.stringify(second.ask), JSON.stringify(["The card is not finished on the board."]), "the pair request already open is not asked again")
+eq(second.standing[0]?.id, "r1", "the open one is named, so the reply to it serves this card too")
+eq(splitRequests([pair, pair], []).ask.length, 1, "the same words twice in one send-back are one request")
 
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
