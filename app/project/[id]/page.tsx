@@ -303,11 +303,21 @@ export default function ProjectDashboardPage() {
 
   useEffect(() => {
     if (loading || !openedOnTab.current) return
+    openedOnTab.current = false
     const row = document.querySelector<HTMLElement>("nav.opx-ptabs")
     if (!row) return
-    row.scrollIntoView({ block: "start" })
-    if (!waiting.loading) openedOnTab.current = false
-  }, [loading, waiting.loading])
+    // The block above the tab row fills in after the page (inbox, changes, walks, cards), each time pushing the row
+    // down. Keep the row at the top while that settles; stop at once when the person moves the page themselves.
+    const toRow = () => row.scrollIntoView({ block: "start" })
+    toRow()
+    const watcher = new ResizeObserver(toRow)
+    if (row.parentElement) for (const el of Array.from(row.parentElement.children)) { if (el === row) break; watcher.observe(el) }
+    const stop = () => { watcher.disconnect(); window.clearTimeout(timer); for (const e of MOVES) window.removeEventListener(e, stop, true) }
+    const MOVES = ["wheel", "touchstart", "pointerdown", "keydown"] as const
+    for (const e of MOVES) window.addEventListener(e, stop, { capture: true, passive: true })
+    const timer = window.setTimeout(stop, 6000)
+    return stop
+  }, [loading])
 
   if (loading) {
     return (
