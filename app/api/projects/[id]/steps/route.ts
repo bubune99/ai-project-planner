@@ -12,6 +12,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
 import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils";
 import { isUuid } from "@/lib/api/ids";
+import { databaseUnavailableResponse } from "@/lib/db/unavailable";
 
 export const dynamic = "force-dynamic"
 
@@ -75,6 +76,8 @@ export async function GET(
     // Shipped with a part waiting on the caller's answer: read from the card's records, never stored (card 2f95e84a).
     return NextResponse.json({ steps: await withPartWaiting(userId, steps as { id: string; project_id: string }[]) });
   } catch (error: unknown) {
+    const down = databaseUnavailableResponse(error);
+    if (down) return down;
     console.error("Error fetching steps:", error);
     return NextResponse.json(
       { error: "Failed to fetch steps" },

@@ -10,6 +10,7 @@ import { ownError } from "@/lib/api/error-text"
 import { listPages } from "@/lib/gates/store"
 import { FlowError, loadFlows, saveFlows } from "@/lib/people/store"
 import { isUuid } from "@/lib/api/ids"
+import { databaseUnavailableResponse } from "@/lib/db/unavailable"
 
 export const dynamic = "force-dynamic"
 type Ctx = { params: Promise<{ id: string }> }
@@ -24,6 +25,8 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
     const [flows, pages] = await Promise.all([loadFlows(projectId), listPages(projectId)])
     return NextResponse.json({ ...flows, pages: pages.map((p) => ({ id: p.id, route: p.route, title: p.title })), canEdit: await verifyProjectWriteAccess(projectId, auth.userId) })
   } catch (error) {
+    const down = databaseUnavailableResponse(error)
+    if (down) return down
     console.error("people and flows load failed", error)
     return NextResponse.json({ error: "Could not load people and flows" }, { status: 500 })
   }

@@ -9,6 +9,7 @@ import { ErrorCodes, errorResponse, successResponse } from "@/lib/api-utils"
 import { validateProfileInput } from "@/lib/readiness/input"
 import { readinessAuth, serverError } from "@/lib/readiness/route-auth"
 import { getReadiness, history, saveProfile } from "@/lib/readiness/store"
+import { databaseUnavailableResponse } from "@/lib/db/unavailable"
 
 export const dynamic = "force-dynamic"
 type Ctx = { params: Promise<{ id: string }> }
@@ -21,6 +22,8 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
     const { profile, readiness } = await getReadiness(id, new Date().toISOString())
     return successResponse({ profile, readiness, history: profile ? await history(id, undefined, 30) : [] })
   } catch (error) {
+    const down = databaseUnavailableResponse(error)
+    if (down) return down
     return serverError("GET", error)
   }
 }

@@ -7,6 +7,10 @@
 
 import { sql } from "@/lib/db/client";
 import type { CollaboratorRole } from "@/lib/db/schema";
+import { lookedUp } from "@/lib/auth/access-outcome";
+
+/** The database to ask. Always the real one, except in a check file (lib/auth/access-outcome.assert.ts). */
+type Db = typeof sql;
 
 // Role hierarchy for permission checking (higher number = more access)
 const ROLE_HIERARCHY: Record<CollaboratorRole | "owner", number> = {
@@ -37,15 +41,18 @@ export interface ProjectAccess {
 
 /**
  * Get user's access level for a project
- * Returns role and permissions if user has access, null otherwise
+ * Returns role and permissions if user has access, null otherwise.
+ * null means the lookup ran and found nothing. If the lookup throws, this throws
+ * DatabaseUnavailableError: a database that did not answer is not "no access".
  */
 export async function getProjectAccess(
   projectId: string,
-  userId: string
+  userId: string,
+  db: Db = sql
 ): Promise<ProjectAccess | null> {
-  try {
+  return lookedUp<ProjectAccess | null>("getProjectAccess", projectId, null, async () => {
     // Check if user is owner
-    const ownerCheck = await sql`
+    const ownerCheck = await db`
       SELECT 1 FROM projects
       WHERE id = ${projectId} AND user_id = ${userId} AND deleted_at IS NULL
     `;
@@ -59,7 +66,7 @@ export async function getProjectAccess(
     }
 
     // Check if user is a collaborator
-    const collaboratorCheck = await sql`
+    const collaboratorCheck = await db`
       SELECT role FROM project_collaborators
       WHERE project_id = ${projectId}
         AND user_id = ${userId}
@@ -77,10 +84,7 @@ export async function getProjectAccess(
     }
 
     return null;
-  } catch (error) {
-    console.error("Error checking project access:", error);
-    return null;
-  }
+  });
 }
 
 /**
@@ -94,9 +98,10 @@ export async function getProjectAccess(
 export async function verifyCollaboratorAccess(
   projectId: string,
   userId: string,
-  requiredRole?: CollaboratorRole
+  requiredRole?: CollaboratorRole,
+  db: Db = sql
 ): Promise<boolean> {
-  const access = await getProjectAccess(projectId, userId);
+  const access = await getProjectAccess(projectId, userId, db);
 
   if (!access) return false;
 
@@ -124,9 +129,10 @@ export async function verifyCollaboratorAccess(
 export async function canPerformAction(
   projectId: string,
   userId: string,
-  permission: Permission
+  permission: Permission,
+  db: Db = sql
 ): Promise<boolean> {
-  const access = await getProjectAccess(projectId, userId);
+  const access = await getProjectAccess(projectId, userId, db);
 
   if (!access) return false;
 
@@ -139,9 +145,10 @@ export async function canPerformAction(
  */
 export async function getUserRoleForProject(
   projectId: string,
-  userId: string
+  userId: string,
+  db: Db = sql
 ): Promise<string | null> {
-  const access = await getProjectAccess(projectId, userId);
+  const access = await getProjectAccess(projectId, userId, db);
   return access?.role || null;
 }
 

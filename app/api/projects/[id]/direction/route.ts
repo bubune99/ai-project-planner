@@ -9,6 +9,7 @@ import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from
 import { ownError } from "@/lib/api/error-text"
 import { DirectionError, loadDirection, saveDirection } from "@/lib/direction/store"
 import { isUuid } from "@/lib/api/ids"
+import { databaseUnavailableResponse } from "@/lib/db/unavailable"
 
 export const dynamic = "force-dynamic"
 type Ctx = { params: Promise<{ id: string }> }
@@ -22,6 +23,8 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
     if (!(await verifyProjectOwnership(projectId, auth.userId))) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     return NextResponse.json({ ...(await loadDirection(projectId)), canEdit: await verifyProjectWriteAccess(projectId, auth.userId) })
   } catch (error) {
+    const down = databaseUnavailableResponse(error)
+    if (down) return down
     console.error("direction load failed", error)
     return NextResponse.json({ error: "Could not load the direction" }, { status: 500 })
   }

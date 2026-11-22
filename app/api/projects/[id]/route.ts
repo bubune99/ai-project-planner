@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from '@/lib/auth/auth-utils'
 import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
 import { isUuid } from '@/lib/api/ids'
+import { databaseUnavailableResponse } from '@/lib/db/unavailable'
 
 export const dynamic = "force-dynamic"
 
@@ -111,6 +112,8 @@ export async function GET(
       versions,
     })
   } catch (error: any) {
+    const down = databaseUnavailableResponse(error)
+    if (down) return down
     console.error('Get project error:', error)
     return errorResponse('INTERNAL_ERROR', 'Failed to get project', 500, error.message)
   }

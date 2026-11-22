@@ -10,6 +10,10 @@ import { headers } from "next/headers";
 import { sql } from "@/lib/db/client";
 import crypto from "crypto";
 import { verifyCollaboratorAccess } from "@/lib/auth/collaboration-access";
+import { answered, lookedUp } from "@/lib/auth/access-outcome";
+
+/** The database to ask. Always the real one, except in a check file (lib/auth/access-outcome.assert.ts). */
+type Db = typeof sql;
 
 /**
  * Authentication context returned after validation
@@ -33,10 +37,13 @@ export function hashApiKey(key: string): string {
 }
 
 /**
- * Validate an API key and return user info
+ * Validate an API key and return user info.
+ * null means the key is not one of ours, or the lookup ran and found no live key. If the lookup
+ * throws, this throws DatabaseUnavailableError: a database that did not answer is not "bad key".
  */
-async function validateApiKey(
-  apiKey: string
+export async function validateApiKey(
+  apiKey: string,
+  db: Db = sql
 ): Promise<AuthContext | null> {
   if (!apiKey.startsWith("aipp_")) {
     return null;
@@ -44,8 +51,8 @@ async function validateApiKey(
 
   const keyHash = hashApiKey(apiKey);
 
-  try {
-    const result = await sql`
+  return answered<AuthContext | null>("validateApiKey", async () => {
+    const result = await db`
       SELECT ak.id, ak.user_id, ak.scopes
       FROM api_keys ak
       WHERE ak.key_hash = ${keyHash}
@@ -60,7 +67,7 @@ async function validateApiKey(
     const keyRecord = result[0];
 
     // Update last_used_at asynchronously (don't await)
-    sql`UPDATE api_keys SET last_used_at = NOW() WHERE id = ${keyRecord.id}`.catch(
+    db`UPDATE api_keys SET last_used_at = NOW() WHERE id = ${keyRecord.id}`.catch(
       (err) => console.error("Failed to update API key last_used_at:", err)
     );
 
@@ -70,10 +77,36 @@ async function validateApiKey(
       apiKeyId: keyRecord.id,
       scopes: keyRecord.scopes || ["read", "write"],
     };
-  } catch (error) {
-    console.error("API key validation error:", error);
-    return null;
-  }
+  });
+}
+
+/**
+ * The internal user id for a signed-in session whose row middleware could not read or make.
+ * If this throws, the person IS signed in and the database did not answer: DatabaseUnavailableError,
+ * not "not signed in" (that answered 401 during an outage and sent people to sign in again).
+ */
+export async function userIdForSession(
+  stackAuthId: string,
+  db: Db = sql
+): Promise<string | null> {
+  return answered<string | null>("getAuthContext", async () => {
+    // Try to get or create user
+    let dbUser = await db`
+      SELECT id FROM users WHERE stack_auth_id = ${stackAuthId}
+    `;
+
+    if (dbUser.length === 0) {
+      // Create user with minimal info (middleware would have had more)
+      dbUser = await db`
+        INSERT INTO users (stack_auth_id, email, name)
+        VALUES (${stackAuthId}, ${stackAuthId + '@unknown.local'}, 'User')
+        ON CONFLICT (stack_auth_id) DO UPDATE SET updated_at = NOW()
+        RETURNING id
+      `;
+    }
+
+    return dbUser[0]?.id ?? null;
+  });
 }
 
 /**
@@ -97,27 +130,7 @@ export async function getAuthContext(): Promise<AuthContext | null> {
 
     // If middleware couldn't sync user to DB, try to do it here
     if (!userId && stackAuthId) {
-      try {
-        // Try to get or create user
-        let dbUser = await sql`
-          SELECT id FROM users WHERE stack_auth_id = ${stackAuthId}
-        `;
-
-        if (dbUser.length === 0) {
-          // Create user with minimal info (middleware would have had more)
-          dbUser = await sql`
-            INSERT INTO users (stack_auth_id, email, name)
-            VALUES (${stackAuthId}, ${stackAuthId + '@unknown.local'}, 'User')
-            ON CONFLICT (stack_auth_id) DO UPDATE SET updated_at = NOW()
-            RETURNING id
-          `;
-        }
-
-        userId = dbUser[0]?.id;
-      } catch (error) {
-        console.error("Failed to sync user in getAuthContext:", error);
-        return null;
-      }
+      userId = await userIdForSession(stackAuthId);
     }
 
     if (!userId) return null;
@@ -179,49 +192,50 @@ export async function requireScope(scope: string): Promise<AuthContext> {
 export async function verifyOwnership(
   table: string,
   resourceId: string,
-  userId: string
+  userId: string,
+  db: Db = sql
 ): Promise<boolean> {
-  try {
-    // Using raw query with table name interpolation
-    // Note: table name should be validated before use
-    const validTables = [
-      "projects",
-      "documents",
-      "progress_notes",
-      "execution_history",
-      "ai_conversations",
-    ];
+  // Using raw query with table name interpolation
+  // Note: table name should be validated before use
+  const validTables = [
+    "projects",
+    "documents",
+    "progress_notes",
+    "execution_history",
+    "ai_conversations",
+  ];
 
-    if (!validTables.includes(table)) {
-      console.error(`Invalid table name for ownership check: ${table}`);
-      return false;
-    }
+  if (!validTables.includes(table)) {
+    console.error(`Invalid table name for ownership check: ${table}`);
+    return false;
+  }
 
+  return lookedUp("verifyOwnership", resourceId, false, async () => {
     // Build query based on table
     let result;
     switch (table) {
       case "projects":
-        result = await sql`
+        result = await db`
           SELECT 1 FROM projects WHERE id = ${resourceId} AND user_id = ${userId}
         `;
         break;
       case "documents":
-        result = await sql`
+        result = await db`
           SELECT 1 FROM documents WHERE id = ${resourceId} AND user_id = ${userId}
         `;
         break;
       case "progress_notes":
-        result = await sql`
+        result = await db`
           SELECT 1 FROM progress_notes WHERE id = ${resourceId} AND user_id = ${userId}
         `;
         break;
       case "execution_history":
-        result = await sql`
+        result = await db`
           SELECT 1 FROM execution_history WHERE id = ${resourceId} AND user_id = ${userId}
         `;
         break;
       case "ai_conversations":
-        result = await sql`
+        result = await db`
           SELECT 1 FROM ai_conversations WHERE id = ${resourceId} AND user_id = ${userId}
         `;
         break;
@@ -230,10 +244,7 @@ export async function verifyOwnership(
     }
 
     return result.length > 0;
-  } catch (error) {
-    console.error("Ownership verification error:", error);
-    return false;
-  }
+  });
 }
 
 /**
@@ -243,14 +254,18 @@ export async function verifyOwnership(
  * It returns true if the user is either the owner or an accepted collaborator.
  *
  * For owner-only operations (like deleting a project), use verifyProjectOwnerOnly instead.
+ *
+ * false means the lookup ran and found nothing. If the lookup throws, this (like every access
+ * helper here) throws DatabaseUnavailableError, so an outage is never answered "Project not found".
  */
 export async function verifyProjectOwnership(
   projectId: string,
-  userId: string
+  userId: string,
+  db: Db = sql
 ): Promise<boolean> {
-  try {
+  return lookedUp("verifyProjectOwnership", projectId, false, async () => {
     // Check ownership first (fast path)
-    const ownerResult = await sql`
+    const ownerResult = await db`
       SELECT 1 FROM projects
       WHERE id = ${projectId} AND user_id = ${userId} AND deleted_at IS NULL
     `;
@@ -258,7 +273,7 @@ export async function verifyProjectOwnership(
     if (ownerResult.length > 0) return true;
 
     // Check collaborator access (must be accepted, not removed)
-    const collaboratorResult = await sql`
+    const collaboratorResult = await db`
       SELECT 1 FROM project_collaborators
       WHERE project_id = ${projectId}
         AND user_id = ${userId}
@@ -267,10 +282,7 @@ export async function verifyProjectOwnership(
     `;
 
     return collaboratorResult.length > 0;
-  } catch (error) {
-    console.error("Project access verification error:", error);
-    return false;
-  }
+  });
 }
 
 /**
@@ -281,9 +293,10 @@ export async function verifyProjectOwnership(
  */
 export async function verifyProjectWriteAccess(
   projectId: string,
-  userId: string
+  userId: string,
+  db: Db = sql
 ): Promise<boolean> {
-  return verifyCollaboratorAccess(projectId, userId, "editor");
+  return verifyCollaboratorAccess(projectId, userId, "editor", db);
 }
 
 /**
@@ -296,24 +309,22 @@ export async function verifyProjectWriteAccess(
  */
 export async function verifyProjectOwnerOnly(
   projectId: string,
-  userId: string
+  userId: string,
+  db: Db = sql
 ): Promise<boolean> {
-  return verifyOwnership("projects", projectId, userId);
+  return verifyOwnership("projects", projectId, userId, db);
 }
 
 /**
  * Get user ID for a project (for related resources)
  */
-export async function getProjectOwnerId(projectId: string): Promise<string | null> {
-  try {
-    const result = await sql`
+export async function getProjectOwnerId(projectId: string, db: Db = sql): Promise<string | null> {
+  return lookedUp<string | null>("getProjectOwnerId", projectId, null, async () => {
+    const result = await db`
       SELECT user_id FROM projects WHERE id = ${projectId}
     `;
     return result[0]?.user_id || null;
-  } catch (error) {
-    console.error("Failed to get project owner:", error);
-    return null;
-  }
+  });
 }
 
 /**
@@ -322,11 +333,12 @@ export async function getProjectOwnerId(projectId: string): Promise<string | nul
  */
 export async function verifyStepAccess(
   stepId: string,
-  userId: string
+  userId: string,
+  db: Db = sql
 ): Promise<boolean> {
-  try {
+  return lookedUp("verifyStepAccess", stepId, false, async () => {
     // Check if user owns the parent project
-    const ownerResult = await sql`
+    const ownerResult = await db`
       SELECT 1 FROM project_steps ps
       JOIN projects p ON ps.project_id = p.id
       WHERE ps.id = ${stepId} AND p.user_id = ${userId} AND p.deleted_at IS NULL
@@ -335,7 +347,7 @@ export async function verifyStepAccess(
     if (ownerResult.length > 0) return true;
 
     // Check if user is a collaborator on the parent project
-    const collaboratorResult = await sql`
+    const collaboratorResult = await db`
       SELECT 1 FROM project_steps ps
       JOIN project_collaborators pc ON ps.project_id = pc.project_id
       WHERE ps.id = ${stepId}
@@ -345,10 +357,7 @@ export async function verifyStepAccess(
     `;
 
     return collaboratorResult.length > 0;
-  } catch (error) {
-    console.error("Step access verification error:", error);
-    return false;
-  }
+  });
 }
 
 /**

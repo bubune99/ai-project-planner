@@ -9,6 +9,7 @@ import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from
 import { ownError } from "@/lib/api/error-text"
 import { GateError, listPages, saveChecklist } from "@/lib/gates/store"
 import { isUuid } from "@/lib/api/ids"
+import { databaseUnavailableResponse } from "@/lib/db/unavailable"
 
 export const dynamic = "force-dynamic"
 
@@ -21,6 +22,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     if (!(await verifyProjectOwnership(projectId, auth.userId))) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     return NextResponse.json({ pages: await listPages(projectId) })
   } catch (error) {
+    const down = databaseUnavailableResponse(error)
+    if (down) return down
     console.error("gates list failed", error)
     return NextResponse.json({ error: "Could not load the checklists" }, { status: 500 })
   }

@@ -258,6 +258,8 @@ export default function ProjectDashboardPage() {
   usePageTitle(projectData?.project?.name)
   const [loading, setLoading]         = useState(true)
   const [error, setError]             = useState<string | null>(null)
+  // 503: the planner could not reach its database. The project is not gone, so the failed state offers a retry.
+  const [canRetry, setCanRetry]       = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   const projectId = params.id as string
@@ -282,6 +284,7 @@ export default function ProjectDashboardPage() {
       if (!silent) setLoading(true); else setIsRefreshing(true)
       setError(null)
       const res = await fetch(`/api/projects/${projectId}`)
+      if (!silent) setCanRetry(res.status === 503)
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.error || `Failed to fetch project: ${res.status}`)
@@ -342,7 +345,9 @@ export default function ProjectDashboardPage() {
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 400 }}>
           <div className="j-card" style={{ maxWidth: 420, textAlign: "center" }}>
             <p style={{ color: "var(--j-neg)", marginBottom: 16 }}>{error || "Project not found"}</p>
-            <button className="j-btn j-btn-primary" onClick={() => router.push("/projects")}>Back to Projects</button>
+            {canRetry
+              ? <button className="j-btn j-btn-primary" onClick={() => fetchProjectData()}>Try again</button>
+              : <button className="j-btn j-btn-primary" onClick={() => router.push("/projects")}>Back to Projects</button>}
           </div>
         </div>
       </DashboardLayout>
