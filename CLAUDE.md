@@ -194,6 +194,11 @@ see in the UI and that is wrong." Since migration 071 (main d7019fe) the project
   (`input.kind = "work"`, `input.stepId`) that the far-gates hook hands to the project's session (`lib/work/send.ts`).
 - **Take a card** with `update_task {status: "in-progress", claimedBy}` (or `gates queue start <id>`); finish with
   proof or put it back with a note. Never leave one in progress when you stop.
+- **A question holds its card.** `ask_owner` with a `stepId` moves that card to Blocked, lets go of it, and names the
+  question in the card's open `step_blockers` row; the owner's answer (POST `/api/inbox/:id`) returns it to Up next
+  unless another open question still holds it or it was finished or moved meanwhile. Rules: `whenQuestionAsked` /
+  `whenQuestionAnswered` in `lib/work/pipeline.ts`; SQL: `lib/work/question-hold.ts`. Leave `stepId` out when no card
+  waits on the answer.
 - **Features are proposed** with `propose_feature` (goal, what, deliverable, proof, why) into Requests; nothing is built
   before the owner approves it.
 - **`todos` is the owner's own list**: only actions only he can do. Migrations 056–058 copied 432 to-dos into steps

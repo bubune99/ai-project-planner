@@ -9,6 +9,9 @@
  * The UPDATE is conditional on status = 'awaiting-unlock', so a double tap or
  * a second device answering the same card gets a 409 rather than overwriting.
  *
+ * A card the question held up goes back to Up next with the answer, and is held again when the answer is taken back
+ * (lib/work/question-hold.ts; rules in lib/work/pipeline.ts). The answer itself never depends on that.
+ *
  * DELETE /api/inbox/:id — take an answer back, so the question waits again. Allowed only while nothing has acted
  * on the answer (lib/queue/item-state.ts mayUndo). What he had said is kept in the record.
  */
@@ -19,6 +22,7 @@ import { getAuthContext } from "@/lib/auth/auth-utils"
 import { toInboxItem, resolveAnswer, statusAfterAnswer } from "@/lib/inbox"
 import { answeredRow } from "@/lib/mcp/queue-tools"
 import { mayUndo, undoPatch } from "@/lib/queue/item-state"
+import { holdCardAgain, releaseCardsAfterAnswer, type CardMove } from "@/lib/work/question-hold"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -65,7 +69,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     `) as Record<string, any>[]
     if (!updated) return errorResponse(ErrorCodes.CONFLICT, "Already answered", 409)
 
-    return successResponse({ id: updated.id, status: updated.status, answer })
+    let cards: CardMove[] = []
+    try {
+      cards = await releaseCardsAfterAnswer(id)
+    } catch (e) {
+      console.error("POST /api/inbox/:id: the card could not be moved after the answer:", e)
+    }
+    return successResponse({ id: updated.id, status: updated.status, answer, cards })
   } catch (error: unknown) {
     console.error("POST /api/inbox/:id failed:", error)
     return errorResponse(ErrorCodes.INTERNAL_ERROR, "Failed to save answer", 500)
@@ -96,7 +106,13 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
       RETURNING id, status
     `) as Record<string, any>[]
     if (!updated) return errorResponse(ErrorCodes.CONFLICT, "Something picked this up just now. Refresh to see where it went.", 409)
-    return successResponse({ id: updated.id, status: updated.status, was: found.was })
+    let card: CardMove | null = null
+    try {
+      card = await holdCardAgain(id)
+    } catch (e) {
+      console.error("DELETE /api/inbox/:id: the card could not be held again:", e)
+    }
+    return successResponse({ id: updated.id, status: updated.status, was: found.was, card })
   } catch (error: unknown) {
     console.error("DELETE /api/inbox/:id failed:", error)
     return errorResponse(ErrorCodes.INTERNAL_ERROR, "Could not take the answer back", 500)

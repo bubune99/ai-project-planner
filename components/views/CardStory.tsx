@@ -15,6 +15,9 @@ import type { BoardStep } from "@/lib/types"
 import { RichText } from "@/components/shared/RichText"
 import { addPicture, cardPictures, fileUrl, kindLabel, overall, proposalParts, removePicture, stepTree, withoutPictures, type Picture } from "@/lib/work/card-view"
 import { holderLine } from "./kanban/adapt"
+import Link from "next/link"
+import { useJson, ago } from "@/components/project/opx/shared"
+import type { InboxItem } from "@/lib/inbox"
 import type { ProjectStatus } from "./kanban-config"
 
 const names = new Map<string, string>()
@@ -130,6 +133,49 @@ export function CardProposal({ metadata }: { metadata: Record<string, unknown> |
           </div>
         ))}
       </dl>
+    </section>
+  )
+}
+
+/** The owner's open questions that hold this card: what each asks, and that it waits on him (card f473b5d4). */
+export function CardQuestions({ step }: { step: BoardStep }) {
+  const q = useJson<{ data?: InboxItem[] }>(`/api/inbox?step=${step.id}`)
+  const { reload } = q
+  // A move on the board (or an answer given elsewhere) changes what holds the card.
+  const first = useRef(true)
+  useEffect(() => { if (first.current) { first.current = false; return } reload() }, [step.status, reload])
+  const items = q.data?.data ?? []
+  const heading = <h4 className="text-[13px] font-semibold text-muted-foreground mb-2">Waiting on you</h4>
+  if (q.error) {
+    return (
+      <section data-testid="card-questions" role="alert">
+        {heading}
+        <p className="text-sm text-muted-foreground">
+          Could not load the questions about this card: {q.error}{" "}
+          <button type="button" onClick={reload} className="h-8 px-3 rounded-md text-[13px] hover:bg-accent underline underline-offset-2">Try again</button>
+        </p>
+      </section>
+    )
+  }
+  if (q.loading && !q.data) {
+    // Only a blocked card says it is looking: any other card almost never has a question, and would only flicker.
+    return step.status === "blocked" ? <section data-testid="card-questions">{heading}<p className="text-sm text-muted-foreground">Loading what it is waiting on…</p></section> : null
+  }
+  if (!items.length) return null
+  return (
+    <section data-testid="card-questions">
+      {heading}
+      <ul className="space-y-2">
+        {items.map((i) => (
+          <li key={i.id} className="rounded-lg bg-accent/40 px-3 py-2.5">
+            <p className="text-sm leading-relaxed [overflow-wrap:anywhere]">{i.question}</p>
+            <p className="mt-1 text-[13px] text-muted-foreground">
+              {i.askedBy ? `Asked by ${i.askedBy}` : "Asked"} {ago(i.askedAt)}. {step.status === "blocked" ? "This card is blocked until you answer." : "Still waiting on your answer."}{" "}
+              <Link href="/inbox" className="underline underline-offset-2 hover:text-foreground">Answer in the inbox</Link>
+            </p>
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }

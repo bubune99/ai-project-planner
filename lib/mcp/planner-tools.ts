@@ -51,6 +51,7 @@ import {
 } from "@/lib/db/backbone"
 import { buildQuestionInput } from "@/lib/inbox"
 import { notifyOwner } from "@/lib/notify/owner"
+import { holdCardForQuestion } from "@/lib/work/question-hold"
 import { visibleStepPredicate } from "@/lib/db/agent-task-access"
 import {
   validateMcpApiKey,
@@ -4305,7 +4306,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         options: z.array(z.string()).optional().describe("2-6 short choices (<=120 chars each). Omit for a free-text answer."),
         context: z.string().optional().describe("What the owner needs to know to answer — what you found, what each option implies"),
         projectId: z.string().optional().describe("Project this is about (defaults to the active project, if any)"),
-        stepId: z.string().optional().describe("Task this is about"),
+        stepId: z.string().optional().describe("The card this question holds up. The card moves to Blocked, naming the question, and returns to Up next when the owner answers. Leave out when no card waits on the answer."),
         askedBy: z.string().optional().describe("Your stable agent name, shown on the card and used to route the answer back (e.g. claude-code@planner)"),
         askedFrom: z.string().optional().describe("Where you are working: the folder or machine. Lets the answer find you, or your project, later"),
         images: z.array(z.object({ base64: z.string(), caption: z.string().optional(), option: z.string().optional().describe("The exact words of the option this picture shows: the card then shows that option as its picture, and pressing the picture chooses it. For a matter of taste, mock each option on the live page in your own tab and send one picture per option."), current: z.boolean().optional().describe("This picture shows how it is now; shown first, marked as the current one") })).optional().describe("Up to 4 pictures that show what you are asking about (PNG, JPEG or WebP as base64, each under 1.5 MB, 3 MB together). Crop to the part that matters; give each a short caption."),
@@ -4358,6 +4359,14 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             )
             RETURNING id, status
           `
+          // The card it is about waits with it (card f473b5d4): blocked, naming this question, until he answers.
+          // Write access to the card was checked above. A failure here never loses the question.
+          let card: Awaited<ReturnType<typeof holdCardForQuestion>> = null
+          try {
+            card = await holdCardForQuestion({ id: job.id, stepId: built.value.input.stepId, text: built.value.question, askedBy: asker })
+          } catch (e) {
+            console.error("ask_owner: the card could not be held for its question:", e)
+          }
           // Tell the owner's phone (when they turned that on). Never holds the question up.
           await notifyOwner(userId, "question", { id: job.id, text: built.value.question, projectId: built.value.input.projectId })
           return mcpResponse({
@@ -4365,7 +4374,11 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             status: job.status,
             options: built.value.input.options,
             pictures: kept.length,
-            next_actions: [`Carry on with other work; call get_answer({ questionId: "${job.id}" }) later. The owner answers at /inbox.`],
+            ...(card ? { card: { id: card.id, title: card.title, blocked: card.moved === "blocked" } } : {}),
+            next_actions: [
+              `Carry on with other work; call get_answer({ questionId: "${job.id}" }) later. The owner answers at /inbox.`,
+              ...(card?.moved === "blocked" ? [`Card "${card.title}" is now Blocked, waiting on this question, and nobody holds it. His answer returns it to Up next; take it again from there.`] : []),
+            ],
           })
         } catch (error: unknown) {
           return mcpError(error instanceof Error ? error.message : "Unknown error")

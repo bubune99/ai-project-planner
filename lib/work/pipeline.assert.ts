@@ -1,6 +1,6 @@
 // npx -y tsx@4.23.15 lib/work/pipeline.assert.ts
 import assert from "node:assert/strict"
-import { faultOf, holding, jobFor, rollup, sendsOnMove, type WorkRow, startMove } from "./pipeline"
+import { faultOf, holding, jobFor, rollup, sendsOnMove, type WorkRow, startMove, whenQuestionAsked, whenQuestionAnswered, type OpenHold } from "./pipeline"
 
 let n = 0
 const ok = (name: string, fn: () => void) => { fn(); n++; console.log("ok  ", name) }
@@ -67,6 +67,45 @@ ok("Start puts a card in Up next and sends it; never makes an unheld In Progress
   assert.match(startMove(r({ work_kind: "owner" })).why!, /Only you/)
   assert.equal(sendsOnMove("requested", "pending", "owner"), false)
   assert.equal(sendsOnMove("requested", "in-progress", "owner"), false)
+})
+
+// A question the owner has to answer holds its card (card f473b5d4).
+const hold = (over: Partial<OpenHold> = {}): OpenHold => ({ questionId: null, waitingOn: "unknown", dependsOnCard: false, ...over })
+
+ok("asking about a card blocks it, wherever it stood, unless it is finished or closed", () => {
+  assert.equal(whenQuestionAsked({ status: "in-progress", kind: "active" }, null), "block")
+  assert.equal(whenQuestionAsked({ status: "pending", kind: "open" }, null), "block")
+  assert.equal(whenQuestionAsked({ status: "requested", kind: "open" }, null), "block")
+  assert.equal(whenQuestionAsked({ status: "completed", kind: "done" }, null), null)
+  assert.equal(whenQuestionAsked({ status: "shipped", kind: "done" }, null), null)
+  assert.equal(whenQuestionAsked({ status: "closed", kind: "closed" }, null), null)
+})
+
+ok("a card already blocked keeps its own reason; only one said to wait on the owner, with no question named, takes this one", () => {
+  assert.equal(whenQuestionAsked({ status: "blocked", kind: "closed" }, hold()), null)
+  assert.equal(whenQuestionAsked({ status: "blocked", kind: "closed" }, hold({ waitingOn: "card", dependsOnCard: true })), null)
+  assert.equal(whenQuestionAsked({ status: "blocked", kind: "closed" }, hold({ waitingOn: "owner", questionId: "q0" })), null)
+  assert.equal(whenQuestionAsked({ status: "blocked", kind: "closed" }, hold({ waitingOn: "owner" })), "remember")
+  assert.equal(whenQuestionAsked({ status: "blocked", kind: "closed" }, null), null)
+})
+
+ok("the answer returns the card to Up next when this question was what held it", () => {
+  assert.deepEqual(whenQuestionAnswered("blocked", hold({ waitingOn: "owner", questionId: "q1" }), "q1", []), { to: "pending" })
+})
+
+ok("another open question on the same card keeps it blocked, and the card now names that one", () => {
+  assert.deepEqual(whenQuestionAnswered("blocked", hold({ waitingOn: "owner", questionId: "q1" }), "q1", ["q2", "q3"]), { holdFor: "q2" })
+  // Answering the second while the first still holds the card changes nothing.
+  assert.equal(whenQuestionAnswered("blocked", hold({ waitingOn: "owner", questionId: "q1" }), "q2", ["q1"]), null)
+})
+
+ok("a card finished, moved by the owner, or blocked again for another reason is left where it is", () => {
+  assert.equal(whenQuestionAnswered("completed", null, "q1", []), null)
+  assert.equal(whenQuestionAnswered("in-progress", null, "q1", []), null)
+  assert.equal(whenQuestionAnswered("pending", null, "q1", []), null)
+  assert.equal(whenQuestionAnswered("blocked", hold(), "q1", []), null)
+  assert.equal(whenQuestionAnswered("blocked", hold({ waitingOn: "card", dependsOnCard: true }), "q1", []), null)
+  assert.equal(whenQuestionAnswered("blocked", null, "q1", []), null)
 })
 
 console.log(`\n${n} pipeline checks passed`)

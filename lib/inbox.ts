@@ -5,7 +5,7 @@
  * input = { kind: "question", options, context, projectId, stepId }. No schema
  * change: options live in the existing input JSON, the answer in unlock_note
  * and result. Legacy unlocks (a running job paused via request_unlock) show up
- * too, as option-less cards.
+ * too, as option-less cards. A question asked about a card (stepId) holds that card: see lib/work/question-hold.ts.
  *
  * Pure: no React, no SQL, no clock. Assertions in lib/inbox.assert.ts.
  */
@@ -35,6 +35,8 @@ export interface InboxItem {
   projectId: string | null
   projectName: string | null
   stepId: string | null
+  /** The title of the card this question holds up, when it has one. Added by the route, not by toInboxItem. */
+  cardTitle?: string | null
   askedBy: string | null
   askedAt: string
   /** Pictures sent with the question, as links that work for an hour. Added by the route, not by toInboxItem. */
@@ -114,6 +116,14 @@ export function toInboxItem(row: Record<string, any>, projectNames: Record<strin
     askedBy: str(row.assigned_to),
     askedAt: String(row.created_at),
   }
+}
+
+/**
+ * Which card a question holds up: the one it was asked about, otherwise the blocked card that names this question as
+ * what it waits on (raise_blocker with a questionId). Null when there is neither: the question stands on its own.
+ */
+export function cardOfQuestion(askedAbout: unknown, namedByBlocker: unknown): string | null {
+  return str(askedAbout) ?? str(namedByBlocker)
 }
 
 export function resolveAnswer(item: InboxItem, body: { option?: unknown; reply?: unknown }): AnswerResult {
