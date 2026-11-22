@@ -2,7 +2,7 @@
 import { usePageTitle } from "@/lib/hooks/use-page-title"
 
 import { useRoomBelow } from "@/lib/layout/use-room-below"
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { DashboardLayout } from "@/components/navigation"
 import { KanbanView } from "@/components/views/KanbanView"
@@ -248,6 +248,10 @@ export default function ProjectDashboardPage() {
     for (const [k, v] of Object.entries(next)) v === null ? q.delete(k) : q.set(k, v)
     router.replace(`?${q.toString()}`, { scroll: false })
   }, [router, searchParams])
+  // A page opened by a link that names a tab lands on that tab: the tab row is brought to the top once the page
+  // has loaded, and again when the block above it finishes loading and pushes it down. Changing tab by hand
+  // never moves the page (the address named no tab when the page opened, or the link has been honored).
+  const openedOnTab = useRef(searchParams.get("tab") !== null)
   const setActiveTab = useCallback((tab: string) => setUrl({ tab, view: null, step: null }), [setUrl])
   const setTaskView  = useCallback((view: TaskView) => setUrl({ tab: "tasks", view, step: null }), [setUrl])
   const [projectData, setProjectData] = useState<ProjectData | null>(null)
@@ -296,6 +300,14 @@ export default function ProjectDashboardPage() {
   useEffect(() => { if (projectId) fetchProjectData() }, [projectId, fetchProjectData])
 
   const phases = useMemo(() => phaseStrip(projectData?.steps || []), [projectData?.steps])
+
+  useEffect(() => {
+    if (loading || !openedOnTab.current) return
+    const row = document.querySelector<HTMLElement>("nav.opx-ptabs")
+    if (!row) return
+    row.scrollIntoView({ block: "start" })
+    if (!waiting.loading) openedOnTab.current = false
+  }, [loading, waiting.loading])
 
   if (loading) {
     return (
