@@ -8,6 +8,7 @@
  * Who is acting decides whether a pass is stored or only proposed: see
  * whoIsActing in input.ts.
  */
+import { isUuid } from "@/lib/api/ids"
 import { type NextResponse } from "next/server"
 import { ErrorCodes, errorResponse } from "@/lib/api-utils"
 import { getAuthContext, verifyProjectOwnerOnly, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
@@ -24,6 +25,8 @@ type Gate = { ok: true; acting: (o?: { saysAgent?: boolean; source?: Source }) =
 export async function readinessAuth(projectId: string, need: "read" | "write"): Promise<Gate> {
   const auth = await getAuthContext()
   if (!auth) return { ok: false, response: errorResponse(ErrorCodes.UNAUTHORIZED, "Sign in, or send an API key", 401) }
+  // A malformed id cannot be a project: answer as for one that does not exist, before it reaches the database.
+  if (!isUuid(projectId)) return { ok: false, response: errorResponse(ErrorCodes.NOT_FOUND, "Project not found", 404) }
   const allowed = need === "write" ? await verifyProjectWriteAccess(projectId, auth.userId) : await verifyProjectOwnership(projectId, auth.userId)
   // 404, not 403: someone without access is not told the project exists.
   if (!allowed) return { ok: false, response: errorResponse(ErrorCodes.NOT_FOUND, "Project not found", 404) }
