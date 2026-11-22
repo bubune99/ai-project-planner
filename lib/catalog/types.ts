@@ -245,9 +245,10 @@ export interface DetectedDependency {
  */
 export const SCANNABLE_PATTERNS: RegExp[] = [
   /^lib\/db\/migrations\/[^/]+\.sql$/,
-  /^app\/api\/.+\/route\.tsx?$/,
+  // Any route handler or page under app/, the root page and routes outside app/api included (as the scanner reads them).
+  /^app\/(.+\/)?route\.tsx?$/,
   /^app\/mcp\/.+\.tsx?$/,
-  /^app\/.+\/page\.tsx?$/,
+  /^app\/(.+\/)?page\.tsx?$/,
   /^components\/.+\.tsx?$/,
   /^lib\/(?!.*\.test\.).*\.tsx?$/,
   /^middleware\.tsx?$/,
@@ -269,6 +270,7 @@ export const NON_SCANNABLE_PATTERNS: RegExp[] = [
   /^\.idea\//,
   /\.test\.tsx?$/,
   /\.spec\.tsx?$/,
+  /\.assert\.tsx?$/,
   /^__tests__\//,
   /^tests?\//,
   /^public\//,
