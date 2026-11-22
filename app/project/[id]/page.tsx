@@ -308,14 +308,18 @@ export default function ProjectDashboardPage() {
     if (!row) return
     // The block above the tab row fills in after the page (inbox, changes, walks, cards), each time pushing the row
     // down. Keep the row at the top while that settles; stop at once when the person moves the page themselves.
-    const toRow = () => row.scrollIntoView({ block: "start" })
+    // (The row's own wrapper hides which elements above it grow, so the position is simply checked a few times a second.)
+    const scroller = row.closest("main")
+    const toRow = () => {
+      const top = scroller ? scroller.getBoundingClientRect().top : 0
+      if (Math.abs(row.getBoundingClientRect().top - top) > 4) row.scrollIntoView({ block: "start" })
+    }
     toRow()
-    const watcher = new ResizeObserver(toRow)
-    if (row.parentElement) for (const el of Array.from(row.parentElement.children)) { if (el === row) break; watcher.observe(el) }
-    const stop = () => { watcher.disconnect(); window.clearTimeout(timer); for (const e of MOVES) window.removeEventListener(e, stop, true) }
     const MOVES = ["wheel", "touchstart", "pointerdown", "keydown"] as const
+    const stop = () => { window.clearInterval(every); window.clearTimeout(timer); for (const e of MOVES) window.removeEventListener(e, stop, true) }
     for (const e of MOVES) window.addEventListener(e, stop, { capture: true, passive: true })
-    const timer = window.setTimeout(stop, 6000)
+    const every = window.setInterval(toRow, 200)
+    const timer = window.setTimeout(stop, 8000)
     return stop
   }, [loading])
 
