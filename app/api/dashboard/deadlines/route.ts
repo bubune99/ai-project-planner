@@ -135,23 +135,23 @@ export async function GET(request: NextRequest) {
         SELECT
           ps.id,
           ps.title,
-          ps.due_date,
+          ps.end_date AS due_date,
           ps.priority,
           ps.status,
           ps.project_id,
           p.name as project_name,
-          (ps.due_date::date - ${today}::date) as days_until
+          (ps.end_date::date - ${today}::date) as days_until
         FROM project_steps ps
         JOIN projects p ON ps.project_id = p.id
         WHERE p.user_id = ${userId}
           AND p.deleted_at IS NULL
           AND ps.status NOT IN ('completed', 'skipped')
-          AND ps.due_date IS NOT NULL
+          AND ps.end_date IS NOT NULL
           AND (
-            ${includeOverdue ? sql`ps.due_date < ${today}::date OR` : sql``}
-            ps.due_date <= ${today}::date + ${days}::integer
+            ${includeOverdue ? sql`ps.end_date < ${today}::date OR` : sql``}
+            ps.end_date <= ${today}::date + ${days}::integer
           )
-        ORDER BY ps.due_date ASC
+        ORDER BY ps.end_date ASC
         LIMIT 10
       `
 
