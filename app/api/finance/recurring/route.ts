@@ -2,6 +2,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { userDay } from '@/lib/settings/user-day'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,6 +50,8 @@ export async function GET(request: NextRequest) {
     }
 
     const { userId } = authContext
+
+    const { today } = await userDay(userId)
     const { searchParams } = new URL(request.url)
 
     const type = searchParams.get('type')
@@ -67,7 +70,7 @@ export async function GET(request: NextRequest) {
       WHERE r.user_id = ${userId}
         ${activeOnly ? sql`AND r.is_active = true` : sql``}
         ${type ? sql`AND r.transaction_type = ${type}` : sql``}
-        ${upcoming ? sql`AND r.next_occurrence <= CURRENT_DATE + INTERVAL '30 days'` : sql``}
+        ${upcoming ? sql`AND r.next_occurrence <= ${today}::date + INTERVAL '30 days'` : sql``}
       ORDER BY r.next_occurrence ASC, r.amount DESC
     `
 

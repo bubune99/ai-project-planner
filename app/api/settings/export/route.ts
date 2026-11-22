@@ -32,6 +32,7 @@ type Rows = Promise<Record<string, unknown>[]>
 
 /** One query per list. `u` is the signed-in person's id, `n` the most rows to read. Typed by key, so a list added to the model without a query here does not compile. */
 const READ: Record<ExportKey, (u: string, n: number) => Rows> = {
+  preferences: (u, n) => sql`SELECT timezone, default_model, updated_at FROM user_settings WHERE user_id = ${u} LIMIT ${n}`,
   notification_prefs: (u, n) => sql`SELECT prefs, updated_at FROM notification_prefs WHERE user_id = ${u} LIMIT ${n}`,
   // Named columns: the key's hash is never read.
   api_keys: (u, n) => sql`

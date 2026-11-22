@@ -2,6 +2,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectWriteAccess } from '@/lib/auth/auth-utils'
+import { userDay } from '@/lib/settings/user-day'
 import { advanceDate, isValidFrequency, type RecurringFrequency } from '@/lib/service-schedule'
 import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
 
@@ -76,7 +77,7 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
       const freq = existing.frequency as RecurringFrequency
       let next = advanceDate(base, freq)
       // If catching up on an overdue item, keep advancing past today
-      const today = new Date().toISOString().slice(0, 10)
+      const { today } = await userDay(userId)
       let guard = 0
       while (next <= today && guard < 60) {
         next = advanceDate(new Date(next), freq)

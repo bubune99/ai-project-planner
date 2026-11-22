@@ -2,6 +2,8 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { userDay } from '@/lib/settings/user-day'
+import { addDays } from '@/lib/settings/day'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,24 +27,13 @@ export async function GET(request: NextRequest) {
     const projectId = searchParams.get('projectId')
     const period = searchParams.get('period') || 'week'
 
-    // Calculate period start date
-    let periodStart: string
-    switch (period) {
-      case 'day':
-        periodStart = 'CURRENT_DATE'
-        break
-      case 'week':
-        periodStart = "CURRENT_DATE - INTERVAL '7 days'"
-        break
-      case 'month':
-        periodStart = "CURRENT_DATE - INTERVAL '30 days'"
-        break
-      case 'all':
-        periodStart = "'1970-01-01'"
-        break
-      default:
-        periodStart = "CURRENT_DATE - INTERVAL '7 days'"
-    }
+    // The person's own day (lib/settings/user-day), and the day the period starts on.
+    const { today } = await userDay(userId)
+    const periodStart =
+      period === 'day' ? today
+      : period === 'month' ? addDays(today, -30)
+      : period === 'all' ? '1970-01-01'
+      : addDays(today, -7)
 
     // Overall stats
     const overallStats = await sql`
@@ -51,9 +42,9 @@ export async function GET(request: NextRequest) {
         COUNT(*) FILTER (WHERE status = 'completed' AND deleted_at IS NULL) as completed,
         COUNT(*) FILTER (WHERE status = 'pending' AND deleted_at IS NULL) as pending,
         COUNT(*) FILTER (WHERE status = 'in_progress' AND deleted_at IS NULL) as in_progress,
-        COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status != 'completed' AND deleted_at IS NULL) as overdue,
-        COUNT(*) FILTER (WHERE due_date::date = CURRENT_DATE AND status != 'completed' AND deleted_at IS NULL) as due_today,
-        COUNT(*) FILTER (WHERE due_date > CURRENT_DATE AND due_date <= CURRENT_DATE + INTERVAL '7 days' AND status != 'completed' AND deleted_at IS NULL) as due_this_week
+        COUNT(*) FILTER (WHERE due_date < ${today}::date AND status != 'completed' AND deleted_at IS NULL) as overdue,
+        COUNT(*) FILTER (WHERE due_date::date = ${today}::date AND status != 'completed' AND deleted_at IS NULL) as due_today,
+        COUNT(*) FILTER (WHERE due_date > ${today}::date AND due_date <= ${today}::date + INTERVAL '7 days' AND status != 'completed' AND deleted_at IS NULL) as due_this_week
       FROM todos
       WHERE user_id = ${userId}
         ${projectId ? sql`AND project_id = ${projectId}` : sql``}

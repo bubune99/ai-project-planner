@@ -2,6 +2,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { userDay } from '@/lib/settings/user-day'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,6 +35,8 @@ export async function GET(request: NextRequest) {
     }
 
     const { userId } = authContext
+
+    const { today } = await userDay(userId)
     const { searchParams } = new URL(request.url)
 
     const days = Math.min(parseInt(searchParams.get('days') || '14'), 90)
@@ -56,7 +59,7 @@ export async function GET(request: NextRequest) {
           t.status,
           t.project_id,
           p.name as project_name,
-          (t.due_date::date - CURRENT_DATE) as days_until
+          (t.due_date::date - ${today}::date) as days_until
         FROM todos t
         LEFT JOIN projects p ON t.project_id = p.id
         WHERE t.user_id = ${userId}
@@ -64,8 +67,8 @@ export async function GET(request: NextRequest) {
           AND t.status != 'completed'
           AND t.due_date IS NOT NULL
           AND (
-            ${includeOverdue ? sql`t.due_date < CURRENT_DATE OR` : sql``}
-            t.due_date <= CURRENT_DATE + ${days}::integer
+            ${includeOverdue ? sql`t.due_date < ${today}::date OR` : sql``}
+            t.due_date <= ${today}::date + ${days}::integer
           )
         ORDER BY t.due_date ASC
         LIMIT 20
@@ -97,15 +100,15 @@ export async function GET(request: NextRequest) {
           m.status,
           m.project_id,
           p.name as project_name,
-          (m.target_date::date - CURRENT_DATE) as days_until
+          (m.target_date::date - ${today}::date) as days_until
         FROM mlp_when_milestones m
         LEFT JOIN projects p ON m.project_id = p.id
         WHERE m.user_id = ${userId}
           AND m.status = 'pending'
           AND m.target_date IS NOT NULL
           AND (
-            ${includeOverdue ? sql`m.target_date < CURRENT_DATE OR` : sql``}
-            m.target_date <= CURRENT_DATE + ${days}::integer
+            ${includeOverdue ? sql`m.target_date < ${today}::date OR` : sql``}
+            m.target_date <= ${today}::date + ${days}::integer
           )
         ORDER BY m.target_date ASC
         LIMIT 10
@@ -137,7 +140,7 @@ export async function GET(request: NextRequest) {
           ps.status,
           ps.project_id,
           p.name as project_name,
-          (ps.due_date::date - CURRENT_DATE) as days_until
+          (ps.due_date::date - ${today}::date) as days_until
         FROM project_steps ps
         JOIN projects p ON ps.project_id = p.id
         WHERE p.user_id = ${userId}
@@ -145,8 +148,8 @@ export async function GET(request: NextRequest) {
           AND ps.status NOT IN ('completed', 'skipped')
           AND ps.due_date IS NOT NULL
           AND (
-            ${includeOverdue ? sql`ps.due_date < CURRENT_DATE OR` : sql``}
-            ps.due_date <= CURRENT_DATE + ${days}::integer
+            ${includeOverdue ? sql`ps.due_date < ${today}::date OR` : sql``}
+            ps.due_date <= ${today}::date + ${days}::integer
           )
         ORDER BY ps.due_date ASC
         LIMIT 10

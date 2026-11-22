@@ -2,6 +2,8 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { userDay } from '@/lib/settings/user-day'
+import { monthWindow } from '@/lib/settings/day'
 import { budgetFigures, monthFigures, type BudgetTotal, type TypeTotal } from '@/lib/finance/dashboard-figures'
 
 export const dynamic = 'force-dynamic'
@@ -25,6 +27,9 @@ export async function GET(request: NextRequest) {
     }
 
     const { userId } = authContext
+
+    const { today } = await userDay(userId)
+    const thisMonth = monthWindow(today)
 
     // Get project stats
     const projectStats = await sql`
@@ -66,9 +71,9 @@ export async function GET(request: NextRequest) {
       SELECT
         COUNT(*) FILTER (WHERE status != 'completed' AND deleted_at IS NULL) as active,
         COUNT(*) FILTER (WHERE status = 'completed' AND deleted_at IS NULL) as completed,
-        COUNT(*) FILTER (WHERE due_date::date = CURRENT_DATE AND status != 'completed' AND deleted_at IS NULL) as today,
-        COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status != 'completed' AND deleted_at IS NULL) as overdue,
-        COUNT(*) FILTER (WHERE due_date > CURRENT_DATE AND due_date <= CURRENT_DATE + INTERVAL '7 days' AND status != 'completed' AND deleted_at IS NULL) as upcoming
+        COUNT(*) FILTER (WHERE due_date::date = ${today}::date AND status != 'completed' AND deleted_at IS NULL) as today,
+        COUNT(*) FILTER (WHERE due_date < ${today}::date AND status != 'completed' AND deleted_at IS NULL) as overdue,
+        COUNT(*) FILTER (WHERE due_date > ${today}::date AND due_date <= ${today}::date + INTERVAL '7 days' AND status != 'completed' AND deleted_at IS NULL) as upcoming
       FROM todos
       WHERE user_id = ${userId}
     `
@@ -78,8 +83,8 @@ export async function GET(request: NextRequest) {
       SELECT transaction_type, currency, SUM(amount) AS total, COUNT(*) AS count
       FROM finance_transactions
       WHERE user_id = ${userId}
-        AND transaction_date >= DATE_TRUNC('month', CURRENT_DATE)
-        AND transaction_date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'
+        AND transaction_date >= ${thisMonth.start}::date
+        AND transaction_date < ${thisMonth.end}::date
       GROUP BY transaction_type, currency
     `
 
@@ -90,8 +95,8 @@ export async function GET(request: NextRequest) {
       WHERE user_id = ${userId}
         AND is_active = true
         AND deleted_at IS NULL
-        AND (start_date IS NULL OR start_date <= CURRENT_DATE)
-        AND (end_date IS NULL OR end_date >= CURRENT_DATE)
+        AND (start_date IS NULL OR start_date <= ${today}::date)
+        AND (end_date IS NULL OR end_date >= ${today}::date)
       GROUP BY period, currency
     `
     const month = monthFigures(monthTotals as TypeTotal[])
@@ -112,7 +117,7 @@ export async function GET(request: NextRequest) {
       FROM mlp_when_milestones
       WHERE user_id = ${userId}
         AND status = 'pending'
-        AND target_date >= CURRENT_DATE
+        AND target_date >= ${today}::date
       ORDER BY target_date ASC
       LIMIT 3
     `

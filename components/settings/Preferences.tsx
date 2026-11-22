@@ -104,9 +104,10 @@ export function TimezoneSetting() {
       {p.save.kind !== "saving" && p.save.kind !== "failed" && (
         <p className="j-muted" style={note}>
           {p.payload.preferences.timezone
-            ? <>The assistant takes today&apos;s date from {zoneLabel(p.payload.preferences.timezone)}: {longDate(assistantToday)}.</>
-            : <>The assistant cannot see this device&apos;s timezone, so until one is chosen it takes today&apos;s date from UTC: {longDate(assistantToday)}.</>}
-          {" "}Dates and times on pages are shown in this device&apos;s timezone whatever is chosen here.
+            ? <>Today is {longDate(assistantToday)} in {zoneLabel(p.payload.preferences.timezone)}.</>
+            : <>The server cannot see this device&apos;s timezone, so until one is chosen today is taken from UTC: {longDate(assistantToday)}.</>}
+          {" "}The assistant follows that date, and so does what counts as due today, overdue, coming up and this month
+          for to-dos, deadlines, budgets and bills. Dates and times drawn on pages still use this device&apos;s timezone.
         </p>
       )}
     </div>

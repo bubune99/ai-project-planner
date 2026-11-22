@@ -2,6 +2,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { userDay } from '@/lib/settings/user-day'
 import type { CalendarEvent } from '@/lib/types'
 import { buildEnvelopeForWrite, envelopeForSql } from '@/lib/api/envelope-helpers'
 
@@ -147,6 +148,9 @@ export async function POST(request: NextRequest) {
       return errorResponse(ErrorCodes.VALIDATION_ERROR, 'Start time is required', 400)
     }
 
+    // An event sent without a timezone takes the one chosen in Settings (UTC when none is chosen).
+    const userZone = timezone ? null : (await userDay(userId)).zone
+
     // Build 5W+H envelope (legacy mode, non-fatal: calendar events are user-scoped, project optional)
     const envelopeResult = buildEnvelopeForWrite(
       body,
@@ -175,7 +179,7 @@ export async function POST(request: NextRequest) {
         ${startTime},
         ${endTime || null},
         ${isAllDay || false},
-        ${timezone || 'UTC'},
+        ${timezone || userZone || 'UTC'},
         ${source || 'manual'},
         ${sourceId || null},
         ${sourceMetadata ? JSON.stringify(sourceMetadata) : '{}'},

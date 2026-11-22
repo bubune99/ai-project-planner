@@ -2,6 +2,8 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { userDay } from '@/lib/settings/user-day'
+import { monthWindow } from '@/lib/settings/day'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,23 +25,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const period = searchParams.get('period') || 'month'
 
-    // Determine date range
-    let startDate: string
-    const endDate = 'NOW()'
-
-    switch (period) {
-      case 'week':
-        startDate = "CURRENT_DATE - INTERVAL '7 days'"
-        break
-      case 'quarter':
-        startDate = "date_trunc('quarter', CURRENT_DATE)"
-        break
-      case 'year':
-        startDate = "date_trunc('year', CURRENT_DATE)"
-        break
-      default: // month
-        startDate = "date_trunc('month', CURRENT_DATE)"
-    }
+    // The range starts from the person's own day (lib/settings/user-day), not the database's.
+    const { today } = await userDay(userId)
+    const thisMonth = monthWindow(today)
+    const startDate =
+      period === 'week' ? sql`${today}::date - INTERVAL '7 days'`
+      : period === 'quarter' ? sql`date_trunc('quarter', ${today}::date)`
+      : period === 'year' ? sql`date_trunc('year', ${today}::date)`
+      : sql`${thisMonth.start}::date`
 
     // Get account totals
     const accountSummary = await sql`
@@ -61,7 +54,7 @@ export async function GET(request: NextRequest) {
         COUNT(*) as transaction_count
       FROM finance_transactions
       WHERE user_id = ${userId}
-        AND transaction_date >= ${sql.unsafe(startDate)}
+        AND transaction_date >= ${startDate}
     `
 
     // Get spending by category for the period
@@ -76,7 +69,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN finance_categories c ON t.category_id = c.id
       WHERE t.user_id = ${userId}
         AND t.transaction_type = 'expense'
-        AND t.transaction_date >= ${sql.unsafe(startDate)}
+        AND t.transaction_date >= ${startDate}
       GROUP BY c.id, c.name, c.icon, c.color
       ORDER BY amount DESC
       LIMIT 10
@@ -91,7 +84,7 @@ export async function GET(request: NextRequest) {
         FROM finance_transactions t
         WHERE t.user_id = ${userId}
           AND t.transaction_type = 'expense'
-          AND t.transaction_date >= date_trunc('month', CURRENT_DATE)
+          AND t.transaction_date >= ${thisMonth.start}::date
         GROUP BY t.category_id
       )
       SELECT
@@ -122,7 +115,7 @@ export async function GET(request: NextRequest) {
       WHERE r.user_id = ${userId}
         AND r.is_active = true
         AND r.transaction_type = 'expense'
-        AND r.next_occurrence <= CURRENT_DATE + INTERVAL '30 days'
+        AND r.next_occurrence <= ${today}::date + INTERVAL '30 days'
       ORDER BY r.next_occurrence ASC
       LIMIT 5
     `

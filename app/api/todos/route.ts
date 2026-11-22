@@ -2,6 +2,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectWriteAccess } from '@/lib/auth/auth-utils'
+import { userDay } from '@/lib/settings/user-day'
 import type { Todo } from '@/lib/types'
 import { buildEnvelopeForWrite, envelopeForSql, stampEnvelopeOrigin } from '@/lib/api/envelope-helpers'
 
@@ -87,6 +88,8 @@ export async function GET(request: NextRequest) {
     }
 
     const { userId } = authContext
+
+    const { today } = await userDay(userId)
     const { searchParams } = new URL(request.url)
 
     // Parse query parameters
@@ -128,7 +131,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN finance_transactions ft ON t.transaction_id = ft.id
         WHERE t.user_id = ${userId}
           AND t.deleted_at IS NULL
-          AND t.due_date::date = CURRENT_DATE
+          AND t.due_date::date = ${today}::date
           AND t.status != 'completed'
           ${crossDomainFilters}
         ORDER BY t.order_index ASC, t.due_date ASC NULLS LAST, t.created_at DESC
@@ -148,8 +151,8 @@ export async function GET(request: NextRequest) {
         LEFT JOIN finance_transactions ft ON t.transaction_id = ft.id
         WHERE t.user_id = ${userId}
           AND t.deleted_at IS NULL
-          AND t.due_date > CURRENT_DATE
-          AND t.due_date <= CURRENT_DATE + INTERVAL '7 days'
+          AND t.due_date > ${today}::date
+          AND t.due_date <= ${today}::date + INTERVAL '7 days'
           AND t.status != 'completed'
           ${crossDomainFilters}
         ORDER BY t.due_date ASC, t.order_index ASC, t.created_at DESC
@@ -169,7 +172,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN finance_transactions ft ON t.transaction_id = ft.id
         WHERE t.user_id = ${userId}
           AND t.deleted_at IS NULL
-          AND t.due_date < CURRENT_DATE
+          AND t.due_date < ${today}::date
           AND t.status != 'completed'
           ${crossDomainFilters}
         ORDER BY t.due_date ASC, t.priority DESC, t.created_at DESC
@@ -223,9 +226,9 @@ export async function GET(request: NextRequest) {
       SELECT
         COUNT(*) FILTER (WHERE status != 'completed' AND deleted_at IS NULL) as active,
         COUNT(*) FILTER (WHERE status = 'completed' AND deleted_at IS NULL) as completed,
-        COUNT(*) FILTER (WHERE due_date::date = CURRENT_DATE AND status != 'completed' AND deleted_at IS NULL) as today,
-        COUNT(*) FILTER (WHERE due_date > CURRENT_DATE AND due_date <= CURRENT_DATE + INTERVAL '7 days' AND status != 'completed' AND deleted_at IS NULL) as upcoming,
-        COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status != 'completed' AND deleted_at IS NULL) as overdue
+        COUNT(*) FILTER (WHERE due_date::date = ${today}::date AND status != 'completed' AND deleted_at IS NULL) as today,
+        COUNT(*) FILTER (WHERE due_date > ${today}::date AND due_date <= ${today}::date + INTERVAL '7 days' AND status != 'completed' AND deleted_at IS NULL) as upcoming,
+        COUNT(*) FILTER (WHERE due_date < ${today}::date AND status != 'completed' AND deleted_at IS NULL) as overdue
       FROM todos
       WHERE user_id = ${userId}
     `

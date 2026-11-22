@@ -2,6 +2,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { userDay } from '@/lib/settings/user-day'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +26,8 @@ export async function GET(request: NextRequest) {
 
     const { userId } = authContext
 
+    const { today } = await userDay(userId)
+
     // Get overdue todos
     const overdueTodos = await sql`
       SELECT
@@ -40,7 +43,7 @@ export async function GET(request: NextRequest) {
       WHERE t.user_id = ${userId}
         AND t.deleted_at IS NULL
         AND t.status != 'completed'
-        AND t.due_date < CURRENT_DATE
+        AND t.due_date < ${today}::date
       ORDER BY t.due_date ASC, t.priority DESC
       LIMIT 5
     `
@@ -60,7 +63,7 @@ export async function GET(request: NextRequest) {
       WHERE t.user_id = ${userId}
         AND t.deleted_at IS NULL
         AND t.status != 'completed'
-        AND t.due_date::date = CURRENT_DATE
+        AND t.due_date::date = ${today}::date
       ORDER BY t.priority DESC, t.order_index ASC
       LIMIT 10
     `
@@ -115,8 +118,8 @@ export async function GET(request: NextRequest) {
       LEFT JOIN projects p ON m.project_id = p.id
       WHERE m.user_id = ${userId}
         AND m.status = 'pending'
-        AND m.target_date >= CURRENT_DATE
-        AND m.target_date <= CURRENT_DATE + INTERVAL '7 days'
+        AND m.target_date >= ${today}::date
+        AND m.target_date <= ${today}::date + INTERVAL '7 days'
       ORDER BY m.target_date ASC
       LIMIT 5
     `

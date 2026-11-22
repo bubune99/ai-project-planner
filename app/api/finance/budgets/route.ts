@@ -2,6 +2,8 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { userDay } from '@/lib/settings/user-day'
+import { monthWindow } from '@/lib/settings/day'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,6 +50,8 @@ export async function GET(request: NextRequest) {
     }
 
     const { userId } = authContext
+
+    const month = monthWindow((await userDay(userId)).today)
     const { searchParams } = new URL(request.url)
 
     const activeOnly = searchParams.get('active') !== 'false'
@@ -61,8 +65,8 @@ export async function GET(request: NextRequest) {
         FROM finance_transactions t
         WHERE t.user_id = ${userId}
           AND t.transaction_type = 'expense'
-          AND t.transaction_date >= date_trunc('month', CURRENT_DATE)
-          AND t.transaction_date < date_trunc('month', CURRENT_DATE) + INTERVAL '1 month'
+          AND t.transaction_date >= ${month.start}::date
+          AND t.transaction_date < ${month.end}::date
         GROUP BY t.category_id
       )
       SELECT

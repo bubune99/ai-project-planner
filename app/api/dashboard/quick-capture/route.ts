@@ -2,6 +2,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { userDay } from '@/lib/settings/user-day'
 import { buildEnvelopeForWrite, envelopeForSql } from '@/lib/api/envelope-helpers'
 import { money } from '@/lib/finance/dashboard-figures'
 import { parseQuickTransaction, pickAccount, type OwnAccount } from '@/lib/finance/quick-capture'
@@ -144,7 +145,7 @@ export async function POST(request: NextRequest) {
       }
 
       case 'transaction': {
-        const parsed = parseQuickTransaction(body, new Date().toISOString().split('T')[0])
+        const parsed = parseQuickTransaction(body, (await userDay(userId)).today)
         if (!parsed.ok) return errorResponse(ErrorCodes.VALIDATION_ERROR, parsed.message, 400)
         const tx = parsed.value
 

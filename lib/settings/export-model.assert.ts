@@ -22,6 +22,7 @@ ok(EXPORT_GROUPS.every((g) => /^[a-z_]+$/.test(g.key)), "keys are plain words")
 for (const banned of ["oauth_auth_codes", "oauth_clients", "project_invitations", "rate_limit_counters"]) {
   ok(!EXPORT_GROUPS.some((g) => g.table === banned), `${banned} is never exported`)
 }
+ok(EXPORT_GROUPS.some((g) => g.table === "user_settings" && g.section === "Account"), "the timezone and default model chosen in Settings are in the file")
 ok(NOT_INCLUDED.length > 0 && NOT_INCLUDED.every((s) => s.length > 10), "what is left out is said in words")
 
 // ── Secret fields, by name ──────────────────────────────────────────────────

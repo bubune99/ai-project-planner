@@ -38,6 +38,7 @@ const MY_PROJECTS = "project_id is a project whose user_id is the signed-in pers
 const ROWS = 5000
 
 export const EXPORT_GROUPS = [
+  { key: "preferences", label: "Timezone and default model", section: "Account", table: "user_settings", filter: MINE, cap: 10 },
   { key: "notification_prefs", label: "Notification choices", section: "Account", table: "notification_prefs", filter: MINE, cap: 10 },
   { key: "api_keys", label: "API keys (names and dates only)", section: "Account", table: "api_keys", filter: MINE, cap: 500 },
   { key: "devices", label: "Devices that get notifications (dates only)", section: "Account", table: "push_subscriptions", filter: MINE, cap: 500, drop: ["endpoint"] },
