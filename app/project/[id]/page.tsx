@@ -7,6 +7,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { DashboardLayout } from "@/components/navigation"
 import { KanbanView } from "@/components/views/KanbanView"
 import { phaseStrip, type StripPhase } from "@/lib/project/phase-strip"
+import { PhaseEditor } from "@/components/project/opx/PhaseEditor"
 import { Check } from "lucide-react"
 import { ActivityFeed } from "@/components/project/activity-feed"
 import { Figure, Seg, unwrap, useJson } from "@/components/project/opx/shared"
@@ -74,7 +75,7 @@ interface ProjectData {
 interface OverviewProgress { pct: number; done: number; total: number }
 interface OverviewKpi { l: string; v: string; tone?: string }
 
-function OverviewFacet({ project, projectId, phases, progress, onProjectChange }: { project: any; projectId: string; phases: { phases: StripPhase[]; outside: number }; progress: OverviewProgress; onProjectChange: () => void }) {
+function OverviewFacet({ project, projectId, steps, phases, progress, onProjectChange }: { project: any; projectId: string; steps: any[]; phases: { phases: StripPhase[]; outside: number }; progress: OverviewProgress; onProjectChange: () => void }) {
   const health = project.health || "good"
   // Progress and Tasks done are the header's own figures, worked out from the live tasks. The stored
   // project.progress was a second figure that drifted (33% here beside a header saying 31%).
@@ -98,6 +99,7 @@ function OverviewFacet({ project, projectId, phases, progress, onProjectChange }
       </div>
 
       <PhaseStrip strip={phases} />
+      <PhaseEditor projectId={projectId} steps={steps} currentPhase={project.current_phase} onChanged={onProjectChange} />
 
       {project.description && (
         <div className="j-card">
@@ -371,7 +373,7 @@ export default function ProjectDashboardPage() {
         ))}
       </ScrollRow>
 
-      {activeTab === "overview"  && <section className="opx-sec"><OverviewFacet project={project} projectId={projectId} phases={phases} progress={{ pct, done: doneN, total: counted.length }} onProjectChange={() => fetchProjectData(true)} /></section>}
+      {activeTab === "overview"  && <section className="opx-sec"><OverviewFacet project={project} projectId={projectId} steps={projectData?.steps || []} phases={phases} progress={{ pct, done: doneN, total: counted.length }} onProjectChange={() => fetchProjectData(true)} /></section>}
       {activeTab === "tasks" && (
         <div className="opx-col" style={{ gap: 12 }}>
           <TaskViewSwitcher view={taskView} onChange={setTaskView} />
