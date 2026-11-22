@@ -21,12 +21,15 @@
 import { createUIMessageStream, createUIMessageStreamResponse, generateId as generateUUID, streamText, type UIMessage } from "ai";
 import { TraceRecorder } from "@/lib/agents/trace";
 import { sql } from "@/lib/db/client";
-import { resolveAgent } from "@/lib/agents/registry";
+import { MODELS, resolveAgent } from "@/lib/agents/registry";
 import { contentForModel } from "@/lib/agents/history";
 import type { ProjectRole } from "@/lib/agents/access";
 import { getProjectAccess } from "@/lib/auth/collaboration-access";
 import { allowedAgentIds } from "@/lib/agents/agent-access";
 import { prepareAgent } from "@/lib/agents/runtime";
+import { anthropic } from "@ai-sdk/anthropic";
+import { modelFor, modelOptions, todayIn } from "@/lib/settings/preferences";
+import { preferencesOrNone } from "@/lib/settings/preferences-store";
 import { isUuid } from "@/lib/ai/chat-format";
 import {
   getOrCreateConversation,
@@ -252,6 +255,12 @@ export async function POST(request: Request) {
     }
     const userRows = (await sql`SELECT name FROM users WHERE id = ${userId}`) as { name: string | null }[];
     const userName = userRows[0]?.name ?? null;
+    // The owner's preferences (Settings): the timezone decides which day is "today" for the agent, and a chosen
+    // default model replaces each agent's own while the app still offers it. Unreadable preferences count as
+    // none chosen, so the chat never stops on them.
+    const preferences = await preferencesOrNone(userId);
+    const offeredModelIds = modelOptions(MODELS).map((m) => m.id);
+    const chosenModel = preferences.defaultModel;
     // Step 6: Run the agent. Its trace streams to the client as data-span
     // parts (one id per span, so a span's start and end update the same
     // part): live progress in the reply, and a timeline of the run.
@@ -271,7 +280,8 @@ export async function POST(request: Request) {
             projectName,
             role: projectRole,
             userName,
-            today: new Date().toISOString().slice(0, 10),
+            today: todayIn(preferences.timezone, new Date()),
+            ...(chosenModel ? { model: (agentModel: string) => anthropic(modelFor(agentModel, chosenModel, offeredModelIds)) } : {}),
             thinking: body.thinking === true,
             memory: body.memory === true,
             chatId: conversation.id,
@@ -306,7 +316,7 @@ export async function POST(request: Request) {
                 content: text || "",
                 toolCalls: toolCalls?.length ? toolCalls : undefined,
                 toolResults: toolResults?.length ? toolResults : undefined,
-                metadata: { timestamp: Date.now(), agent: agent.id, trace: trace.snapshot() },
+                metadata: { timestamp: Date.now(), agent: agent.id, model: modelFor(agent.model, chosenModel, offeredModelIds), trace: trace.snapshot() },
               });
 
               if (!conversation.title && text) {

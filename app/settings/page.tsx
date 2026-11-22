@@ -2,6 +2,7 @@
 import { Calendar, CalendarClock, GitBranch, Plug } from "lucide-react"
 import { NotificationsTab } from "@/components/settings/NotificationsTab"
 import { ExportData } from "@/components/settings/ExportData"
+import { DefaultModelSetting, TimezoneSetting } from "@/components/settings/Preferences"
 
 import { useState, useEffect, useCallback } from "react"
 import { useUser } from "@stackframe/stack"
@@ -146,13 +147,7 @@ function ProfileTab({ user }: { user: ReturnType<typeof useUser> }) {
 
       <div className="j-card">
         <SectionLabel>Preferences</SectionLabel>
-        {/* There was a timezone picker here that kept nothing and changed nothing. What is true is said instead. */}
-        <div className="j-row j-between j-wrap" style={{ gap: 10 }}>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>Timezone</div>
-            <div className="j-muted" style={{ fontSize: 12 }}>Dates and times are shown in this device&apos;s timezone: {typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone.replace(/_/g, " ") : "unknown"}. Choosing another is not built yet.</div>
-          </div>
-        </div>
+        <TimezoneSetting />
       </div>
     </div>
   )
@@ -380,14 +375,9 @@ function McpTab() {
 function AiTab() {
   return (
     <div className="j-col j-gap-4">
-      {/* A "Default model" picker used to sit here. It saved a choice in this browser that nothing ever read, and
-          listed models the assistants no longer run on. What is true is said instead. */}
       <div className="j-card">
         <SectionLabel>Assistant model</SectionLabel>
-        <div className="j-row j-between j-wrap" style={{ gap: 10 }}>
-          <div className="j-muted" style={{ fontSize: 13 }}>The model each assistant runs on is set by the planner. Choosing it here is not built yet.</div>
-          <span className="j-pill j-ghost" style={{ fontSize: 12, flexShrink: 0 }}>Not built yet</span>
-        </div>
+        <DefaultModelSetting />
       </div>
 
       <div className="j-card">
