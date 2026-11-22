@@ -147,7 +147,8 @@ export function PhaseEditor({ projectId, steps, currentPhase, onChanged }: {
   )
 
   return (
-    <div data-testid="phase-editor" onKeyDown={onKey} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+    <div data-testid="phase-editor" ref={(el) => { if (el && !el.contains(document.activeElement)) el.focus() }} tabIndex={-1} onKeyDown={onKey}
+      style={{ display: "flex", flexDirection: "column", gap: 10, outline: "none" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <h3 style={{ margin: 0, fontSize: 15 }}>
           Edit phases <span className="opx-muted" style={{ fontWeight: 400, fontSize: 13 }}>{phases.length} {phases.length === 1 ? "phase" : "phases"}</span>
