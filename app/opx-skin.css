@@ -345,7 +345,7 @@ button.opx-ck.on::after { content: ''; position: absolute; left: 6px; top: 2px; 
 .opx-li { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--opx-line); }
 .opx-li:first-of-type { border-top: 0; }
 .opx-li > div { flex: 1; min-width: 0; }
-.opx-li b { display: block; font-weight: 600; }
+.opx-li b { display: block; font-weight: 600; overflow-wrap: anywhere; } /* a long word (a web address) breaks instead of running into the row's next part, at any width */
 .opx-li small { color: var(--opx-muted); font-size: 12.5px; }
 .opx-setw { display: grid; grid-template-columns: 250px minmax(0,1fr) 400px; gap: 12px; align-items: start; }
 .opx-sf { display: grid; grid-template-columns: 180px 1fr; gap: 16px; padding: 14px 0; border-top: 1px solid var(--opx-line); align-items: start; }
