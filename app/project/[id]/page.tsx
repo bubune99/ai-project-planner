@@ -17,6 +17,7 @@ import { DocsTab } from "@/components/project/opx/DocsTab"
 import { ChecksTab } from "@/components/project/opx/ChecksTab"
 import { ChangesTab } from "@/components/project/opx/ChangesTab"
 import { DirectionTab } from "@/components/project/opx/DirectionTab"
+import { LaunchTab } from "@/components/project/opx/LaunchTab"
 import { PeopleFlowsTab } from "@/components/project/opx/PeopleFlowsTab"
 import { ScrollRow } from "@/components/project/opx/ScrollRow"
 import { NeedsYou, useNeedsYou } from "@/components/project/opx/NeedsYou"
@@ -56,6 +57,7 @@ const TABS = [
   { id: "people",     label: "People and flows" },
   { id: "checks",     label: "Checks" },
   { id: "changes",    label: "Changes" },
+  { id: "launch",     label: "Launch" },
   { id: "finance",    label: "Money" },
   { id: "settings",   label: "Settings" },
 ]
@@ -394,6 +396,7 @@ export default function ProjectDashboardPage() {
       {activeTab === "checks"    && <ChecksTab projectId={projectId} />}
       {activeTab === "changes"   && <ChangesTab projectId={projectId} />}
       {activeTab === "direction" && <DirectionTab projectId={projectId} />}
+      {activeTab === "launch"    && <LaunchTab projectId={projectId} />}
       {activeTab === "finance"   && <MoneyTab projectId={projectId} project={project} onChange={() => fetchProjectData(true)} />}
       {activeTab === "settings"  && <SettingsTab projectId={projectId} project={project} onChange={() => fetchProjectData(true)} />}
     </div>
