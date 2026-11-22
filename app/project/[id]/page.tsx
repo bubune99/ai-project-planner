@@ -263,6 +263,11 @@ export default function ProjectDashboardPage() {
   // Build decisions waiting on the owner in the Direction tab (lib/direction): counted on the tab, never guessed.
   const directionQ = useJson<{ doc?: { upcoming?: { status: string }[] } }>(`/api/projects/${projectId}/direction`)
   const directionWaiting = directionQ.data?.doc?.upcoming?.filter((u) => u.status === "waiting").length ?? 0
+  const reloadDirection = directionQ.reload
+  useEffect(() => {
+    window.addEventListener("opx:direction-changed", reloadDirection)
+    return () => window.removeEventListener("opx:direction-changed", reloadDirection)
+  }, [reloadDirection])
 
   const fetchProjectData = useCallback(async (silent = false) => {
     try {

@@ -44,6 +44,8 @@ export function DirectionTab({ projectId }: { projectId: string }) {
       const r = await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ doc: next, baseVersion: data.version }) })
       const j = await r.json().catch(() => null)
       if (!r.ok) { setNotice(j?.error || `Could not save (HTTP ${r.status})`); if (r.status === 409) setTick((t) => t + 1); return }
+      // The tab's count of waiting decisions reads the same document: tell the page it changed.
+      window.dispatchEvent(new Event("opx:direction-changed"))
       setData({ ...data, doc: j.doc, version: j.version, log: j.lines?.length ? [{ version: j.version, actor: j.actor, lines: j.lines, at: new Date().toISOString() }, ...data.log] : data.log })
     } catch { setNotice("Could not save: the planner did not answer. Try again.") } finally { setSaving(false) }
   }
