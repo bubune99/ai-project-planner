@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
     const memoryStats = await sql`
       SELECT
         (SELECT COUNT(*) FROM mlp_why_decisions WHERE user_id = ${userId}) as decisions,
-        (SELECT COUNT(*) FROM mlp_why_attempts WHERE user_id = ${userId}) as lessons,
+        (SELECT COUNT(*) FROM mlp_why_attempts a JOIN mlp_why_decisions d ON d.id = a.episode_id WHERE d.user_id = ${userId}) as lessons,
         (SELECT COUNT(*) FROM mlp_who_collaborators WHERE user_id = ${userId}) as collaborators,
         (SELECT COUNT(*) FROM mlp_when_milestones WHERE user_id = ${userId}) as milestones
     `
