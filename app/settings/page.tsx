@@ -1,6 +1,7 @@
 "use client"
 import { Calendar, CalendarClock, GitBranch, Plug } from "lucide-react"
 import { NotificationsTab } from "@/components/settings/NotificationsTab"
+import { ExportData } from "@/components/settings/ExportData"
 
 import { useState, useEffect, useCallback } from "react"
 import { useUser } from "@stackframe/stack"
@@ -507,24 +508,7 @@ function DataTab() {
     <div className="j-col j-gap-4">
       <div className="j-card">
         <SectionLabel>Export</SectionLabel>
-        <div className="j-col" style={{ gap: 10 }}>
-          {[
-            { key: "projects", label: "Projects & tasks", sub: "All projects, steps, phases, and progress notes" },
-            { key: "ideas", label: "Ideas", sub: "All ideas, facets, tags, and lifecycle history" },
-            { key: "todos", label: "Todos", sub: "All tasks with completion status" },
-            { key: "finance", label: "Finance", sub: "Accounts, transactions, and summaries" },
-          ].map(item => (
-            <div key={item.key} className="j-row j-between" style={{
-              padding: "12px 14px", borderRadius: 9, background: "var(--opx-soft)", boxShadow: "0 0 0 1px var(--j-ring)"
-            }}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>{item.label}</div>
-                <div className="j-muted" style={{ fontSize: 12 }}>{item.sub}</div>
-              </div>
-              <span className="j-pill j-ghost" style={{ fontSize: 12, flexShrink: 0 }}>Not built yet</span>
-            </div>
-          ))}
-        </div>
+        <ExportData />
       </div>
 
       <div className="j-card">
