@@ -63,6 +63,7 @@ export function PhaseEditor({ projectId, steps, currentPhase, onChanged }: {
   const [newAt, setNewAt] = useState("end")
   const [problem, setProblem] = useState<{ where: string; text: string } | null>(null)
   const openButton = useRef<HTMLButtonElement>(null)
+  const backToButton = useRef(false)
   const locked = !!progress || !!stopped
 
   // The place picked for a new phase may be gone after a change.
@@ -123,7 +124,8 @@ export function PhaseEditor({ projectId, steps, currentPhase, onChanged }: {
   const carryOn = () => { if (stopped) void send(stopped.label, stopped.rest, stopped.cards, stopped.undoable, { sent: stopped.sent, made: stopped.made }) }
   const putBack = () => { if (stopped) void send(`Put back: ${stopped.label}`, invertWrites(stopped.sent, stopped.cards, stopped.made), stopped.cards, false) }
 
-  const close = () => { setOpen(false); setRenaming(null); setRemoving(null); setProblem(null); openButton.current?.focus() }
+  // The open button is not on the page while the editor is, so the focus is handed back when it returns.
+  const close = () => { backToButton.current = true; setOpen(false); setRenaming(null); setRemoving(null); setProblem(null) }
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key !== "Escape") return
     e.stopPropagation()
@@ -135,7 +137,8 @@ export function PhaseEditor({ projectId, steps, currentPhase, onChanged }: {
   if (!open) {
     return (
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button ref={openButton} className="opx-btn" style={BTN} data-testid="phase-editor-open" onClick={() => setOpen(true)}>
+        <button ref={(el) => { openButton.current = el; if (el && backToButton.current) { backToButton.current = false; el.focus() } }}
+          className="opx-btn" style={BTN} data-testid="phase-editor-open" onClick={() => setOpen(true)}>
           {phases.length ? "Edit phases" : "Add phases"}
         </button>
       </div>
