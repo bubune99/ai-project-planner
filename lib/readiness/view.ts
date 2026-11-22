@@ -120,24 +120,41 @@ export function ownerActions(state: ValidationState): Decision[] {
 /** A row of project_validation_events as the routes send it. */
 export interface HistoryRow { item_id: string; from_state: string | null; to_state: string; reason: string | null; actor: string | null; actor_kind: string; source: string; override: boolean; created_at: string }
 
+/** What the owner can send to the validations route: a decision, a proposal, or back to not started. */
+export type Settable = Decision | "proposed" | "unvalidated"
 const SETTABLE = new Set(["proposed", "passed", "failed", "waived"])
 const stateWord = (s: string | null) => (s === null ? STATE_WORD.unvalidated : (STATE_WORD as Record<string, string>)[s] ?? s)
 
 /**
  * Can the last decision be put back? `history` is one item's rows, newest first.
- * The route has no undo of its own: putting back means setting the earlier state
- * again, so it works only for a state the route can set, and only for the owner's
- * own last decision. A waiver goes back only with the reason it was given.
+ * Putting back means setting the earlier state again, not started included, and
+ * it is offered only for the owner's own last decision. A waiver goes back only
+ * with the reason it was given.
  */
-export function undoOf(history: HistoryRow[]): { ok: true; state: Decision | "proposed"; reason: string | null } | { ok: false; why: string } {
+export function undoOf(history: HistoryRow[]): { ok: true; state: Settable; reason: string | null } | { ok: false; why: string } {
   const last = history[0]
   if (!last) return { ok: false, why: "Nothing has been decided on this item yet." }
   if (last.actor_kind !== "user") return { ok: false, why: "The last change was not yours, so there is nothing of yours to put back." }
   const from = last.from_state
-  if (from === null || !SETTABLE.has(from)) return { ok: false, why: "Before your decision this item was not started, and a decision cannot be cleared back to not started." }
+  if (from === null || from === "unvalidated") return { ok: true, state: "unvalidated", reason: null }
+  if (!SETTABLE.has(from)) return { ok: false, why: "What it was before your decision is not a state that can be set again." }
   const reason = history.slice(1).find((h) => h.to_state === from)?.reason ?? null
   if (from === "waived" && !reason?.trim()) return { ok: false, why: "It was waived before, and the reason for that waiver is not in this history, so it cannot be put back from here." }
-  return { ok: true, state: from as Decision | "proposed", reason }
+  return { ok: true, state: from as Settable, reason }
+}
+
+/**
+ * What an item was before a decision, as Undo will send it. A re-check that is due is a stored pass (its line about
+ * being due is worked out, not stored), so it goes back as passed; everything else goes back as it was, with its note.
+ */
+export function before(state: ValidationState, reason: string | null): { state: Settable; reason: string | null } {
+  return state === "stale" ? { state: "passed", reason: null } : { state, reason }
+}
+
+/** The notice after a decision: which item, and what was done to it. */
+export function noticeLine(title: string, stored: ValidationState, putBack: boolean): string {
+  const w = STATE_WORD[stored].toLowerCase()
+  return putBack ? `Put \u201c${title}\u201d back to ${w}.` : `Marked \u201c${title}\u201d ${w}.`
 }
 
 /** Who and what, in words. The stored actor is an id; it is never shown. */

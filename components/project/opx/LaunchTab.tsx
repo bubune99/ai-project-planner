@@ -10,13 +10,15 @@
  */
 
 import { useMemo, useState } from "react"
-import type { Profile, Readiness } from "@/lib/readiness/model"
-import { ADVICE_LINE, DOMAIN_WORD, LAUNCH_TYPE_WORD, TRAIT_WORD, countsLine, gateLine, groupItems, healthWords, todoCount, type HistoryRow, type Show } from "@/lib/readiness/view"
+import type { Profile, Readiness, ValidationState } from "@/lib/readiness/model"
+import { ADVICE_LINE, DOMAIN_WORD, LAUNCH_TYPE_WORD, STATE_WORD, TRAIT_WORD, before, countsLine, gateLine, groupItems, healthWords, noticeLine, todoCount, type HistoryRow, type Settable, type Show } from "@/lib/readiness/view"
 import { Failed, Loading, Section, Seg, unwrap, useJson } from "./shared"
-import { LaunchItem } from "./LaunchItem"
+import { LaunchItem, type DecideItem } from "./LaunchItem"
 import { LaunchProfileForm } from "./LaunchProfileForm"
 
 interface Data { profile: Profile | null; readiness: Readiness | null; history?: HistoryRow[] }
+/** The last decision made here: what was done, and what the item was before, which is what Undo sends. */
+interface Notice { itemId: string; title: string; line: string; note: string | null; stored: Settable; sent: string | null; back: { state: Settable; reason: string | null } }
 
 const word = (map: Record<string, string>, key: string) => map[key] ?? key
 
@@ -35,6 +37,9 @@ export function LaunchTab({ projectId }: { projectId: string }) {
   const { data: raw, loading, error, reload } = useJson(`/api/projects/${projectId}/readiness`)
   const [editing, setEditing] = useState(false)
   const [show, setShow] = useState<Show>("todo")
+  const [notice, setNotice] = useState<Notice | null>(null)
+  const [undoing, setUndoing] = useState(false)
+  const [undoFailed, setUndoFailed] = useState<string | null>(null)
   const data = raw ? unwrap<Data>(raw) : null
   const readiness = data?.readiness ?? null
   const groups = useMemo(() => (readiness ? groupItems(readiness.validations, readiness.gates, show) : []), [readiness, show])
@@ -50,6 +55,35 @@ export function LaunchTab({ projectId }: { projectId: string }) {
   if (!data) return null
 
   const saved = () => { setEditing(false); reload() }
+
+  /** Every decision on an item goes through here, so the notice with Undo is shown whatever the filter then hides. */
+  async function send(item: { id: string; title: string }, state: Settable, reason: string | null, was: Notice["back"], putBack: boolean): Promise<string | null> {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/readiness/validations/${encodeURIComponent(item.id)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reason ? { state, reason } : { state }),
+      })
+      const j = await res.json().catch(() => null)
+      if (!res.ok) return j?.error?.message || `Could not save (HTTP ${res.status})`
+      const stored: Settable = j?.data?.state in STATE_WORD && j.data.state !== "stale" ? j.data.state : state
+      setNotice({ itemId: item.id, title: item.title, line: noticeLine(item.title, stored as ValidationState, putBack), note: j?.data?.note ?? null, stored, sent: reason, back: was })
+      setUndoFailed(null)
+      reload()
+      return null
+    } catch {
+      return "Could not save: the planner did not answer. Try again."
+    }
+  }
+  const decide: DecideItem = (v, state, reason) => send({ id: v.item.id, title: v.item.title }, state, reason, before(v.state, v.reason), state === "unvalidated")
+  async function undo() {
+    if (!notice || undoing) return
+    setUndoing(true); setUndoFailed(null)
+    // Undoing puts the item back to what it was; what it is now becomes what the next Undo would return it to.
+    const error = await send({ id: notice.itemId, title: notice.title }, notice.back.state, notice.back.reason, { state: notice.stored, reason: notice.sent }, true)
+    setUndoing(false)
+    if (error) setUndoFailed(error)
+  }
 
   if (!data.profile || !readiness) {
     return (
@@ -91,6 +125,15 @@ export function LaunchTab({ projectId }: { projectId: string }) {
         {error && <p role="alert" className="opx-ch-need">Couldn't refresh: {error} <button type="button" className="opx-btn sm" onClick={reload}>Try again</button></p>}
       </section>
 
+      {notice && (
+        <div className="opx-savebar opx-sticky" role="status" style={{ flexWrap: "wrap", zIndex: 5 }}>
+          <span style={{ flex: 1, minWidth: 200 }}>{notice.line}{notice.note ? ` ${notice.note}` : ""}</span>
+          <button type="button" className="opx-btn sm" disabled={undoing} onClick={undo}>{undoing ? "Undoing…" : `Undo: put back to ${STATE_WORD[notice.back.state]}`}</button>
+          <button type="button" className="opx-btn sm" onClick={() => { setNotice(null); setUndoFailed(null) }}>Dismiss</button>
+          {undoFailed && <span role="alert" className="opx-ch-need">{undoFailed}</span>}
+        </div>
+      )}
+
       <section className="opx-sec opx-ch-top">
         <Seg value={show} label="Which items" options={[["todo", `Still to do (${todo})`], ["all", `All that apply (${total})`]]} onChange={setShow} />
         <span className="opx-muted">Still to do is everything not passed and not waived.</span>
@@ -107,7 +150,7 @@ export function LaunchTab({ projectId }: { projectId: string }) {
                 <div key={d.domain}>
                   <h3 className="opx-pf-h">{DOMAIN_WORD[d.domain]} <span className="opx-n">{d.done} of {d.total} passed or waived</span></h3>
                   <ul className="opx-dir-list">
-                    {d.items.map((v) => <LaunchItem key={v.item.id} projectId={projectId} v={v} recent={recent.get(v.item.id) ?? []} onChanged={reload} />)}
+                    {d.items.map((v) => <LaunchItem key={v.item.id} projectId={projectId} v={v} recent={recent.get(v.item.id) ?? []} onDecide={decide} />)}
                   </ul>
                 </div>
               ))}

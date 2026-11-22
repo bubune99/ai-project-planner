@@ -4,9 +4,10 @@
  * GET  /api/projects/[id]/readiness/validations/[itemId]   this item's history
  * POST /api/projects/[id]/readiness/validations/[itemId]   { state, reason?, evidence?, agent? }
  *
- * The owner, signed in, may set passed, failed, proposed or waived (a waiver needs a reason). An agent (an API key,
+ * The owner, signed in, may set passed, failed, proposed or waived (a waiver needs a reason), or unvalidated to take a
+ * decision back to not started. An agent (an API key,
  * or agent: true from the owner's tab) passes only code items with check or scan evidence; its other passes are
- * stored as proposed, and it cannot waive. A collaborator who is not the owner cannot sign off.
+ * stored as proposed, and it cannot waive or set an item back to not started. A collaborator who is not the owner cannot sign off.
  */
 import { type NextRequest } from "next/server"
 import { ErrorCodes, errorResponse, successResponse } from "@/lib/api-utils"

@@ -3,16 +3,16 @@
 /*
  * One checklist item of the Launch tab: its state in words, what it asks (the
  * catalog's claim, as written), its note and evidence, the owner's decisions
- * (pass, fail, waive with a reason, put back) and its history on demand.
- * Every write goes to POST /api/projects/[id]/readiness/validations/[itemId];
- * when the route refuses, its message is shown as written. Which decisions
- * are offered, and whether the last one can be put back, come from
- * lib/readiness/view.
+ * (pass, fail, waive with a reason, put back), and its history and sources
+ * on demand. The tab sends every decision (LaunchTab's decide) and shows the
+ * notice with Undo; when the route refuses, its message is shown here as
+ * written. Which decisions are offered, and whether the last one can be put
+ * back, come from lib/readiness/view.
  */
 
 import { useEffect, useId, useRef, useState } from "react"
 import type { Source, ValidationView } from "@/lib/readiness/model"
-import { PROOF_WORD, STATE_TONE, STATE_WORD, historyLine, ownerActions, undoOf, type Decision, type HistoryRow } from "@/lib/readiness/view"
+import { PROOF_WORD, STATE_TONE, STATE_WORD, historyLine, ownerActions, undoOf, type Decision, type HistoryRow, type Settable } from "@/lib/readiness/view"
 import { Failed, Loading, ago, fmtDate, unwrap, useJson } from "./shared"
 
 const DAY: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", year: "numeric" }
@@ -79,13 +79,16 @@ function WaiveDialog({ title, onClose, onSend }: { title: string; onClose: () =>
   )
 }
 
-export function LaunchItem({ projectId, v, recent, onChanged }: { projectId: string; v: ValidationView; recent: HistoryRow[]; onChanged: () => void }) {
+/** Sends one decision on this item; answers with the route's message when it refuses, or null when it is saved. */
+export type DecideItem = (v: ValidationView, state: Settable, reason: string | null) => Promise<string | null>
+
+export function LaunchItem({ projectId, v, recent, onDecide }: { projectId: string; v: ValidationView; recent: HistoryRow[]; onDecide: DecideItem }) {
   const id = useId()
   const url = `/api/projects/${projectId}/readiness/validations/${encodeURIComponent(v.item.id)}`
   const [open, setOpen] = useState(false)
+  const [sources, setSources] = useState(false)
   const [waiving, setWaiving] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
-  const [said, setSaid] = useState<string | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
   const hist = useJson(open ? url : null)
   const rows = hist.data ? (unwrap<HistoryRow[]>(hist.data) ?? []) : null
@@ -93,25 +96,14 @@ export function LaunchItem({ projectId, v, recent, onChanged }: { projectId: str
   const undo = undoOf(rows ?? recent)
   const legal = v.item.domain === "legal"
 
-  /** Sends one decision. Answers with the route's own message when it refuses, or null when it is saved. */
-  async function decide(state: Decision | "proposed", reason: string | null, key: string = state): Promise<string | null> {
-    setBusy(key); setFailed(null); setSaid(null)
-    try {
-      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(reason ? { state, reason } : { state }) })
-      const j = await res.json().catch(() => null)
-      if (!res.ok) return j?.error?.message || `Could not save (HTTP ${res.status})`
-      const stored = (STATE_WORD as Record<string, string>)[j?.data?.state] ?? j?.data?.state ?? "–"
-      setSaid(`Saved as ${stored}.${j?.data?.note ? ` ${j.data.note}` : ""}`)
-      onChanged()
-      if (open) hist.reload()
-      return null
-    } catch {
-      return "Could not save: the planner did not answer. Try again."
-    } finally {
-      setBusy(null)
-    }
+  async function decide(state: Settable, reason: string | null, key: string = state): Promise<string | null> {
+    setBusy(key); setFailed(null)
+    const error = await onDecide(v, state, reason)
+    setBusy(null)
+    if (!error && open) hist.reload()
+    return error
   }
-  const press = async (state: Decision | "proposed", reason: string | null, key?: string) => { const error = await decide(state, reason, key); if (error) setFailed(error) }
+  const press = async (state: Settable, reason: string | null, key?: string) => { const error = await decide(state, reason, key); if (error) setFailed(error) }
 
   const facts = [
     `Item ${v.item.id}`,
@@ -165,11 +157,16 @@ export function LaunchItem({ projectId, v, recent, onChanged }: { projectId: str
             {busy === "back" ? "Saving…" : `Put back to ${STATE_WORD[undo.state]}`}
           </button>
         )}
-        <button type="button" className="opx-link" aria-expanded={open} aria-controls={`${id}-more`} onClick={() => setOpen((o) => !o)}>
-          {open ? "Hide history" : legal ? "History" : "History and sources"}
+        <button type="button" className="opx-link" aria-expanded={open} aria-controls={`${id}-more`} aria-label={`History: ${v.item.title}`} onClick={() => setOpen((o) => !o)}>
+          {open ? "Hide history" : "History"}
         </button>
+        {/* A legal item's sources are always shown above; every other item has them one press away. */}
+        {!legal && (
+          <button type="button" className="opx-link" aria-expanded={sources} aria-controls={`${id}-src`} aria-label={`Sources: ${v.item.title}`} onClick={() => setSources((o) => !o)}>
+            {sources ? "Hide sources" : "Sources"}
+          </button>
+        )}
       </div>
-      {said && <p role="status" className="opx-muted opx-dir-small">{said}</p>}
       {failed && <p role="alert" className="opx-ch-need">{failed}</p>}
 
       {open && (
@@ -194,9 +191,9 @@ export function LaunchItem({ projectId, v, recent, onChanged }: { projectId: str
               )}
             {rows && !undo.ok && <p className="opx-muted opx-dir-small">Putting back: {undo.why}</p>}
           </div>
-          {!legal && <Sources sources={v.item.sources} />}
         </div>
       )}
+      {!legal && sources && <div id={`${id}-src`}><Sources sources={v.item.sources} /></div>}
 
       {waiving && <WaiveDialog title={v.item.title} onClose={() => setWaiving(false)} onSend={(reason) => decide("waived", reason)} />}
     </li>

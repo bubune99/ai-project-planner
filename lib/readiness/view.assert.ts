@@ -7,7 +7,7 @@ import { LAUNCH_TYPES, STATES, TRAITS, computeReadiness, readinessMarkdown, type
 import { validateProfileInput } from "./input"
 import {
   ADVICE_LINE, DOMAIN_WORD, LAUNCH_TYPE_WORD, PROOF_WORD, STATE_TONE, STATE_WORD, TRAIT_WORD,
-  countsLine, gateLine, groupItems, healthWords, historyLine, needsDoing, ownerActions, profileBody, todoCount, undoOf,
+  before, countsLine, gateLine, groupItems, healthWords, historyLine, needsDoing, noticeLine, ownerActions, profileBody, todoCount, undoOf,
 } from "./view"
 
 let n = 0
@@ -116,6 +116,32 @@ ok("the owner is offered every decision except the one already made", () => {
   assert.deepEqual(ownerActions("waived"), ["passed", "failed"])
 })
 
+ok("under Still to do a failed item stays and a waived item leaves; both show under All", () => {
+  const some = computeReadiness(profile, [
+    { itemId: "C6-ERROR-LEAK", state: "failed", actorKind: "user", decidedAt: "2026-11-20T00:00:00Z" },
+    { itemId: "C3-SECRETS", state: "waived", reason: "why", actorKind: "user", decidedAt: "2026-11-20T00:00:00Z" },
+  ], NOW)
+  const idsOf = (show: "todo" | "all") => groupItems(some.validations, some.gates, show).flatMap((g) => g.domains.flatMap((d) => d.items.map((v) => v.item.id)))
+  assert.equal(idsOf("todo").includes("C6-ERROR-LEAK"), true)
+  assert.equal(idsOf("todo").includes("C3-SECRETS"), false)
+  assert.equal(idsOf("all").includes("C6-ERROR-LEAK"), true)
+  assert.equal(idsOf("all").includes("C3-SECRETS"), true)
+})
+
+ok("what an item was before a decision is what Undo sends: a due re-check goes back as its stored pass, the rest as they were", () => {
+  assert.deepEqual(before("unvalidated", null), { state: "unvalidated", reason: null })
+  assert.deepEqual(before("proposed", "Policy at /privacy"), { state: "proposed", reason: "Policy at /privacy" })
+  assert.deepEqual(before("waived", "Not selling in the EU"), { state: "waived", reason: "Not selling in the EU" })
+  assert.deepEqual(before("stale", "Due for re-check since 2025-07-01."), { state: "passed", reason: null })
+})
+
+ok("the notice after a decision names the item and what was done", () => {
+  assert.equal(noticeLine("Secrets are not in the code", "passed", false), "Marked \u201cSecrets are not in the code\u201d passed.")
+  assert.equal(noticeLine("Secrets are not in the code", "waived", false), "Marked \u201cSecrets are not in the code\u201d waived.")
+  assert.equal(noticeLine("Secrets are not in the code", "unvalidated", true), "Put \u201cSecrets are not in the code\u201d back to not started.")
+  assert.equal(noticeLine("Secrets are not in the code", "proposed", true), "Put \u201cSecrets are not in the code\u201d back to proposed.")
+})
+
 const ev = (from: string | null, to: string, kind: "user" | "agent", reason: string | null = null) =>
   ({ item_id: "X", from_state: from, to_state: to, reason, actor: kind === "user" ? "u1" : "api-key:k1", actor_kind: kind, source: kind === "user" ? "manual" : "api", override: false, created_at: "2026-11-22T10:00:00Z" })
 
@@ -123,15 +149,14 @@ ok("the owner's last decision can be put back to a state the route can set, with
   assert.deepEqual(undoOf([ev("proposed", "passed", "user"), ev(null, "proposed", "agent", "Policy at /privacy")]), { ok: true, state: "proposed", reason: "Policy at /privacy" })
   assert.deepEqual(undoOf([ev("waived", "failed", "user"), ev("proposed", "waived", "user", "Not selling in the EU")]), { ok: true, state: "waived", reason: "Not selling in the EU" })
   assert.deepEqual(undoOf([ev("failed", "passed", "user")]), { ok: true, state: "failed", reason: null })
+  // Not started before the owner's decision: it goes back to not started (the stored state the model calls unvalidated).
+  assert.deepEqual(undoOf([ev(null, "passed", "user")]), { ok: true, state: "unvalidated", reason: null })
+  assert.deepEqual(undoOf([ev("unvalidated", "waived", "user", "why")]), { ok: true, state: "unvalidated", reason: null })
 })
 
-ok("it cannot be put back when nothing was decided, an agent made the last change, it was not started before, or a waiver's reason is not known", () => {
+ok("it cannot be put back when nothing was decided, an agent made the last change, or a waiver's reason is not known", () => {
   assert.equal(undoOf([]).ok, false)
   assert.equal(undoOf([ev("proposed", "passed", "agent")]).ok, false)
-  const first = undoOf([ev(null, "passed", "user")])
-  assert.equal(first.ok, false)
-  assert.match((first as { why: string }).why, /not started/i)
-  assert.equal(undoOf([ev("unvalidated", "passed", "user")]).ok, false)
   assert.equal(undoOf([ev("waived", "passed", "user")]).ok, false)
   assert.equal(undoOf([ev("waived", "passed", "user"), ev("failed", "proposed", "agent", "other")]).ok, false)
 })

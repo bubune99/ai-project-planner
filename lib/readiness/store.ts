@@ -62,7 +62,8 @@ export async function getReadiness(projectId: string, now: string): Promise<{ pr
 
 /**
  * Set one validation. Returns the state actually stored (an agent's "passed"
- * can come back as "proposed") and a note explaining any downgrade.
+ * can come back as "proposed") and a note explaining any downgrade. The owner
+ * setting "unvalidated" takes the decision back to not started.
  */
 export async function setValidation(
   projectId: string,
@@ -79,6 +80,21 @@ export async function setValidation(
   if (typeof evidence === "string") return { ok: false, error: evidence, status: 400 }
   const auth = authorize(item, wanted as ValidationState, actor.kind, { reason, evidence })
   if (!auth.ok) return { ok: false, error: auth.error, status: 400 }
+
+  // Back to not started (the owner only, see authorize): the stored decision is removed, since a row can only hold a
+  // decision, and the change is written to the history like any other. The evidence stays in the history rows.
+  if (auth.state === "unvalidated") {
+    const [gone] = (await sql`
+      DELETE FROM project_validations WHERE project_id = ${projectId} AND item_id = ${itemId} RETURNING state
+    `) as { state: string }[]
+    if (gone) {
+      await sql`
+        INSERT INTO project_validation_events (project_id, item_id, from_state, to_state, reason, evidence, actor, actor_kind, source)
+        VALUES (${projectId}, ${itemId}, ${gone.state}, 'unvalidated', ${reason}, ${JSON.stringify(evidence)}::jsonb, ${actor.id}, ${actor.kind}, ${actor.source})
+      `
+    }
+    return { ok: true, state: "unvalidated" }
+  }
 
   const [prev] = (await sql`
     SELECT state, evidence FROM project_validations WHERE project_id = ${projectId} AND item_id = ${itemId}

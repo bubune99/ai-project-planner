@@ -109,7 +109,8 @@ export function effectiveState(item: CatalogItem, row: ValidationRow | undefined
 const MACHINE_EVIDENCE = new Set<Evidence["kind"]>(["check", "scan"])
 
 /**
- * Who may set what. Owners may set anything (waived needs a reason).
+ * Who may set what. Owners may set anything (waived needs a reason), including
+ * back to not started ("unvalidated"), which no agent may set.
  * Agents may pass only code items with machine evidence; any other pass is
  * downgraded to proposed. Agents may always record a failure — a failing check
  * is a fact, not a judgement.
@@ -120,7 +121,9 @@ export function authorize(
   actor: ActorKind,
   input: { reason?: string | null; evidence?: Evidence[] },
 ): { ok: true; state: ValidationState; note?: string } | { ok: false; error: string } {
-  if (wanted === "stale" || wanted === "unvalidated") return { ok: false, error: `"${wanted}" is computed, not set` }
+  if (wanted === "stale") return { ok: false, error: `"${wanted}" is computed, not set` }
+  // Back to not started is the owner taking a decision back; it clears the item, so no agent may do it.
+  if (wanted === "unvalidated") return actor === "user" ? { ok: true, state: "unvalidated" } : { ok: false, error: "only the owner can set an item back to not started" }
   if (wanted === "waived" && !input.reason?.trim()) return { ok: false, error: "a waiver needs a reason" }
   if (actor === "user") return { ok: true, state: wanted }
   if (wanted === "waived") return { ok: false, error: "only the owner can waive a validation" }

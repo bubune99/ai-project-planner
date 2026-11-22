@@ -45,6 +45,8 @@ eq(authorize(item("L-PRIVACY-POLICY"), "waived", "agent", { reason: "n/a" }).ok,
 eq(authorize(item("L-PRIVACY-POLICY"), "waived", "user", {}).ok, false, "waiver needs a reason")
 eq(authorize(item("L-PRIVACY-POLICY"), "passed", "user", {}), { ok: true, state: "passed" }, "owner passes legal")
 eq(authorize(item("L-PRIVACY-POLICY"), "stale", "user", {}).ok, false, "stale is computed, not set")
+eq(authorize(item("L-PRIVACY-POLICY"), "unvalidated", "user", {}), { ok: true, state: "unvalidated" }, "the owner may set an item back to not started")
+eq(authorize(item("C3-SECRETS"), "unvalidated", "agent", { evidence: [{ kind: "check", summary: "clean" }] }), { ok: false, error: "only the owner can set an item back to not started" }, "an agent may not set an item back to not started, even a code item with a check")
 
 // health
 const empty = computeReadiness(xplor, [], NOW)
