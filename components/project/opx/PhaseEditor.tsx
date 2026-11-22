@@ -62,7 +62,7 @@ export function PhaseEditor({ projectId, steps, currentPhase, onChanged }: {
   const [newName, setNewName] = useState("")
   const [newAt, setNewAt] = useState("end")
   const [problem, setProblem] = useState<{ where: string; text: string } | null>(null)
-  const openButton = useRef<HTMLButtonElement>(null)
+  const openButton = useRef<HTMLButtonElement | null>(null)
   const backToButton = useRef(false)
   const locked = !!progress || !!stopped
 
