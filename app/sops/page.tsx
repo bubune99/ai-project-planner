@@ -172,7 +172,7 @@ export default function LibraryPage() {
   }
 
   const remove = async (s: Sop) => {
-    if (!confirm(`Delete the SOP "${s.title}"?`)) return
+    // No question first: the notice that follows offers Undo for ten seconds.
     const res = await fetch(`/api/sops/${s.id}`, { method: "DELETE" })
     if (!res.ok) { toast.error("Couldn't delete it"); return }
     setOpen(null); setForm(null); fetchSops()

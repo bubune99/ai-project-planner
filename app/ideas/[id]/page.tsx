@@ -16,6 +16,7 @@ import { DashboardLayout } from "@/components/navigation"
 import { EnvelopePanel } from "@/components/library/EnvelopePanel"
 import { CrossLinkPanel } from "@/components/cross-links/CrossLinkPanel"
 import { toast } from "sonner"
+import { askConfirm } from "@/lib/ui/ask"
 import { RichText } from "@/components/shared/RichText"
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -1827,7 +1828,7 @@ export default function IdeaDetailPage() {
   )
 
   const deleteIdea = async () => {
-    if (!confirm("Delete this idea? This cannot be undone.")) return
+    if (!(await askConfirm({ title: "Delete this idea?", body: "The idea is removed for good. This cannot be undone.", confirm: "Delete idea", danger: true }))) return
     try {
       const res = await fetch(`/api/ideas/${ideaId}`, { method: "DELETE" })
       if (!res.ok) throw new Error("Failed to delete idea")

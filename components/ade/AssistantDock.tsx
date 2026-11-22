@@ -17,6 +17,7 @@ import { Maximize2, PanelLeftClose } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { toast } from "sonner"
 import { ChatPanel } from "@/components/chat/ChatPanel"
+import { askConfirm } from "@/lib/ui/ask"
 import { HistoryList } from "@/components/chat/HistoryList"
 import { TabStrip } from "@/components/chat/TabStrip"
 import { useAssistantChat } from "@/components/chat/useAssistantChat"
@@ -60,18 +61,22 @@ export function AssistantDock() {
     if (!r.ok) { toast.message(r.error); return }
     setThreads(r.threads); activate(id)
   }
-  const closeTab = (id: string) => {
+  const closeTab = (id: string, confirmed = false) => {
     const t = threads.find((x) => x.id === id)
     if (!t) return
-    let decision = closeDecision({ status: t.status, count: threads.length })
+    const decision = closeDecision({ status: t.status, count: threads.length, confirmed })
     if (decision === "confirm") {
-      if (!confirm(`"${t.title}" is still working. Closing the tab stops it; the conversation stays in history. Stop and close?`)) return
-      decision = closeDecision({ status: t.status, count: threads.length, confirmed: true })
+      // The answer comes later: the tab is then closed with the tabs as they are by then, not as they were when asked.
+      void askConfirm({ title: `Stop "${t.title}" and close its tab?`, body: "It is still working. Closing the tab stops it; the conversation stays in history.", confirm: "Stop and close" })
+        .then((yes) => { if (yes) closeTabNow.current(id, true) })
+      return
     }
     if (decision === "reset") { const fresh = newThread(newChatId()); setThreads([fresh]); activate(fresh.id); return }
     const next = closeThread(threads, id, activeId)
     setThreads(next.threads); setActiveId(next.activeId)
   }
+  const closeTabNow = useRef(closeTab)
+  closeTabNow.current = closeTab
   // A deleted conversation can't stay open in a tab.
   const dropDeleted = (ids: string[]) => {
     let next = { threads, activeId }
@@ -200,7 +205,7 @@ export function AssistantDock() {
         historyOpen={panel === "history"}
         onHistory={() => setPanel(panel === "history" ? "chat" : "history")}
         onActivate={activate}
-        onClose={closeTab}
+        onClose={(id) => closeTab(id)}
         onNew={newChat}
       />
       {panel === "history" && (

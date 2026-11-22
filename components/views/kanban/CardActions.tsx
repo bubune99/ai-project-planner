@@ -8,6 +8,7 @@
 
 import { useRef } from "react"
 import { Check, Play, Flag, CalendarDays } from "lucide-react"
+import { askText } from "@/lib/ui/ask"
 import type { BoardStep } from "@/lib/types"
 
 const btn =
@@ -45,9 +46,10 @@ export function CardActions({
         <button type="button" className={`${word} text-[var(--opx-muted,#5a687c)] hover:bg-[var(--opx-card,#fff)]`} aria-label={`Not now: ${step.title}`}
           onClick={(e) => {
             e.stopPropagation()
-            const why = window.prompt(`Not now: "${step.title}". Why? Agents read this before proposing something like it again.`)
-            if (why === null) return
-            onPatch(step.id, { status: "paused", metadata: { ...(step.metadata || {}), declined: { why: why.trim(), at: new Date().toISOString() } } })
+            void askText({ title: `Not now: "${step.title}"`, body: "The request is set aside. Agents read your reason before proposing something like it again.", confirm: "Set aside", field: { label: "Why", required: false } }).then((why) => {
+              if (why === null) return
+              onPatch(step.id, { status: "paused", metadata: { ...(step.metadata || {}), declined: { why, at: new Date().toISOString() } } })
+            })
           }}>Not now</button>
       </>
     )

@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from "react"
 import { useUser } from "@stackframe/stack"
 import { DashboardLayout } from "@/components/navigation"
 import { toast } from "sonner"
+import { askConfirm } from "@/lib/ui/ask"
 
 // ─── types ───────────────────────────────────────────────────────────────────
 
@@ -207,7 +208,7 @@ function McpTab() {
   }
 
   const revokeKey = async (id: string, name: string) => {
-    if (!confirm(`Revoke "${name}"? Any agents using this key will stop working.`)) return
+    if (!(await askConfirm({ title: `Revoke the key "${name}"?`, body: "Any agent using this key stops working at once. A revoked key cannot be brought back; you would make a new one.", confirm: "Revoke key", danger: true }))) return
     try {
       const res = await fetch(`/api/api-keys/${id}`, { method: "DELETE" })
       if (!res.ok) throw new Error()

@@ -14,6 +14,7 @@ import { CardMenu } from "./kanban/CardMenu"
 import { CardActions } from "./kanban/CardActions"
 import { Plus } from "lucide-react"
 import { toast } from "sonner"
+import { askText } from "@/lib/ui/ask"
 import {
   columnsFor,
   doneKeyOf,
@@ -558,23 +559,29 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
         return
       }
 
-      let patch = patchForMove(prefs.groupBy, to.col)
-      // Closing a card says why: agents read it before proposing the same thing again (owner, 2026-11-19).
-      if (patch && prefs.groupBy === "status" && to.col === "closed") {
-        const step = stepById.get(taskId)
-        const why = window.prompt(`Close "${step?.title ?? "this card"}"? It will not be done. Why?`)
-        if (why === null || !why.trim()) { resyncBoard(); return }
-        patch = { ...patch, metadata: { ...(step?.metadata || {}), closed: { why: why.trim(), at: new Date().toISOString(), by: "owner" } } }
-      }
+      const patch = patchForMove(prefs.groupBy, to.col)
       if (!patch) {
         // e.g. dropping onto a synthetic column there is no way to persist
         toast.info("That column can't be set from the board")
         resyncBoard()
         return
       }
-      patchStep(taskId, patch)
-      const col = columns.find((c) => c.key === to.col)
-      if (col) toast.success(`Moved to ${col.label}`)
+      const send = (body: Record<string, unknown>) => {
+        patchStep(taskId, body)
+        const col = columns.find((c) => c.key === to.col)
+        if (col) toast.success(`Moved to ${col.label}`)
+      }
+      // Closing a card says why: agents read it before proposing the same thing again (owner, 2026-11-19).
+      if (prefs.groupBy === "status" && to.col === "closed") {
+        const step = stepById.get(taskId)
+        // The card waits in Closed while the question is open; without a reason it goes back where it was.
+        void askText({ title: `Close "${step?.title ?? "this card"}"?`, body: "It will not be done. Agents read your reason before proposing the same thing again.", confirm: "Close card", field: { label: "Why", required: true } }).then((why) => {
+          if (!why) { resyncBoard(); return }
+          send({ ...patch, metadata: { ...(step?.metadata || {}), closed: { why, at: new Date().toISOString(), by: "owner" } } })
+        })
+        return
+      }
+      send(patch)
     },
     [prefs.sortBy, prefs.groupBy, columnSteps, columns, persistColumnOrder, patchStep, resyncBoard, stepById]
   )

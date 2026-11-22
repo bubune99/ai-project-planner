@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { Trash2 } from "lucide-react"
 import { toast } from "sonner"
+import { askConfirm } from "@/lib/ui/ask"
 import { groupChats, type ChatSummary } from "@/lib/chat/view"
 import { HISTORY_CHANGED_EVENT } from "./useAssistantChat"
 
@@ -62,7 +63,7 @@ export function HistoryList({ activeId, onOpen, onActiveDeleted, onDeleted, busy
   const remove = async (ids: string[]) => {
     if (!ids.length) return
     const what = ids.length === 1 ? "this conversation" : `${ids.length} conversations`
-    if (!confirm(`Delete ${what}? This can't be undone.`)) return
+    if (!(await askConfirm({ title: `Delete ${what}?`, body: "The messages are removed for good. This can't be undone.", confirm: ids.length === 1 ? "Delete conversation" : `Delete ${ids.length} conversations`, danger: true }))) return
     setWorking(true)
     const results = await Promise.allSettled(ids.map((id) => fetch(`/api/chat?id=${id}`, { method: "DELETE" }).then((r) => { if (!r.ok) throw new Error(String(r.status)) })))
     setWorking(false)
@@ -73,7 +74,8 @@ export function HistoryList({ activeId, onOpen, onActiveDeleted, onDeleted, busy
   }
 
   const removeAll = async () => {
-    if (!chats || !confirm(`Delete all ${chats.length}${hasMore ? "+" : ""} conversations? This can't be undone.`)) return
+    if (!chats) return
+    if (!(await askConfirm({ title: `Delete all ${chats.length}${hasMore ? "+" : ""} conversations?`, body: "Every conversation and its messages are removed for good. This can't be undone.", confirm: "Delete all conversations", danger: true }))) return
     setWorking(true)
     try {
       const r = await fetch("/api/history", { method: "DELETE" })

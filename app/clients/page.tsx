@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Figure } from "@/components/project/opx/shared"
 import { toast } from "sonner"
+import { askConfirm } from "@/lib/ui/ask"
 import { DashboardLayout } from "@/components/navigation"
 import { Icon } from "@/components/jarvis/icons"
 
@@ -170,7 +171,7 @@ export default function ClientsPage() {
   }
 
   const removeClient = async (c: Client) => {
-    if (!confirm(`Delete client "${c.name}"? Linked projects are kept but unlinked.`)) return
+    if (!(await askConfirm({ title: `Delete the client "${c.name}"?`, body: "Linked projects are kept but unlinked. The client cannot be brought back.", confirm: "Delete client", danger: true }))) return
     const res = await fetch(`/api/clients/${c.id}`, { method: "DELETE" }).catch(() => null)
     if (!res || !res.ok) { toast.error("The client was not deleted"); return }
     toast.success("Client deleted")
@@ -214,7 +215,7 @@ export default function ClientsPage() {
 
   const removeSchedule = async (s: Schedule) => {
     if (!detail) return
-    if (!confirm(`Delete service "${s.title}"?`)) return
+    if (!(await askConfirm({ title: `Delete the service "${s.title}"?`, body: "It is removed from this client and cannot be brought back.", confirm: "Delete service", danger: true }))) return
     const res = await fetch(`/api/service-schedules/${s.id}`, { method: "DELETE" }).catch(() => null)
     if (!res || !res.ok) { toast.error("The service was not deleted"); return }
     await openDetailRefresh(detail.id)

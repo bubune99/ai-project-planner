@@ -16,6 +16,7 @@ import { Attention } from "@/components/agents/Attention"
 import { UnitMarker } from "@/components/ade/UnitMarker"
 import { AssistantDock } from "@/components/ade/AssistantDock"
 import { Toaster } from "sonner"
+import { AskDialog } from "@/components/ui/AskDialog"
 import "./globals.css"
 import "./opx-skin.css"
 import { StagingMark } from "@/components/StagingMark"
@@ -63,6 +64,8 @@ export default function RootLayout({
         </ThemeProvider>
         {/* Notices open below the top bar, never over it (Docs & files check, 2026-11-15). */}
         <Toaster position="top-center" theme="system" richColors offset="72px" />
+        {/* The product's own question, in place of the browser's confirm and prompt (lib/ui/ask.ts). */}
+        <AskDialog />
         <Analytics />
         <ServiceWorkerRegister />
         <NewBuildBar build={buildId()} />

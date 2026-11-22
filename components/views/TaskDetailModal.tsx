@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import type { BoardStep } from "@/lib/types"
+import { askText } from "@/lib/ui/ask"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -243,9 +244,10 @@ export function TaskDetailModal({
             <Select value={step.status} onValueChange={(v) => {
               // Closing says why, as on the board (owner, 2026-11-19).
               if (v === "closed" && step.status !== "closed") {
-                const why = window.prompt(`Close "${step.title}"? It will not be done. Why?`)
-                if (why === null || !why.trim()) return
-                patch({ status: v, metadata: { ...(step.metadata || {}), closed: { why: why.trim(), at: new Date().toISOString(), by: "owner" } } })
+                void askText({ title: `Close "${step.title}"?`, body: "It will not be done. Agents read your reason before proposing the same thing again.", confirm: "Close card", field: { label: "Why", required: true } }).then((why) => {
+                  if (!why) return
+                  patch({ status: v, metadata: { ...(step.metadata || {}), closed: { why, at: new Date().toISOString(), by: "owner" } } })
+                })
                 return
               }
               patch({ status: v })

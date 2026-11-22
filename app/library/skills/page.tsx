@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Figure } from "@/components/project/opx/shared"
 import { toast } from "sonner"
+import { askConfirm } from "@/lib/ui/ask"
 import { DashboardLayout } from "@/components/navigation"
 import { Icon } from "@/components/jarvis/icons"
 import { EnvelopePanel } from "@/components/library/EnvelopePanel"
@@ -158,7 +159,7 @@ export default function SkillsPage() {
 
   const deprecate = async () => {
     if (!selected) return
-    if (!confirm(`Deprecate skill "${selected.title}"?`)) return
+    if (!(await askConfirm({ title: `Deprecate the skill "${selected.title}"?`, body: "It is kept and marked Deprecated.", confirm: "Deprecate" }))) return
     try {
       await patchSkill(selected.id, { status: "deprecated" })
       toast.success("Deprecated")
@@ -169,7 +170,7 @@ export default function SkillsPage() {
 
   const deleteSkill = async () => {
     if (!selected) return
-    if (!confirm(`Permanently delete skill "${selected.title}"? This cannot be undone.`)) return
+    if (!(await askConfirm({ title: `Delete the skill "${selected.title}"?`, body: "It is removed for good. This cannot be undone.", confirm: "Delete skill", danger: true }))) return
     const res = await fetch(`/api/skills/${selected.id}`, { method: "DELETE" }).catch(() => null)
     if (!res || !res.ok) { toast.error("The skill was not deleted"); return }
     toast.success("Deleted")

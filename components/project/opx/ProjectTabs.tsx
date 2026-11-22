@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { CURRENCIES, formatMoney, moneyTotals, parseAmount } from "@/lib/project-views/money"
 import { toast } from "sonner"
+import { askConfirm } from "@/lib/ui/ask"
 import { figureMembers, projectMetrics, medianLabel, type Figure } from "@/lib/project-views/metrics"
 import { CORE_SLOTS } from "./DocsTab"
 import { Failed, Loading, Section, Seg, ago, fmtDate, unwrap, useJson } from "./shared"
@@ -402,7 +403,7 @@ export function SettingsTab({ projectId, project, onChange }: { projectId: strin
     finally { setSaving(false) }
   }
   const archive = async () => {
-    if (!window.confirm(`Move "${project.name}" to On hold? It leaves the active list and everything is kept. You can set the status back under General.`)) return
+    if (!(await askConfirm({ title: `Move "${project.name}" to On hold?`, body: "It leaves the active list and everything is kept. You can set the status back under General.", confirm: "Move to On hold" }))) return
     // The form on General must learn the new status too, or its next Save would quietly put the old one back.
     try {
       await saveProject(projectId, project, { status: ON_HOLD }); set({ status: ON_HOLD })

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Figure } from "@/components/project/opx/shared"
 import { toast } from "sonner"
+import { askConfirm } from "@/lib/ui/ask"
 import { DashboardLayout } from "@/components/navigation"
 import { Icon } from "@/components/jarvis/icons"
 import { EnvelopePanel } from "@/components/library/EnvelopePanel"
@@ -172,7 +173,7 @@ export default function TemplatesPage() {
 
   const deprecate = async () => {
     if (!selected) return
-    if (!confirm(`Deprecate template "${selected.title}"?`)) return
+    if (!(await askConfirm({ title: `Deprecate the template "${selected.title}"?`, body: "It is kept and marked Deprecated.", confirm: "Deprecate" }))) return
     try {
       await patchTemplate(selected.id, { status: "deprecated" })
       toast.success("Deprecated")
@@ -183,7 +184,7 @@ export default function TemplatesPage() {
 
   const deleteTemplate = async () => {
     if (!selected) return
-    if (!confirm(`Delete template "${selected.title}"?`)) return
+    if (!(await askConfirm({ title: `Delete the template "${selected.title}"?`, body: "It is removed for good. This cannot be undone.", confirm: "Delete template", danger: true }))) return
     const res = await fetch(`/api/feature-templates/${selected.id}`, { method: "DELETE" }).catch(() => null)
     if (!res || !res.ok) { toast.error("The template was not deleted"); return }
     toast.success("Deleted")
