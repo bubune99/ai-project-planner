@@ -2,15 +2,25 @@
 
 /*
  * Stack and statements: what the owner's tools and taste ask of the work, and
- * the checks each one creates. Display and two switches only; the rules that
- * compile these into checks are in lib/gates/guides.ts.
+ * the checks each one creates. Display and switches only; the rules that
+ * compile these into checks, and decide trial, due for review and history,
+ * are in lib/gates/guides.ts. The two dialogs are in GuideHistory.tsx.
  */
 
 import { useState } from "react"
-import type { Guide } from "@/lib/gates/guides"
+import { trialLabel, trialOf, type Guide, type TrialState } from "@/lib/gates/guides"
+import { HistoryDialog, TrialDialog } from "./GuideHistory"
 import { useJson } from "./shared"
 
 const SOURCE: Record<Guide["source"], string> = { owner: "From you", research: "From research", agent: "Suggested by an agent" }
+
+/** The day it is for the person looking, as YYYY-MM-DD. Read here and passed to the rules, which have no clock. */
+function localDay(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+
+const isDue = (t: TrialState) => t.state === "trial" && t.due
 
 export function GuidesSection() {
   const { data, error, reload } = useJson<{ guides: Guide[] }>("/api/gates/guides")
@@ -18,13 +28,28 @@ export function GuidesSection() {
   const [problem, setProblem] = useState<string | null>(null)
   /** Which lists the person has opened or closed by hand. Until they touch one, Statements opens itself when a draft waits. */
   const [opened, setOpened] = useState<Record<string, boolean>>({})
+  /** The dialog that is open, and for which guide. */
+  const [dialog, setDialog] = useState<{ kind: "history" | "trial"; id: string } | null>(null)
   const guides = data?.guides ?? []
+  const today = localDay()
+
+  /** Sends one change and reloads the list. Resolves to why it was refused, or null. */
+  async function send(body: unknown): Promise<string | null> {
+    try {
+      const res = await fetch("/api/gates/guides", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      if (res.ok) return null
+      return (await res.json().catch(() => null))?.error ?? "Could not save that"
+    } catch {
+      return "Could not reach the planner. Nothing was saved."
+    } finally {
+      reload()
+    }
+  }
 
   async function post(body: unknown) {
     setBusy(true); setProblem(null)
-    const res = await fetch("/api/gates/guides", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-    if (!res.ok) setProblem((await res.json().catch(() => null))?.error ?? "Could not save that")
-    setBusy(false); reload()
+    setProblem(await send(body))
+    setBusy(false)
   }
 
   if (error) return <section className="opx-sec opx-ck-guides"><p className="opx-muted">The stack and statements could not be loaded: {error}</p></section>
@@ -59,17 +84,32 @@ export function GuidesSection() {
                   {g.status === "draft" && <span className="opx-muted">Draft</span>}
                   <button type="button" disabled={busy} aria-label={`${g.status === "draft" ? "Make it a rule" : "Set aside"}: ${g.name}`} onClick={() => post({ action: "status", id: g.id, status: g.status === "draft" ? "active" : "draft" })}>{g.status === "draft" ? "Make it a rule" : "Set aside"}</button>
                 </div>
+                {g.kind === "statement" && g.status === "active" && (isDue(trialOf(g, today))
+                  ? <b>{trialLabel(g, today)}</b>
+                  : <span className="opx-muted">{trialLabel(g, today)}</span>)}
                 <span>{g.summary}</span>
                 <ol>{g.checks.map((c) => <li key={c.id}>{c.say}<small>{c.auto ? "Checked automatically" : "Checked by the agent, with what it saw"}</small></li>)}</ol>
                 <span className="opx-muted">
                   Applies to {[g.applies.files?.join(", "), g.applies.imports?.length ? `files that use ${g.applies.imports.join(", ")}` : ""].filter(Boolean).join("; ")}.
                   {g.skill && ` How-to: the ${g.skill} skill.`} {SOURCE[g.source]}: {g.basis}
                 </span>
+                <div className="opx-row">
+                  <button type="button" className="opx-btn sm" aria-label={`History: ${g.name}`} onClick={() => setDialog({ kind: "history", id: g.id })}>History</button>
+                  {g.kind === "statement" && g.status === "active" && (
+                    <button type="button" className="opx-btn sm" aria-label={`Trial or permanent: ${g.name}`} onClick={() => setDialog({ kind: "trial", id: g.id })}>Trial or permanent</button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
         </details>
       ))}
+      {(() => {
+        const g = dialog && guides.find((x) => x.id === dialog.id)
+        if (!dialog || !g) return null
+        const close = () => setDialog(null)
+        return dialog.kind === "history" ? <HistoryDialog guide={g} today={today} send={send} onClose={close} /> : <TrialDialog guide={g} today={today} send={send} onClose={close} />
+      })()}
     </section>
   )
 }
