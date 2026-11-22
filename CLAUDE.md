@@ -178,6 +178,10 @@ Rules that have each cost something:
 - **A step's state is read, never typed.** A use-case step points at a control by view, kind and label; `stepState` reads the Checks record.
 - **Saves say who made them.** A browser session is the owner. An agent saving through the owner's signed-in tab sends `agent: true`, or its change is recorded as the owner's.
 - **One right-click menu at a time.** The feedback menu (`components/feedback/FeedbackWidget.tsx`) stays out of the way when a page has handled the right-click itself.
+- **A removed statement or stack entry is not deleted.** Its newest `gate_guide_versions` row carries `removed: true`
+  in its content, and every read in `lib/gates/guide-store.ts` leaves it out; deleting the row would take its history
+  with it. Only the owner's browser session removes or puts back (`refusal` in `lib/gates/guides.ts`). A new query on
+  `gate_guides` must leave removed ones out the same way.
 - **Whole-document saves carry the version they started from** and are refused if it changed underneath (People and flows).
 
 ## One board — the owner sees everything agents do

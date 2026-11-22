@@ -14,6 +14,11 @@
  * for review once its date has passed. Every saved version is kept with who
  * saved it and when, and an earlier one can be restored (migration 085).
  *
+ * The owner can REMOVE one and put it back. A removed one keeps its row and its
+ * history: the removal is its newest version, marked removed, and that mark is
+ * what takes it off the list and out of the rules. Putting it back is one more
+ * version with the content exactly as it was. No table change was needed.
+ *
  * The planner stores guides. The plugin pulls them as rules and applies them
  * to each file as it is written (far-gates: lib-code.mjs).
  */
@@ -60,7 +65,9 @@ export type GuideContent = Omit<Guide, "id" | "trialUntil"> & { trialUntil: stri
 
 /** Who saved a version. "before" is the state a guide was in when history started being kept. */
 export type Saver = { kind: "owner" } | { kind: "agent"; name: string } | { kind: "before" }
-export type VersionChange = "saved" | "status" | "trial" | "permanent" | "restored" | "before"
+export type VersionChange = "saved" | "status" | "trial" | "permanent" | "restored" | "before" | "removed" | "put-back"
+/** The changes the table's own check allows (migration 085). */
+export type StoredChange = Exclude<VersionChange, "removed" | "put-back">
 
 export interface GuideVersion {
   version: number
@@ -217,6 +224,7 @@ export function withTrial(g: GuideContent, until: string | null, today: string):
 /** Why this person may not make this change, or null when they may. Trial, permanent and restore are the owner's. */
 export function refusal(by: Saver, change: VersionChange): string | null {
   if (change === "saved" || change === "status") return null
+  if (change === "removed" || change === "put-back") return by.kind === "owner" ? null : "Only the owner, signed in to the planner, can remove a statement or stack entry or put one back. An agent or an API key cannot."
   return by.kind === "owner" ? null : "Only the owner can put a statement on trial, make it permanent or restore a version"
 }
 
@@ -267,6 +275,8 @@ export function historyOf(versions: GuideVersion[]): HistoryEntry[] {
   return asc.map((v, i): HistoryEntry => {
     const diff = changedInWords(i ? asc[i - 1].content : null, v.content)
     const changes = v.change === "before" ? ["As it stood before history was kept"]
+      : v.change === "removed" ? ["Removed: the rules made from it stopped being handed out"]
+      : v.change === "put-back" ? ["Put back as it was"]
       : v.change === "restored" ? [`Restored version ${v.restoredFrom ?? "?"}`, ...diff.filter((d) => d !== "Nothing changed")]
       : diff
     return { version: v.version, at: v.at, who: whoSaved(v.by), changes, current: v.version === latest }
@@ -279,4 +289,69 @@ export function versionToRestore(versions: GuideVersion[], version: number): { c
   if (!v) return { error: `There is no version ${version}` }
   if (version === Math.max(...versions.map((x) => x.version))) return { error: "That is already the current version" }
   return { content: storedContent(v.content) }
+}
+
+// ── Removing one, and putting it back ───────────────────────────────────────
+
+/**
+ * How a change is kept. The table allows six kinds of change and has no column for "removed", so a removal is kept
+ * as a status change and a putting back as a restore, each with a mark in the version's content (which is free-form).
+ */
+export function toStored(change: VersionChange): { change: StoredChange; mark: "removed" | "putBack" | null } {
+  if (change === "removed") return { change: "status", mark: "removed" }
+  if (change === "put-back") return { change: "restored", mark: "putBack" }
+  return { change, mark: null }
+}
+
+/** The change a stored version was, read back from its column and the mark in its content. */
+export function readChange(stored: string, rawContent: unknown): VersionChange {
+  const c = (rawContent ?? {}) as Record<string, unknown>
+  if (stored === "status" && c.removed === true) return "removed"
+  if (stored === "restored" && c.putBack === true) return "put-back"
+  return stored as VersionChange
+}
+
+const newest = (versions: GuideVersion[]) => versions.reduce<GuideVersion | null>((a, b) => (!a || b.version > a.version ? b : a), null)
+
+/** Removed: its newest version is the removal. Anything saved after that has put it back. */
+export const isRemoved = (versions: GuideVersion[]) => newest(versions)?.change === "removed"
+
+/** What putting a removed one back writes: the content exactly as it was, and the version it stood at before. */
+export function versionToPutBack(versions: GuideVersion[]): { content: GuideContent; restoredFrom: number } | { error: string } {
+  const last = newest(versions)
+  if (!last || last.change !== "removed") return { error: "That one is not removed, so there is nothing to put back" }
+  return { content: storedContent(last.content), restoredFrom: last.version - 1 }
+}
+
+/** The confirmation shown before one is removed. `startingSetNames` are the names that ship with the product. */
+export function removalWords(g: Guide, startingSetNames: string[]): { title: string; lines: string[]; confirm: string } {
+  const n = toRules([g]).length
+  const shipped = startingSetNames.some((x) => x.toLowerCase() === g.name.trim().toLowerCase())
+  return {
+    title: `Remove the ${g.kind === "stack" ? "stack entry" : "statement"} "${g.name}"?`,
+    lines: [
+      g.status === "active"
+        ? `The planner stops handing out the ${n} rule${n === 1 ? "" : "s"} made from it at once. A project folder that already pulled its rules drops ${n === 1 ? "it" : "them"} at its next pull.`
+        : "It is a draft, so no rules are made from it now. Removing it takes it off this list.",
+      "Its history is kept, and you can put it back exactly as it was: with Undo right after, or later from the Removed list.",
+      ...(shipped ? ['It came with the starting set. It is not added again by itself. "Add the starting set", offered only when this list is empty, would bring it back in its original wording.'] : []),
+    ],
+    confirm: `Remove "${g.name}"`,
+  }
+}
+
+/** Why a save under a removed one's name is refused, or null. Otherwise an agent could undo the owner's removal by saving it again. */
+export function savingOverRemoved(by: Saver, name: string): string | null {
+  return by.kind === "owner" ? null : `The owner removed "${name.trim()}". Only the owner can put it back; it was not saved.`
+}
+
+/**
+ * Which of the starting set to add. What is on the list is left as it is. What the owner removed comes back only
+ * when the owner asks for the starting set; for an agent it stays removed.
+ */
+export function startingSet(names: string[], live: string[], removed: string[], by: Saver): { add: string[]; leftRemoved: string[] } {
+  const has = (list: string[], name: string) => list.some((x) => x.toLowerCase() === name.toLowerCase())
+  const missing = names.filter((n) => !has(live, n))
+  if (by.kind === "owner") return { add: missing, leftRemoved: [] }
+  return { add: missing.filter((n) => !has(removed, n)), leftRemoved: missing.filter((n) => has(removed, n)) }
 }

@@ -4,12 +4,17 @@
  * GET  /api/gates/guides[?projectId=][&as=rules]  the guides, or the rules they compile to (for the plugin)
  * GET  /api/gates/guides?versions=<guide id>      every kept version of one guide, newest first
  * GET  /api/gates/guides?ledger=1[&projectId=]    each guide's numbers, by guide id (rules: lib/gates/guide-ledger.ts)
+ * GET  /api/gates/guides?removed=1[&projectId=]   the guides the owner removed, so each can be put back
  * POST /api/gates/guides
  *        { action: "install-defaults" }
  *        { action: "save", guide: { kind, name, summary, skill?, applies, checks, status, source, basis }, projectId? }
  *        { action: "status", id, status: "active" | "draft" }
  *        { action: "trial", id, until: "YYYY-MM-DD" | null, today? }   owner only: on trial until a day, or (null) permanent
  *        { action: "restore", id, version }                             owner only: restoring is itself a new version
+ *        { action: "remove", id }                                       owner only (403 otherwise): off the list and out of the rules at once
+ *        { action: "put-back", id }                                     owner only (403 otherwise): back exactly as it was, same id
+ *
+ * A removed guide keeps its row and history; nothing is deleted. It is left out of every read but ?removed=1.
  *
  * Every write is kept as a version with who made it. A browser session is the owner; an agent, including one saving
  * through the owner's signed-in tab, sends agent: true (and agentName), and an API key is always an agent.
@@ -17,8 +22,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
 import { GateError } from "@/lib/gates/store"
-import { guideLedgers, installDefaults, listGuides, listGuideVersions, restoreGuideVersion, rulesFor, saveGuide, setGuideStatus, setGuideTrial } from "@/lib/gates/guide-store"
-import { clientDay, type Saver } from "@/lib/gates/guides"
+import { guideLedgers, installDefaults, listGuides, listGuideVersions, listRemovedGuides, putBackGuide, removeGuide, restoreGuideVersion, rulesFor, saveGuide, setGuideStatus, setGuideTrial } from "@/lib/gates/guide-store"
+import { clientDay, refusal, type Saver } from "@/lib/gates/guides"
 
 export const dynamic = "force-dynamic"
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -43,6 +48,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(await listGuideVersions(auth.userId, versionsOf))
     }
     if (request.nextUrl.searchParams.get("ledger") === "1") return NextResponse.json(await guideLedgers(auth.userId, projectId))
+    if (request.nextUrl.searchParams.get("removed") === "1") return NextResponse.json({ removed: await listRemovedGuides(auth.userId, projectId) })
     if (request.nextUrl.searchParams.get("as") === "rules") return NextResponse.json(await rulesFor(auth.userId, projectId))
     return NextResponse.json({ guides: await listGuides(auth.userId, projectId) })
   } catch (error) {
@@ -73,6 +79,13 @@ export async function POST(request: NextRequest) {
       if (typeof b.id !== "string" || !UUID.test(b.id) || !Number.isInteger(b.version) || b.version < 1) return NextResponse.json({ error: "Send { id, version }" }, { status: 400 })
       await restoreGuideVersion(auth.userId, b.id, b.version, by)
       return NextResponse.json({ ok: true })
+    }
+    if (b?.action === "remove" || b?.action === "put-back") {
+      // Who may is decided in the rules (guides.ts): the owner's browser session, never an API key or agent: true.
+      const no = refusal(by, b.action === "remove" ? "removed" : "put-back")
+      if (no) return NextResponse.json({ error: no }, { status: 403 })
+      if (typeof b.id !== "string" || !UUID.test(b.id)) return NextResponse.json({ error: "Send { id }" }, { status: 400 })
+      return NextResponse.json({ ok: true, ...(b.action === "remove" ? await removeGuide(auth.userId, b.id, by) : await putBackGuide(auth.userId, b.id, by)) })
     }
     if (b?.action === "save" && b.guide && typeof b.guide === "object") {
       const projectId = await projectOf(b.projectId, auth.userId, true)

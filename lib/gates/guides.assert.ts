@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { changedInWords, clientDay, contentOf, historyOf, isDay, refusal, sameContent, storedContent, toRules, trialLabel, trialOf, validateGuide, versionToRestore, whoSaved, withTrial, type Guide, type GuideVersion } from "./guides"
+import { isRemoved, readChange, removalWords, savingOverRemoved, startingSet, toStored, versionToPutBack, changedInWords, clientDay, contentOf, historyOf, isDay, refusal, sameContent, storedContent, toRules, trialLabel, trialOf, validateGuide, versionToRestore, whoSaved, withTrial, type Guide, type GuideVersion } from "./guides"
 import { DEFAULT_GUIDES } from "./default-guides"
 
 let n = 0
@@ -197,6 +197,93 @@ ok("a version can be restored by number; a missing one cannot; restoring the cur
   // A version saved before trials existed restores as permanent.
   const old = versionToRestore([{ ...V(1), content: { ...contentOf(S()), trialUntil: undefined } as unknown as GuideVersion["content"] }, V(2, {}, { trialUntil: "2026-11-30" })], 1)
   assert.ok(!("error" in old) && old.content.trialUntil === null)
+})
+
+// ── Removing one, and putting it back ───────────────────────────────────────
+
+ok("only the owner may remove one or put it back; an agent or an API key is told so plainly", () => {
+  assert.equal(refusal({ kind: "owner" }, "removed"), null)
+  assert.equal(refusal({ kind: "owner" }, "put-back"), null)
+  for (const change of ["removed", "put-back"] as const) {
+    for (const by of [{ kind: "agent", name: "worker-1" }, { kind: "agent", name: "" }, { kind: "before" }] as const) {
+      const no = refusal(by, change)
+      assert.ok(no && /Only the owner/.test(no) && /remove/.test(no) && /put one back/.test(no), `${by.kind} ${change}`)
+    }
+  }
+  // What was allowed before still is, and what was the owner's still is.
+  assert.equal(refusal({ kind: "agent", name: "a" }, "saved"), null)
+  assert.equal(refusal({ kind: "agent", name: "a" }, "status"), null)
+  assert.match(refusal({ kind: "agent", name: "a" }, "restored") ?? "", /restore a version/)
+})
+
+ok("a removal and a putting back are kept in the columns the table already allows, and read back as what they were", () => {
+  assert.deepEqual(toStored("removed"), { change: "status", mark: "removed" })
+  assert.deepEqual(toStored("put-back"), { change: "restored", mark: "putBack" })
+  assert.deepEqual(toStored("saved"), { change: "saved", mark: null })
+  assert.deepEqual(toStored("restored"), { change: "restored", mark: null })
+  assert.equal(readChange("status", { removed: true }), "removed")
+  assert.equal(readChange("restored", { putBack: true }), "put-back")
+  assert.equal(readChange("status", { status: "draft" }), "status")
+  assert.equal(readChange("restored", {}), "restored")
+  // Only a real true counts, and only on the change it belongs to.
+  assert.equal(readChange("status", { removed: "true" }), "status")
+  assert.equal(readChange("saved", { removed: true }), "saved")
+  assert.equal(readChange("status", null), "status")
+  // The marks never reach the content a version gives back.
+  assert.ok(!("removed" in storedContent({ ...contentOf(S()), removed: true })))
+})
+
+ok("removed is read from the newest version only; putting back gives the content exactly as it was", () => {
+  const was = { summary: "Second", status: "draft" as const, trialUntil: "2026-11-30" }
+  const vs = [V(1), V(2, {}, was), V(3, { change: "removed" }, was)]
+  assert.equal(isRemoved([]), false)
+  assert.equal(isRemoved(vs.slice(0, 2)), false)
+  assert.equal(isRemoved(vs), true)
+  assert.equal(isRemoved([vs[2], vs[0], vs[1]]), true, "any order")
+  assert.equal(isRemoved([...vs, V(4, { change: "put-back", restoredFrom: 2 }, was)]), false)
+  const back = versionToPutBack(vs)
+  assert.ok(!("error" in back))
+  if (!("error" in back)) {
+    assert.deepEqual(back.content, vs[1].content)
+    assert.notEqual(back.content, vs[2].content, "a copy")
+    assert.equal(back.restoredFrom, 2)
+  }
+  const not = versionToPutBack(vs.slice(0, 2))
+  assert.ok("error" in not && /not removed/.test(not.error))
+  assert.ok("error" in versionToPutBack([]))
+})
+
+ok("history says a removal and a putting back in plain words, with who", () => {
+  const h = historyOf([V(1), V(2, { change: "removed" }), V(3, { change: "put-back", restoredFrom: 1 })])
+  assert.deepEqual(h.map((e) => e.changes), [["Put back as it was"], ["Removed: the rules made from it stopped being handed out"], ["First version kept"]])
+  assert.deepEqual(h.map((e) => e.who), ["You", "You", "You"])
+})
+
+ok("the confirmation names it, says what stops, and is honest about one from the starting set", () => {
+  const w = removalWords(S({ applies: { files: ["**/*.tsx", "**/*.css"] } }), [])
+  assert.equal(w.title, 'Remove the statement "Phone screens"?')
+  assert.equal(w.confirm, 'Remove "Phone screens"')
+  assert.match(w.lines[0], /2 rules made from it/)
+  assert.match(w.lines.join(" "), /put it back/)
+  assert.ok(!/starting set/.test(w.lines.join(" ")))
+  assert.match(removalWords(G(), []).title, /stack entry "Stripe"/)
+  assert.match(removalWords(G(), []).lines[0], /the 1 rule made from it/)
+  assert.match(removalWords(G({ status: "draft" }), []).lines[0], /draft/)
+  const d = removalWords(G(), ["stripe"])
+  assert.match(d.lines.join(" "), /starting set/)
+  assert.match(d.lines.join(" "), /not added again by itself/)
+})
+
+ok("an agent cannot bring a removed one back by saving its name again; the owner can", () => {
+  assert.equal(savingOverRemoved({ kind: "owner" }, "Stripe"), null)
+  assert.match(savingOverRemoved({ kind: "agent", name: "w" }, "Stripe") ?? "", /owner removed "Stripe"/)
+})
+
+ok("the starting set never brings back, for an agent, what the owner removed; the owner asking for it gets it", () => {
+  const names = ["Next.js", "Stripe", "No emoji"]
+  assert.deepEqual(startingSet(names, ["next.js"], ["STRIPE"], { kind: "agent", name: "w" }), { add: ["No emoji"], leftRemoved: ["Stripe"] })
+  assert.deepEqual(startingSet(names, ["next.js"], ["STRIPE"], { kind: "owner" }), { add: ["Stripe", "No emoji"], leftRemoved: [] })
+  assert.deepEqual(startingSet(names, [], [], { kind: "agent", name: "" }), { add: names, leftRemoved: [] })
 })
 
 console.log(`\n${n} checks passed`)

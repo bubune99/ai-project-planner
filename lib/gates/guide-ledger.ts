@@ -54,11 +54,14 @@ const wording = (c: GuideContent) => JSON.stringify([
   c.summary.trim(), c.applies.files ?? [], c.applies.imports ?? [], c.checks.map((k) => [k.id, k.say, k.auto ?? null]), c.status,
 ])
 
-/** The first version of the newest unbroken run for which `same` holds, or null when the newest version does not. */
+/**
+ * The first version of the newest unbroken run for which `same` holds, or null when the newest version does not.
+ * A removal breaks the run: while it was removed it was not in force, so the run starts where it was put back.
+ */
 function runStart(versions: GuideVersion[], same: (c: GuideContent) => boolean): GuideVersion | null {
   const desc = [...versions].sort((a, b) => b.version - a.version)
   let start: GuideVersion | null = null
-  for (const v of desc) { if (!same(v.content)) break; start = v }
+  for (const v of desc) { if (v.change === "removed" || !same(v.content)) break; start = v }
   return start
 }
 

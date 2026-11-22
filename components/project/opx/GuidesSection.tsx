@@ -4,7 +4,8 @@
  * Stack and statements: what the owner's tools and taste ask of the work, and
  * the checks each one creates. Display and switches only; the rules that
  * compile these into checks, and decide trial, due for review and history,
- * are in lib/gates/guides.ts. The two dialogs are in GuideHistory.tsx.
+ * are in lib/gates/guides.ts. History and trial are in GuideHistory.tsx;
+ * removing one and putting it back are in GuideRemove.tsx.
  */
 
 import { useState } from "react"
@@ -12,6 +13,7 @@ import { trialLabel, trialOf, type Guide, type TrialState } from "@/lib/gates/gu
 import type { Ledger } from "@/lib/gates/guide-ledger"
 import { HistoryDialog, TrialDialog } from "./GuideHistory"
 import { LedgerLines } from "./GuideLedger"
+import { RemoveDialog, RemovedList, RemovedNotice, type Removed } from "./GuideRemove"
 import { Failed, useJson } from "./shared"
 
 const SOURCE: Record<Guide["source"], string> = { owner: "From you", research: "From research", agent: "Suggested by an agent" }
@@ -33,12 +35,17 @@ export function GuidesSection() {
   /** Which lists the person has opened or closed by hand. Until they touch one, Statements opens itself when a draft waits. */
   const [opened, setOpened] = useState<Record<string, boolean>>({})
   /** The dialog that is open, and for which guide. */
-  const [dialog, setDialog] = useState<{ kind: "history" | "trial"; id: string } | null>(null)
+  const [dialog, setDialog] = useState<{ kind: "history" | "trial" | "remove"; id: string } | null>(null)
+  /** The removed ones, so each can be put back. Loaded beside the list. */
+  const removed = useJson<{ removed: Removed[] }>("/api/gates/guides?removed=1")
+  /** The one just removed: its notice, with Undo, stays until it is dismissed or the next change is sent. */
+  const [justRemoved, setJustRemoved] = useState<{ id: string; name: string } | null>(null)
   const guides = data?.guides ?? []
   const today = localDay()
 
   /** Sends one change and reloads the list. Resolves to why it was refused, or null. */
   async function send(body: unknown): Promise<string | null> {
+    setJustRemoved(null)
     try {
       const res = await fetch("/api/gates/guides", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
       if (res.ok) return null
@@ -46,8 +53,17 @@ export function GuidesSection() {
     } catch {
       return "Could not reach the planner. Nothing was saved."
     } finally {
-      reload(); ledger.reload()
+      reload(); ledger.reload(); removed.reload()
     }
+  }
+
+  /** Puts a removed one back. If that is refused, the reason is shown and an Undo notice stays where it was. */
+  async function putBack(g: { id: string; name: string }, fromNotice: boolean) {
+    setBusy(true); setProblem(null)
+    const refused = await send({ action: "put-back", id: g.id })
+    setProblem(refused)
+    if (refused && fromNotice) setJustRemoved(g)
+    setBusy(false)
   }
 
   async function post(body: unknown) {
@@ -74,7 +90,8 @@ export function GuidesSection() {
           <span className="opx-muted"> The stack you named, and the preferences you have already given, as a structure to adjust.</span>
         </p>
       )}
-      {problem && <p className="opx-ck-note">{problem}</p>}
+      {problem && <p className="opx-ck-note" role="alert">{problem}</p>}
+      {justRemoved && <RemovedNotice name={justRemoved.name} busy={busy} onUndo={() => putBack(justRemoved, true)} onDismiss={() => setJustRemoved(null)} />}
       {ledger.error && <Failed what="the statements' numbers" error={ledger.error} retry={ledger.reload} />}
       {ledger.data?.checkResultsKept === false && (
         <p className="opx-muted">Each check's result is kept in the project's own folder and is not sent to the planner yet, so no statement has check numbers to show.</p>
@@ -107,6 +124,7 @@ export function GuidesSection() {
                   {g.kind === "statement" && g.status === "active" && (
                     <button type="button" className="opx-btn sm" aria-label={`Trial or permanent: ${g.name}`} onClick={() => setDialog({ kind: "trial", id: g.id })}>Trial or permanent</button>
                   )}
+                  <button type="button" className="opx-btn sm" disabled={busy} aria-label={`Remove: ${g.name}`} onClick={() => setDialog({ kind: "remove", id: g.id })}>Remove</button>
                 </div>
               </li>
             ))}
@@ -117,8 +135,10 @@ export function GuidesSection() {
         const g = dialog && guides.find((x) => x.id === dialog.id)
         if (!dialog || !g) return null
         const close = () => setDialog(null)
+        if (dialog.kind === "remove") return <RemoveDialog guide={g} send={send} onRemoved={(x) => setJustRemoved({ id: x.id, name: x.name })} onClose={close} />
         return dialog.kind === "history" ? <HistoryDialog guide={g} today={today} send={send} onClose={close} /> : <TrialDialog guide={g} today={today} send={send} onClose={close} />
       })()}
+      <RemovedList removed={removed.data?.removed} error={removed.error} retry={removed.reload} busy={busy} onPutBack={(g) => putBack(g, false)} />
     </section>
   )
 }

@@ -105,4 +105,12 @@ ok("permanent has no trial line; a trial whose start was not kept says so and co
   assert.equal(ledgerWords(lost, day).trial, "Since the trial began: –")
 })
 
+ok("removed and put back: in force since it was put back, not since before it was removed", () => {
+  const vs = [V(1), V(2, {}, { change: "removed" }), V(3, {}, { change: "put-back", restoredFrom: 1 })]
+  assert.equal(ledgerOf(row(), vs, []).since?.at, V(3).at)
+  const trial = { trialUntil: "2026-12-05" }
+  const tv = [V(1, trial, { change: "trial" }), V(2, trial, { change: "removed" }), V(3, trial, { change: "put-back", restoredFrom: 1 })]
+  assert.equal(ledgerOf(row(trial), tv, []).trial?.since, V(3).at)
+})
+
 console.log(`\n${n} checks passed`)
