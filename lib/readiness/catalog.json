@@ -1,0 +1,2404 @@
+{
+ "generatedFrom": "comprehension-ide/src/readiness/catalog.ts",
+ "generatedAt": "2026-10-04T23:08:59.953Z",
+ "gates": {
+  "0": "Foundation",
+  "1": "Scope",
+  "2": "Build guardrails",
+  "3": "Pre-launch",
+  "4": "Launch",
+  "5": "Post-launch"
+ },
+ "agentCanPass": [
+  "code"
+ ],
+ "recheckMonths": {
+  "legal": 6,
+  "market": 6,
+  "business": 12,
+  "code": 0
+ },
+ "cadenceDays": {
+  "weekly": 7,
+  "monthly": 31,
+  "quarterly": 92,
+  "annual": 366,
+  "every-3-years": 1096
+ },
+ "openItems": [
+  {
+   "id": "OI-SB690",
+   "item": "California SB 690 signed or not",
+   "why": "Ends pen-register suits over trackers from Jan 1, 2027; wiretap claims survive either way, so the plan doesn't change.",
+   "resolveWith": "Governor's bill status page",
+   "blocks": [
+    "L-NO-PIXELS"
+   ]
+  },
+  {
+   "id": "OI-NC-S757",
+   "item": "NC privacy bill S 757",
+   "why": "Filed March 2025 with a $25M revenue floor; no sign it passed.",
+   "resolveWith": "ncleg.gov"
+  },
+  {
+   "id": "OI-VA-HB900",
+   "item": "Virginia digital-goods tax HB 900",
+   "why": "Would tax digital products from Jan 1, 2027; final status unknown.",
+   "resolveWith": "Virginia Tax or a CPA"
+  },
+  {
+   "id": "OI-NC-PRINT-TAX",
+   "item": "NC sales tax on custom printing and delivery",
+   "why": "No primary source; two NCDOR matrices conflict.",
+   "resolveWith": "CPA",
+   "blocks": [
+    "ST-TAX-CPA"
+   ]
+  },
+  {
+   "id": "OI-SAFEGUARDS",
+   "item": "Budgeting app under the FTC Safeguards Rule",
+   "why": "Unresolved for apps that pull bank data through an aggregator.",
+   "resolveWith": "Counsel",
+   "blocks": [
+    "IO-SAFEGUARDS"
+   ]
+  },
+  {
+   "id": "OI-EMPLOYER-IP",
+   "item": "Employer IP and moonlighting",
+   "why": "NC G.S. 66-57.1 doesn't protect inventions related to the employer's business; the employment agreement controls.",
+   "resolveWith": "Employment lawyer",
+   "blocks": [
+    "F-EMPLOYER-IP"
+   ]
+  },
+  {
+   "id": "OI-XPLOR-ORIGIN",
+   "item": "Origin of the Xplor code",
+   "why": "Built around a prior employer's work, per your notes.",
+   "resolveWith": "Lawyer, in writing",
+   "blocks": [
+    "S-XPLOR-IP-ORIGIN"
+   ]
+  },
+  {
+   "id": "OI-PLATFORM-TERMS",
+   "item": "Chrome Web Store, Copilot Studio and startup-program terms",
+   "why": "Not researched.",
+   "resolveWith": "Read before building to them",
+   "blocks": [
+    "L-CWS-POLICY"
+   ]
+  }
+ ],
+ "items": [
+  {
+   "id": "F-MFA",
+   "title": "MFA on every account",
+   "claim": "Passkeys or TOTP on GitHub, npm, hosting, DNS/registrar, Cloudflare, payment, email and admin accounts; registrar lock and auto-renew.",
+   "domain": "code",
+   "gate": 0,
+   "tier": "P0",
+   "types": "all",
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    },
+    {
+     "title": "NIST SP 800-63B-4",
+     "url": "https://pages.nist.gov/800-63-4/sp800-63b/authenticators/",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "F-SPEND-CAPS",
+   "title": "Spend caps on cloud and AI providers",
+   "claim": "Each app has its own provider project or workspace with a hard cap, plus alerts.",
+   "domain": "code",
+   "gate": 0,
+   "tier": "P0",
+   "types": "all",
+   "when": [
+    "ai"
+   ],
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    },
+    {
+     "title": "Anthropic spend limits",
+     "url": "https://platform.claude.com/docs/en/api/rate-limits",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "F-ROTATION-LIST",
+   "title": "Credential rotation list",
+   "claim": "Every token, where it lives and how to revoke it — the first thing needed after a poisoned install or a leak.",
+   "domain": "code",
+   "gate": 0,
+   "tier": "P0",
+   "types": "all",
+   "proof": "evidence",
+   "check": "rotation-list",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    },
+    {
+     "title": "Mini Shai-Hulud npm attack (Sonatype)",
+     "url": "https://www.sonatype.com/blog/mini-shai-hulud-npm-attack-more-than-2200-components-impacted",
+     "quality": "vendor"
+    }
+   ]
+  },
+  {
+   "id": "F-EMPLOYER-IP",
+   "title": "Employment agreement reviewed",
+   "claim": "An employment lawyer has read the assignment, outside-activity and choice-of-law clauses before an AI-tooling venture launches. NC G.S. 66-57.1's exception for work related to the employer's business is the one that bites.",
+   "domain": "legal",
+   "gate": 0,
+   "tier": "P0",
+   "types": [
+    "product",
+    "extension"
+   ],
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    },
+    {
+     "title": "N.C.G.S. 66-57.1 employee inventions",
+     "url": "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_66/GS_66-57.1.html",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "S-DATA-MAP",
+   "title": "Data class and data map written",
+   "claim": "Exactly what data the product can read or collect, where it is stored and for how long. It drives the privacy policy and every security answer.",
+   "domain": "legal",
+   "gate": 1,
+   "tier": "P0",
+   "types": "all",
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    },
+    {
+     "title": "FTC — Protecting Personal Information",
+     "url": "https://www.ftc.gov/business-guidance/resources/protecting-personal-information-guide-business",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "S-XPLOR-IP-ORIGIN",
+   "title": "IP ownership of the origin confirmed in writing",
+   "claim": "Ownership of the code's origin (built around prior-employer work, per your notes) is confirmed in writing, ideally lawyer-reviewed, before distributing to anyone.",
+   "domain": "legal",
+   "gate": 1,
+   "tier": "P0",
+   "types": [
+    "extension"
+   ],
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "S-NAME-CLEAR",
+   "title": "Name and trademark cleared",
+   "claim": "A USPTO search for the product name; the owning LLC is decided.",
+   "domain": "legal",
+   "gate": 1,
+   "tier": "P1",
+   "types": [
+    "product",
+    "extension",
+    "store"
+   ],
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "C1-ROUTE-AUTHZ",
+   "title": "Authorization in every route handler",
+   "claim": "Every API route handler checks who is calling, inside the handler. Middleware does not cover /api, and CVE-2025-29927 showed middleware can be skipped entirely. This class hit four of your codebases.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": [
+    "product",
+    "extension",
+    "store",
+    "client-site",
+    "invite-only"
+   ],
+   "proof": "automated",
+   "check": "route-authz",
+   "sources": [
+    {
+     "title": "Cross-project vulnerability ledger (planner doc d5d16180)",
+     "url": "planner:document/d5d16180-93a7-44bf-a80e-fd4f87801a52",
+     "quality": "internal"
+    },
+    {
+     "title": "OWASP Top 10 (2025)",
+     "url": "https://owasp.org/Top10/2025/0x00_2025-Introduction/",
+     "quality": "primary"
+    },
+    {
+     "title": "CVE-2025-29927 Next.js middleware bypass (Fastly)",
+     "url": "https://fastly.com/blog/cve-2025-29927-authorization-bypass-in-next-js",
+     "quality": "secondary"
+    }
+   ]
+  },
+  {
+   "id": "C2-FAIL-OPEN",
+   "title": "Auth fails closed",
+   "claim": "No auth or secret check sits in a try/catch that lets the request through on error.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": [
+    "product",
+    "extension",
+    "store",
+    "client-site",
+    "invite-only"
+   ],
+   "proof": "automated",
+   "check": "fail-open",
+   "sources": [
+    {
+     "title": "Cross-project vulnerability ledger (planner doc d5d16180)",
+     "url": "planner:document/d5d16180-93a7-44bf-a80e-fd4f87801a52",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "C3-SECRETS",
+   "title": "No secrets in the repo",
+   "claim": "No keys or tokens in source files, and env files are ignored by git. (A history scan, e.g. gitleaks, is attached as evidence separately.)",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": "all",
+   "proof": "automated",
+   "check": "secrets",
+   "sources": [
+    {
+     "title": "Cross-project vulnerability ledger (planner doc d5d16180)",
+     "url": "planner:document/d5d16180-93a7-44bf-a80e-fd4f87801a52",
+     "quality": "internal"
+    },
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "C4-SCRIPT-JSON",
+   "title": "No unescaped JSON inside <script>",
+   "claim": "JSON.stringify does not escape < > /, so author data inlined into a script tag can break out (the StackDive XSS, copied into five locations).",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": [
+    "product",
+    "extension",
+    "store",
+    "client-site",
+    "invite-only"
+   ],
+   "proof": "automated",
+   "check": "script-json",
+   "sources": [
+    {
+     "title": "Cross-project vulnerability ledger (planner doc d5d16180)",
+     "url": "planner:document/d5d16180-93a7-44bf-a80e-fd4f87801a52",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "C5-RATE-LIMITS",
+   "title": "Rate limits and quotas on costly endpoints",
+   "claim": "AI, email and anonymous endpoints are rate-limited per user or key; provider caps alone stop every user at once.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": [
+    "product",
+    "extension",
+    "store",
+    "client-site",
+    "invite-only"
+   ],
+   "proof": "automated",
+   "check": "rate-limits",
+   "sources": [
+    {
+     "title": "Cross-project vulnerability ledger (planner doc d5d16180)",
+     "url": "planner:document/d5d16180-93a7-44bf-a80e-fd4f87801a52",
+     "quality": "internal"
+    },
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    },
+    {
+     "title": "OWASP LLM Top 10 (2025)",
+     "url": "https://genai.owasp.org/llm-top-10/",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "C6-ERROR-LEAK",
+   "title": "Errors don't leak internals",
+   "claim": "Responses carry a generic error; detail goes to server logs (StackDive's /api/health leaked Neon host and role).",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": [
+    "product",
+    "extension",
+    "store",
+    "client-site",
+    "invite-only"
+   ],
+   "proof": "automated",
+   "check": "error-leak",
+   "sources": [
+    {
+     "title": "Cross-project vulnerability ledger (planner doc d5d16180)",
+     "url": "planner:document/d5d16180-93a7-44bf-a80e-fd4f87801a52",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "C7-HEADERS",
+   "title": "Security headers baseline",
+   "claim": "nosniff, strict-origin-when-cross-origin, a restrictive Permissions-Policy, HSTS (no preload yet) and a CSP with frame-ancestors; no 'unsafe-eval'.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": [
+    "product",
+    "extension",
+    "store",
+    "client-site",
+    "invite-only"
+   ],
+   "proof": "automated",
+   "check": "headers",
+   "sources": [
+    {
+     "title": "Cross-project vulnerability ledger (planner doc d5d16180)",
+     "url": "planner:document/d5d16180-93a7-44bf-a80e-fd4f87801a52",
+     "quality": "internal"
+    },
+    {
+     "title": "OWASP HTTP Headers Cheat Sheet",
+     "url": "https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html",
+     "quality": "primary"
+    },
+    {
+     "title": "hstspreload.org",
+     "url": "https://hstspreload.org/",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "C11-SSRF",
+   "title": "Server-side URL fetches are guarded",
+   "claim": "Any fetch of a caller-supplied URL blocks private and link-local ranges and validates redirects.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": [
+    "product",
+    "extension",
+    "store",
+    "client-site",
+    "invite-only"
+   ],
+   "proof": "automated",
+   "check": "ssrf",
+   "sources": [
+    {
+     "title": "Cross-project vulnerability ledger (planner doc d5d16180)",
+     "url": "planner:document/d5d16180-93a7-44bf-a80e-fd4f87801a52",
+     "quality": "internal"
+    },
+    {
+     "title": "MCP Security Best Practices",
+     "url": "https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices.md",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "C13-RLS",
+   "title": "Row-level security applied, not just written",
+   "claim": "RLS is enabled with policies on exposed tables, service-role keys stay server-side, and views use security_invoker.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": "all",
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "Cross-project vulnerability ledger (planner doc d5d16180)",
+     "url": "planner:document/d5d16180-93a7-44bf-a80e-fd4f87801a52",
+     "quality": "internal"
+    },
+    {
+     "title": "Supabase row-level security",
+     "url": "https://supabase.com/docs/guides/database/postgres/row-level-security",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "SUPPLY-CHAIN",
+   "title": "Dependency install policy",
+   "claim": "A committed lockfile, plus a release-age delay and an install-script allowlist (pnpm 11 defaults or npm 12) — the defence against poisoned packages.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": "all",
+   "proof": "automated",
+   "check": "supply-chain",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    },
+    {
+     "title": "Mini Shai-Hulud npm attack (Sonatype)",
+     "url": "https://www.sonatype.com/blog/mini-shai-hulud-npm-attack-more-than-2200-components-impacted",
+     "quality": "vendor"
+    },
+    {
+     "title": "pnpm dependency-resolution settings",
+     "url": "https://pnpm.io/settings/dependency-resolution",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "FRAMEWORK-PATCHED",
+   "title": "Next.js and React patched",
+   "claim": "Not on a version affected by CVE-2025-29927 or React2Shell. Confirm the latest patched versions at launch — the research found no 2026 advisories.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": [
+    "product",
+    "extension",
+    "store",
+    "client-site",
+    "invite-only"
+   ],
+   "proof": "automated",
+   "check": "framework-versions",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    },
+    {
+     "title": "CVE-2025-29927 Next.js middleware bypass (Fastly)",
+     "url": "https://fastly.com/blog/cve-2025-29927-authorization-bypass-in-next-js",
+     "quality": "secondary"
+    },
+    {
+     "title": "React2Shell CVE-2025-55182 (Invicti)",
+     "url": "https://invicti.com/blog/web-security/react2shell-critical-rce-in-react-rsc-next-js-cve-2025-55182-cve-2025-66478",
+     "quality": "vendor"
+    }
+   ]
+  },
+  {
+   "id": "BOT-CHALLENGE",
+   "title": "Bot challenge on sign-up, login and anonymous AI",
+   "claim": "Turnstile (free, unlimited) or similar on the endpoints bots abuse.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": [
+    "product",
+    "extension",
+    "store"
+   ],
+   "when": [
+    "accounts"
+   ],
+   "proof": "automated",
+   "check": "bot-challenge",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    },
+    {
+     "title": "Cloudflare Turnstile plans",
+     "url": "https://developers.cloudflare.com/turnstile/plans/",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "MCP-SECURITY",
+   "title": "MCP server follows the security best practices",
+   "claim": "No token passthrough, per-client consent, exact redirect matching, minimal scopes, SSRF defences.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": [
+    "extension",
+    "product"
+   ],
+   "when": [
+    "mcp"
+   ],
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "MCP Security Best Practices",
+     "url": "https://modelcontextprotocol.io/docs/2026-07-28/tutorials/security/security_best_practices.md",
+     "quality": "primary"
+    },
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "LLM-HOSTILE-CONTENT",
+   "title": "Page and document content is treated as hostile",
+   "claim": "Anything the product reads can carry prompt injection: agents get the least tool access that works, and content never triggers a privileged action without a check.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": [
+    "extension",
+    "product"
+   ],
+   "when": [
+    "ai"
+   ],
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "OWASP LLM Top 10 (2025)",
+     "url": "https://genai.owasp.org/llm-top-10/",
+     "quality": "primary"
+    },
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "EXT-PERMISSIONS",
+   "title": "Extension permissions are minimal and disclosed",
+   "claim": "Every permission in the manifest is named in the privacy policy, and none is requested without a use (your Farxplor policy↔manifest contract, generalised).",
+   "domain": "legal",
+   "gate": 2,
+   "tier": "P0",
+   "types": [
+    "extension"
+   ],
+   "when": [
+    "browser-extension"
+   ],
+   "proof": "automated",
+   "check": "extension-permissions",
+   "sources": [
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    },
+    {
+     "title": "FTC — privacy and security",
+     "url": "https://www.ftc.gov/business-guidance/privacy-security",
+     "quality": "primary"
+    }
+   ],
+   "practice": true
+  },
+  {
+   "id": "L-PRIVACY-POLICY",
+   "title": "Privacy policy published",
+   "claim": "A privacy policy page exists and is linked.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P0",
+   "types": "all",
+   "proof": "automated",
+   "check": "privacy-page",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    },
+    {
+     "title": "FTC — privacy and security",
+     "url": "https://www.ftc.gov/business-guidance/privacy-security",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "L-TERMS",
+   "title": "Terms of service published",
+   "claim": "A terms page exists for public products.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P0",
+   "types": [
+    "product",
+    "extension",
+    "store"
+   ],
+   "proof": "automated",
+   "check": "terms-page",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "L-POLICY-MATCHES",
+   "title": "The policy matches what the product does",
+   "claim": "The FTC holds you to every privacy promise, express or implied. Every processor the code sends data to is named; nothing is promised that isn't built.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P0",
+   "types": "all",
+   "proof": "automated",
+   "check": "processors-disclosed",
+   "sources": [
+    {
+     "title": "FTC — privacy and security",
+     "url": "https://www.ftc.gov/business-guidance/privacy-security",
+     "quality": "primary"
+    },
+    {
+     "title": "FTC — Protecting Personal Information",
+     "url": "https://www.ftc.gov/business-guidance/resources/protecting-personal-information-guide-business",
+     "quality": "primary"
+    },
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "L-NO-SECURITY-CLAIMS",
+   "title": "No unqualified security or sharing claims",
+   "claim": "No \"bank-level security\", \"military-grade\" or \"we never share data\" — the classic FTC deception pattern (the report's inference).",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P0",
+   "types": "all",
+   "proof": "automated",
+   "check": "security-claims",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    },
+    {
+     "title": "FTC — privacy and security",
+     "url": "https://www.ftc.gov/business-guidance/privacy-security",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "L-AGE",
+   "title": "Age statement, and no knowing collection from under-13s",
+   "claim": "The terms or policy state an age floor (13+ or 18+). Gemini-backed apps must be 18+. COPPA applies with actual knowledge of under-13 users.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P0",
+   "types": "all",
+   "proof": "automated",
+   "check": "age-statement",
+   "sources": [
+    {
+     "title": "FTC COPPA FAQ",
+     "url": "https://www.ftc.gov/business-guidance/resources/complying-coppa-frequently-asked-questions",
+     "quality": "primary"
+    },
+    {
+     "title": "Gemini API terms",
+     "url": "https://ai.google.dev/gemini-api/terms",
+     "quality": "primary"
+    },
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "L-AI-DISCLOSURE",
+   "title": "AI is disclosed to users",
+   "claim": "A persistent \"AI assistant\" label; Anthropic's usage policy requires consumer-facing chatbots to disclose AI at the start of each session.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P0",
+   "types": "all",
+   "when": [
+    "ai"
+   ],
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "Anthropic Usage Policy",
+     "url": "https://www.anthropic.com/legal/aup",
+     "quality": "primary"
+    },
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "L-AI-VERIFY-OUTPUTS",
+   "title": "Users told to verify AI output",
+   "claim": "Anthropic's commercial terms require telling users to verify factual outputs.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P1",
+   "types": "all",
+   "when": [
+    "ai"
+   ],
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "Anthropic Commercial Terms",
+     "url": "https://www.anthropic.com/legal/commercial-terms",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "L-NO-PIXELS",
+   "title": "No ad pixels or session replay",
+   "claim": "Third-party ad pixels, chat widgets and session replay are where small sites get sued (California wiretap claims survive SB 690). First-party analytics only, or load after consent and disclose.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P0",
+   "types": [
+    "product",
+    "extension",
+    "store",
+    "client-site"
+   ],
+   "proof": "automated",
+   "check": "trackers",
+   "sources": [
+    {
+     "title": "SB 690 and CIPA tracking claims (Sidley)",
+     "url": "https://www.sidley.com/en/insights/newsupdates/2026/09/californias-sb-690-clears-the-legislature-what-it-means-for-cipa-website-tracking-claims",
+     "quality": "secondary"
+    },
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "L-GPC",
+   "title": "Global Privacy Control honoured",
+   "claim": "Cheap to honour, and California treats it as a valid opt-out for covered businesses.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P1",
+   "types": [
+    "product",
+    "extension",
+    "store"
+   ],
+   "proof": "automated",
+   "check": "gpc",
+   "sources": [
+    {
+     "title": "California AG — CCPA (incl. GPC)",
+     "url": "https://oag.ca.gov/privacy/ccpa",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "L-DELETION",
+   "title": "Account deletion exists if it is promised",
+   "claim": "If the policy promises deletion (StackDive's does), a deletion route exists — even an email address. An unkept promise is deception.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P1",
+   "types": "all",
+   "when": [
+    "accounts"
+   ],
+   "proof": "automated",
+   "check": "deletion-route",
+   "sources": [
+    {
+     "title": "FTC — privacy and security",
+     "url": "https://www.ftc.gov/business-guidance/privacy-security",
+     "quality": "primary"
+    }
+   ],
+   "practice": true
+  },
+  {
+   "id": "L-CAN-SPAM",
+   "title": "Marketing email: postal address and one-click unsubscribe",
+   "claim": "CAN-SPAM covers all commercial email, B2B included; opt-outs honoured within 10 business days.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P0",
+   "types": "all",
+   "when": [
+    "email"
+   ],
+   "proof": "automated",
+   "check": "can-spam",
+   "sources": [
+    {
+     "title": "FTC CAN-SPAM compliance guide",
+     "url": "https://www.ftc.gov/business-guidance/resources/can-spam-act-compliance-guide-business",
+     "quality": "primary"
+    },
+    {
+     "title": "Google email sender requirements",
+     "url": "https://support.google.com/a/answer/14229414",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "L-BREACH-PLAN",
+   "title": "Breach plan with a 30-day clock",
+   "claim": "Obligations follow residents, not you: California's 30 calendar days is the working clock; NC also requires notice to the AG.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P0",
+   "types": "all",
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "California 30-day breach notice, SB 446 (Hunton)",
+     "url": "https://www.hunton.com/privacy-and-cybersecurity-law-blog/california-updates-data-breach-notification-timeline-requirements",
+     "quality": "secondary"
+    },
+    {
+     "title": "N.C.G.S. 75-65 breach notification",
+     "url": "https://ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_75/GS_75-65.html",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "L-CWS-POLICY",
+   "title": "Chrome Web Store policies read and met",
+   "claim": "Store developer policies were not covered by the research — read them before submitting.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P0",
+   "types": [
+    "extension"
+   ],
+   "when": [
+    "browser-extension"
+   ],
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "O-EMAIL-AUTH",
+   "title": "SPF, DKIM and DMARC",
+   "claim": "Required by Gmail, Yahoo and Microsoft for bulk senders; start DMARC at p=none with reports.",
+   "domain": "code",
+   "gate": 3,
+   "tier": "P0",
+   "types": "all",
+   "when": [
+    "email"
+   ],
+   "proof": "automated",
+   "check": "email-dns",
+   "sources": [
+    {
+     "title": "Google email sender requirements",
+     "url": "https://support.google.com/a/answer/14229414",
+     "quality": "primary"
+    },
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "O-BACKUP-RESTORE",
+   "title": "Offsite backup and one restore test",
+   "claim": "Database backups don't include stored files; a nightly dump plus files copied separately, and one timed restore.",
+   "domain": "code",
+   "gate": 3,
+   "tier": "P0",
+   "types": "all",
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "Supabase backups",
+     "url": "https://supabase.com/docs/guides/platform/backups.md",
+     "quality": "primary"
+    },
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "O-MONITORING",
+   "title": "Error tracking and uptime checks",
+   "claim": "Free tiers cover a solo operator (Sentry, UptimeRobot, Better Stack).",
+   "domain": "code",
+   "gate": 3,
+   "tier": "P0",
+   "types": "all",
+   "proof": "automated",
+   "check": "monitoring",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "O-IR-RUNBOOK",
+   "title": "One-page incident runbook",
+   "claim": "Kill switch, credential rotation list, restore steps, who decides on notification.",
+   "domain": "code",
+   "gate": 3,
+   "tier": "P0",
+   "types": "all",
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "NIST SP 800-61 Rev. 3",
+     "url": "https://csrc.nist.gov/pubs/sp/800/61/r3/final",
+     "quality": "primary"
+    },
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "O-SECURITY-TXT",
+   "title": "security.txt with Contact and an unexpired Expires",
+   "claim": "RFC 9116 needs only Contact and Expires — and an expired file is worse than none.",
+   "domain": "code",
+   "gate": 3,
+   "tier": "P0",
+   "types": [
+    "product",
+    "extension",
+    "store",
+    "client-site"
+   ],
+   "proof": "automated",
+   "check": "security-txt",
+   "sources": [
+    {
+     "title": "RFC 9116 security.txt",
+     "url": "https://www.rfc-editor.org/rfc/rfc9116",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "A-WCAG22",
+   "title": "WCAG 2.2 AA on key flows",
+   "claim": "Including focus-not-obscured and 24×24 px targets; overlays are no shield. Automated hints are attached; a real audit is the evidence.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P1",
+   "types": "all",
+   "proof": "automated",
+   "check": "a11y-hints",
+   "sources": [
+    {
+     "title": "W3C — What's new in WCAG 2.2",
+     "url": "https://www.w3.org/WAI/standards-guidelines/wcag/new-in-22/",
+     "quality": "primary"
+    },
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "O-SCANS",
+   "title": "ZAP baseline and Observatory header check",
+   "claim": "Both are passive and safe against production.",
+   "domain": "code",
+   "gate": 3,
+   "tier": "P1",
+   "types": [
+    "product",
+    "extension",
+    "store",
+    "client-site"
+   ],
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "ZAP baseline scan",
+     "url": "https://www.zaproxy.org/docs/docker/baseline-scan/",
+     "quality": "primary"
+    },
+    {
+     "title": "Mozilla Observatory",
+     "url": "https://developer.mozilla.org/en-US/observatory",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "P-HOSTED-CHECKOUT",
+   "title": "Hosted checkout (PCI SAQ A)",
+   "claim": "Stripe Checkout or Elements, webhook signatures verified, no analytics or tag scripts on payment pages.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": [
+    "store",
+    "product"
+   ],
+   "when": [
+    "payments"
+   ],
+   "proof": "automated",
+   "check": "payments",
+   "sources": [
+    {
+     "title": "Stripe PCI guide",
+     "url": "https://stripe.com/guides/pci-compliance",
+     "quality": "vendor"
+    },
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "LAUNCH-SOFT",
+   "title": "Soft launch with a rollback plan",
+   "claim": "A small cohort first; errors and spend within limits before access widens.",
+   "domain": "business",
+   "gate": 4,
+   "tier": "P0",
+   "types": "all",
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ],
+   "practice": true
+  },
+  {
+   "id": "LAUNCH-GATED-RELEASE",
+   "title": "Gated release: own accounts → named pilot → wider",
+   "claim": "Each step has a rollback path.",
+   "domain": "business",
+   "gate": 4,
+   "tier": "P0",
+   "types": [
+    "extension"
+   ],
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "POST-ROUTINES",
+   "title": "Recurring routines scheduled",
+   "claim": "Weekly advisories and spend; monthly backups and DMARC reports; quarterly restore, access review, ZAP and WCAG retest.",
+   "domain": "code",
+   "gate": 5,
+   "tier": "P1",
+   "types": "all",
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "POST-ENTERPRISE-PACKET",
+   "title": "Enterprise security packet",
+   "claim": "Current architecture diagram, data flow, subprocessors and incident process, ready for security reviewers.",
+   "domain": "business",
+   "gate": 5,
+   "tier": "P1",
+   "types": [
+    "extension",
+    "product"
+   ],
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ],
+   "practice": true
+  },
+  {
+   "id": "POST-HSTS-PRELOAD",
+   "title": "HSTS preload, last",
+   "claim": "Removal takes months, so preload comes after everything else is stable.",
+   "domain": "code",
+   "gate": 5,
+   "tier": "P2",
+   "types": [
+    "product",
+    "extension",
+    "store",
+    "client-site",
+    "invite-only"
+   ],
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "hstspreload.org",
+     "url": "https://hstspreload.org/",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "CSRF",
+   "title": "CSRF defence on state-changing requests",
+   "claim": "SameSite cookies layered with an Origin or Fetch-Metadata check on POST/PUT/PATCH/DELETE. XSS defeats every CSRF defence, so this sits on top of output escaping, not instead of it.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": "all",
+   "when": [
+    "accounts"
+   ],
+   "proof": "automated",
+   "check": "csrf",
+   "sources": [
+    {
+     "title": "OWASP CSRF Prevention",
+     "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "UPLOADS",
+   "title": "File uploads are constrained",
+   "claim": "Extension allowlist, server-generated filenames, private storage, size limits, and authentication before upload.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": "all",
+   "when": [
+    "uploads"
+   ],
+   "proof": "automated",
+   "check": "uploads",
+   "sources": [
+    {
+     "title": "OWASP File Upload",
+     "url": "https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "CSP-STRATEGY",
+   "title": "CSP chosen deliberately",
+   "claim": "Nonce-based CSP forces dynamic rendering and loses CDN caching; authenticated apps and stores choose nonce or SRI on purpose, static marketing sites can take a simpler policy.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P1",
+   "types": [
+    "product",
+    "extension",
+    "store",
+    "client-site"
+   ],
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "Next.js CSP guide",
+     "url": "https://nextjs.org/docs/app/guides/content-security-policy",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "VPS-DOCKER",
+   "title": "VPS: Docker ports, sockets and users",
+   "claim": "Published Docker ports bypass UFW — bind internal services to 127.0.0.1 or a private network, never mount the Docker socket, run as non-root with no-new-privileges, and turn on unattended security upgrades.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": "all",
+   "when": [
+    "vps"
+   ],
+   "proof": "automated",
+   "check": "docker",
+   "sources": [
+    {
+     "title": "OWASP Docker Security Cheat Sheet",
+     "url": "https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html",
+     "quality": "primary"
+    },
+    {
+     "title": "Ubuntu automatic security updates",
+     "url": "https://documentation.ubuntu.com/server/how-to/software/automatic-updates/",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "STAGING-SEPARATE",
+   "title": "Staging exists, with separate keys, and is noindexed",
+   "claim": "A staging environment with its own secrets and data, marked noindex, so tests never touch production.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": "all",
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ],
+   "practice": true
+  },
+  {
+   "id": "AUTHZ-TESTS",
+   "title": "Object-level access tested as a second user",
+   "claim": "Sign in as a second user and try to read or change the first user's records by ID. Broken Access Control is OWASP's #1.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": "all",
+   "when": [
+    "accounts"
+   ],
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "OWASP Top 10 (2025)",
+     "url": "https://owasp.org/Top10/2025/0x00_2025-Introduction/",
+     "quality": "primary"
+    },
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "AI-ACCOUNT-CAPS",
+   "title": "Per-user AI quotas in the app",
+   "claim": "Provider caps stop every user at once; each user also gets a daily allowance in the app.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": "all",
+   "when": [
+    "ai"
+   ],
+   "proof": "automated",
+   "check": "rate-limits",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    },
+    {
+     "title": "Anthropic spend limits",
+     "url": "https://platform.claude.com/docs/en/api/rate-limits",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "DNS-CAA",
+   "title": "CAA records, DNSSEC and no dangling records",
+   "claim": "CAA limits who can issue certificates; remove DNS records before deleting the hosting they point at (subdomain takeover); keep a domain and subdomain inventory.",
+   "domain": "code",
+   "gate": 3,
+   "tier": "P1",
+   "types": [
+    "product",
+    "extension",
+    "store",
+    "client-site"
+   ],
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "Cloudflare — CAA records",
+     "url": "https://www.cloudflare.com/learning/dns/dns-records/dns-caa-record/",
+     "quality": "primary"
+    },
+    {
+     "title": "MDN — Subdomain takeover",
+     "url": "https://developer.mozilla.org/en-US/docs/Web/Security/Attacks/Subdomain_takeover",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "L-CALOPPA",
+   "title": "CalOPPA privacy-policy contents",
+   "claim": "California requires a conspicuously posted policy that lists the categories collected, third parties shared with, how users review or change data, how Do Not Track is handled, and an effective date.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P0",
+   "types": "all",
+   "proof": "automated",
+   "check": "caloppa",
+   "sources": [
+    {
+     "title": "CalOPPA, Bus. & Prof. Code §22575",
+     "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=BPC&sectionNum=22575",
+     "quality": "primary"
+    }
+   ],
+   "beyondResearch": true
+  },
+  {
+   "id": "L-CA-AUTO-RENEWAL",
+   "title": "Subscriptions: California auto-renewal disclosures and online cancel",
+   "claim": "Clear renewal terms before purchase, affirmative consent, an acknowledgement, and online cancellation (California ARL); Virginia's law also requires cancelling to be as easy as signing up.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P0",
+   "types": [
+    "product",
+    "extension",
+    "store"
+   ],
+   "when": [
+    "subscriptions"
+   ],
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "California Automatic Renewal Law, Bus. & Prof. Code §17600 et seq.",
+     "url": "https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?lawCode=BPC&division=7.&title=&part=3.&chapter=1.&article=9.",
+     "quality": "primary"
+    },
+    {
+     "title": "Virginia automatic-renewal law (GT Law)",
+     "url": "https://www.gtlaw.com/en/insights/2026/5/virginia-enacts-automatic-renewal-consumer-protection-law",
+     "quality": "secondary"
+    }
+   ],
+   "beyondResearch": true
+  },
+  {
+   "id": "L-DARK-PATTERNS",
+   "title": "No dark patterns",
+   "claim": "No fake scarcity, drip pricing, buried privacy toggles or hard cancellation — a live FTC enforcement theme.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P1",
+   "types": "all",
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    },
+    {
+     "title": "FTC — privacy and security",
+     "url": "https://www.ftc.gov/business-guidance/privacy-security",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "L-AI-NO-COMPANION",
+   "title": "No companion personas; human review on consequential decisions",
+   "claim": "California SB 243 regulates companion chatbots with a private right of action; OpenAI and Anthropic policies bar automated consequential decisions without human oversight.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P1",
+   "types": "all",
+   "when": [
+    "ai"
+   ],
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "California SB 243 companion chatbots (Jones Walker)",
+     "url": "https://www.joneswalker.com/en/insights/blogs/ai-law-blog/ai-regulatory-update-californias-sb-243-mandates-companion-ai-safety-and-accoun.html",
+     "quality": "secondary"
+    },
+    {
+     "title": "OpenAI usage policies",
+     "url": "https://openai.com/policies/usage-policies/",
+     "quality": "primary"
+    },
+    {
+     "title": "Anthropic Usage Policy",
+     "url": "https://www.anthropic.com/legal/aup",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "L-AI-OWNERSHIP",
+   "title": "No warranty of exclusive ownership of AI-generated work",
+   "claim": "The human-authorship requirement stands (Thaler cert denied, March 2026); terms and contracts must not promise exclusive ownership of mostly AI-generated output.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P1",
+   "types": [
+    "product",
+    "client-site"
+   ],
+   "when": [
+    "ai"
+   ],
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "Thaler cert denied — human authorship (Mayer Brown)",
+     "url": "https://www.mayerbrown.com/ja/insights/publications/2026/03/supreme-court-denies-review-in-ai-authorship-case",
+     "quality": "secondary"
+    }
+   ]
+  },
+  {
+   "id": "L-EU-SCOPE",
+   "title": "EU scope avoided by policy (or handled)",
+   "claim": "GDPR reaches services offered to people in the EU. If the EU isn't a market: USD pricing, English only, no EU marketing — and say so.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P2",
+   "types": "all",
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "GDPR Article 3 (territorial scope)",
+     "url": "https://gdpr-info.eu/art-3-gdpr/",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "L-SMS-OUT",
+   "title": "SMS out of scope until counsel or a compliant vendor",
+   "claim": "Texting needs prior express written consent, with $500–$1,500 statutory damages per message.",
+   "domain": "legal",
+   "gate": 1,
+   "tier": "P0",
+   "types": "all",
+   "when": [
+    "sms"
+   ],
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "TCPA consent status (ComplianceHub)",
+     "url": "https://compliancehub.wiki/tcpa-2026-consent-revocation-one-to-one-rule-vacated-compliance/",
+     "quality": "secondary"
+    }
+   ]
+  },
+  {
+   "id": "L-A11Y-STATEMENT",
+   "title": "Dated accessibility statement with a feedback contact",
+   "claim": "Pair the WCAG 2.2 AA work with a public, dated statement; overlays are no shield (FTC accessiBe order).",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P1",
+   "types": [
+    "product",
+    "extension",
+    "store",
+    "client-site"
+   ],
+   "proof": "automated",
+   "check": "a11y-statement",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    }
+   ],
+   "practice": true
+  },
+  {
+   "id": "PERF-CWV",
+   "title": "Core Web Vitals in the good range",
+   "claim": "LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1 at the 75th percentile.",
+   "domain": "code",
+   "gate": 3,
+   "tier": "P2",
+   "types": [
+    "product",
+    "store",
+    "client-site"
+   ],
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "web.dev — Core Web Vitals",
+     "url": "https://web.dev/articles/vitals",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "IO-MINIMISE",
+   "title": "Data minimisation: no SSNs, no bank credentials",
+   "claim": "Never store Social Security numbers or bank credentials; link accounts only through a compliant aggregator.",
+   "domain": "code",
+   "gate": 1,
+   "tier": "P0",
+   "types": [
+    "invite-only",
+    "product"
+   ],
+   "when": [
+    "sensitive-data"
+   ],
+   "proof": "automated",
+   "check": "sensitive-fields",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "IO-ENCRYPT",
+   "title": "Personal data encrypted at rest",
+   "claim": "Virginia's and North Carolina's breach triggers involve unencrypted data — encryption shrinks exposure sharply.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": [
+    "invite-only",
+    "product"
+   ],
+   "when": [
+    "sensitive-data"
+   ],
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    },
+    {
+     "title": "N.C.G.S. 75-65 breach notification",
+     "url": "https://ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_75/GS_75-65.html",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "IO-CHILDREN",
+   "title": "Children: parental consent, or no personal information from under-13s",
+   "claim": "COPPA's amended rule has been mandatory since April 22, 2026, with written retention and security-program requirements; no household exemption was found.",
+   "domain": "legal",
+   "gate": 1,
+   "tier": "P0",
+   "types": "all",
+   "when": [
+    "minors"
+   ],
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "FTC COPPA FAQ",
+     "url": "https://www.ftc.gov/business-guidance/resources/complying-coppa-frequently-asked-questions",
+     "quality": "primary"
+    },
+    {
+     "title": "Amended COPPA rule in effect (Bass Berry)",
+     "url": "https://bassberry.com/news/amendments-to-the-coppa-rule-now-in-effect/",
+     "quality": "secondary"
+    }
+   ]
+  },
+  {
+   "id": "IO-SAFEGUARDS",
+   "title": "Counsel on the Safeguards Rule before adding financial features",
+   "claim": "Whether a budgeting app that pulls bank data through an aggregator is a 'financial institution' is unresolved — ask before opening it to others.",
+   "domain": "legal",
+   "gate": 1,
+   "tier": "P0",
+   "types": [
+    "invite-only",
+    "product"
+   ],
+   "when": [
+    "financial-data"
+   ],
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "IO-PRIVACY-NOTE",
+   "title": "Short plain-language privacy note",
+   "claim": "What is stored, who sees it, how to delete — and keep every promise.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P0",
+   "types": [
+    "invite-only"
+   ],
+   "proof": "automated",
+   "check": "privacy-page",
+   "sources": [
+    {
+     "title": "FTC — privacy and security",
+     "url": "https://www.ftc.gov/business-guidance/privacy-security",
+     "quality": "primary"
+    },
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "CS-MSA-SOW",
+   "title": "Signed MSA and SOW (lawyer-reviewed once)",
+   "claim": "IP transfers on payment, pre-existing components (the reference architecture) licensed not assigned, liability cap, client indemnity for supplied content, scope and revision limits, maintenance terms.",
+   "domain": "business",
+   "gate": 1,
+   "tier": "P0",
+   "types": [
+    "client-site"
+   ],
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    },
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "CS-DPA-OWNERSHIP",
+   "title": "DPA and ownership of domain, hosting and credentials decided",
+   "claim": "Data-processing terms when the site collects user data; the contract says who owns the domain, registrar, hosting and credentials.",
+   "domain": "business",
+   "gate": 1,
+   "tier": "P0",
+   "types": [
+    "client-site"
+   ],
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ],
+   "practice": true
+  },
+  {
+   "id": "CS-LICENSES",
+   "title": "License inventory: no AGPL/GPL in handed-over code",
+   "claim": "Handing over a built theme or app is distribution; list dependency, theme, font and image licenses.",
+   "domain": "legal",
+   "gate": 2,
+   "tier": "P0",
+   "types": [
+    "client-site"
+   ],
+   "proof": "automated",
+   "check": "copyleft",
+   "sources": [
+    {
+     "title": "AGPL and SaaS (Aber Law)",
+     "url": "https://www.aberlawfirm.com/agpl-and-what-every-saas-company-should-know-about-it/",
+     "quality": "secondary"
+    }
+   ]
+  },
+  {
+   "id": "CS-HANDOVER",
+   "title": "Handover: credentials, registrar lock, restore test, written acceptance",
+   "claim": "Transfer credentials and code, lock the registrar, prove a restore works, get acceptance in writing.",
+   "domain": "business",
+   "gate": 4,
+   "tier": "P0",
+   "types": [
+    "client-site"
+   ],
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "CS-PUBLIC-ENTITY",
+   "title": "Public-entity clients: DOJ Title II web rule",
+   "claim": "Government clients must meet WCAG under the Title II rule from 2027 or 2028 depending on size.",
+   "domain": "legal",
+   "gate": 1,
+   "tier": "P1",
+   "types": [
+    "client-site"
+   ],
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "DOJ Title II web rule deadlines (Plante Moran)",
+     "url": "https://plantemoran.com/explore-our-thinking/insight/2026/04/doj-extends-ada-title-ii-web-accessibility-compliance-deadlines",
+     "quality": "secondary"
+    }
+   ]
+  },
+  {
+   "id": "CS-INSURANCE",
+   "title": "E&O / cyber insurance quoted",
+   "claim": "Live quotes for general liability and tech E&O (cyber overlaps E&O — don't add them).",
+   "domain": "business",
+   "gate": 1,
+   "tier": "P1",
+   "types": [
+    "client-site",
+    "store"
+   ],
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "UGC-DMCA",
+   "title": "DMCA agent designated (sites hosting user content)",
+   "claim": "Register the agent and renew every three years.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P1",
+   "types": "all",
+   "when": [
+    "ugc"
+   ],
+   "proof": "evidence",
+   "cadence": "every-3-years",
+   "sources": [
+    {
+     "title": "DMCA agent designation (Kelley Drye)",
+     "url": "https://www.kelleydrye.com/viewpoints/client-advisories/u-s-copyright-office-announces-important-changes-to-dmca-agent-designation.md",
+     "quality": "secondary"
+    }
+   ]
+  },
+  {
+   "id": "ST-TAX-CPA",
+   "title": "CPA answer on NC sales tax for custom printing and shipping",
+   "claim": "No primary source covered NC taxability of custom printing or embroidery, and two NCDOR matrices disagree on delivery charges.",
+   "domain": "legal",
+   "gate": 1,
+   "tier": "P0",
+   "types": [
+    "store"
+   ],
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "ST-TAX-REGISTER",
+   "title": "Registered for NC sales tax before the first sale",
+   "claim": "4.75% state plus county, destination-based; VA and NC economic nexus at $100,000 for out-of-state buyers.",
+   "domain": "legal",
+   "gate": 1,
+   "tier": "P0",
+   "types": [
+    "store"
+   ],
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "NCDOR sales and use tax",
+     "url": "https://www.ncdor.gov/taxes-forms/sales-and-use-tax",
+     "quality": "primary"
+    },
+    {
+     "title": "Virginia Tax — remote sellers",
+     "url": "https://tax.virginia.gov/remote-sellers-marketplace-facilitators-economic-nexus",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "ST-LICENSES-ART",
+   "title": "Original art or written licenses only",
+   "claim": "Stripe prohibits unlicensed branded goods — one bad design can cost the whole account.",
+   "domain": "legal",
+   "gate": 1,
+   "tier": "P0",
+   "types": [
+    "store"
+   ],
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "Stripe restricted businesses",
+     "url": "https://stripe.com/legal/restricted-businesses",
+     "quality": "vendor"
+    }
+   ]
+  },
+  {
+   "id": "ST-TEXTILE-LABELS",
+   "title": "Textile Act labels kept or replaced",
+   "claim": "Keep supplier neck labels intact, or replace them with your name/RN and required content and keep records of removed labels for three years.",
+   "domain": "legal",
+   "gate": 2,
+   "tier": "P0",
+   "types": [
+    "store"
+   ],
+   "when": [
+    "physical-goods"
+   ],
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "FTC textile and wool labeling guide",
+     "url": "https://www.ftc.gov/business-guidance/resources/threading-your-way-through-labeling-requirements-under-textile-wool-acts",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "ST-ORIGIN",
+   "title": "Accurate origin claims",
+   "claim": "No unqualified \"Made in USA\" on imported blanks — \"Printed in USA on imported blank\".",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P0",
+   "types": [
+    "store"
+   ],
+   "proof": "automated",
+   "check": "made-in-usa",
+   "sources": [
+    {
+     "title": "FTC Made in USA standard",
+     "url": "https://www.ftc.gov/business-guidance/resources/complying-made-usa-standard",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "ST-SHIPPING-POLICY",
+   "title": "Shipping, lead times, delays, refunds published",
+   "claim": "With no stated time the Mail Order Rule default is 30 days; delays need a notice with a free cancel-and-refund option; refunds due within 7 working days.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P0",
+   "types": [
+    "store"
+   ],
+   "proof": "automated",
+   "check": "store-policies",
+   "sources": [
+    {
+     "title": "FTC Mail, Internet or Telephone Order Rule",
+     "url": "https://www.ftc.gov/business-guidance/resources/business-guide-ftcs-mail-internet-or-telephone-order-merchandise-rule",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "ST-REVIEWS",
+   "title": "No seeded or incentivised reviews",
+   "claim": "The FTC's fake-review rule has applied since October 21, 2024.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P0",
+   "types": [
+    "store",
+    "product"
+   ],
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "FTC consumer reviews rule Q&A",
+     "url": "https://www.ftc.gov/business-guidance/resources/consumer-reviews-testimonials-rule-questions-answers",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "ST-WEBHOOKS-TLS",
+   "title": "Stripe webhooks verified, TLS 1.2+",
+   "claim": "Verify every webhook signature; no third-party scripts on payment pages.",
+   "domain": "code",
+   "gate": 2,
+   "tier": "P0",
+   "types": [
+    "store",
+    "product"
+   ],
+   "when": [
+    "payments"
+   ],
+   "proof": "automated",
+   "check": "payments",
+   "sources": [
+    {
+     "title": "Stripe security guide",
+     "url": "https://docs.stripe.com/security/guide",
+     "quality": "vendor"
+    }
+   ]
+  },
+  {
+   "id": "ST-LIVE-ORDER",
+   "title": "One real low-value order end to end",
+   "claim": "Payment, tax charged, confirmation email, label check on the finished garment, refund.",
+   "domain": "business",
+   "gate": 4,
+   "tier": "P0",
+   "types": [
+    "store"
+   ],
+   "proof": "evidence",
+   "sources": [
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "ST-US-ONLY",
+   "title": "US-only shipping stated",
+   "claim": "Keeps EU consumer law and the European Accessibility Act out of scope.",
+   "domain": "legal",
+   "gate": 3,
+   "tier": "P1",
+   "types": [
+    "store"
+   ],
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "GDPR Article 3 (territorial scope)",
+     "url": "https://gdpr-info.eu/art-3-gdpr/",
+     "quality": "primary"
+    },
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "F-ENTITY",
+   "title": "LLC owns the product and its code; EIN; annual report calendar",
+   "claim": "Decide which LLC owns each product. Domestic LLCs no longer file BOI reports (FinCEN, final rule Aug 2026). VA $50/yr; NC $200/yr (secondary source).",
+   "domain": "business",
+   "gate": 0,
+   "tier": "P0",
+   "types": "all",
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "FinCEN BOI",
+     "url": "https://www.fincen.gov/boi",
+     "quality": "primary"
+    },
+    {
+     "title": "Virginia SCC annual registration fees",
+     "url": "https://scc.virginia.gov/pages/Annual-Registration-Fees",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "F-PAID-REVIEWS",
+   "title": "Targeted professional reviews booked where they pay",
+   "claim": "Lawyer once on the client contract set; employment lawyer on the job agreement and the Xplor origin; CPA on NC sales tax; counsel before financial data, children's data or SMS.",
+   "domain": "legal",
+   "gate": 0,
+   "tier": "P1",
+   "types": "all",
+   "proof": "signoff",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    },
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "R-ADVISORIES",
+   "title": "Weekly: security advisories and dependency updates",
+   "claim": "Exploitation is the top breach entry point (31% per DBIR 2026); patch framework CVEs fast.",
+   "domain": "code",
+   "gate": 5,
+   "tier": "P0",
+   "types": "all",
+   "proof": "automated",
+   "check": "framework-versions",
+   "cadence": "weekly",
+   "sources": [
+    {
+     "title": "Launch requirements report (2026-09-30)",
+     "url": "agent-com:web-project-launch-requirements.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "R-SPEND-ERRORS",
+   "title": "Weekly: errors, uptime, AI and cloud spend against caps",
+   "claim": "Check the error tracker, uptime monitor and spend.",
+   "domain": "code",
+   "gate": 5,
+   "tier": "P0",
+   "types": "all",
+   "proof": "evidence",
+   "cadence": "weekly",
+   "sources": [
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "R-DMARC",
+   "title": "Monthly: read DMARC reports; tighten none → quarantine → reject",
+   "claim": "Move the policy up only when reports are clean.",
+   "domain": "code",
+   "gate": 5,
+   "tier": "P1",
+   "types": "all",
+   "when": [
+    "email"
+   ],
+   "proof": "automated",
+   "check": "email-dns",
+   "cadence": "monthly",
+   "sources": [
+    {
+     "title": "Google — set up DMARC",
+     "url": "https://knowledge.workspace.google.com/admin/security/set-up-dmarc",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "R-BACKUPS",
+   "title": "Monthly: backups ran, files backed up separately",
+   "claim": "Database backups don't include stored files.",
+   "domain": "code",
+   "gate": 5,
+   "tier": "P0",
+   "types": "all",
+   "proof": "evidence",
+   "cadence": "monthly",
+   "sources": [
+    {
+     "title": "Supabase backups",
+     "url": "https://supabase.com/docs/guides/platform/backups.md",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "R-TAX-FILING",
+   "title": "Monthly: sales-tax filing and payout reconciliation; 1099-K tracking",
+   "claim": "Reconcile against payouts; the 1099-K threshold is $20,000 and 200 transactions, and income is taxable either way.",
+   "domain": "legal",
+   "gate": 5,
+   "tier": "P0",
+   "types": [
+    "store"
+   ],
+   "proof": "evidence",
+   "cadence": "monthly",
+   "sources": [
+    {
+     "title": "IRS — Form 1099-K threshold",
+     "url": "https://irs.gov/newsroom/irs-issues-faqs-on-form-1099-k-threshold-under-the-one-big-beautiful-bill-dollar-limit-reverts-to-20000",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "R-CHARGEBACKS",
+   "title": "Answer chargebacks inside the 7–21 day window",
+   "claim": "Disputes cost a non-refundable fee and have short deadlines.",
+   "domain": "business",
+   "gate": 5,
+   "tier": "P1",
+   "types": [
+    "store"
+   ],
+   "when": [
+    "payments"
+   ],
+   "proof": "evidence",
+   "cadence": "weekly",
+   "sources": [
+    {
+     "title": "Stripe — how disputes work",
+     "url": "https://docs.stripe.com/disputes/how-disputes-work",
+     "quality": "vendor"
+    }
+   ]
+  },
+  {
+   "id": "R-RESTORE",
+   "title": "Quarterly: restore a backup into scratch and time it",
+   "claim": "A backup you haven't restored is a hope.",
+   "domain": "code",
+   "gate": 5,
+   "tier": "P0",
+   "types": "all",
+   "proof": "evidence",
+   "cadence": "quarterly",
+   "sources": [
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ],
+   "practice": true
+  },
+  {
+   "id": "R-ACCESS-REVIEW",
+   "title": "Quarterly: access review and secret rotation",
+   "claim": "Remove people who left; rotate shared secrets and tokens from the rotation list.",
+   "domain": "code",
+   "gate": 5,
+   "tier": "P0",
+   "types": "all",
+   "proof": "evidence",
+   "cadence": "quarterly",
+   "sources": [
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ]
+  },
+  {
+   "id": "R-SCANS",
+   "title": "Quarterly: ZAP baseline, header check, WCAG retest",
+   "claim": "Passive scans are safe against production.",
+   "domain": "code",
+   "gate": 5,
+   "tier": "P1",
+   "types": [
+    "product",
+    "extension",
+    "store",
+    "client-site"
+   ],
+   "proof": "automated",
+   "check": "live-headers",
+   "cadence": "quarterly",
+   "sources": [
+    {
+     "title": "ZAP baseline scan",
+     "url": "https://www.zaproxy.org/docs/docker/baseline-scan/",
+     "quality": "primary"
+    },
+    {
+     "title": "Mozilla Observatory",
+     "url": "https://developer.mozilla.org/en-US/observatory",
+     "quality": "primary"
+    }
+   ]
+  },
+  {
+   "id": "R-ANNUAL",
+   "title": "Annual: LLC reports, insurance renewal, policies vs reality, security.txt Expires",
+   "claim": "Refresh the security.txt Expires date before it lapses — an expired file is worse than none.",
+   "domain": "business",
+   "gate": 5,
+   "tier": "P1",
+   "types": "all",
+   "proof": "automated",
+   "check": "security-txt",
+   "cadence": "annual",
+   "sources": [
+    {
+     "title": "RFC 9116 security.txt",
+     "url": "https://www.rfc-editor.org/rfc/rfc9116",
+     "quality": "primary"
+    },
+    {
+     "title": "Web project launch roadmap (2026-09-30)",
+     "url": "agent-com:web-project-launch-roadmap.md",
+     "quality": "internal"
+    }
+   ]
+  }
+ ]
+}
