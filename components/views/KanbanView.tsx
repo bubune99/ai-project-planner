@@ -469,6 +469,18 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
     [patchStep, statusMap, statuses]
   )
 
+  // Move to (the card's menu): moved at once, saved behind it, and the toast can put it back.
+  const handleMoveTo = useCallback(
+    (step: BoardStep, key: string) => {
+      const from = step.status
+      const label = statuses.find((s) => s.key === key)?.label ?? key
+      patchStep(step.id, { status: key })
+      toast.success(`Moved to ${label}`, { action: { label: "Undo", onClick: () => patchStep(step.id, { status: from }) } })
+    },
+    [patchStep, statuses]
+  )
+  const moveColumns = useMemo(() => statuses.map((s) => ({ key: s.key, label: s.label })), [statuses])
+
   // ---- filtering / grouping ----
 
   const visibleParents = useMemo(() => {
@@ -743,6 +755,8 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
                     onDelete={handleDelete}
                     onDuplicate={handleDuplicate}
                     onToggleComplete={handleToggleComplete}
+                    columns={moveColumns}
+                    onMoveTo={handleMoveTo}
                   />
                 )
               }}

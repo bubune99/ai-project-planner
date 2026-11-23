@@ -6,9 +6,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { CheckCircle2, Copy, Hash, Link2, Maximize2, MoreHorizontal, Pencil, Trash2, Undo2 } from "lucide-react"
+import { ArrowRight, CheckCircle2, Copy, Hash, Link2, Maximize2, MoreHorizontal, Pencil, Trash2, Undo2 } from "lucide-react"
 import { toast } from "sonner"
 import type { BoardStep } from "@/lib/types"
 
@@ -26,6 +29,12 @@ export interface CardMenuProps {
   onDelete: (step: BoardStep) => void
   onDuplicate: (step: BoardStep) => void
   onToggleComplete: (step: BoardStep) => void
+  /**
+   * The board's columns, so a card can be moved without dragging it (walk 2026-11-23, "Move a task to start work":
+   * the only ways were a drag, or opening the card). Left out, the menu has no Move to.
+   */
+  columns?: { key: string; label: string }[]
+  onMoveTo?: (step: BoardStep, key: string) => void
 }
 
 /**
@@ -45,6 +54,8 @@ export function CardMenu({
   onDelete,
   onDuplicate,
   onToggleComplete,
+  columns,
+  onMoveTo,
 }: CardMenuProps) {
   return (
     // data-kanban-no-drag: a pointerdown here must open the menu, not pick the
@@ -72,6 +83,18 @@ export function CardMenu({
           <DropdownMenuItem onClick={() => onEdit(step)}>
             <Pencil className="mr-1" /> Edit
           </DropdownMenuItem>
+          {columns && onMoveTo && columns.length > 1 && (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <ArrowRight className="mr-1" /> Move to
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-44">
+                {columns.filter((c) => c.key !== step.status).map((c) => (
+                  <DropdownMenuItem key={c.key} onClick={() => onMoveTo(step, c.key)}>{c.label}</DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => onDuplicate(step)}>
             <Copy className="mr-1" /> Duplicate
