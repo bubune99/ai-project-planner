@@ -37,6 +37,7 @@ import {
 } from "./kanban-config"
 import { StepActivityPanel, StepTimer } from "./StepActivityPanel"
 import { CardDescription, CardPath, CardPictures, CardProposal, CardQuestions, CardSteps } from "./CardStory"
+import { CardCode } from "./CardCode"
 
 interface TaskDetailModalProps {
   step: BoardStep | null
@@ -308,6 +309,7 @@ export function TaskDetailModal({
             <CardProposal metadata={step.metadata} />
 
             <CardPictures step={step} onSaveMetadata={(m) => patch({ metadata: m })} />
+            <CardCode step={step} onSaveMetadata={(m) => patch({ metadata: m })} />
 
             {/* Subtasks */}
             <CardSteps

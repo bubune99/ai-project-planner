@@ -19,6 +19,7 @@ import { registerFlowTools } from "./flow-tools"
 import { registerGateTools } from "./gate-tools"
 import { registerDirectionTools } from "./direction-tools"
 import { registerQueueTools } from "./queue-tools"
+import { cardReferences, registerCardRefTools } from "./card-ref-tools"
 import { registerBlockerTools } from "./blocker-tools"
 import { registerUpkeepTools } from "./upkeep-tools"
 import { registerWorkChannelTools } from "./work-channel-tools"
@@ -3778,7 +3779,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
 
     server.tool(
       "get_card",
-      "One card in full: title, description, column, kind, priority, holder, project, parent, its steps (subtasks) and its comments, oldest first. Use this to read a card before working it.",
+      "One card in full: title, description, column, kind, priority, holder, project, parent, its steps (subtasks), its comments (oldest first) and its references: pictures, code samples and code references (add them with add_task_reference). Use this to read a card before working it.",
       { cardId: z.string().describe("The card (step) id, or its first 8 or more characters as gates prints it") },
       async ({ cardId: given }) => {
         try {
@@ -3787,7 +3788,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           if (!key) return mcpError(`"${given}" is not a card id: give the full id or at least its first 8 characters`)
           const found = (await sql`
             SELECT s.id, s.title, s.description, s.status, s.priority, s.work_kind, s.claimed_by_id, s.tags, s.parent_task_id,
-                   s.progress, s.created_at, s.updated_at, p.id AS project_id, p.name AS project_name
+                   s.progress, s.created_at, s.updated_at, s.metadata, p.id AS project_id, p.name AS project_name
               FROM project_steps s JOIN projects p ON p.id = s.project_id AND p.deleted_at IS NULL
              WHERE s.id::text LIKE ${key + "%"} AND s.deleted_at IS NULL AND p.user_id = ${userId}
              LIMIT 2
@@ -3808,6 +3809,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             project: { id: c.project_id, name: c.project_name }, createdAt: c.created_at, updatedAt: c.updated_at,
             steps: steps.map((s) => ({ id: s.id, title: s.title, column: s.status })),
             comments: comments.map((m) => ({ by: m.author_label || "owner", at: m.created_at, body: m.body })),
+            references: cardReferences(c.metadata ?? null, c.description, process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || ""),
           })
         } catch (error: unknown) {
           return mcpError(error instanceof Error ? error.message : "Unknown error")
@@ -7265,6 +7267,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
   // Direction: how the owner wants each kind of decision made (lib/mcp/direction-tools.ts)
   registerDirectionTools(server)
   registerQueueTools(server)
+  // Pictures, code samples and code references a card carries (lib/mcp/card-ref-tools.ts)
+  registerCardRefTools(server)
   registerBlockerTools(server)
   registerUpkeepTools(server)
   registerWorkChannelTools(server)

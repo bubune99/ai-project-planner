@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react"
 import { ChevronLeft, ChevronRight, ImagePlus, Pencil, X } from "lucide-react"
 import { toast } from "sonner"
+import { askConfirm } from "@/lib/ui/ask"
 import type { BoardStep } from "@/lib/types"
 import { RichText } from "@/components/shared/RichText"
 import { addPicture, cardPictures, fileUrl, kindLabel, overall, proposalParts, removePicture, stepTree, withoutPictures, type Picture } from "@/lib/work/card-view"
@@ -256,7 +257,10 @@ export function CardPictures({ step, onSaveMetadata }: { step: BoardStep; onSave
               {p.caption && <figcaption className="mt-1 text-[12px] text-muted-foreground truncate">{p.caption}</figcaption>}
               {kept.has(p.url) && (
                 <button type="button" title="Remove this picture" aria-label="Remove this picture"
-                  onClick={() => onSaveMetadata(removePicture(step.metadata, p.url)).then(() => toast("Picture removed"))}
+                  onClick={async () => {
+                    if (!(await askConfirm({ title: "Remove this picture?", body: "It is taken off this card.", confirm: "Remove", danger: true }))) return
+                    await onSaveMetadata(removePicture(step.metadata, p.url)).then(() => toast("Picture removed"))
+                  }}
                   className="absolute right-1.5 top-1.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover/pic:opacity-100 focus:opacity-100">
                   <X className="w-4 h-4" />
                 </button>

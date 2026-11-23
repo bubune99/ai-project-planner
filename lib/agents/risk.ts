@@ -56,7 +56,7 @@ export const PLANNER_TOOL_RISK: Readonly<Record<string, PlannerToolMeta>> = {
   toggle_todo: WD, add_progress_note: WD,
 
   // ── live writes to plan data (become proposals in slice S3) ──
-  add_decision_node: W, add_idea_facet: W, add_task_comment: W, assign_task: W, compose_work_order: W,
+  add_decision_node: W, add_idea_facet: W, add_task_comment: W, add_task_reference: W, remove_task_reference: W, assign_task: W, compose_work_order: W,
   queue_claim: W, queue_done: W, raise_blocker: W, resolve_blocker: W, upkeep_stale_check: W, work_finished: W, work_request: W, work_reply: W, direction_propose: W, create_agent_job: W, create_decision: W, create_document: W, create_event: W, create_idea: W, create_project: W,
   create_source: W, create_task: W, propose_feature: W, create_todo: W, declare_dependency: W, entity_link: W,
   library_create_protocol: W, library_create_skill: W, library_create_template: W, mark_stale: W, promote_idea: W,
