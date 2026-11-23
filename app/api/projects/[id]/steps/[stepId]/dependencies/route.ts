@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db/client"
-import { getAuthContext, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
+import { getAuthContext, verifyProjectWriteAccess, verifyProjectOwnership } from "@/lib/auth/auth-utils"
 import { verifyCollaboratorAccess } from "@/lib/auth/collaboration-access"
 import { isUuid, notAnId } from "@/lib/api/ids"
 
@@ -34,7 +34,7 @@ export async function POST(
     }
     if (!isUuid(params.id)) return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 })
     if (!isUuid(params.stepId)) return NextResponse.json({ error: "Step not found", code: "NOT_FOUND" }, { status: 404 })
-    if (!(await verifyProjectWriteAccess(params.id, authContext.userId))) {
+    if (!(await verifyProjectOwnership(params.id, authContext.userId))) {
       return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 })
     }
     if (!(await verifyCollaboratorAccess(params.id, authContext.userId, "editor"))) {
@@ -81,7 +81,7 @@ export async function DELETE(
     }
     if (!isUuid(params.id)) return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 })
     if (!isUuid(params.stepId)) return NextResponse.json({ error: "Step not found", code: "NOT_FOUND" }, { status: 404 })
-    if (!(await verifyProjectWriteAccess(params.id, authContext.userId))) {
+    if (!(await verifyProjectOwnership(params.id, authContext.userId))) {
       return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 })
     }
     if (!(await verifyCollaboratorAccess(params.id, authContext.userId, "editor"))) {

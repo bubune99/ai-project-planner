@@ -51,7 +51,6 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     if (b?.action === "settle") {
       // A preference is the owner's to give. An agent, with a key or through the owner's tab, is refused.
       if (actor !== "owner") return NextResponse.json({ error: "Only the owner settles a finding, from their own session" }, { status: 403 })
-      if (!(await verifyProjectWriteAccess(projectId, auth.userId))) return NextResponse.json({ error: "Project not found" }, { status: 404 })
       const key = typeof b.key === "string" ? b.key.slice(0, 500) : "", call = b.call === "do" || b.call === "leave" ? b.call : b.call === null ? null : undefined
       if (!key || call === undefined) return NextResponse.json({ error: "Say which finding (key) and the call: do, leave, or null to take it back" }, { status: 400 })
       return NextResponse.json({ ok: true, ...(await settleFinding({ projectId, key, call })) })

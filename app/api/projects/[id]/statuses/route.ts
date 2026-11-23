@@ -54,7 +54,7 @@ export async function POST(
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { id: projectId } = await params;
     if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 });
-    if (!(await verifyProjectWriteAccess(projectId, auth.userId))) {
+    if (!(await verifyProjectOwnership(projectId, auth.userId))) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
     // Viewers are read-only: writes need owner/editor/admin.

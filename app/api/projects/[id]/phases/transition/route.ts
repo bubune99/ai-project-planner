@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db/client"
-import { getAuthContext, verifyProjectWriteAccess } from "@/lib/auth/auth-utils"
+import { getAuthContext, verifyProjectWriteAccess, verifyProjectOwnership } from "@/lib/auth/auth-utils"
 import { verifyCollaboratorAccess } from "@/lib/auth/collaboration-access"
 import { isUuid } from "@/lib/api/ids"
 
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
       return NextResponse.json({ error: "Unauthorized", code: "AUTH_REQUIRED" }, { status: 401 })
     }
     if (!isUuid(id)) return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 })
-    if (!(await verifyProjectWriteAccess(id, authContext.userId))) {
+    if (!(await verifyProjectOwnership(id, authContext.userId))) {
       return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 })
     }
     if (!(await verifyCollaboratorAccess(id, authContext.userId, "editor"))) {

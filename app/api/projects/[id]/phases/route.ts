@@ -57,7 +57,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
       return errorResponse(ErrorCodes.UNAUTHORIZED, 'Unauthorized', 401)
     }
     if (!isUuid(id)) return errorResponse(ErrorCodes.NOT_FOUND, 'Project not found', 404)
-    if (!(await verifyProjectWriteAccess(id, authContext.userId))) {
+    if (!(await verifyProjectOwnership(id, authContext.userId))) {
       return errorResponse(ErrorCodes.NOT_FOUND, 'Project not found', 404)
     }
     if (!(await verifyCollaboratorAccess(id, authContext.userId, "editor"))) {

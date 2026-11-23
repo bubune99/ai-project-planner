@@ -6,7 +6,7 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
-import { getAuthContext, verifyProjectWriteAccess } from "@/lib/auth/auth-utils";
+import { getAuthContext, verifyProjectWriteAccess, verifyProjectOwnership } from "@/lib/auth/auth-utils";
 import { isUuid } from "@/lib/api/ids";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export async function PATCH(
     const { id: projectId, statusId } = await params;
     if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 });
     if (!isUuid(statusId)) return NextResponse.json({ error: "Status not found" }, { status: 404 });
-    if (!(await verifyProjectWriteAccess(projectId, auth.userId))) {
+    if (!(await verifyProjectOwnership(projectId, auth.userId))) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
     // Viewers are read-only: writes need owner/editor/admin.
@@ -65,7 +65,7 @@ export async function DELETE(
     const { id: projectId, statusId } = await params;
     if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found" }, { status: 404 });
     if (!isUuid(statusId)) return NextResponse.json({ error: "Status not found" }, { status: 404 });
-    if (!(await verifyProjectWriteAccess(projectId, auth.userId))) {
+    if (!(await verifyProjectOwnership(projectId, auth.userId))) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
     // Viewers are read-only: writes need owner/editor/admin.
