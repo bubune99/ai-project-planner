@@ -79,8 +79,9 @@ export const OPEN_MENU_EVENT = "app:open-menu"
 export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: DashboardLayoutProps) {
   const { resolvedTheme, setTheme } = useTheme()
   const [themeReady, setThemeReady] = useState(false)
-  const [isMac, setIsMac] = useState(false)
-  useEffect(() => { setThemeReady(true); setIsMac(/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) }, [])
+  // No Mac hint: the owner does not use a Mac (report 879b5a6d, 2026-11-23: "I dot have or use a Mac"), and a guess at the
+  // platform showed one anyway. The shortcut itself still answers to Ctrl or Cmd with K.
+  useEffect(() => { setThemeReady(true) }, [])
   const [collapsed, setCollapsed] = useState(false)
   const [cmdOpen, setCmdOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -235,7 +236,7 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
             >
               <Icon name="search" size={14} />
               <span>Search…</span>
-              <span className="j-kbd">{isMac ? "⌘K" : "Ctrl K"}</span>
+              <span className="j-kbd">Ctrl K</span>
             </button>
             <button
               className="j-btn j-btn-icon j-btn-ghost j-search-mobile"
