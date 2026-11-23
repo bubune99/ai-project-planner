@@ -100,7 +100,7 @@ function AddCode({ busy, onAdd, onCancel }: { busy: boolean; onAdd: (title: stri
   const [title, setTitle] = useState("")
   const [code, setCode] = useState("")
   return (
-    <form className="mb-3 space-y-2 rounded-lg border border-border p-3" onSubmit={(e) => { e.preventDefault(); onAdd(title, code) }}
+    <form data-card-overlay className="mb-3 space-y-2 rounded-lg border border-border p-3" onSubmit={(e) => { e.preventDefault(); onAdd(title, code) }}
       onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onCancel() } }}>
       <label className="block text-[12px] text-muted-foreground">Title or file name
         <input className={`${field} mt-1`} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="mock-overlay.js" autoFocus />
@@ -120,7 +120,7 @@ function AddLink({ busy, onAdd, onCancel }: { busy: boolean; onAdd: (url: string
   const [url, setUrl] = useState("")
   const [label, setLabel] = useState("")
   return (
-    <form className="mb-3 space-y-2 rounded-lg border border-border p-3" onSubmit={(e) => { e.preventDefault(); onAdd(url, label) }}
+    <form data-card-overlay className="mb-3 space-y-2 rounded-lg border border-border p-3" onSubmit={(e) => { e.preventDefault(); onAdd(url, label) }}
       onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onCancel() } }}>
       <label className="block text-[12px] text-muted-foreground">GitHub link to the file (with #L12-L30 for lines)
         <input className={`${field} mt-1`} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://github.com/owner/repo/blob/main/path/file.tsx#L12-L30" autoFocus inputMode="url" />
