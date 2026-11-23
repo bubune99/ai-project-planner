@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react"
 import ReactMarkdown from "react-markdown"
+import { getJsonShared } from "@/lib/net/shared-get"
 import remarkGfm from "remark-gfm"
 
 /** GET a JSON endpoint; `data` is the parsed body or null. `reload` refetches. */
@@ -20,12 +21,8 @@ export function useJson<T = any>(url: string | null) {
     if (!url) return
     let cancelled = false
     setLoading(true)
-    fetch(url)
-      .then(async (r) => {
-        const j = await r.json().catch(() => null)
-        if (!r.ok) throw new Error(j?.error?.message || j?.error || `HTTP ${r.status}`)
-        return j
-      })
+    // Shared with any other part of the page reading the same address at the same moment; a reload reads afresh.
+    getJsonShared<T>(url, tick > 0)
       .then((j) => { if (!cancelled) { setData(j); setError(null) } })
       .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load") })
       .finally(() => { if (!cancelled) setLoading(false) })
