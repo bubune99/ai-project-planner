@@ -11,6 +11,7 @@
  * Pure move: the tool bodies are unchanged from the route.
  */
 
+import { plainToolError, cardIdPrefix } from "@/lib/mcp/plain-errors"
 import { startingColumn } from "@/lib/tasks/column"
 import { registerCatchupTools } from "./catchup-tools"
 import { registerUiTools } from "./ui-tools"
@@ -165,7 +166,7 @@ function mcpResponse(data: unknown) {
  */
 function mcpError(message: string) {
   return {
-    content: [{ type: "text" as const, text: compactJson({ error: message }) }],
+    content: [{ type: "text" as const, text: compactJson({ error: plainToolError(message) }) }],
     isError: true,
   }
 }
@@ -3778,17 +3779,23 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
     server.tool(
       "get_card",
       "One card in full: title, description, column, kind, priority, holder, project, parent, its steps (subtasks) and its comments, oldest first. Use this to read a card before working it.",
-      { cardId: z.string().describe("The card (step) id") },
-      async ({ cardId }) => {
+      { cardId: z.string().describe("The card (step) id, or its first 8 or more characters as gates prints it") },
+      async ({ cardId: given }) => {
         try {
           const userId = getMcpUserId()
-          const [c] = (await sql`
+          const key = cardIdPrefix(given)
+          if (!key) return mcpError(`"${given}" is not a card id: give the full id or at least its first 8 characters`)
+          const found = (await sql`
             SELECT s.id, s.title, s.description, s.status, s.priority, s.work_kind, s.claimed_by_id, s.tags, s.parent_task_id,
                    s.progress, s.created_at, s.updated_at, p.id AS project_id, p.name AS project_name
               FROM project_steps s JOIN projects p ON p.id = s.project_id AND p.deleted_at IS NULL
-             WHERE s.id = ${cardId} AND s.deleted_at IS NULL AND p.user_id = ${userId}
+             WHERE s.id::text LIKE ${key + "%"} AND s.deleted_at IS NULL AND p.user_id = ${userId}
+             LIMIT 2
           `) as any[]
+          if (found.length > 1) return mcpError(`More than one card starts with "${key}": give more of the id`)
+          const [c] = found
           if (!c) return mcpError("Card not found")
+          const cardId: string = c.id
           const steps = (await sql`
             SELECT id, title, status FROM project_steps WHERE parent_task_id = ${cardId} AND deleted_at IS NULL ORDER BY order_index, created_at
           `) as any[]
