@@ -241,8 +241,8 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
             <button
               className="j-btn j-btn-icon j-btn-ghost j-search-mobile"
               onClick={() => setCmdOpen(true)}
-              title="Search"
-              aria-label="Open search"
+              title="Search (Ctrl K)"
+              aria-label="Search the planner"
             >
               <Icon name="search" size={16} />
             </button>

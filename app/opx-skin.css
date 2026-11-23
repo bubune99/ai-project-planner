@@ -104,6 +104,10 @@ code, pre, kbd, samp, .font-mono { font-family: var(--font-inter), Inter, system
 .j-topbar-titles { min-width: 0; }
 .j-topbar-titles h1 { white-space: nowrap; }
 .j-topbar-titles p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The top bar's search is an icon at every width (owner report 6b12309e, 2026-11-23: "The search can just be an icon
+   because the page is covering the page name"). The finder still opens with Ctrl K, which the icon's tooltip says. */
+.j-topbar-right .j-search { display: none; }
+.j-topbar-right .j-btn-icon.j-search-mobile { display: inline-flex; }
 
 .j-btn { border-radius: 999px; padding: 7px 14px; font-weight: 600; }
 .j-btn-primary { background: var(--opx-ink); color: var(--opx-card); }
