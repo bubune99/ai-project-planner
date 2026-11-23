@@ -287,7 +287,9 @@ export default function ProjectDashboardPage() {
       if (!silent) setCanRetry(res.status === 503)
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err.error || `Failed to fetch project: ${res.status}`)
+        // The envelope's error is { code, message }; older answers send a plain sentence.
+        const said = typeof err.error === "string" ? err.error : typeof err.error?.message === "string" ? err.error.message : ""
+        throw new Error(said || `Failed to fetch project: ${res.status}`)
       }
       const json = await res.json()
       if (json.success && json.data) { setProjectData(json.data); setUi(uiOf(json.data.project)) }

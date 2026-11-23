@@ -47,10 +47,10 @@ export async function GET(
         (SELECT created_at FROM execution_history eh WHERE eh.project_id = p.id ORDER BY created_at DESC LIMIT 1) as last_activity
       FROM projects p
       WHERE p.id = ${id}
-        AND p.user_id = ${userId}
         AND p.deleted_at IS NULL
     `
-    console.log('Project ID:', id, 'User ID:', userId)
+    // Access was decided above (owner or accepted collaborator), so the record is read by id alone:
+    // filtering on the owner here told a collaborator their shared project did not exist.
 
     if (!projectResult || projectResult.length === 0) {
       return NextResponse.json({
