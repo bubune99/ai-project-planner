@@ -11,7 +11,7 @@ import type { WorkRow } from "@/lib/work/pipeline";
 import { type NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
 import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils";
-import { isUuid } from "@/lib/api/ids";
+import { isUuid, notAnId } from "@/lib/api/ids";
 import { databaseUnavailableResponse } from "@/lib/db/unavailable";
 
 export const dynamic = "force-dynamic"
@@ -164,6 +164,9 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    if (version_id && !isUuid(version_id)) return NextResponse.json({ error: notAnId("version_id") }, { status: 400 });
+    if (parent_task_id && !isUuid(parent_task_id)) return NextResponse.json({ error: notAnId("parent_task_id") }, { status: 400 });
 
     // "critical" predates the DB constraint (low/medium/high) — fold it into high
     const priority = rawPriority === "critical" ? "high" : rawPriority;

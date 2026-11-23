@@ -11,7 +11,7 @@ import type { WorkRow } from "@/lib/work/pipeline";
 import { type NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
 import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils";
-import { isUuid } from "@/lib/api/ids";
+import { isUuid, notAnId } from "@/lib/api/ids";
 
 export const dynamic = "force-dynamic"
 
@@ -157,6 +157,7 @@ export async function PATCH(
       dependencies,
     } = body;
 
+    if (version_id && !isUuid(version_id)) return NextResponse.json({ error: notAnId("version_id") }, { status: 400 });
     // Validate status: built-in values or a custom project status key
     const VALID_STATUSES = ["requested", "pending", "in-progress", "completed", "blocked", "paused", "failed", "closed"];
     const status = rawStatus === "review" ? "in-progress" : rawStatus; // legacy clients sent "review"

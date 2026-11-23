@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
 
     if (!isUuid(from_surface_id)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('from_surface_id'), 400)
     if (!isUuid(to_surface_id)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('to_surface_id'), 400)
-    
+
     // Verify both surfaces exist + belong to this user
     const surfaceCheck = await sql`
       SELECT id FROM surfaces

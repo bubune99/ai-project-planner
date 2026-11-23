@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getAuthContext } from "@/lib/auth/auth-utils"
 import { RelationshipsService } from "@/lib/services/relationships"
 import { sql } from "@/lib/db/client"
-import { isUuid } from "@/lib/api/ids"
+import { isUuid, notAnId } from "@/lib/api/ids"
 
 export const dynamic = "force-dynamic"
 
@@ -191,6 +191,7 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
+    if (!isUuid(relationshipId)) return NextResponse.json({ success: false, error: notAnId("relationshipId") }, { status: 400 })
     // The relationship must touch one of the caller's ideas; otherwise 404
     const owned = (await sql`
       SELECT 1 FROM idea_relationships r

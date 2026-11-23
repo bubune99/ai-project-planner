@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
 import type { ValidationAgentType, ValidationStatus } from '@/lib/db/schema'
-import { isUuid } from '@/lib/api/ids'
+import { isUuid, notAnId } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -198,6 +198,7 @@ export async function PATCH(
       if (currentFacetId === null) {
         updates.push(`current_facet_id = NULL`)
       } else {
+        if (!isUuid(currentFacetId)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('currentFacetId'), 400)
         // Verify facet belongs to this idea
         const facetCheck = await sql`
           SELECT id FROM idea_facets WHERE id = ${currentFacetId} AND idea_id = ${id}
@@ -212,6 +213,9 @@ export async function PATCH(
 
     // Update validated facet IDs
     if (validatedFacetIds !== undefined) {
+      if (validatedFacetIds !== null && !(Array.isArray(validatedFacetIds) && validatedFacetIds.every(isUuid))) {
+        return errorResponse(ErrorCodes.VALIDATION_ERROR, 'validatedFacetIds must be a list of valid ids', 400)
+      }
       updates.push(`validated_facet_ids = $${p++}::uuid[]`)
       values.push(validatedFacetIds)
     }
