@@ -82,7 +82,7 @@ export function KanbanToolbar({
       {onCreate && (
         <Button onClick={onCreate} size="sm">
           <Plus className="w-4 h-4 mr-1.5" />
-          New step
+          New task
         </Button>
       )}
       {projects && (

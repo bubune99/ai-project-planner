@@ -137,13 +137,13 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
         throw new Error("Failed to save step")
       }
 
-      toast.success(step ? "Step updated" : "Step created")
+      toast.success(step ? "Task updated" : "Task created")
 
       onSuccess?.()
       onClose()
     } catch (error) {
       console.error("[v0] Error saving step:", error)
-      toast.error("Failed to save step. Please try again.")
+      toast.error("Could not save the task. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -185,15 +185,15 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="space-y-0">
-          <DialogTitle className="sr-only">{step ? "Edit step" : "New step"}</DialogTitle>
+          <DialogTitle className="sr-only">{step ? "Edit task" : "New task"}</DialogTitle>
           {/* The title IS the heading, as in a ClickUp task, rather than a
               labelled form row competing with "Edit Step" above it. */}
           <Input
             id="title"
-            aria-label="Step title"
+            aria-label="Task title"
             value={formData.title}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            placeholder="Untitled step"
+            placeholder="Untitled task"
             required
             className="!text-xl font-semibold h-auto pl-0 pr-10 py-1 border-0 shadow-none focus-visible:ring-0 bg-transparent"
           />
@@ -266,7 +266,7 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="medium">Normal</SelectItem>
                   <SelectItem value="high">High</SelectItem>
                   <SelectItem value="urgent">Urgent</SelectItem>
                 </SelectContent>
@@ -319,7 +319,7 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
 
           {!formData.start_date && !formData.end_date && (
             <p className="text-xs text-muted-foreground">
-              No dates: this step stays in the Unscheduled list and is not drawn on the timeline.
+              No dates: this task stays in the Unscheduled list and is not drawn on the timeline.
             </p>
           )}
 
@@ -338,13 +338,13 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
 
           {/* Tasks/Checklist */}
           <div>
-            <Label>Tasks / Checklist</Label>
+            <Label>Steps</Label>
             <div className="flex gap-2 mb-2">
               <Input
-                aria-label="Add a checklist subtask"
+                aria-label="Add a step"
                 value={newTask}
                 onChange={(e) => setNewTask(e.target.value)}
-                placeholder="Add a subtask..."
+                placeholder="Add a step..."
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault()
@@ -352,7 +352,7 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
                   }
                 }}
               />
-              <Button type="button" onClick={addTask} size="sm" aria-label="Add this subtask">
+              <Button type="button" onClick={addTask} size="sm" aria-label="Add the step">
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
@@ -374,8 +374,8 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
               <Label>Dependencies</Label>
               <div className="flex gap-2 mb-2">
                 <Select value={selectedDependency} onValueChange={setSelectedDependency}>
-                  <SelectTrigger aria-label="Select a step this one depends on">
-                    <SelectValue placeholder="Select a step..." />
+                  <SelectTrigger aria-label="Select a task this one depends on">
+                    <SelectValue placeholder="Select a task..." />
                   </SelectTrigger>
                   <SelectContent>
                     {availableSteps
@@ -413,7 +413,7 @@ export function StepFormModal({ open, onClose, projectId, step, availableSteps =
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : step ? "Update Step" : "Create Step"}
+              {loading ? "Saving..." : step ? "Save task" : "Create task"}
             </Button>
           </DialogFooter>
         </form>

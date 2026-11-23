@@ -414,7 +414,9 @@ export default function ProjectDashboardPage() {
           <TaskViewSwitcher view={taskView} onChange={setTaskView} />
           {taskView === "board" && (
             <BoardRoom>
-              <KanbanView projectId={projectId} onTaskSelect={() => {}} initialStepId={focusStepId} />
+              {/* The header figures and the Tasks count read stepsQ: the board says when it changed a card, so they follow it
+                  (a new card left them at 0 until a reload; walk 2026-11-23). */}
+              <KanbanView projectId={projectId} onTaskSelect={() => {}} onRefresh={stepsQ.reload} initialStepId={focusStepId} />
             </BoardRoom>
           )}
           {taskView === "list" && <TaskList projectId={projectId} />}

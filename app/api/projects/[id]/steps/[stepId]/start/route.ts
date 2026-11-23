@@ -36,13 +36,16 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     }
     const sent = await sendNow(step, projectId, auth.userId)
     const [project] = (await sql`SELECT name FROM projects WHERE id = ${projectId}`) as { name: string }[]
+    // "Health & Habits's" read wrong: a name ending in s takes the apostrophe alone.
+    const name = project?.name ?? "the project"
+    const whose = /s$/i.test(name) ? `${name}'` : `${name}'s`
     return NextResponse.json({
       column: "pending",
       jobId: sent.jobId,
       already: sent.already,
       message: sent.already
-        ? `Already in line for ${project?.name ?? "the project"}'s agents.`
-        : `In line for ${project?.name ?? "the project"}'s agents. It moves to In Progress when one takes it.`,
+        ? `Already in line for ${whose} agents.`
+        : `In line for ${whose} agents. It moves to In Progress when one takes it.`,
     })
   } catch (error: unknown) {
     console.error("[start] failed", error instanceof Error ? error.message : error)

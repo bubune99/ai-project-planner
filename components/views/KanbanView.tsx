@@ -658,8 +658,8 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
         ) : parents.length === 0 ? (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
             <div className="text-center py-12">
-              <p className="text-lg mb-2">No steps defined yet</p>
-              <p className="text-sm">Create your first step to start tracking your project progress!</p>
+              <p className="text-lg mb-2">No tasks yet</p>
+              <p className="text-sm">Add one with New task, or in a column with Add task.</p>
             </div>
           </div>
         ) : (
