@@ -2,7 +2,8 @@
 
 import dynamic from "next/dynamic"
 import { Figure } from "@/components/project/opx/shared"
-import { parseMapBlock, seedMap, stripMapBlock, writeMapBlock, type Layer } from "@/lib/sops/process-map"
+import { parseMapBlock, seedMap, stripMapBlock, writeMapBlock, type Layer, type Path } from "@/lib/sops/process-map"
+import type { Whole } from "@/components/project/opx/ProcessMap"
 
 /*
  * Library: SOPs plus skills, templates and protocols (owner 2026-11-13: "sops
@@ -117,6 +118,18 @@ export default function LibraryPage() {
   const cur = open ? sops.find((s) => s.id === open) || null : null
   // A document that carries a process map shows it drawn, above its words.
   const curMap = useMemo(() => (cur ? parseMapBlock(cur.content) : null), [cur])
+  // A step of a map can lead to another process document. Every document that carries a map can be led to; the
+  // trail is how the reader got here through such steps, so Back returns to the map, layer and size they left.
+  const processes = useMemo(() => Object.fromEntries(sops.filter((s) => parseMapBlock(s.content)).map((s) => [s.id, s.title])), [sops])
+  const [trail, setTrail] = useState<{ from: string; to: string; path: Path }[]>([])
+  const [mapStart, setMapStart] = useState<{ id: string; path?: Path; whole?: Whole } | null>(null)
+  const last = trail.at(-1)
+  const cameFrom = cur && last?.to === cur.id ? sops.find((s) => s.id === last.from) : undefined
+  // Going anywhere another way (the list, a card, a new document) ends the trail; so does editing the words.
+  useEffect(() => {
+    if (trail.length && trail[trail.length - 1].to !== open) setTrail([])
+    if (mapStart && (mapStart.id !== open || form)) setMapStart(null)
+  }, [open, form, trail, mapStart])
   const [mapState, setMapState] = useState<"" | "saving" | "saved" | "failed">("")
   const mapSaves = useRef<Promise<void>>(Promise.resolve())
   /** Keeps a change to the map: shown at once, then saved in the order the changes were made. */
@@ -264,7 +277,13 @@ export default function LibraryPage() {
                 <>
                   {/* The drawing first: it is what the document is for. The words follow it. */}
                   <div className="opx-row opx-muted" style={{ fontSize: 12.5, minHeight: 18 }} role="status">{mapState === "saving" ? "Saving the map" : mapState === "saved" ? "Map saved" : mapState === "failed" ? "The last change was not saved" : ""}</div>
-                  <ProcessMap key={cur.id} map={curMap} rootName={cur.title} onChange={(next) => saveMap(cur, next)} />
+                  <ProcessMap key={cur.id} map={curMap} rootName={cur.title} onChange={(next) => saveMap(cur, next)}
+                    start={mapStart?.id === cur.id ? mapStart : undefined}
+                    links={{
+                      self: cur.id, processes,
+                      onOpen: (id, from) => { setTrail((t) => [...(t.at(-1)?.to === cur.id ? t : []), { from: cur.id, to: id, path: from.path }]); setMapStart({ id, whole: from.whole }); setOpen(id) },
+                      cameFrom: cameFrom && last ? { name: cameFrom.title, back: (whole) => { setMapStart({ id: cameFrom.id, path: last.path, whole }); setTrail((t) => t.slice(0, -1)); setOpen(cameFrom.id) } } : undefined,
+                    }} />
                   {stripMapBlock(cur.content) && <div style={{ marginTop: 18 }}><Md text={stripMapBlock(cur.content)} /></div>}
                 </>
               ) : <Md text={cur.content || "_Empty SOP._"} />}

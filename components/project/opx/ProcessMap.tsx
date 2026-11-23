@@ -4,28 +4,74 @@
  * A process map, drawn with React Flow: a swim lane (who does it, by stage)
  * or a left-to-right layer, with the lines forward and the loops back.
  * Double-click a stage or step to open the layer inside it; the path back is
- * always on screen (and Esc goes back one). Right-click anything to change it,
+ * always on screen (and Esc goes back one). A step can lead to another process
+ * document: it carries a mark that opens it (double-click does too), the page
+ * that holds the documents does the going and offers the way back, and a link
+ * whose document is gone says so in words. Right-click anything to change it,
  * or use the buttons above the drawing. A step dragged somewhere lands in the
  * nearest place and the lines follow; every change can be undone.
  * Display only: what is on the map, where each box sits, how each line is
  * routed and every edit come from lib/sops/process-map.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useLayoutEffect, type CSSProperties } from "react"
 import { Controls, Handle, MarkerType, Panel, Position, ReactFlow, ReactFlowProvider, useNodesState, useReactFlow, type Edge, type Node, type NodeProps } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
-import { ArrowLeft, Layers, Maximize2, Redo2, Undo2 } from "lucide-react"
+import { ArrowLeft, ArrowUpRight, Layers, Maximize2, Redo2, Undo2, Unlink } from "lucide-react"
 import {
-  DIM, addInside, addLane, addLink, addNode, addStage, cellAt, cellFree, checkLayer, crumbs, doorOf, indexAt, isLanes, layerAt, moveLane, moveNode, moveStage, place,
-  removeInside, removeLane, removeLink, removeNode, removeStage, renameLane, reorderNode, routeLink, setLink, setNode, setStage, splitLink, updateAt,
+  DIM, addInside, addLane, addLink, addNode, addStage, brokenRefs, brokenWords, cellAt, cellFree, checkLayer, clearOpens, clearUses, crumbs, doorOf, indexAt, isLanes, layerAt, leadsTo, moveLane, moveNode, moveStage, place,
+  removeInside, removeLane, removeLink, removeNode, removeStage, renameLane, reorderNode, routeLink, setLink, setNode, setOpens, setStage, setUses, splitLink, updateAt,
   type Layer, type Link, type Path, type Point, type Side,
 } from "@/lib/sops/process-map"
 
 const SIDES: Record<Side, Position> = { t: Position.Top, r: Position.Right, b: Position.Bottom, l: Position.Left }
-type BoxData = { title: string; sub?: string; who?: string; you?: boolean; todo?: boolean; opens?: boolean; from?: boolean }
+type BoxData = { title: string; sub?: string; who?: string; you?: boolean; todo?: boolean; opens?: boolean; from?: boolean; process?: string; skill?: string }
+
+export type Whole = null | "edit" | "view"
+/** What the page that holds the documents tells the map, so a step can lead to another process and come back. */
+export interface MapLinks {
+  /** The document this map is in. A step cannot open it. */
+  self?: string
+  /** Every process document that exists, id to title. Left out when not known: then nothing is called missing. */
+  processes?: Record<string, string>
+  /** Goes to another process document. `from` is where the reader was, to be given back on return. */
+  onOpen?: (process: string, from: { path: Path; whole: Whole }) => void
+  /** The map the reader came from, when they got here through a step. */
+  cameFrom?: { name: string; back: (whole: Whole) => void }
+}
+type LinkState = { name: string | null; broken: null | "missing" | "own" }
+const Links = createContext<{ state: (process: string) => LinkState; go?: (process: string) => void; fix?: (e: React.MouseEvent, id: string) => void }>({ state: () => ({ name: null, broken: null }) })
+const short = (text: string, most = 40) => (text.length > most ? `${text.slice(0, most - 1)}…` : text)
+
+// The marks under a step: where it leads and the skill that does it. They sit on the step's lower edge, inside the
+// room a lane leaves under a box, so the box keeps its size and nothing else moves. Existing tokens only.
+const MARKS: CSSProperties = { position: "absolute", left: 10, right: 10, bottom: -13, display: "flex", gap: 4, pointerEvents: "none" }
+const MARK: CSSProperties = { pointerEvents: "auto", display: "inline-flex", alignItems: "center", gap: 4, minWidth: 0, height: 24, padding: "0 9px", borderRadius: 999, border: "1px solid var(--opx-line)", background: "var(--opx-card)", color: "var(--opx-muted)", font: "inherit", fontSize: 12, lineHeight: 1, whiteSpace: "nowrap" }
+const MARK_TEXT: CSSProperties = { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", color: "inherit" }
+const FIELD: CSSProperties = { border: "1px solid var(--opx-line)", background: "var(--opx-bg)", color: "var(--opx-ink)", borderRadius: 8, padding: "6px 8px", font: "inherit", fontSize: 13.5 }
+
+function Marks({ id, process, skill }: { id: string; process?: string; skill?: string }) {
+  const links = useContext(Links), st = process ? links.state(process) : null
+  // A press on a mark is its own act: it must not also pick the step or count as half of a double-click on it.
+  const own = { onDoubleClick: (e: React.MouseEvent) => e.stopPropagation() }
+  const brokenText = st?.broken === "own" ? "Opens itself" : "Process missing"
+  const brokenTitle = st?.broken === "own" ? "This step opens the document it is in, so there is nowhere to go" : "The process this step opened is no longer there"
+  const openText = st?.name ? `Opens ${st.name}` : "Opens a process"
+  return (
+    <div style={MARKS}>
+      {st?.broken && (links.fix
+        ? <button type="button" className="nodrag nopan" style={{ ...MARK, color: "var(--opx-warn)", borderStyle: "dashed", cursor: "pointer" }} title={`${brokenTitle}. Press to choose another or remove the link.`} onClick={(e) => { e.stopPropagation(); links.fix!(e, id) }} {...own}><Unlink size={12} style={{ flex: "none" }} aria-hidden="true" /><span style={MARK_TEXT}>{brokenText}</span></button>
+        : <span style={{ ...MARK, color: "var(--opx-warn)", borderStyle: "dashed" }} title={brokenTitle}><Unlink size={12} style={{ flex: "none" }} aria-hidden="true" /><span style={MARK_TEXT}>{brokenText}</span></span>)}
+      {process && st && !st.broken && (links.go
+        ? <button type="button" className="nodrag nopan" style={{ ...MARK, color: "var(--opx-accent-text)", cursor: "pointer" }} title={st.name ? `Open "${st.name}"` : "Open the process this step leads to"} onClick={(e) => { e.stopPropagation(); links.go!(process) }} {...own}><ArrowUpRight size={12} style={{ flex: "none" }} aria-hidden="true" /><span style={MARK_TEXT}>{openText}</span></button>
+        : <span style={MARK} title={openText}><ArrowUpRight size={12} style={{ flex: "none" }} aria-hidden="true" /><span style={MARK_TEXT}>{openText}</span></span>)}
+      {skill && <span style={{ ...MARK, flex: "0 1 auto" }} title={`Done with the skill ${skill}`}><span style={MARK_TEXT}>Uses {skill}</span></span>}
+    </div>
+  )
+}
 
 /** A step. It has a joining point on every side, so a line can leave or arrive wherever reads best. */
-function Box({ data }: NodeProps<Node<BoxData>>) {
+function Box({ id, data }: NodeProps<Node<BoxData>>) {
   return (
     <div className={`opx-pm-box${data.you ? " you" : ""}${data.todo ? " todo" : ""}${data.from ? " from" : ""}`}>
       {(Object.keys(SIDES) as Side[]).flatMap((k) => [
@@ -35,6 +81,7 @@ function Box({ data }: NodeProps<Node<BoxData>>) {
       {data.who && <small>{data.who}</small>}
       <b>{data.title}{data.opens && <Layers size={12} aria-label="Has a layer inside" />}</b>
       {data.sub && <span>{data.sub}</span>}
+      {(data.process || data.skill) && <Marks id={id} process={data.process} skill={data.skill} />}
     </div>
   )
 }
@@ -59,7 +106,7 @@ function toEdges(links: Link[], pos: Record<string, Point>, lanes: boolean): Edg
 }
 function toNodes(layer: Layer, linking: string | null): Node[] {
   const pos = place(layer)
-  const steps = layer.nodes.map((n): Node => ({ id: n.id, type: "box", position: pos[n.id], data: { title: n.title, sub: n.sub, who: isLanes(layer) ? undefined : n.who, todo: n.todo, you: n.you, opens: !!n.inside, from: linking === n.id }, style: { width: isLanes(layer) ? DIM.node : DIM.chainNode } }))
+  const steps = layer.nodes.map((n): Node => ({ id: n.id, type: "box", position: pos[n.id], data: { title: n.title, sub: n.sub, who: isLanes(layer) ? undefined : n.who, todo: n.todo, you: n.you, opens: !!n.inside, from: linking === n.id, process: n.opens?.process, skill: n.uses?.skill }, style: { width: isLanes(layer) ? DIM.node : DIM.chainNode } }))
   if (!isLanes(layer)) return steps
   const width = DIM.laneLabel + layer.stages.length * DIM.col
   const lanes = layer.lanes.map((name, i): Node => ({ id: `lane${i}`, type: "lane", position: { x: 0, y: i * DIM.lane }, data: { name, alt: i % 2 === 1 }, style: { width, height: DIM.lane - 6 }, draggable: false, selectable: false, zIndex: -1 }))
@@ -71,18 +118,22 @@ type Target =
   | { kind: "node"; id: string } | { kind: "stage"; id: string } | { kind: "lane"; index: number; at?: Point }
   | { kind: "edge"; index: number } | { kind: "pane"; at: Point }
 // fresh: the form names something just made, so saving it joins that change (one act, one Undo).
-interface Floating { x: number; y: number; target: Target; form?: { title: string; sub: string; who: string }; fresh?: boolean }
+// link: the form for where a step leads and the skill it uses, in place of the form for its words.
+interface Floating { x: number; y: number; target: Target; form?: { title: string; sub: string; who: string }; fresh?: boolean; link?: { process: string; skill: string; error?: string } }
 const BLANK = { title: "", sub: "", who: "" }
 const targetOf = (n: Node): Target | null => (n.type === "box" ? { kind: "node", id: n.id } : n.type === "stage" ? { kind: "stage", id: n.id.replace(/^stage-/, "") } : n.type === "lane" ? { kind: "lane", index: Number(n.id.replace("lane", "")) } : null)
 
 const START_NARROW = { x: 8, y: DIM.header * 0.9 + 8, zoom: 0.9 }
 
-export function ProcessMap(props: { map: Layer; onChange?: (next: Layer) => void; rootName?: string }) {
+/** `start` is read once, when the map is first shown: the layer to open on and whether it fills the screen. */
+interface MapProps { map: Layer; onChange?: (next: Layer) => void; rootName?: string; links?: MapLinks; start?: { path?: Path; whole?: Whole } }
+
+export function ProcessMap(props: MapProps) {
   return <ReactFlowProvider><Inner {...props} /></ReactFlowProvider>
 }
 
-function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; onChange?: (next: Layer) => void; rootName?: string }) {
-  const [path, setPath] = useState<Path>([])
+function Inner({ map, onChange, rootName = "The whole process", links, start }: MapProps) {
+  const [path, setPath] = useState<Path>(start?.path ?? [])
   const [float, setFloat] = useState<Floating | null>(null)
   const [linking, setLinking] = useState<string | null>(null)
   const [placing, setPlacing] = useState(false)
@@ -91,7 +142,7 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
   const [history, setHistory] = useState<{ past: Layer[]; future: Layer[] }>({ past: [], future: [] })
   // Whole screen (owner, 2026-11-15, mock-ups approved 2026-11-16 "Build it as shown"): the map fills the screen,
   // either to change it or just to look at it; Leave whole screen or Esc goes back.
-  const [whole, setWhole] = useState<null | "edit" | "view">(null)
+  const [whole, setWhole] = useState<Whole>(start?.whole ?? null)
   const [showHelp, setShowHelp] = useState(false)
   const wrap = useRef<HTMLDivElement>(null)
   const { screenToFlowPosition, fitView, setViewport } = useReactFlow()
@@ -102,6 +153,20 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
   useEffect(() => { setNodes(toNodes(layer, linking)) }, [layer, linking, setNodes])
   const edges = useMemo(() => toEdges(layer.links, place(layer), lanes), [layer, lanes])
   const issues = useMemo(() => (can ? checkLayer(layer) : []), [layer, can])
+  // Links that lead nowhere, anywhere in the map, in words: one deep inside a layer is not on screen from the top.
+  const processes = links?.processes, self = links?.self
+  const here = livePath.map((s) => `${s.kind}:${s.id}`).join("/")
+  const broken = useMemo(() => brokenRefs(map, { processes: processes ? Object.keys(processes) : undefined, self }).map((b) => {
+    const inside = crumbs(map, b.path).join(" › ")
+    return brokenWords(b) + (b.path.map((s) => `${s.kind}:${s.id}`).join("/") === here ? "" : ` (in ${inside || rootName})`)
+  }), [map, processes, self, here, rootName])
+  const linkState = useCallback((process: string): LinkState => {
+    if (self && process === self) return { name: null, broken: "own" }
+    if (!processes) return { name: null, broken: null }
+    return Object.prototype.hasOwnProperty.call(processes, process) ? { name: processes[process], broken: null } : { name: null, broken: "missing" }
+  }, [processes, self])
+  /** The other process documents a step here could lead to, by name. */
+  const choices = useMemo(() => Object.entries(processes ?? {}).filter(([id]) => id !== self).sort((a, b) => a[1].localeCompare(b[1])), [processes, self])
   const pathKey = livePath.map((s) => s.id).join("/")
   // On a phone the whole map shrunk to fit is too small to read: open at a size the words can be read (0.9 makes a
   // step's title 12px), from the top left corner where the process starts, and let it be dragged.
@@ -142,6 +207,9 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
   const redo = useCallback(() => { const next = history.future[0]; if (!next || !onChange) return; setHistory({ past: [...history.past, map], future: history.future.slice(1) }); onChange(next) }, [history, map, onChange])
   const back = useCallback(() => setPath((p) => p.slice(0, -1)), [])
   const open = (kind: "stage" | "node", id: string) => { const door = doorOf(layer, kind, id); if (door) { setPath([...livePath, door]); setFloat(null) } return !!door }
+  const onOpen = links?.onOpen
+  /** Leaves for another process document, saying where the reader was so the way back can restore it. */
+  const go = useMemo(() => (onOpen ? (process: string) => { setFloat(null); onOpen(process, { path: livePath, whole }) } : undefined), [onOpen, livePath, whole])
   const tidy = () => { setNodes(toNodes(layer, linking)); requestAnimationFrame(() => { if (narrow) setViewport(START_NARROW); else fitView({ padding: 0.04, duration: 250 }) }) }
 
   // Keys, while the pointer is over the drawing: Esc closes what is open on top (a form, a menu, a line or step being
@@ -173,7 +241,31 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
     return { x: Math.max(8, Math.min(e.clientX - r.left, r.width - 268)), y: Math.max(8, Math.min(e.clientY - r.top, r.height - 300)) }
   }
   const flowAt = (e: { clientX: number; clientY: number }) => screenToFlowPosition({ x: e.clientX, y: e.clientY })
-  const menu = (e: React.MouseEvent | MouseEvent, target: Target) => { if (!can) return; e.preventDefault(); setFloat({ ...at(e), target }) }
+  // A step's menu is the longest: it is placed high enough to show all of it.
+  const menu = (e: React.MouseEvent | MouseEvent, target: Target) => { if (!can) return; e.preventDefault(); const p = at(e), r = wrap.current!.getBoundingClientRect(); setFloat({ ...p, y: target.kind === "node" ? Math.max(8, Math.min(p.y, r.height - 372)) : p.y, target }) }
+  const linkFor = (id: string): Floating["link"] => { const n = layer.nodes.find((x) => x.id === id); return { process: n?.opens?.process ?? "", skill: n?.uses?.skill ?? "" } }
+  /** A broken mark was pressed: the form to choose another process, or remove the link, opens where the pointer is. */
+  const fix = useMemo(() => (can ? (e: React.MouseEvent, id: string) => setFloat({ ...at(e), target: { kind: "node", id }, link: linkFor(id) }) : undefined), [can, layer]) // eslint-disable-line react-hooks/exhaustive-deps
+  const linksValue = useMemo(() => ({ state: linkState, go, fix }), [linkState, go, fix])
+  /** Double-click on a step: its own layer, else the process it opens, else its stage's loop. */
+  const enter = (id: string) => {
+    const to = leadsTo(layer, id)
+    if (!to) return
+    if ("layer" in to) { setPath([...livePath, to.layer]); setFloat(null); return }
+    if (!linkState(to.process).broken) go?.(to.process)
+    else if (can) { const r = wrap.current!.getBoundingClientRect(); setFloat({ x: Math.max(8, r.width / 2 - 130), y: 16, target: { kind: "node", id }, link: linkFor(id) }) }
+  }
+  /** Keeps where a step leads and the skill it uses, as one change (one Undo). */
+  const saveLink = () => {
+    if (!float?.link || float.target.kind !== "node") return
+    const id = float.target.id, f = float.link, skill = f.skill.trim(), was = linkFor(id)!
+    if (skill && skill !== was.skill && setUses(layer, id, skill) === layer) { setFloat({ ...float, link: { ...f, error: "A skill's name starts with a letter or digit and uses only letters, digits, spaces and - _ . : /" } }); return }
+    if (f.process !== was.process || skill !== was.skill) change((l) => {
+      const led = f.process ? setOpens(l, id, f.process, self) : clearOpens(l, id)
+      return skill ? setUses(led, id, skill) : clearUses(led, id)
+    })
+    setFloat(null)
+  }
   const formFor = (t: Target): Floating["form"] => {
     if (t.kind === "node") { const n = layer.nodes.find((x) => x.id === t.id); return { title: n?.title ?? "", sub: n?.sub ?? "", who: n?.who ?? "" } }
     if (t.kind === "stage") { const s = layer.stages?.find((x) => x.id === t.id); return { title: s?.title ?? "", sub: s?.sub ?? "", who: "" } }
@@ -220,6 +312,8 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
 
   const t = float?.target
   const node = t?.kind === "node" ? layer.nodes.find((n) => n.id === t.id) : null
+  const nodeLink = node?.opens ? linkState(node.opens.process) : null
+  const back2 = links?.cameFrom
   const cell = t && (t.kind === "pane" || t.kind === "lane") && t.at ? cellAt(layer, t.at) : null
   const close = () => setFloat(null)
   const item = (label: string, run: () => void, danger?: boolean, off?: boolean) => <button type="button" role="menuitem" key={label} className={danger ? "danger" : ""} disabled={off} onClick={run}>{label}</button>
@@ -242,12 +336,13 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
       )}
       {(!whole || livePath.length > 0) && <nav className="opx-pm-crumb" aria-label="Where you are in the map">
         {livePath.length > 0 && <button type="button" className="opx-btn sm primary" onClick={back}><ArrowLeft size={14} /> Back</button>}
+        {!livePath.length && back2 && <button type="button" className="opx-btn sm primary" onClick={() => back2.back(whole)}><ArrowLeft size={14} /> Back to {short(back2.name)}</button>}
         <button type="button" className={`opx-pm-step${livePath.length ? "" : " here"}`} onClick={() => setPath([])}>{rootName}</button>
         {names.map((name, i) => <span key={i} className="opx-pm-trail"><i aria-hidden="true">›</i><button type="button" className={`opx-pm-step${i === names.length - 1 ? " here" : ""}`} onClick={() => setPath(livePath.slice(0, i + 1))}>{name}</button></span>)}
         {!whole && <button type="button" className="opx-btn sm" style={{ marginLeft: "auto" }} onClick={() => setWhole(onChange ? "edit" : "view")}><Maximize2 size={13} /> Whole screen</button>}
       </nav>}
       {(!whole || (whole === "edit" && showHelp)) && <p className="opx-muted">
-        {layer.say ? `${layer.say} ` : ""}Grey lines go forward; orange dashed lines are loops. Click a step, lane, stage or line and press Change to rename, move or remove it. Double-click a stage or step to open what is inside it{livePath.length ? ", and Back (or Esc) to come out" : ""}.{can ? " A right-click opens the same menu. Drag a step to move it: it lands in the nearest free place and the lines follow." : " Drag to look around, scroll to zoom."}
+        {layer.say ? `${layer.say} ` : ""}Grey lines go forward; orange dashed lines are loops. Click a step, lane, stage or line and press Change to rename, move or remove it. Double-click a stage or step to open what is inside it{livePath.length ? ", and Back (or Esc) to come out" : ""}.{layer.nodes.some((n) => n.opens) ? " A step marked Opens leads to another process: press the mark, or double-click the step." : ""}{can ? " A right-click opens the same menu. Drag a step to move it: it lands in the nearest free place and the lines follow." : " Drag to look around, scroll to zoom."}
       </p>}
       {can && (
         <div className="opx-pm-bar" role="toolbar" aria-label="Change the map">
@@ -268,10 +363,10 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
       {linking && <p className="opx-pm-note" role="status">Press the step this line goes to. <button type="button" className="opx-btn sm" onClick={() => setLinking(null)}>Cancel</button></p>}
       {placing && <p className="opx-pm-note" role="status">Press an empty place in a lane to put the step there. <button type="button" className="opx-btn sm" onClick={() => setPlacing(false)}>Cancel</button></p>}
       <div ref={wrap} className={`opx-pm${lanes ? "" : " sub"}${placing ? " placing" : ""}`} onContextMenu={(e) => { if (can) e.preventDefault() }}>
-        <ReactFlow
+        <Links.Provider value={linksValue}><ReactFlow
           key={`${pathKey || "top"}|${narrow ? "near" : "fit"}`} nodes={nodes} edges={edges} onNodesChange={onNodesChange} nodeTypes={nodeTypes}
           fitView={!narrow} defaultViewport={narrow ? START_NARROW : undefined} fitViewOptions={{ padding: 0.04 }} minZoom={0.25} maxZoom={1.6} nodesConnectable={false} zoomOnDoubleClick={false} deleteKeyCode={null} nodesDraggable={can}
-          onNodeDoubleClick={(_, n) => { const tg = targetOf(n); if (tg && (tg.kind === "node" || tg.kind === "stage")) open(tg.kind, tg.id) }}
+          onNodeDoubleClick={(_, n) => { const tg = targetOf(n); if (tg?.kind === "node") enter(tg.id); else if (tg?.kind === "stage") open("stage", tg.id) }}
           onNodeClick={(e, n) => {
             if (placing && n.type === "lane") { const c = cellAt(layer, flowAt(e)); if (c && stepInto(c, at(e))) setPlacing(false) }
             else if (linking && n.type === "box") { const from = linking, index = layer.links.length; setLinking(null); if (!layer.links.some((x) => x.from === from && x.to === n.id)) { change((l) => addLink(l, from, n.id)); nameIt({ kind: "edge", index }, "") } }
@@ -286,11 +381,26 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
         >
           <Controls showInteractive={false} />
           {livePath.length > 0 && <Panel position="top-left"><button type="button" className="opx-btn primary" onClick={back}><ArrowLeft size={15} /> Back to {names.length > 1 ? names[names.length - 2] : rootName}</button></Panel>}
-        </ReactFlow>
+          {!livePath.length && back2 && <Panel position="top-left"><button type="button" className="opx-btn primary" onClick={() => back2.back(whole)}><ArrowLeft size={15} /> Back to {short(back2.name)}</button></Panel>}
+        </ReactFlow></Links.Provider>
 
         {float && t && (
-          <div className="opx-pm-float" style={{ left: float.x, top: float.y }} role={float.form ? "dialog" : "menu"} aria-label={float.form ? "Change the text" : "What to do with this"}>
-            {float.form ? (
+          <div className="opx-pm-float" style={{ left: float.x, top: float.y, maxHeight: "calc(100% - 16px)", overflowY: "auto" }} role={float.form || float.link ? "dialog" : "menu"} aria-label={float.link ? "Where this step leads" : float.form ? "Change the text" : "What to do with this"}>
+            {float.link && t.kind === "node" ? (
+              <form onSubmit={(e) => { e.preventDefault(); saveLink() }}>
+                <label>Process this step opens
+                  <select autoFocus style={FIELD} value={float.link.process} onChange={(e) => setFloat({ ...float, link: { ...float.link!, process: e.target.value, error: undefined } })}>
+                    <option value="">None</option>
+                    {float.link.process && !choices.some(([id]) => id === float.link!.process) && <option value={float.link.process}>{float.link.process === self ? "This document (not allowed)" : processes ? "A process that is no longer there" : "The process it opens now"}</option>}
+                    {choices.map(([id, title]) => <option key={id} value={id}>{title}</option>)}
+                  </select>
+                </label>
+                {!choices.length && <span className="opx-muted" style={{ fontSize: 12 }}>{processes ? "There is no other process map to lead to yet." : "The list of process maps is not available here."}</span>}
+                <label>Skill that does it (its name)<input value={float.link.skill} maxLength={120} onChange={(e) => setFloat({ ...float, link: { ...float.link!, skill: e.target.value, error: undefined } })} /></label>
+                {float.link.error && <span role="alert" style={{ fontSize: 12, color: "var(--opx-warn)" }}>{float.link.error}</span>}
+                <div className="row"><button type="button" className="opx-btn sm" onClick={close}>Cancel</button><button type="submit" className="opx-btn sm primary">Save</button></div>
+              </form>
+            ) : float.form ? (
               <form onSubmit={(e) => { e.preventDefault(); saveForm() }}>
                 <label>{t.kind === "edge" ? "What the line says" : t.kind === "lane" ? "Who this lane is" : "Title"}<input autoFocus value={float.form.title} maxLength={200} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setFloat({ ...float, form: { ...float.form!, title: e.target.value } })} /></label>
                 {(t.kind === "node" || t.kind === "stage") && <label>Detail<input value={float.form.sub} maxLength={200} onChange={(e) => setFloat({ ...float, form: { ...float.form!, sub: e.target.value } })} /></label>}
@@ -301,6 +411,8 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
               <>
                 {editItem("Change the text")}
                 {doorOf(layer, "node", node.id) ? item("Open what is inside", () => open("node", node.id)) : item("Add a layer inside", () => { change((l) => addInside(l, "node", node.id)); close() })}
+                {node.opens && nodeLink && !nodeLink.broken && go && item(nodeLink.name ? `Open "${short(nodeLink.name, 24)}"` : "Open the process it leads to", () => go(node.opens!.process))}
+                {item(nodeLink?.broken ? "Fix or remove the broken link" : node.opens || node.uses ? "Change where it leads or the skill" : "Lead to a process or name a skill", () => setFloat((f) => f && { ...f, link: linkFor(node.id) }))}
                 {item("Draw a line from here", () => { setLinking(node.id); setPlacing(false); close() })}
                 {!lanes && item("Add a step after this", () => stepAfter(node.id))}
                 {item(node.you ? "Not the owner's step" : "Mark as the owner's step", () => { change((l) => setNode(l, node.id, { you: !node.you })); close() })}
@@ -345,7 +457,7 @@ function Inner({ map, onChange, rootName = "The whole process" }: { map: Layer; 
           </div>
         )}
       </div>
-      {issues.length > 0 && <ul className="opx-pm-issues" aria-label="To tidy up on this layer">{issues.slice(0, 6).map((x) => <li key={x}>{x}</li>)}</ul>}
+      {(broken.length > 0 || issues.length > 0) && <ul className="opx-pm-issues" aria-label="To tidy up">{[...new Set([...broken, ...issues])].slice(0, 6).map((x) => <li key={x}>{x}</li>)}</ul>}
     </section>
   )
 }

@@ -1,7 +1,9 @@
 /**
  * A process map: a document type for the Library. Who does what (lanes), in
  * which stage (columns), the lines forward and the loops back, and layers
- * inside layers: any stage or step can hold a map of its own.
+ * inside layers: any stage or step can hold a map of its own. A step can also
+ * lead to another process document (`opens`) or name the skill that performs
+ * it (`uses`).
  *
  * It lives in a document's text as one fenced ```process-map JSON block, the
  * same way a flow does, so any document can carry one. Everything here is a
@@ -24,6 +26,10 @@ export interface MapNode {
   /** Its place in a layer with lanes: which stage (column) and which lane (row). */
   stage?: string; lane?: number
   inside?: Layer
+  /** Another process document this step leads to (the document's id). */
+  opens?: { process: string }
+  /** The skill that performs this step (its id or name). */
+  uses?: { skill: string }
 }
 export interface Stage { id: string; title: string; sub?: string; inside?: Layer }
 export interface Layer {
@@ -38,6 +44,10 @@ export type Path = { kind: "stage" | "node"; id: string }[]
 
 const FENCE = /```process-map\s*\n([\s\S]*?)\n```/
 const LIMITS = { nodes: 60, links: 120, lanes: 12, stages: 16, depth: 5, text: 200 }
+/** What a link may hold: a document's id, and a skill's id or name (far-gates:gates, build-fix). */
+const PROCESS_ID = /^[A-Za-z0-9_-]{1,64}$/, SKILL = /^[A-Za-z0-9][A-Za-z0-9 _.:/-]{0,119}$/
+const processRef = (v: unknown): string => { const s = typeof v === "string" ? v.trim() : ""; return PROCESS_ID.test(s) ? s : "" }
+const skillRef = (v: unknown): string => { const s = typeof v === "string" ? v.replace(/\s+/g, " ").trim() : ""; return SKILL.test(s) ? s : "" }
 
 // ---- the block in a document ----
 
@@ -91,7 +101,9 @@ export function parseLayer(raw: unknown, depth = 1, where = "The map"): { layer:
   const nodes = arr(d.nodes, "nodes").map((n) => {
     const o = obj(n), title = text(o.title)
     if (!title) errors.push(`${where}: a step has no title`)
-    const node = clean<MapNode>({ id: id(o.id, "step"), title, sub: text(o.sub), who: text(o.who), you: o.you === true, todo: o.todo === true, inside: inside(o.inside, title) })
+    // A link that cannot be read is dropped, never an error: the step and the rest of the map stay readable.
+    const process = processRef(obj(o.opens).process), skill = skillRef(obj(o.uses).skill)
+    const node = clean<MapNode>({ id: id(o.id, "step"), title, sub: text(o.sub), who: text(o.who), you: o.you === true, todo: o.todo === true, inside: inside(o.inside, title), opens: process ? { process } : undefined, uses: skill ? { skill } : undefined })
     if (lanes && stages) {
       const stage = typeof o.stage === "string" ? o.stage : "", lane = Number.isInteger(o.lane) ? (o.lane as number) : -1
       if (!stages.some((s) => s.id === stage) || lane < 0 || lane >= lanes.length) errors.push(`${where}: "${title}" is not in a stage and lane that exist`)
@@ -146,6 +158,51 @@ export function doorOf(layer: Layer, kind: "stage" | "node", id: string): Path[n
   if (node.inside) return { kind: "node", id }
   return node.stage && layer.stages?.find((s) => s.id === node.stage)?.inside ? { kind: "stage", id: node.stage } : null
 }
+
+/**
+ * Where a double-click on a step leads: the layer inside it first, then the process it opens, then (for a step in a
+ * lane) the layer of the stage it belongs to. Null when it leads nowhere.
+ */
+export function leadsTo(layer: Layer, id: string): { layer: Path[number] } | { process: string } | null {
+  const node = layer.nodes.find((n) => n.id === id)
+  if (!node) return null
+  if (node.inside) return { layer: { kind: "node", id } }
+  if (node.opens) return { process: node.opens.process }
+  const door = doorOf(layer, "node", id)
+  return door ? { layer: door } : null
+}
+
+/** One link out of a map: the step that carries it, where that step is, and what it points at. */
+export interface MapRef { path: Path; node: string; title: string; kind: "process" | "skill"; target: string }
+/** Every link in a map, at every depth, in reading order. */
+export function mapRefs(root: Layer, path: Path = []): MapRef[] {
+  const out: MapRef[] = []
+  for (const n of root.nodes) {
+    if (n.opens) out.push({ path, node: n.id, title: n.title, kind: "process", target: n.opens.process })
+    if (n.uses) out.push({ path, node: n.id, title: n.title, kind: "skill", target: n.uses.skill })
+  }
+  for (const s of root.stages ?? []) if (s.inside) out.push(...mapRefs(s.inside, [...path, { kind: "stage", id: s.id }]))
+  for (const n of root.nodes) if (n.inside) out.push(...mapRefs(n.inside, [...path, { kind: "node", id: n.id }]))
+  return out
+}
+export type BrokenRef = MapRef & { why: "missing" | "own" }
+/**
+ * The links that lead nowhere, given what exists. A kind whose list was not given (not loaded yet) is not judged,
+ * so nothing is called missing on a guess. `self` is the document the map is in: a step that opens it is broken.
+ */
+export function brokenRefs(root: Layer, exists: { processes?: Iterable<string>; skills?: Iterable<string>; self?: string }): BrokenRef[] {
+  const processes = exists.processes ? new Set(exists.processes) : null, skills = exists.skills ? new Set(exists.skills) : null
+  return mapRefs(root).flatMap((r): BrokenRef[] => {
+    if (r.kind === "process" && exists.self && r.target === exists.self) return [{ ...r, why: "own" }]
+    const known = r.kind === "process" ? processes : skills
+    return known && !known.has(r.target) ? [{ ...r, why: "missing" }] : []
+  })
+}
+/** A broken link in words, for the person looking at the map. */
+export const brokenWords = (b: BrokenRef): string =>
+  b.why === "own" ? `"${b.title}" opens the document it is in`
+  : b.kind === "process" ? `"${b.title}" opens a process that is no longer there`
+  : `"${b.title}" uses a skill that is no longer there (${b.target})`
 
 export const DIM = { laneLabel: 170, col: 268, node: 208, lane: 122, nodeH: 78, gap: 320, chainNode: 236, header: 140 }
 export interface Point { x: number; y: number }
@@ -210,6 +267,27 @@ export function newId(layer: Layer, prefix = "n"): string {
 }
 export const setNode = (layer: Layer, id: string, patch: Partial<Pick<MapNode, "title" | "sub" | "who" | "you" | "todo">>): Layer =>
   ({ ...layer, nodes: layer.nodes.map((n) => (n.id === id ? clean({ ...n, ...patch }) : n)) })
+/**
+ * Makes a step lead to another process document. Refused (unchanged) when the id cannot be one, when there is no such
+ * step, or when it is `self`, the document this map is in: a step cannot open its own document.
+ */
+export function setOpens(layer: Layer, id: string, process: string, self?: string): Layer {
+  const to = processRef(process)
+  if (!to || to === self || !layer.nodes.some((n) => n.id === id)) return layer
+  return { ...layer, nodes: layer.nodes.map((n) => (n.id === id ? { ...n, opens: { process: to } } : n)) }
+}
+/** Names the skill that performs a step. Refused (unchanged) when the name cannot be one or there is no such step. */
+export function setUses(layer: Layer, id: string, skill: string): Layer {
+  const name = skillRef(skill)
+  if (!name || !layer.nodes.some((n) => n.id === id)) return layer
+  return { ...layer, nodes: layer.nodes.map((n) => (n.id === id ? { ...n, uses: { skill: name } } : n)) }
+}
+const without = (layer: Layer, id: string, key: "opens" | "uses"): Layer =>
+  layer.nodes.some((n) => n.id === id && n[key]) ? { ...layer, nodes: layer.nodes.map((n) => { if (n.id !== id) return n; const { [key]: _gone, ...rest } = n; return rest }) } : layer
+/** Takes away where a step leads. Unchanged when it led nowhere. */
+export const clearOpens = (layer: Layer, id: string): Layer => without(layer, id, "opens")
+/** Takes away the skill a step names. Unchanged when it named none. */
+export const clearUses = (layer: Layer, id: string): Layer => without(layer, id, "uses")
 export const setStage = (layer: Layer, id: string, patch: Partial<Pick<Stage, "title" | "sub">>): Layer =>
   ({ ...layer, stages: layer.stages?.map((s) => (s.id === id ? clean({ ...s, ...patch }) : s)) })
 export const renameLane = (layer: Layer, index: number, name: string): Layer => ({ ...layer, lanes: layer.lanes?.map((l, i) => (i === index ? name : l)) })

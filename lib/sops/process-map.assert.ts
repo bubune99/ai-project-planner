@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import {
-  DIM, addInside, addLane, addLink, addNode, addStage, cellAt, cellFree, checkLayer, crumbs, doorOf, indexAt, isLanes, layerAt, moveLane, moveNode, moveStage, parseLayer, parseMapBlock, place, removeInside, removeLane, removeLink, removeNode, removeStage, reorderNode, reroute,
-  renameLane, routeLink, seedMap, setLink, setNode, setStage, splitLink, stripMapBlock, walkMap, updateAt, writeMapBlock, type Layer, type Path,
+  DIM, addInside, addLane, addLink, addNode, addStage, brokenRefs, brokenWords, cellAt, cellFree, checkLayer, clearOpens, clearUses, crumbs, doorOf, indexAt, isLanes, layerAt, leadsTo, mapRefs, moveLane, moveNode, moveStage, parseLayer, parseMapBlock, place, removeInside, removeLane, removeLink, removeNode, removeStage, reorderNode, reroute,
+  renameLane, routeLink, seedMap, setLink, setNode, setOpens, setStage, setUses, splitLink, stripMapBlock, walkMap, updateAt, writeMapBlock, type Layer, type Path,
 } from "./process-map"
 
 let n = 0
@@ -193,6 +193,82 @@ ok("the walk's own map reads cleanly at every layer and survives being stored", 
   for (const s of w.stages!) { assert.ok(s.inside, s.title); assert.deepEqual(checkLayer(s.inside!), [], s.title) }
   assert.deepEqual(parseMapBlock(writeMapBlock("", w)), w)
   assert.deepEqual(w.nodes.filter((x) => x.you).map((x) => x.id), ["taste"])      // the owner appears once: for preferences
+})
+
+// ---- a step that leads to another process, or names the skill that does it ----
+
+const DOC = "0b1f6c1e-7a52-4d0e-9a3b-5d2c8f4e1a77", OTHER = "9c2d7e10-3f41-4b6a-8e55-1a2b3c4d5e6f"
+
+ok("a step can open another process and name a skill, and both can be taken away again", () => {
+  const chain = m.stages![5].inside!, before = JSON.stringify(chain)
+  const linked = setOpens(chain, "a", OTHER, DOC)
+  assert.deepEqual(linked.nodes[0].opens, { process: OTHER })
+  assert.deepEqual(setOpens(linked, "a", DOC.replace("0b1f", "ffff"), DOC).nodes[0].opens, { process: DOC.replace("0b1f", "ffff") })   // changed, not doubled
+  const skilled = setUses(linked, "a", "  far-gates:gates ")
+  assert.deepEqual(skilled.nodes[0].uses, { skill: "far-gates:gates" }); assert.deepEqual(skilled.nodes[0].opens, { process: OTHER })   // one does not push out the other
+  assert.equal("opens" in clearOpens(skilled, "a").nodes[0], false); assert.deepEqual(clearOpens(skilled, "a").nodes[0].uses, { skill: "far-gates:gates" })
+  assert.deepEqual(clearUses(clearOpens(skilled, "a"), "a"), chain)                 // both gone: the step is as it was
+  assert.equal(JSON.stringify(chain), before)                                       // and the old map was never touched
+  assert.equal(setNode(skilled, "a", { title: "Find it" }).nodes[0].opens!.process, OTHER)   // rewording a step keeps where it leads
+})
+
+ok("a step cannot open its own document, and a link that makes no sense is refused", () => {
+  const chain = m.stages![5].inside!
+  assert.equal(setOpens(chain, "a", DOC, DOC), chain)                               // its own document: unchanged
+  assert.equal(setOpens(chain, "a", "", DOC), chain); assert.equal(setOpens(chain, "a", "not an id!", DOC), chain)
+  assert.equal(setOpens(chain, "gone", OTHER, DOC), chain)                          // no such step
+  assert.equal(setUses(chain, "a", "   "), chain); assert.equal(setUses(chain, "a", "<script>"), chain); assert.equal(setUses(chain, "a", "x".repeat(121)), chain)
+  assert.equal(clearOpens(chain, "a"), chain); assert.equal(clearUses(chain, "a"), chain)   // nothing to clear: unchanged
+})
+
+ok("links survive being stored; old maps read as before; a malformed link is dropped without losing the step", () => {
+  const withLinks = updateAt(m, [{ kind: "stage", id: "fix" }], (l) => setUses(setOpens(l, "a", OTHER, DOC), "b", "build-fix"))
+  assert.deepEqual(parseMapBlock(writeMapBlock("Words.", withLinks)), withLinks)
+  assert.deepEqual(parseMapBlock(writeMapBlock("", m)), m)                          // a map from before links existed
+  const raw = { nodes: [
+    { id: "a", title: "A", opens: OTHER, uses: "gates" },                           // the bare value, not the shape
+    { id: "b", title: "B", opens: { process: 7 }, uses: { skill: ["x"] } },
+    { id: "c", title: "C", opens: { process: "has spaces" }, uses: { skill: "" } },
+    { id: "d", title: "D", opens: { process: OTHER, evil: 1 }, uses: { skill: " gates ", evil: 1 } },
+  ], links: [] }
+  const { layer, errors } = parseLayer(raw)
+  assert.deepEqual(errors, [])                                                      // a bad link never makes the whole map unreadable
+  for (const i of [0, 1, 2]) { assert.equal("opens" in layer.nodes[i], false); assert.equal("uses" in layer.nodes[i], false) }
+  assert.deepEqual(layer.nodes[3], { id: "d", title: "D", opens: { process: OTHER }, uses: { skill: "gates" } })   // only the known fields are kept
+})
+
+ok("double-click leads to the layer inside a step first, then to the process it opens, then to its stage's loop", () => {
+  assert.deepEqual(leadsTo(m, "look"), { layer: { kind: "stage", id: "validate" } })          // as before: its stage's loop
+  const linked = setOpens(m, "look", OTHER, DOC)
+  assert.deepEqual(leadsTo(linked, "look"), { process: OTHER })                               // a link of its own comes before the stage's loop
+  assert.deepEqual(leadsTo(addInside(linked, "node", "look"), "look"), { layer: { kind: "node", id: "look" } })   // its own layer comes first
+  const chain = m.stages![5].inside!
+  assert.equal(leadsTo(chain, "a"), null); assert.equal(leadsTo(chain, "gone"), null)
+  assert.equal(leadsTo(setUses(chain, "a", "gates"), "a"), null)                              // a skill is named, not opened
+})
+
+ok("every link in a map can be listed, at any depth, and the broken ones are named with the reason", () => {
+  let map = setOpens(m, "say", OTHER, DOC)
+  map = updateAt(map, [{ kind: "stage", id: "fix" }], (l) => setUses(setOpens(l, "b", "gone-doc", DOC), "c", "gates"))
+  map = updateAt(map, [{ kind: "stage", id: "fix" }], (l) => addInside(l, "node", "e"))
+  map = updateAt(map, [{ kind: "stage", id: "fix" }, { kind: "node", id: "e" }], (l) => setUses(l, "a", "retired-skill"))
+  const refs = mapRefs(map)
+  assert.deepEqual(refs.map((r) => [r.path.map((s) => s.id).join("/"), r.node, r.kind, r.target]), [
+    ["", "say", "process", OTHER], ["fix", "b", "process", "gone-doc"], ["fix", "c", "skill", "gates"], ["fix/e", "a", "skill", "retired-skill"],
+  ])
+  assert.equal(refs[1].title, "Fix it on a review branch")
+  const broken = brokenRefs(map, { processes: [OTHER], skills: new Set(["gates"]), self: DOC })
+  assert.deepEqual(broken.map((b) => [b.node, b.kind, b.why]), [["b", "process", "missing"], ["a", "skill", "missing"]])
+  assert.equal(brokenWords(broken[0]), '"Fix it on a review branch" opens a process that is no longer there')
+  assert.equal(brokenWords(broken[1]), '"First step" uses a skill that is no longer there (retired-skill)')
+  assert.deepEqual(brokenRefs(map, { processes: [OTHER, "gone-doc"], skills: ["gates", "retired-skill"] }), [])
+  // What has not been loaded is not judged: no list of skills, no claim that a skill is missing.
+  assert.deepEqual(brokenRefs(map, { processes: [OTHER] }).map((b) => b.node), ["b"])
+  assert.deepEqual(brokenRefs(map, {}), [])
+  // A map that arrives already pointing at its own document (written by hand or by an agent) is shown as broken, not followed.
+  const own = brokenRefs(map, { processes: [OTHER, "gone-doc"], self: OTHER })
+  assert.deepEqual(own.map((b) => [b.node, b.why]), [["say", "own"]])
+  assert.equal(brokenWords(own[0]), '"Say what you want" opens the document it is in')
 })
 
 console.log(`\n${n} checks passed`)
