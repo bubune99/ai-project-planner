@@ -419,7 +419,7 @@ export default function ProjectDashboardPage() {
               <KanbanView projectId={projectId} onTaskSelect={() => {}} onRefresh={stepsQ.reload} initialStepId={focusStepId} />
             </BoardRoom>
           )}
-          {taskView === "list" && <TaskList projectId={projectId} />}
+          {taskView === "list" && <TaskList projectId={projectId} onChanged={stepsQ.reload} />}
           {taskView === "timeline" && <TaskTimeline projectId={projectId} />}
           {taskView === "calendar" && <TaskCalendar projectId={projectId} />}
         </div>

@@ -42,7 +42,8 @@ const topLevel = (s: Step[]) => s.filter((x) => !x.is_subtask && !x.parent_task_
 
 // ─── List ───────────────────────────────────────────────────────────────────
 
-export function TaskList({ projectId }: { projectId: string }) {
+/** `onChanged` lets the page refresh what it shows from the same tasks (the header figures). */
+export function TaskList({ projectId, onChanged }: { projectId: string; onChanged?: () => void }) {
   const { data, loading, error, reload } = useJson(`/api/projects/${projectId}/steps`)
   // A status is named and colored the board's way: the project's own columns when it has any, otherwise the board's
   // standard ones (where "requested" is Requests).
@@ -70,7 +71,7 @@ export function TaskList({ projectId }: { projectId: string }) {
   if (error) return <Failed what="tasks" error={error} retry={reload} />
   const toggle = async (s: Step) => {
     setBusy(s.id)
-    try { await patchJson(`/api/projects/${projectId}/steps/${s.id}`, { status: s.status === "completed" ? "pending" : "completed" }); reload() }
+    try { await patchJson(`/api/projects/${projectId}/steps/${s.id}`, { status: s.status === "completed" ? "pending" : "completed" }); reload(); onChanged?.() }
     catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't update the task") }
     finally { setBusy(null) }
   }
