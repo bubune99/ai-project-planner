@@ -101,10 +101,17 @@ export async function loadPlan(projectId: string, route: string, list: Checklist
  * from. The answer keeps who gave it and what it rests on. The owner's answer replaces an agent's; an agent cannot
  * replace the owner's.
  */
+/**
+ * Two names for the same planned item. Both sides are trimmed: a label read from the page can end in a space (a
+ * truncated button name), and only the name asked about was trimmed, so such an item could never be answered or
+ * removed by name (2026-11-23, two Docs-tab items).
+ */
+const sameLabel = (stored: string, given: string) => stored.trim().toLowerCase() === given.trim().toLowerCase()
+
 export async function answerIntake(a: { projectId: string; route: string; item: string; question: string; text: string; by: "owner" | "agent"; basis: Basis; quote?: string }) {
   const items = await itemsOf(a.projectId, a.route)
   if (!items) throw new GateError(`No plan is recorded for ${a.route}`)
-  const it = items.find((i) => i.id === a.item) ?? items.find((i) => i.label.toLowerCase() === a.item.toLowerCase().trim())
+  const it = items.find((i) => i.id === a.item) ?? items.find((i) => sameLabel(i.label, a.item))
   if (!it) throw new GateError(`"${a.item}" is not in the plan for ${a.route}`)
   const q = intakeQuestions(it.kind).find((x) => x.id === a.question)
   if (!q) throw new GateError(`"${a.question}" is not a question for this kind of item. Its questions: ${intakeQuestions(it.kind).map((x) => x.id).join(", ")}`)
@@ -145,7 +152,7 @@ export async function proposePlanChange(a: {
   label: string; must?: string; kind?: string; view?: string; reason: string; basis: Basis; quote?: string; replacedBy?: string; source?: Exclude<ExpectSource, "owner">
 }) {
   const items = (await itemsOf(a.projectId, a.route)) ?? []
-  const found = items.find((i) => i.label.toLowerCase() === a.label.toLowerCase().trim() && (!a.view || i.view === a.view))
+  const found = items.find((i) => sameLabel(i.label, a.label) && (!a.view || i.view === a.view))
   if (a.action === "remove" && !found) throw new GateError(`"${a.label}" is not in the plan for ${a.route}`)
   if (a.action === "add" && found) throw new GateError(`"${a.label}" is already in the plan for ${a.route}`)
   const item: Expected = a.action === "remove" ? found! : {
