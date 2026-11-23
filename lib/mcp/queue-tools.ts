@@ -12,7 +12,7 @@
  */
 import { z } from "zod"
 import { sql } from "@/lib/db/client"
-import { getMcpUserId, requireMcpScope } from "@/lib/auth/mcp-context"
+import { getMcpContextOrNull, getMcpUserId, requireMcpScope } from "@/lib/auth/mcp-context"
 import { QueueError, claimPatch, donePatch, itemState, mayClaim, mayUndo, planChangeNote, routing, wakeFor, whereItWent, type ItemRow } from "@/lib/queue/item-state"
 
 function ok(data: unknown) {
@@ -172,7 +172,7 @@ export function registerQueueTools(server: any): void {
         const j = await load(questionId, userId)
         if (!j) return fail("Question not found")
         const row = toItemRow(j), now = Date.now()
-        const verdict = mayClaim(row, { agent, projectId, now })
+        const verdict = mayClaim(row, { agent, projectId, now, keyId: getMcpContextOrNull()?.apiKeyId ?? null })
         if (!verdict.ok) return fail(verdict.why)
         const metadata = claimPatch(row.metadata, { agent, from, now })
         await sql`UPDATE agent_jobs SET metadata = ${JSON.stringify(metadata)}::jsonb, updated_at = NOW() WHERE id = ${j.id} AND created_by = ${userId}`

@@ -32,6 +32,15 @@ t("another agent on the project waits out the grace period, then may take it", (
   assert.deepEqual(mayClaim(row({ answeredAt: "2026-11-15T00:30:00Z" }), { agent: "other", projectId: "p1", now: NOW }), { ok: true, takenOver: true })
 })
 
+t("an agent on the key the question was asked on claims at once, whatever name it gives", () => {
+  const asked = row({ askedBy: "key: Claude Code MCP Key", metadata: { apiKeyId: "k1" } })
+  assert.deepEqual(mayClaim(asked, { agent: "claude-code@planner", projectId: "p1", now: NOW, keyId: "k1" }), { ok: true, takenOver: false })
+  assert.equal(mayClaim(asked, { agent: "claude-code@planner", projectId: "p1", now: NOW, keyId: "k2" }).ok, false, "another key still waits")
+  assert.equal(mayClaim(asked, { agent: "claude-code@planner", projectId: "p1", now: NOW }).ok, false, "no key known: still waits")
+  assert.equal(mayClaim(row({ metadata: { apiKeyId: "k1", claimedBy: "x", claimedAt: "2026-11-15T00:59:00Z" } }), { agent: "y", now: NOW, keyId: "k1" }).ok, false, "never takes a claim another agent holds")
+  assert.equal(mayClaim(asked, { agent: "mcp-client", now: NOW, keyId: "k1" }).ok, false, "still needs a name")
+})
+
 t("an agent on a different project, or with no name, is refused", () => {
   assert.equal(mayClaim(row({ answeredAt: "2026-11-14T00:00:00Z" }), { agent: "other", projectId: "p2", now: NOW }).ok, false)
   assert.equal(mayClaim(row(), { agent: "mcp-client", projectId: "p1", now: NOW }).ok, false)

@@ -53,6 +53,12 @@ export function routing(row: ItemRow): Routing {
   }
 }
 
+/** Whether the caller came in on the key the question was asked on (metadata.apiKeyId, written by ask_owner). */
+export function sameKey(row: ItemRow, keyId: string | null | undefined): boolean {
+  const asked = str(row.metadata?.apiKeyId)
+  return !!asked && !!keyId && asked === keyId.trim()
+}
+
 export function itemState(row: ItemRow): ItemState {
   if (row.status === "awaiting-unlock") return "waiting"
   if (row.status === "cancelled" || row.status === "failed") return "set-aside"
@@ -80,7 +86,7 @@ export type ClaimVerdict = { ok: true; takenOver: boolean } | { ok: false; why: 
  * either nobody is recorded as the asker or the grace period has passed. A claimed answer is not taken from the
  * agent holding it unless that claim is older than `staleMinutes` and the work was never marked done.
  */
-export function mayClaim(row: ItemRow, a: { agent: string; projectId?: string | null; now: number; graceMinutes?: number; staleMinutes?: number }): ClaimVerdict {
+export function mayClaim(row: ItemRow, a: { agent: string; projectId?: string | null; now: number; graceMinutes?: number; staleMinutes?: number; keyId?: string | null }): ClaimVerdict {
   const agent = a.agent.trim()
   if (!agent || ANONYMOUS.has(agent.toLowerCase())) return { ok: false, why: "Say which agent you are (a stable name), so the owner can see who has his answer." }
   const state = itemState(row), r = routing(row)
@@ -98,6 +104,9 @@ export function mayClaim(row: ItemRow, a: { agent: string; projectId?: string | 
   }
   // unclaimed
   if (same(r.askedBy)) return { ok: true, takenOver: false }
+  // Asked on the same key: the asker gave no name of its own (so the key's name was kept), and the listener tells
+  // it to claim with its agent name. That was refused for 20 minutes (2026-11-23); the key says it is the asker.
+  if (sameKey(row, a.keyId)) return { ok: true, takenOver: false }
   if (!row.projectId) return r.askedBy ? { ok: false, why: `This answer is for ${r.askedBy} and has no project another agent could claim it through.` } : { ok: true, takenOver: false }
   // No project given is not "a different project" (2026-11-17: an agent handed the answer at session start was told
   // it belonged elsewhere, when it had only left projectId out).
