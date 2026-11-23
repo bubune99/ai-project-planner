@@ -16,7 +16,7 @@
 
 import { useMemo, useState } from "react"
 import { QuestionPictures, type QuestionPicture } from "@/components/inbox/QuestionPictures"
-import { announceInbox } from "@/lib/inbox/live"
+import { announceInbox, useInbox } from "@/lib/inbox/live"
 import { toast } from "sonner"
 import { parseIdeaPlan, ideaStage, ideasForProject } from "@/lib/project-views/ideas"
 import { TIMELINE_KINDS, KIND_COLOR, buildTimeline, byMonth, type TimelineKind } from "@/lib/project-views/timeline"
@@ -38,7 +38,7 @@ function linkedSteps(d: Decision, steps: Step[]) {
 
 export function IdeasDecisions({ projectId, projectName }: { projectId: string; projectName: string }) {
   const why = useJson(`/api/memory/why?projectId=${projectId}&limit=100`)
-  const inbox = useJson(`/api/inbox`)
+  const inbox = useInbox()
   const ideasQ = useJson(`/api/ideas`)
   const stepsQ = useJson(`/api/projects/${projectId}/steps`)
   const docsQ = useJson(`/api/projects/${projectId}/documents`)

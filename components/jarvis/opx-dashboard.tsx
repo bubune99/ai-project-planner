@@ -10,6 +10,7 @@
 import Link from "next/link"
 import { QuestionCard } from "@/components/inbox/QuestionCard"
 import type { InboxItem } from "@/lib/inbox"
+import { useInbox } from "@/lib/inbox/live"
 import { useState } from "react"
 import { useUser } from "@stackframe/stack"
 import { DitherBanner } from "./DitherBanner"
@@ -31,7 +32,7 @@ export function OpxDashboard() {
   const user = useUser()
   const projectsQ = useJson("/api/projects")
   const focusQ = useJson("/api/dashboard/focus")
-  const inboxQ = useJson("/api/inbox")
+  const inboxQ = useInbox()
   const ideasQ = useJson("/api/ideas")
   const todosQ = useJson("/api/todos?status=open&limit=1")
   // The inbox's own question card, compact; answered ones stay with Change my answer (walk 2026-11-16).

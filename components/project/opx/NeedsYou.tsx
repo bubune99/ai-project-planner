@@ -10,6 +10,7 @@
 import { useMemo, useState } from "react"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import type { InboxItem } from "@/lib/inbox"
+import { useInbox } from "@/lib/inbox/live"
 import { KIND_WORD, findingKey, type StoredWalk } from "@/lib/walks/walk-model"
 import { needsYou, needsYouLine, type CardRow, type WaitingChange } from "@/lib/project/needs-you"
 import Link from "next/link"
@@ -21,7 +22,7 @@ const row: React.CSSProperties = { display: "flex", gap: 12, alignItems: "baseli
 
 /** steps: the project's step list as the page already has it (cards only the owner can do are taken from it). */
 export function useNeedsYou(projectId: string, steps?: unknown) {
-  const inbox = useJson<any>("/api/inbox")
+  const inbox = useInbox() as { data: any; loading: boolean; error: string | null; reload: () => void }
   const changes = useJson<{ changes: WaitingChange[] }>(`/api/projects/${projectId}/gates/changes`)
   const walks = useJson<{ walks: StoredWalk[] }>(`/api/projects/${projectId}/gates/walks`)
   const [answered, setAnswered] = useState<string[]>([])

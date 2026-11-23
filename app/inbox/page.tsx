@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { DashboardLayout } from "@/components/navigation"
 import type { InboxItem } from "@/lib/inbox"
+import { readInbox } from "@/lib/inbox/live"
 import { QuestionCard } from "@/components/inbox/QuestionCard"
 import { AnsweredList } from "@/components/inbox/AnsweredList"
 import Link from "next/link"
@@ -24,11 +25,11 @@ export default function InboxPage() {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const [refreshing, setRefreshing] = useState(false)
 
-  const load = useCallback(async () => {
+  // The shared read (lib/inbox/live.ts): the top bar and the menu asked for the same list at the same moment.
+  const load = useCallback(async (force = true) => {
     try {
-      const res = await fetch("/api/inbox", { credentials: "include" })
-      const j = await res.json()
-      if (!res.ok || !j.success) throw new Error(j?.error?.message || `HTTP ${res.status}`)
+      const j = await readInbox(force)
+      if (!j || !Array.isArray(j.data)) throw new Error("The inbox could not be read")
       setItems(j.data as InboxItem[])
       setError(null)
       setUpdatedAt(new Date())
@@ -37,7 +38,7 @@ export default function InboxPage() {
     }
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load(false) }, [load])
 
   // Answered here this visit: shown first under "Just answered", each with Change my answer (walk 2026-11-16).
   const [justIds, setJustIds] = useState<string[]>([])
