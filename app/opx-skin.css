@@ -95,6 +95,15 @@ code, pre, kbd, samp, .font-mono { font-family: var(--font-inter), Inter, system
 .j-topbar-left p { color: var(--opx-muted); }
 .j-search { background: var(--opx-soft); box-shadow: none; border-radius: 999px; color: var(--opx-muted); padding: 8px 14px; font-size: 13px; }
 .j-kbd { background: var(--opx-card); color: var(--opx-muted); }
+/* The top bar never wraps a button: with the assistant open, "Report a problem" broke onto two lines from 1060px to
+   1440px wide and the page title was squeezed to 60px (measured 2026-11-23). The buttons keep their width; the title
+   side gives way, and its subtitle shortens with an ellipsis, then goes, before the title itself is cut. */
+.j-topbar-right > * { flex-shrink: 0; white-space: nowrap; }
+.j-kbd { white-space: nowrap; }
+.j-topbar-left { min-width: 0; flex: 1 1 auto; }
+.j-topbar-titles { min-width: 0; }
+.j-topbar-titles h1 { white-space: nowrap; }
+.j-topbar-titles p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .j-btn { border-radius: 999px; padding: 7px 14px; font-weight: 600; }
 .j-btn-primary { background: var(--opx-ink); color: var(--opx-card); }
