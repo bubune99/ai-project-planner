@@ -3,7 +3,7 @@
  * listener hand it to the session bound to that project, which claims the card. Rules in pipeline.ts.
  */
 import { sql } from "@/lib/db/client"
-import { jobFor, sendsOnMove, type WorkRow } from "./pipeline"
+import { jobFor, sendsOnMove, withdrawsOnMove, type WorkRow } from "./pipeline"
 
 /** Sends the card when this move calls for it, once: a card with an open job is not sent again. Returns the job id. */
 export async function sendIfMoved(step: WorkRow, from: string | null, projectId: string, userId: string): Promise<string | null> {
@@ -30,4 +30,24 @@ export async function sendNow(step: WorkRow, projectId: string, userId: string):
     WHERE id = ${step.id}
   `
   return { jobId: job.id, already: false }
+}
+
+/**
+ * Withdraws the card's job when this move takes it off the agents' line (or the card is deleted): a job still waiting
+ * to be picked up is cancelled, with why. A job an agent has already taken is left to that agent. Returns how many.
+ */
+export async function withdrawIfMoved(stepId: string, from: string | null, to: string): Promise<number> {
+  if (!withdrawsOnMove(from, to)) return 0
+  return withdrawNow(stepId, `the card moved to ${to}`)
+}
+
+export async function withdrawNow(stepId: string, why: string): Promise<number> {
+  const rows = (await sql`
+    UPDATE agent_jobs
+       SET status = 'cancelled', updated_at = NOW(),
+           metadata = COALESCE(metadata, '{}'::jsonb) || ${JSON.stringify({ withdrawn: why, withdrawnAt: new Date().toISOString() })}::jsonb
+     WHERE parent_step_id = ${stepId} AND status IN ('pending', 'queued')
+     RETURNING id
+  `) as { id: string }[]
+  return rows.length
 }

@@ -6,7 +6,7 @@
  * DELETE /api/projects/[id]/steps/[stepId] - Delete step
  */
 
-import { sendIfMoved } from "@/lib/work/send";
+import { sendIfMoved, withdrawIfMoved, withdrawNow } from "@/lib/work/send";
 import type { WorkRow } from "@/lib/work/pipeline";
 import { type NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
@@ -271,6 +271,10 @@ export async function PATCH(
         step.send_error = "The card moved, but it could not be sent to the agents. Move it again to retry.";
       }
     }
+    // Whoever moves it: a card taken off the line (Requests, Paused, Complete, Closed) withdraws a job nobody picked up.
+    if (status && before && before.status !== status) {
+      try { await withdrawIfMoved(stepId, before.status, status) } catch (e) { console.error("withdrawing the card's job failed", e) }
+    }
 
     // Update dependencies if provided
     if (dependencies !== undefined && Array.isArray(dependencies)) {
@@ -377,6 +381,9 @@ export async function DELETE(
         AND deleted_at IS NULL
       RETURNING *
     `;
+    if (result.length) {
+      try { await withdrawNow(stepId, "the card was deleted") } catch (e) { console.error("withdrawing the deleted card's job failed", e) }
+    }
 
     if (result.length === 0) {
       return NextResponse.json(

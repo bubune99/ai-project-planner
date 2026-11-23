@@ -38,6 +38,17 @@ export function sendsOnMove(from: string | null, to: string, kind: Kind): boolea
   return kind !== "initiative" && kind !== "owner" && GO.has(to) && !GO.has(from ?? "")
 }
 
+/** Columns that take a card off the agents' line: pulled back to Requests, paused, finished or closed. */
+const OFF_THE_LINE = new Set(["requested", "paused", "completed", "done", "closed"])
+/**
+ * Does moving a card withdraw the job it was sent with? Only a job nobody has picked up yet is withdrawn (the caller
+ * cancels pending ones only); an agent holding the card finishes or hands it back itself. Found 2026-11-23: on
+ * production 17 jobs were still waiting, two for closed cards and two for cards moved back to Requests.
+ */
+export function withdrawsOnMove(from: string | null, to: string): boolean {
+  return from !== to && OFF_THE_LINE.has(to)
+}
+
 /*
   Start, in the owner's words (inbox be28f3e9, 2026-11-16): "Agents can get swapped. So it gets put on the ready for when
   an agent becomes available to take over and get things moving. If an agent is connected it gets added to the queue to

@@ -1,6 +1,6 @@
 // npx -y tsx@4.23.15 lib/work/pipeline.assert.ts
 import assert from "node:assert/strict"
-import { faultOf, holding, jobFor, rollup, sendsOnMove, type WorkRow, startMove, whenQuestionAsked, whenQuestionAnswered, type OpenHold, PART_WAITING, partWaiting, readShipNote, shipOf } from "./pipeline"
+import { faultOf, holding, jobFor, rollup, sendsOnMove, withdrawsOnMove, type WorkRow, startMove, whenQuestionAsked, whenQuestionAnswered, type OpenHold, PART_WAITING, partWaiting, readShipNote, shipOf } from "./pipeline"
 
 let n = 0
 const ok = (name: string, fn: () => void) => { fn(); n++; console.log("ok  ", name) }
@@ -166,6 +166,17 @@ ok("when the question is answered, or the card waits on something else, it follo
   assert.equal(partWaiting({ status: "blocked", kind: "closed" }, null, [Q1], SHIP), null)
   assert.equal(partWaiting({ status: "in-progress", kind: "active" }, null, [Q1], SHIP), null, "an agent is on it: it is in progress")
   assert.equal(partWaiting({ status: "closed", kind: "closed" }, null, [Q1], SHIP), null, "closed will not be done")
+})
+
+ok("moving a card off the line (Requests, Paused, Complete, Closed) withdraws a job nobody picked up", () => {
+  assert.equal(withdrawsOnMove("pending", "requested"), true, "the owner pulled it back")
+  assert.equal(withdrawsOnMove("pending", "closed"), true)
+  assert.equal(withdrawsOnMove("in-progress", "completed"), true)
+  assert.equal(withdrawsOnMove("pending", "paused"), true)
+  assert.equal(withdrawsOnMove("pending", "in-progress"), false, "still on the line")
+  assert.equal(withdrawsOnMove("pending", "blocked"), false, "blocked waits on an answer and comes back to Up next")
+  assert.equal(withdrawsOnMove("requested", "requested"), false, "not a move")
+  assert.equal(withdrawsOnMove(null, "requested"), true, "harmless on a new card: it has no job")
 })
 
 console.log(`\n${n} pipeline checks passed`)
