@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectWriteAccess } from '@/lib/auth/auth-utils'
 import { buildEnvelopeForWrite, envelopeForSql } from '@/lib/api/envelope-helpers'
+import { isUuid, notAnId } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -78,6 +79,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const category = searchParams.get('category')
     const projectId = searchParams.get('projectId')
+    if (projectId !== null && !isUuid(projectId)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('projectId'), 400)
     const visibility = searchParams.get('visibility')
     const search = searchParams.get('search')
 

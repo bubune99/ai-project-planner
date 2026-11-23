@@ -19,6 +19,7 @@ import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectWriteAccess } from '@/lib/auth/auth-utils'
 import { buildEnvelopeForWrite, envelopeForSql } from '@/lib/api/envelope-helpers'
 import { composeFromSpecs, composeFromTemplate, type StepSpec } from '@/lib/work-orders/compose'
+import { isUuid, notAnId } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,6 +66,7 @@ export async function GET(request: NextRequest) {
     const sp = new URL(request.url).searchParams
     const status = sp.get('status')
     const projectId = sp.get('projectId')
+    if (projectId !== null && !isUuid(projectId)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('projectId'), 400)
     const limit = Math.min(parseInt(sp.get('limit') ?? '50', 10) || 50, 200)
     const offset = parseInt(sp.get('offset') ?? '0', 10) || 0
 

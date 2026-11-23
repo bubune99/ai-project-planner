@@ -14,6 +14,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
 import { buildEnvelopeForWrite, envelopeForSql } from '@/lib/api/envelope-helpers'
+import { isUuid, notAnId } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -83,6 +84,8 @@ export async function GET(request: NextRequest) {
     const fromId = sp.get('fromId')
     const toType = sp.get('toType')
     const toId = sp.get('toId')
+    if (fromId !== null && !isUuid(fromId)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('fromId'), 400)
+    if (toId !== null && !isUuid(toId)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('toId'), 400)
     const relationType = sp.get('relationType')
     const limit = Math.min(Number.parseInt(sp.get('limit') ?? '500', 10) || 500, 2000)
 

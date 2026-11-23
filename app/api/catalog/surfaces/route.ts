@@ -14,6 +14,7 @@ import { getAuthContext } from '@/lib/auth/auth-utils'
 import { buildEnvelopeForWrite, envelopeForSql } from '@/lib/api/envelope-helpers'
 import { computeContentHash } from '@/lib/catalog/hash'
 import { SURFACE_KINDS } from '@/lib/catalog/types'
+import { isUuid, notAnId } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +27,7 @@ export async function GET(request: NextRequest) {
     const sp = new URL(request.url).searchParams
     const kind = sp.get('kind')
     const projectId = sp.get('projectId')
+    if (projectId !== null && !isUuid(projectId)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('projectId'), 400)
     const status = sp.get('status')
     const search = sp.get('search')
     const includeDeleted = sp.get('includeDeleted') === '1'

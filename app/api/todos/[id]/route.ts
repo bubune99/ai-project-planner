@@ -4,7 +4,7 @@ import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectWriteAccess } from '@/lib/auth/auth-utils'
 import type { Todo } from '@/lib/types'
 import { mergeEnvelopeForPatch, envelopeForSql } from '@/lib/api/envelope-helpers'
-import { isUuid } from '@/lib/api/ids'
+import { isUuid, notAnId } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -179,6 +179,9 @@ export async function PATCH(
     }
 
     const { title, description, status, priority, dueDate, projectId, ideaId, transactionId, metadata } = body
+    if (projectId && !isUuid(projectId)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('projectId'), 400)
+    if (ideaId && !isUuid(ideaId)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('ideaId'), 400)
+    if (transactionId && !isUuid(transactionId)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('transactionId'), 400)
 
     // Fetch existing todo row for envelope merge
     const existingTodo = await sql`SELECT documentation_5wh, project_id FROM todos WHERE id = ${id} AND user_id = ${userId}`

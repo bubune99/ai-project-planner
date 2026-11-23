@@ -39,8 +39,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     return errorResponse(
       ErrorCodes.DATABASE_ERROR,
       'Failed to get project phases',
-      500,
-      error.message
+      500
     )
   }
 }
@@ -113,8 +112,7 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
     return errorResponse(
       ErrorCodes.DATABASE_ERROR,
       'Failed to transition phase',
-      500,
-      error.message
+      500
     )
   }
 }

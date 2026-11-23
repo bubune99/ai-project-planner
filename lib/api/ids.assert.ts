@@ -1,7 +1,7 @@
 /**
  * Run: npx -y tsx@4.23.15 lib/api/ids.assert.ts
  */
-import { isUuid } from "./ids"
+import { isUuid, notAnId } from "./ids"
 
 let failed = 0
 const eq = (name: string, got: unknown, want: unknown) => {
@@ -28,6 +28,7 @@ eq("undefined", isUuid(undefined), false)
 eq("null", isUuid(null), false)
 eq("a number", isUuid(255), false)
 eq("a list holding one", isUuid(["255d189c-3f0e-4a51-9c1e-0d2b6f7a8e90"]), false)
+eq("the sentence for a malformed id in a body or a query names the field", notAnId("dependsOnId"), "dependsOnId is not a valid id")
 
 console.log(failed ? `\n${failed} FAILED` : "\nall passed")
 if (failed) process.exit(1)

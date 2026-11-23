@@ -11,6 +11,7 @@ import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
 import { buildEnvelopeForWrite, envelopeForSql } from '@/lib/api/envelope-helpers'
 import { DEPENDENCY_KINDS } from '@/lib/catalog/types'
+import { isUuid, notAnId } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,6 +23,8 @@ export async function GET(request: NextRequest) {
     const sp = new URL(request.url).searchParams
     const fromSurfaceId = sp.get('fromSurfaceId')
     const toSurfaceId = sp.get('toSurfaceId')
+    if (fromSurfaceId !== null && !isUuid(fromSurfaceId)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('fromSurfaceId'), 400)
+    if (toSurfaceId !== null && !isUuid(toSurfaceId)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('toSurfaceId'), 400)
     const kind = sp.get('kind')
     const limit = Math.min(Number.parseInt(sp.get('limit') ?? '500', 10) || 500, 2000)
 
@@ -92,6 +95,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (!isUuid(from_surface_id)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('from_surface_id'), 400)
+    if (!isUuid(to_surface_id)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('to_surface_id'), 400)
+    
     // Verify both surfaces exist + belong to this user
     const surfaceCheck = await sql`
       SELECT id FROM surfaces

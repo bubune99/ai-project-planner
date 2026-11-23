@@ -57,6 +57,12 @@ export async function POST(
     const b = await request.json();
     const bodyText = (b.body || "").toString().trim();
     if (!bodyText) return NextResponse.json({ error: "body is required" }, { status: 400 });
+    if (b.parent_comment_id != null && b.parent_comment_id !== "" && !isUuid(b.parent_comment_id)) {
+      return NextResponse.json({ error: "parent_comment_id is not a comment's id" }, { status: 400 });
+    }
+    // A well-formed id of a card that is not in this project: say so, rather than let the insert fail.
+    const [step] = await sql`SELECT id FROM project_steps WHERE id = ${stepId} AND project_id = ${projectId}`;
+    if (!step) return NextResponse.json({ error: "Step not found" }, { status: 404 });
 
     const [comment] = await sql`
       INSERT INTO step_comments (step_id, project_id, user_id, parent_comment_id, body, author_label)

@@ -16,7 +16,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!isUuid(statusId)) return NextResponse.json({ error: "No deleted column with that id" }, { status: 404 })
     if (!(await verifyProjectWriteAccess(projectId, auth.userId))) return NextResponse.json({ error: "Project not found" }, { status: 404 })
     const body = await request.json().catch(() => null)
-    const stepIds: string[] = Array.isArray(body?.stepIds) ? body.stepIds.filter((x: unknown) => typeof x === "string").slice(0, 2000) : []
+    const stepIds: string[] = Array.isArray(body?.stepIds) ? body.stepIds.filter(isUuid).slice(0, 2000) : []
     const [row] = (await sql`
       UPDATE project_statuses SET deleted_at = NULL, updated_at = NOW()
        WHERE id = ${statusId} AND project_id = ${projectId} AND deleted_at IS NOT NULL

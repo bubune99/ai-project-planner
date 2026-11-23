@@ -4,6 +4,7 @@ import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext, verifyProjectWriteAccess } from '@/lib/auth/auth-utils'
 import { isValidFrequency } from '@/lib/service-schedule'
 import { buildEnvelopeForWrite, envelopeForSql } from '@/lib/api/envelope-helpers'
+import { isUuid, notAnId } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -76,6 +77,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const clientId = searchParams.get('clientId')
     const projectId = searchParams.get('projectId')
+    if (clientId !== null && !isUuid(clientId)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('clientId'), 400)
+    if (projectId !== null && !isUuid(projectId)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('projectId'), 400)
     const dueWithinRaw = searchParams.get('dueWithin')
     const activeOnly = searchParams.get('activeOnly') === '1'
     const dueWithin = dueWithinRaw != null && /^\d+$/.test(dueWithinRaw) ? parseInt(dueWithinRaw, 10) : null

@@ -11,7 +11,7 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/db/client";
-import { getAuthContext, verifyProjectWriteAccess } from "@/lib/auth/auth-utils";
+import { getAuthContext, verifyProjectOwnership, verifyProjectWriteAccess } from "@/lib/auth/auth-utils";
 import { isUuid } from "@/lib/api/ids";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +33,7 @@ export async function POST(
     const { id: projectId } = await params;
     if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 });
 
-    const hasAccess = await verifyProjectWriteAccess(projectId, userId);
+    const hasAccess = await verifyProjectOwnership(projectId, userId);
     if (!hasAccess) {
       return NextResponse.json(
         { error: "Project not found", code: "NOT_FOUND" },
@@ -51,7 +51,7 @@ export async function POST(
     const body = await request.json();
     const { stepIds } = body;
 
-    if (!Array.isArray(stepIds) || stepIds.length === 0 || stepIds.some((id) => typeof id !== "string")) {
+    if (!Array.isArray(stepIds) || stepIds.length === 0 || !stepIds.every(isUuid)) {
       return NextResponse.json(
         { error: "stepIds must be a non-empty array of step IDs" },
         { status: 400 }

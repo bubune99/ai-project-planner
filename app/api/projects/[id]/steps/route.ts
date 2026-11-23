@@ -123,7 +123,7 @@ export async function POST(
     if (!isUuid(projectId)) return NextResponse.json({ error: "Project not found", code: "NOT_FOUND" }, { status: 404 });
 
     // Verify project ownership
-    const hasAccess = await verifyProjectWriteAccess(projectId, userId);
+    const hasAccess = await verifyProjectOwnership(projectId, userId);
     if (!hasAccess) {
       return NextResponse.json(
         { error: "Project not found", code: "NOT_FOUND" },

@@ -16,6 +16,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
 import { isPlatformAdmin } from '@/lib/auth/platform-admin'
+import { isUuid, notAnId } from '@/lib/api/ids'
 
 
 export const dynamic = 'force-dynamic'
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
     if (!q) return errorResponse(ErrorCodes.VALIDATION_ERROR, 'q required', 400)
     const entityTypes = sp.get('entityTypes')?.split(',').filter(Boolean) ?? null
     const projectId = sp.get('projectId')
+    if (projectId !== null && !isUuid(projectId)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('projectId'), 400)
     const limit = Math.min(Number.parseInt(sp.get('limit') ?? '30', 10) || 30, 100)
 
     const rows = await sql`

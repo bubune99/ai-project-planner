@@ -11,6 +11,7 @@ import { sql } from '@/lib/db/client'
 import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
+import { isUuid, notAnId } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,6 +22,7 @@ export async function GET(request: NextRequest) {
     const { userId } = auth
     const sp = new URL(request.url).searchParams
     const projectId = sp.get('projectId')
+    if (projectId !== null && !isUuid(projectId)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('projectId'), 400)
     const commitSha = sp.get('commitSha')
     const scanType = sp.get('scanType')
     const triggeredBy = sp.get('triggeredBy')

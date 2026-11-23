@@ -13,6 +13,7 @@ import { NextRequest } from 'next/server'
 import { successResponse, errorResponse, ErrorCodes } from '@/lib/api-utils'
 import { getAuthContext } from '@/lib/auth/auth-utils'
 import { buildEnvelopeForWrite, envelopeForSql } from '@/lib/api/envelope-helpers'
+import { isUuid, notAnId } from '@/lib/api/ids'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +30,8 @@ export async function GET(request: NextRequest) {
     const entityId = sp.get('entityId')
     const outcome = sp.get('outcome')
     const projectId = sp.get('projectId')
+    if (entityId !== null && !isUuid(entityId)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('entityId'), 400)
+    if (projectId !== null && !isUuid(projectId)) return errorResponse(ErrorCodes.VALIDATION_ERROR, notAnId('projectId'), 400)
     const limit = Math.min(Number.parseInt(sp.get('limit') ?? '100', 10) || 100, 500)
 
     const rows = await sql`
