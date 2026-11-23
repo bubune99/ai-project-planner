@@ -12,6 +12,7 @@ import {
   type DirectionDoc, type KindView, type Mode, type Upcoming,
 } from "@/lib/direction/direction-model"
 import { Failed, Loading, Section, ago } from "./shared"
+import { getJsonShared } from "@/lib/net/shared-get"
 
 interface LogEntry { version: number; actor: "owner" | "agent"; lines: string[]; at: string }
 interface DirectionData { doc: DirectionDoc; version: number; log: LogEntry[]; canEdit: boolean }
@@ -26,11 +27,8 @@ export function DirectionTab({ projectId }: { projectId: string }) {
 
   useEffect(() => {
     let off = false
-    fetch(url).then(async (r) => {
-      const j = await r.json().catch(() => null)
-      if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`)
-      return j as DirectionData
-    }).then((j) => { if (!off) { setData(j); setError(null) } }).catch((e) => { if (!off) setError(e instanceof Error ? e.message : "Failed to load") })
+    // The page's header reads the same address as it opens; one request serves both. A reload after a save reads afresh.
+    getJsonShared<DirectionData>(url, tick > 0).then((j) => { if (!off) { setData(j); setError(null) } }).catch((e) => { if (!off) setError(e instanceof Error ? e.message : "Failed to load") })
     return () => { off = true }
   }, [url, tick])
 

@@ -15,6 +15,7 @@ import { CardActions } from "./kanban/CardActions"
 import { Plus } from "lucide-react"
 import { toast } from "sonner"
 import { askText } from "@/lib/ui/ask"
+import { getJsonShared } from "@/lib/net/shared-get"
 import {
   columnsFor,
   doneKeyOf,
@@ -134,13 +135,16 @@ export function KanbanView({ projectId, onTaskSelect, onRefresh, initialStepId }
     }
   }, [projectId])
 
+  // The first read is shared with the page, which reads the same cards for its header; every later one reads afresh.
+  const readOnce = useRef(false)
   const refetch = useCallback(async () => {
     try {
-      const [stepsRes] = await Promise.all([
-        fetch(all ? "/api/steps" : `/api/projects/${projectId}/steps`),
+      const force = readOnce.current
+      readOnce.current = true
+      const [data] = await Promise.all([
+        getJsonShared<{ steps?: BoardStep[] }>(all ? "/api/steps" : `/api/projects/${projectId}/steps`, force),
         refetchStatuses(),
       ])
-      const data = await stepsRes.json()
       if (Array.isArray(data.steps)) setSteps(data.steps)
     } catch (err) {
       console.error("Failed to fetch steps:", err)
