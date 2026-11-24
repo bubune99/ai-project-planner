@@ -12,6 +12,7 @@ import { Icon } from "@/components/jarvis/icons"
 import { DOCK_STATE_EVENT, DOCK_TOGGLE_EVENT } from "@/components/ade/AssistantDock"
 import { REPORT_EVENT } from "@/lib/chat/events"
 import { SearchPalette } from "./SearchPalette"
+import { DOCK_MIN_VIEWPORT, dockAllowed } from "@/lib/ade/dock"
 
 /**
  * Every page, by address: its name in the top bar, and its line in the jump box. Kept in step with the menu
@@ -263,7 +264,9 @@ export function DashboardLayout({ children, noPad, hideTopbarOnPhone }: Dashboar
               data-ui="dock.toggle"
               onClick={() => window.dispatchEvent(new Event(DOCK_TOGGLE_EVENT))}
               title="Show or hide the assistant"
-              style={{ display: vp === "desktop" ? "inline-flex" : "none", gap: 6, alignItems: "center" }}
+              // Only where the assistant can open: on /feedback, /chat and the sign-in pages the dock never shows, and the
+              // button pressed there did nothing but save "closed" for every other page (check of /feedback, 2026-11-24).
+              style={{ display: vp === "desktop" && dockAllowed(pathname, DOCK_MIN_VIEWPORT) ? "inline-flex" : "none", gap: 6, alignItems: "center" }}
             >
               <Icon name="sparkle" size={14} />
               <span>Assistant</span>
