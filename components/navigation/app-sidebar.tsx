@@ -71,8 +71,18 @@ const CAPTURE: { title: string; hint: string; href?: string; ask?: string }[] = 
 
 function CaptureButton({ onDone }: { onDone?: () => void }) {
   const [open, setOpen] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+  // A menu closes three ways: choosing, pressing outside it, Esc.
+  useEffect(() => {
+    if (!open) return
+    const away = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false) }
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false) }
+    document.addEventListener("pointerdown", away, true)
+    document.addEventListener("keydown", key)
+    return () => { document.removeEventListener("pointerdown", away, true); document.removeEventListener("keydown", key) }
+  }, [open])
   return (
-    <div className="opx-capture">
+    <div className="opx-capture" ref={box}>
       <button type="button" className="opx-cta" data-ui="nav.capture" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
         Capture something <span aria-hidden>+</span>
       </button>
@@ -253,7 +263,7 @@ export function AppSidebar({
           {!collapsed && (
             <div className="j-foot-meta">
               <strong>{user.displayName || "User"}</strong>
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span style={{ overflowWrap: "anywhere" }}>
                 {user.primaryEmail}
               </span>
             </div>

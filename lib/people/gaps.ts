@@ -85,8 +85,9 @@ function flowGaps(flow: UseCase, input: GapInput): Gap[] {
   const last = input.walks.filter((w) => w.useCase === flow.id).sort((a, b) => b.at.localeCompare(a.at))[0]
   if (!last) out.push({ ...at, kind: "never-walked", who: "agent", what: `${flow.name} has never been walked.` })
   else {
-    const changed = changesSinceWalk(flow, last.at, input.ships)
-    if (changed.length) out.push({ ...at, kind: "changed-since-walk", who: "agent", what: `${flow.name}: ${changed.length} ${changed.length === 1 ? "change has" : "changes have"} shipped to its pages since it was last walked (${changed.map((s) => s.sha.slice(0, 7)).join(", ")}); walk it again and update its steps.` })
+    // A commit shipped to staging and production is one change.
+    const shas = [...new Set(changesSinceWalk(flow, last.at, input.ships).map((s) => s.sha.slice(0, 7)))]
+    if (shas.length) out.push({ ...at, kind: "changed-since-walk", who: "agent", what: `${flow.name}: ${shas.length} ${shas.length === 1 ? "change has" : "changes have"} shipped to its pages since it was last walked (${shas.slice(0, 3).join(", ")}${shas.length > 3 ? ` and ${shas.length - 3} more` : ""}); walk it again and update its steps.` })
     else if (last.outcome !== "reached") out.push({ ...at, kind: "stopped-short", who: "agent", what: `${flow.name}: its last walk stopped short and nothing has fixed it since.` })
   }
   if (!isReviewed(flow)) out.push({ ...at, kind: "not-reviewed", who: "owner", what: `${flow.name} was proposed by ${flow.proposedBy ?? "an agent"} and waits for the owner's review.` })

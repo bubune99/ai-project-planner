@@ -973,12 +973,12 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           }
           // The same feature proposed twice is one card.
           const [same] = await sql`
-            SELECT id FROM project_steps WHERE project_id = ${resolvedId} AND deleted_at IS NULL AND status = 'requested' AND lower(title) = lower(${proposal.title})
+            SELECT id FROM project_steps WHERE project_id = ${resolvedId} AND deleted_at IS NULL AND status IN ('requested', 'pending', 'in-progress', 'blocked') AND lower(title) = lower(${proposal.title})
           `
           if (same) {
             // Proposing it again with a use case ties the waiting card to it (the gap "request with no use case" closes).
             if (proposal.useCase) await sql`UPDATE project_steps SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{proposal,useCase}', to_jsonb(${proposal.useCase}::text), true), updated_at = NOW() WHERE id = ${same.id}`
-            return mcpResponse({ created: false, id: same.id, useCase: proposal.useCase ?? null, note: proposal.useCase ? `Already waiting; now tied to the use case "${proposal.useCase}".` : "A request with this title is already waiting; add to it rather than proposing it again." })
+            return mcpResponse({ created: false, id: same.id, useCase: proposal.useCase ?? null, note: proposal.useCase ? `Already on the board; now tied to the use case "${proposal.useCase}".` : "A card with this title is already on the board; add to it rather than proposing it again." })
           }
           const [maxRow] = await sql`SELECT COALESCE(MAX(order_index), 0) AS max_order FROM project_steps WHERE project_id = ${resolvedId} AND deleted_at IS NULL`
           const [card] = await sql`

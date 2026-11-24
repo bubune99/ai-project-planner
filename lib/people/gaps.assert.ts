@@ -57,6 +57,10 @@ t("walks: never walked, stopped short, and changed since", () => {
   const g = peopleGaps(input({ ships }))
   assert.deepEqual(g.map((x) => x.kind), ["changed-since-walk"], "a later ship to one of its pages; not another page, an older ship or a report")
   assert.match(g[0].what, /aaaaaaa/)
+  const twice = [{ ...ships[0], env: "staging" }, ships[0]]
+  assert.match(peopleGaps(input({ ships: twice }))[0].what, /: 1 change has shipped/, "one commit on staging and production is one change")
+  const many = Array.from({ length: 5 }, (_, i) => ({ ...ships[0], sha: `f${i}000000` }))
+  assert.match(peopleGaps(input({ ships: many }))[0].what, /\(f000000, f100000, f200000 and 2 more\)/, "a long list is cut to three")
   assert.equal(changesSinceWalk(doc().flows[0], "2026-11-23T10:00:00Z", [{ sha: "e", env: "staging", routes: [], everywhere: true, at: "2026-11-24T00:00:00Z" }]).length, 1, "a shared file changes every use case")
   assert.equal(peopleGaps(input({ ships, walks: [{ useCase: "u1", at: "2026-11-20T00:00:00Z", outcome: "blocked" }, { useCase: "u1", at: "2026-11-24T10:00:00Z", outcome: "reached" }] })).length, 0, "the latest walk counts, after the ships")
 })

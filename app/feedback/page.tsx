@@ -37,6 +37,9 @@ interface FeedbackItem {
 }
 
 const STATUSES = ["open", "in_progress", "fixed", "wont_fix", "duplicate"];
+/** A report's name for its controls: its words, then where and when, so two reports with the same words are told apart. */
+const nameOf = (it: Pick<FeedbackItem, "title" | "comment" | "route" | "url" | "createdAt">) =>
+  `${(it.title || it.comment).slice(0, 60)} (${it.route || it.url || "no page"}, ${new Date(it.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })})`;
 // Every status has a word a person reads; the key is never printed.
 const STATUS_LABEL: Record<string, string> = {
   open: "Open",
@@ -150,7 +153,7 @@ export default function FeedbackInboxPage() {
             {items.map((it) => (
               <div key={it.id} className="opx-sec opx-fbrow">
                 {it.screenshot && (
-                  <button type="button" className="opx-fbshot" onClick={() => setShot(it.screenshot)} aria-label={`Open the picture for: ${(it.title || it.comment).slice(0, 60)}`}>
+                  <button type="button" className="opx-fbshot" onClick={() => setShot(it.screenshot)} aria-label={`Open the picture for: ${nameOf(it)}`}>
                     <img src={it.screenshot} alt="" />
                   </button>
                 )}
@@ -158,7 +161,7 @@ export default function FeedbackInboxPage() {
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
                     <strong style={{ fontSize: 14, overflowWrap: "anywhere", flex: "1 1 240px" }}>{it.title || it.comment}</strong>
                     <label className="opx-fbstatus">
-                      <select className="opx-rowsel" aria-label={`Status of: ${(it.title || it.comment).slice(0, 60)}`} value={it.status} onChange={(e) => setStatus(it, e.target.value)}>
+                      <select className="opx-rowsel" aria-label={`Status of: ${nameOf(it)}`} value={it.status} onChange={(e) => setStatus(it, e.target.value)}>
                         {STATUSES.map((s) => <option key={s} value={s}>{label(s)}</option>)}
                       </select>
                     </label>
@@ -170,7 +173,7 @@ export default function FeedbackInboxPage() {
                     <span>{it.route || it.url}</span>
                     {it.picked && <>{" · "}<span>{it.picked}</span></>}
                     {it.kind && <>{" · "}<span>{it.kind === "wish" ? "A wish" : "Something wrong"}</span></>}
-                    {it.stepId && it.projectId && <>{" · "}<Link className="opx-link" style={{ textDecoration: "underline" }} href={`/project/${it.projectId}?tab=tasks&step=${it.stepId}`}>Its card</Link></>}
+                    {it.stepId && it.projectId && <>{" · "}<Link className="opx-link opx-fbcard" style={{ textDecoration: "underline" }} aria-label={`Open the card for: ${nameOf(it)}`} href={`/project/${it.projectId}?tab=tasks&step=${it.stepId}`}>Its card</Link></>}
                     <br />
                     {it.env?.deviceType} · {it.env?.viewport?.w}×{it.env?.viewport?.h} @{it.env?.devicePixelRatio}x
                     {it.env?.colorScheme ? ` · ${it.env.colorScheme}` : ""}

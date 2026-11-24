@@ -403,7 +403,8 @@ button.opx-ck.on::after { content: ''; position: absolute; left: 6px; top: 2px; 
 .opx-cta { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 0; border-radius: 999px; padding: 11px 16px; background: var(--opx-ink); color: var(--opx-card); font: inherit; font-weight: 600; font-size: 14px; cursor: pointer; }
 .opx-cta span { font-size: 18px; line-height: 1; }
 .opx-cta:hover { opacity: .92; }
-.opx-capmenu { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; background: var(--opx-soft); border-radius: 16px; padding: 6px; }
+/* Opens over the menu, not inside it: opening it moved the rest of the menu down 185px (scan of /feedback, 2026-11-24). */
+.opx-capmenu { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 30; display: flex; flex-direction: column; gap: 2px; background: var(--opx-soft); border: 1px solid var(--opx-line); border-radius: 16px; padding: 6px; box-shadow: 0 12px 32px rgba(0, 0, 0, .28); }
 .opx-capmenu a, .opx-capmenu button { display: block; text-align: left; border: 0; background: transparent; color: var(--opx-ink); text-decoration: none; font: inherit; border-radius: 12px; padding: 8px 10px; cursor: pointer; }
 .opx-capmenu a:hover, .opx-capmenu button:hover { background: var(--opx-card); }
 .opx-capmenu b { display: block; font-size: 13.5px; font-weight: 600; }
@@ -1313,3 +1314,6 @@ button.opx-link { min-height: 28px; padding: 2px 6px; display: inline-flex; alig
 .opx-pf-gap-who { flex: none; min-width: 76px; font-size: 12px; font-weight: 600; color: var(--opx-muted); }
 .opx-pf-gap-who.owner { color: var(--opx-ink); }
 .opx-pf-gaps .opx-btn { margin-top: 10px; }
+
+/* Reports page: "Its card" is a link big enough to press (it was 16px tall). */
+.opx-fbcard { display: inline-flex; align-items: center; min-height: 24px; }
