@@ -321,7 +321,7 @@ export interface ControlChange {
  */
 export function diffChecklists(before: Checklist | null, after: Checklist): { added: ControlChange[]; removed: ControlChange[]; kept: number } {
   const flat = (l: Checklist | null) => (l?.views ?? []).flatMap((v) => v.controls.map((c) => ({ view: v.key, label: c.label, kind: c.kind })))
-  const id = (c: ControlChange) => [c.view, c.kind, c.label].join(SEP)
+  const id = (c: ControlChange) => [c.view, c.kind, idLabel(c.label)].join(SEP)
   const a = flat(before), b = flat(after)
   const inA = new Set(a.map(id)), inB = new Set(b.map(id))
   return { added: before ? b.filter((c) => !inA.has(id(c))) : [], removed: a.filter((c) => !inB.has(id(c))), kept: b.filter((c) => inA.has(id(c))).length }
@@ -345,7 +345,7 @@ export function sameChecklist(a: Checklist, b: Checklist): boolean {
 function identities(list: Checklist): Map<Control, string> {
   const seen = new Map<string, number>(), out = new Map<Control, string>()
   for (const v of list.views) for (const c of v.controls) {
-    const base = [v.key, c.kind, norm(c.label)].join(SEP), k = (seen.get(base) ?? 0) + 1
+    const base = [v.key, c.kind, idLabel(c.label)].join(SEP), k = (seen.get(base) ?? 0) + 1
     seen.set(base, k)
     out.set(c, `${base}${SEP}${k}`)
   }
@@ -577,6 +577,12 @@ export interface PlanCompare {
 export const CONTENT_KINDS = new Set(["Text", "Card", "Chart"])
 
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim()
+/**
+ * A control's name for matching it across scans: numbers in it (live prices, counts, P&L) read as one placeholder,
+ * so "Long BTC 59,765" and "Long BTC 61,486" are the same control. A price move made every such control count as
+ * gone and lose its verdicts (crypto-collab page /, 2026-11-24).
+ */
+export const idLabel = (s: string) => norm(s).replace(/[−+-]?\d[\d,.]*%?/g, "#")
 
 /** Sets what a scan found against what was expected. Each control answers at most one expectation. */
 export function comparePlan(expected: Expected[], list: Checklist, waitingRemoval: string[] = []): PlanCompare {

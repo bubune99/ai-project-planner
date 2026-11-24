@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { intakeQuestions, scanFindings } from "./gate-model"
-import { EVIDENCE_DAYS, allChecks, everyCheck, workflowStates, checkKey, checkState, controlProgress, diffChecklists, hookLine, imagesToExpire, nextCheck, summarize, validateChecklist, type CheckState, type Checklist, type Result, type StoredImage } from "./gate-model"
+import { EVIDENCE_DAYS, idLabel, allChecks, everyCheck, workflowStates, checkKey, checkState, controlProgress, diffChecklists, hookLine, imagesToExpire, nextCheck, summarize, validateChecklist, type CheckState, type Checklist, type Result, type StoredImage } from "./gate-model"
 
 let n = 0
 const ok = (name: string, fn: () => void) => { fn(); n++; console.log("ok ", name) }
@@ -544,3 +544,16 @@ ok("each new kind names the workflows it owes, and a saved checklist takes them 
 })
 
 console.log(`${n} checks passed in all`)
+
+ok("parity: a control whose name carries a live number is the same control when the number moves", () => {
+  assert.equal(idLabel("Long BTC 59,765"), idLabel("Long BTC 61,486.5"))
+  assert.equal(idLabel("EMA 20 66,513"), "ema # #")
+  assert.equal(idLabel("· 59,765 · R:R 2.0 · risk 1.00%"), idLabel("· 61,612 · R:R 2.0 · risk 1.00%"))
+  assert.notEqual(idLabel("Long BTC"), idLabel("Short BTC"))
+  const next = structuredClone(list)
+  next.views[0].controls[0] = { ...next.views[0].controls[0], label: `${list.views[0].controls[0].label} 61,486` }
+  const prev = structuredClone(list)
+  prev.views[0].controls[0] = { ...prev.views[0].controls[0], label: `${list.views[0].controls[0].label} 59,765` }
+  const d = diffChecklists(prev, next)
+  assert.deepEqual([d.removed.length, d.added.length], [0, 0])
+})
