@@ -20,6 +20,7 @@ import { stableUrls, type Kept } from "@/lib/gates/stable-urls"
 import { UseCaseFlow } from "./UseCaseFlow"
 import { pathsOf } from "@/lib/people/branches"
 import { Failed, Loading, Seg, ago, useJson } from "./shared"
+import { PeopleGaps } from "./PeopleGaps"
 
 interface LogEntry { version: number; actor: "owner" | "agent"; lines: string[]; at: string }
 interface FlowsData { doc: FlowDoc; version: number; log: LogEntry[]; pages: { id: string; route: string; title: string | null }[]; canEdit: boolean }
@@ -459,6 +460,7 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
         <span className="opx-muted opx-pf-save" role="status">{error ? error : saving === "saving" ? "Saving" : saving === "saved" ? "Saved" : ""}</span>
         {can && undoable > 0 && <button type="button" className="opx-btn sm" data-testid="people-undo" onClick={undo}>Undo the last change</button>}
       </section>
+      <PeopleGaps projectId={projectId} version={flows.data?.version ?? 0} />
 
       <>
           <section className="opx-sec">

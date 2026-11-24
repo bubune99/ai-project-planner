@@ -975,7 +975,11 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           const [same] = await sql`
             SELECT id FROM project_steps WHERE project_id = ${resolvedId} AND deleted_at IS NULL AND status = 'requested' AND lower(title) = lower(${proposal.title})
           `
-          if (same) return mcpResponse({ created: false, id: same.id, note: "A request with this title is already waiting; add to it rather than proposing it again." })
+          if (same) {
+            // Proposing it again with a use case ties the waiting card to it (the gap "request with no use case" closes).
+            if (proposal.useCase) await sql`UPDATE project_steps SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{proposal,useCase}', to_jsonb(${proposal.useCase}::text), true), updated_at = NOW() WHERE id = ${same.id}`
+            return mcpResponse({ created: false, id: same.id, useCase: proposal.useCase ?? null, note: proposal.useCase ? `Already waiting; now tied to the use case "${proposal.useCase}".` : "A request with this title is already waiting; add to it rather than proposing it again." })
+          }
           const [maxRow] = await sql`SELECT COALESCE(MAX(order_index), 0) AS max_order FROM project_steps WHERE project_id = ${resolvedId} AND deleted_at IS NULL`
           const [card] = await sql`
             INSERT INTO project_steps (project_id, title, description, status, phase, stage, estimated_hours, priority, order_index, parent_task_id, tags, metadata, work_kind)
@@ -987,9 +991,19 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             )
             RETURNING id, title, status
           `
+          // A feature serves a person's goal (owner, 2026-11-24: "creating the people and flows as options so that we
+          // create goals based on feature requests"): with no use case behind it, the agent writes one as an option.
+          const { loadFlows } = await import("@/lib/people/store")
+          const named = (proposal.useCase ?? "").trim().toLowerCase()
+          const flowsNow = await loadFlows(resolvedId)
+          const hasUseCase = !!named && flowsNow.doc.flows.some((f) => f.name.trim().toLowerCase() === named)
           return mcpResponse({
-            created: true, id: card.id, title: card.title, status: card.status,
-            next_actions: ["The owner approves it by moving it to Up next (it is then sent to an agent) or sets it aside. Do not build it before that.", "Propose the next feature the goal needs, one per call."],
+            created: true, id: card.id, title: card.title, status: card.status, useCaseFound: hasUseCase,
+            next_actions: [
+              ...(hasUseCase ? [] : [`No use case in this project's People and flows ${named ? `is called "${proposal.useCase}"` : "is named"} for this feature. Propose one as an option now: add the person (if new) and the use case with its steps to People and flows (PUT /api/projects/${resolvedId}/people, agent: true; it waits for the owner's review). Then call propose_feature again with the same title and useCase set to that name: it ties this card to the use case.`]),
+              "The owner approves it by moving it to Up next (it is then sent to an agent) or sets it aside. Do not build it before that.",
+              "Propose the next feature the goal needs, one per call.",
+            ],
           })
         } catch (error: unknown) {
           return mcpError(error instanceof Error ? error.message : "Unknown error")
