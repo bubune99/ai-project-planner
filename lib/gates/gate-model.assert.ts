@@ -321,6 +321,11 @@ ok("a new scan keeps each control's number, its written criteria and its standin
   // Verdicts stand for controls whose criteria did not change, and only for those.
   assert.deepEqual(standingKeys(written, next).sort(), ["1|Close|Dark", "1|Close|Light", "1|Open|Dark", "1|Open|Light", "2|Opens the impact graph|Signed in"].sort())
   assert.equal(sameCriteria(written, next), false)
+  // The same criteria written with their fields in another order are the same criteria: the verdicts stand (/feedback, 2026-11-24).
+  const reordered = structuredClone(written)
+  reordered.views[0].controls[1].workflows = [{ steps: [{ expect: "The graph page opens with nodes drawn", do: "Click it" }], name: "Opens the impact graph" }] as never
+  assert.ok(standingKeys(written, reordered).includes("2|Opens the impact graph|Signed in"))
+  assert.equal(sameCriteria(written, reordered), true)
   // The same page scanned again, moved about, asks nothing new.
   const moved = structuredClone(written); moved.views[0].w = 1400; moved.views[0].controls[0].x = 33; moved.views[0].controls[0].issues = ["too small"]
   assert.equal(sameCriteria(written, alignToPrevious(written, moved)), true)

@@ -353,7 +353,10 @@ function identities(list: Checklist): Map<Control, string> {
 }
 
 /** What is asked of a control, apart from where it sits and what the last scan thought of it. */
-const criteria = (c: Control) => JSON.stringify([c.states, c.workflows])
+// Compared by content, not by the order a sender wrote the fields in: the same step sent as {do, expect, there} and
+// stored as {do, there, expect} counted as changed, and a save threw away every verdict on the page (/feedback, 2026-11-24).
+const canonical = (v: unknown): unknown => Array.isArray(v) ? v.map(canonical) : v && typeof v === "object" ? Object.fromEntries(Object.keys(v as object).sort().filter((k) => (v as Record<string, unknown>)[k] !== undefined).map((k) => [k, canonical((v as Record<string, unknown>)[k])])) : v
+const criteria = (c: Control) => JSON.stringify(canonical([c.states, c.workflows]))
 
 /**
  * Lines a fresh scan up with the checklist before it. A control found again

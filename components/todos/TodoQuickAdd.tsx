@@ -46,6 +46,11 @@ export function TodoQuickAdd({ onAdd, projects = [], isLoading }: TodoQuickAddPr
   /** Add pressed with nothing typed: said in words, never a dimmed button that explains nothing. */
   const [needTitle, setNeedTitle] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  // "New task" from the dashboard or the Capture menu comes here as /todos?new=1: the box is ready to type in
+  // (walk 2026-11-24: it landed on Today with nothing focused, and the box had to be found).
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("new") === "1") inputRef.current?.focus()
+  }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()

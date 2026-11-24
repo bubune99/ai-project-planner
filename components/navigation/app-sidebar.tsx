@@ -64,7 +64,7 @@ const SETTINGS: NavItem = { title: "Settings", href: "/settings", icon: "cog" }
 
 /** "Capture something": the three things people capture most, one tap each. */
 const CAPTURE: { title: string; hint: string; href?: string; ask?: string }[] = [
-  { title: "New task", hint: "On a project, or just for you", href: "/todos" },
+  { title: "New task", hint: "On a project, or just for you", href: "/todos?new=1" },
   { title: "Capture an idea", hint: "Rough is fine", href: "/ideas" },
   { title: "Log a decision", hint: "With the assistant", ask: "Help me log a decision: ask me what I decided, why, and which options I weighed, then record it on the right project." },
 ]

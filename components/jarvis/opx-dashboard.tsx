@@ -79,7 +79,7 @@ export function OpxDashboard() {
       </header>
 
       <ScrollRow className="opx-row opx-quick" label="Quick actions">
-        <Link className="opx-btn" href="/todos">New task</Link>
+        <Link className="opx-btn" href="/todos?new=1">New task</Link>
         <Link className="opx-btn" href="/ideas">Capture an idea</Link>
         <button className="opx-btn" onClick={() => askAssistant("Help me log a decision: ask me what I decided, why, and which options I weighed, then record it on the right project.")}>Log a decision</button>
         <button className="opx-btn" onClick={() => askAssistant("Plan my week: pick from open steps and todos across projects, most urgent first, and show me the plan before changing anything.")}>Plan my week</button>
