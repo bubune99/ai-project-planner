@@ -77,6 +77,18 @@ t("partial walks and other ways through (owner, 2026-11-23)", () => {
   assert.deepEqual(kinds(input({ ships, walks: [{ useCase: "u1", at: "2026-11-23T10:00:00Z", outcome: "reached" }, { useCase: "u1", at: "2026-11-23T11:00:00Z", outcome: "reached", covers: ["a"] }] })), [], "a later partial walk of the changed step settles the change")
 })
 
+t("a use case re-walked in part names the steps still owed (2026-11-24)", () => {
+  const d = doc(); d.flows[0].steps[2] = { ...d.flows[0].steps[2], does: "Send it" }
+  const ships = [{ sha: "aaaaaaa1", env: "production", routes: [], everywhere: true, at: "2026-11-23T10:30:00Z" }]
+  const walks = [{ useCase: "u1", at: "2026-11-23T10:00:00Z", outcome: "reached" }, { useCase: "u1", at: "2026-11-23T11:00:00Z", outcome: "reached", covers: ["a", "b"] }]
+  const g = peopleGaps(input({ doc: d, ships, walks }))
+  assert.deepEqual(g.map((x) => x.kind), ["changed-since-walk"])
+  assert.equal(g[0].what, 'Send a note: 1 change has shipped to the page of the step "Send it" since its last walk (aaaaaaa); walk that step again.')
+  const two = peopleGaps(input({ doc: d, ships, walks: [walks[0], { ...walks[1], covers: ["a"] }] }))[0].what
+  assert.match(two, /pages of 2 steps \("Press it", "Send it"\) since their last walk \(aaaaaaa\); walk those steps again\./)
+  assert.match(peopleGaps(input({ doc: d, ships, walks: [walks[0]] }))[0].what, /since it was last walked \(aaaaaaa\); walk it again and update its steps\./, "nothing re-walked: the whole use case, as before")
+})
+
 t("a step changed after its walk is owed again, in words", () => {
   const d = doc(); d.flows[0].steps[1] = { ...d.flows[0].steps[1], changedAt: "2026-11-23T12:00:00Z" }
   const g = peopleGaps(input({ doc: d }))

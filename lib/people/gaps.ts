@@ -92,9 +92,19 @@ function flowGaps(flow: UseCase, input: GapInput): Gap[] {
     // A commit shipped to staging and production is one change.
     const shas = [...new Set(cov.steps.flatMap((x) => x.changes))]
     const reworded = cov.steps.filter((x) => x.reworded)
-    const shipped = shas.length ? `${shas.length} ${shas.length === 1 ? "change has" : "changes have"} shipped to its pages since it was last walked (${shas.slice(0, 3).join(", ")}${shas.length > 3 ? ` and ${shas.length - 3} more` : ""})` : ""
+    const list = shas.length ? ` (${shas.slice(0, 3).join(", ")}${shas.length > 3 ? ` and ${shas.length - 3} more` : ""})` : ""
+    const n = `${shas.length} ${shas.length === 1 ? "change has" : "changes have"}`
+    // When later walks re-walked part of it, name the steps still owed (2026-11-24: the FARCNCPT send steps, blocked on
+    // the mail domain, read as "walk it again" for use cases already re-walked up to them).
+    const hit = cov.steps.filter((x) => x.changes.length), walkedSteps = cov.steps.filter((x) => x.state !== "never")
+    const partly = hit.length > 0 && hit.length < walkedSteps.length
+    const names = (xs: typeof hit) => xs.slice(0, 3).map((x) => `"${x.does}"`).join(", ") + (xs.length > 3 ? " and more" : "")
+    const shipped = !shas.length ? "" : partly
+      ? `${n} shipped to the page${hit.length === 1 ? ` of the step ${names(hit)} since its` : `s of ${hit.length} steps (${names(hit)}) since their`} last walk${list}`
+      : `${n} shipped to its pages since it was last walked${list}`
     const rewrote = reworded.length ? (reworded.length === 1 ? `the step "${reworded[0].does}" was changed after its last walk` : `${reworded.length} steps were changed after their last walk`) : ""
-    if (shipped || rewrote) out.push({ ...at, kind: "changed-since-walk", who: "agent", what: `${flow.name}: ${[shipped, rewrote].filter(Boolean).join("; ")}; walk ${shipped ? "it" : reworded.length === 1 ? "that step" : "those steps"} again${shipped ? " and update its steps" : ""}.` })
+    const again = shipped && !partly ? "it" : (partly ? hit.length : 0) + (shipped ? 0 : reworded.length) === 1 ? "that step" : "those steps"
+    if (shipped || rewrote) out.push({ ...at, kind: "changed-since-walk", who: "agent", what: `${flow.name}: ${[shipped, rewrote].filter(Boolean).join("; ")}; walk ${again} again${shipped && !partly ? " and update its steps" : ""}.` })
     else if (main.some((x) => x.state === "stopped")) out.push({ ...at, kind: "stopped-short", who: "agent", what: `${flow.name}: its last walk stopped short and nothing has fixed it since.` })
     const never = main.filter((x) => x.state === "never")
     if (never.length) out.push({ ...at, kind: "steps-unwalked", who: "agent", what: `${flow.name}: ${never.length} of ${main.length} steps never walked (${never.slice(0, 3).map((x) => `"${x.does}"`).join(", ")}${never.length > 3 ? " and more" : ""}).` })
