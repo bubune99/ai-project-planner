@@ -26,7 +26,11 @@ export interface Persona {
   /** Per use case: the step this persona starts at and the one they usually stop at (0-based, inclusive). */
   at: Record<string, [number, number]>
 }
-export interface Step { id: string; does: string; expects: string; data: string; ref?: ControlRef | null; note?: string; ways?: Way[] }
+export interface Step {
+  id: string; does: string; expects: string; data: string; ref?: ControlRef | null; note?: string; ways?: Way[]
+  /** When what the step does, expects or points at last changed. Kept by the server (step-stamp.ts); a walk before it is owed again. */
+  changedAt?: string
+}
 /**
  * One way on from a choice (owner, 2026-11-16: "a user at check out that has the cart go through or that decides to
  * end the order"). Its own steps, then it either ends the use case or rejoins the main line at the next step.
@@ -109,7 +113,8 @@ export function parseDoc(raw: unknown): { doc: FlowDoc; errors: string[] } {
       const so = obj(s)
       const step: Step = { id: id(so.id, sw, sIds), does: text(so.does, `${sw} "does"`, true), expects: text(so.expects, `${sw} "expects"`), data: text(so.data, `${sw} "content"`), ref: ref(so.ref, sw) }
       const note = text(so.note, `${sw} note`)
-      return note ? { ...step, note } : step
+      const changedAt = typeof so.changedAt === "string" && !Number.isNaN(Date.parse(so.changedAt)) ? new Date(so.changedAt).toISOString() : undefined
+      return { ...step, ...(note ? { note } : {}), ...(changedAt ? { changedAt } : {}) }
     }
     const who = typeof o.who === "string" ? o.who : ""
     if (!pIds.has(who)) errors.push(`${where} belongs to a person who is not in the list`)

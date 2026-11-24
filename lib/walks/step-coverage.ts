@@ -17,7 +17,7 @@ import type { Step, UseCase } from "@/lib/people/people-model"
 
 export interface CoverWalk { useCase?: string; covers?: string[]; way?: string; at: string; outcome: string }
 export type StepState = "never" | "walked" | "changed" | "stopped"
-export interface StepCover { id: string; does: string; way: string | null; at: string | null; state: StepState; changes: string[] }
+export interface StepCover { id: string; does: string; way: string | null; at: string | null; state: StepState; changes: string[]; reworded: boolean }
 export interface WayCover { id: string; label: string; walked: boolean }
 export interface FlowCover { steps: StepCover[]; ways: WayCover[]; walked: number; total: number }
 
@@ -56,8 +56,10 @@ export function flowCoverage(flow: Pick<UseCase, "id" | "steps">, walks: CoverWa
     const route = step.ref?.route
     const t = last ? new Date(last.at).getTime() : 0
     const changes = !last ? [] : [...new Set(ships.filter((s) => new Date(s.at).getTime() > t && s.env !== "report" && (s.everywhere || (!!route && s.routes.some((r) => routeCovers(r, route))))).map((s) => s.sha.slice(0, 7)))]
-    const state: StepState = !last ? "never" : changes.length ? "changed" : last.outcome !== "reached" ? "stopped" : "walked"
-    return { id: step.id, does: step.does, way, at: last?.at ?? null, state, changes }
+    // Its words or control changed after its last walk (People and flows keeps when: lib/people/step-stamp.ts).
+    const reworded = !!last && !!step.changedAt && new Date(step.changedAt).getTime() > t
+    const state: StepState = !last ? "never" : changes.length || reworded ? "changed" : last.outcome !== "reached" ? "stopped" : "walked"
+    return { id: step.id, does: step.does, way, at: last?.at ?? null, state, changes, reworded }
   })
   const ways = flow.steps.flatMap((s) => (s.ways ?? []).map((w): WayCover => ({ id: w.id, label: w.label, walked: steps.some((x) => x.way === w.id && x.state !== "never") })))
   return { steps, ways, walked: steps.filter((s) => s.state !== "never").length, total: steps.length }

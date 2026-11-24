@@ -5,6 +5,7 @@
  */
 import { sql } from "@/lib/db/client"
 import { describeChanges, emptyDoc, parseDoc, reviewRefusals, settleReview, type FlowDoc } from "./people-model"
+import { stampChangedSteps } from "./step-stamp"
 
 export class FlowError extends Error {
   constructor(message: string, readonly status: 400 | 403 | 409 = 400) { super(message) }
@@ -42,7 +43,8 @@ export async function saveFlows(a: { projectId: string; userId: string; raw: unk
     const refused = reviewRefusals(current.doc, sent)
     if (refused.length) throw new FlowError(refused.slice(0, 4).join(". "), 403)
   }
-  const doc = settleReview(current.doc, sent, { actor: a.actor })
+  // When each step last changed is the server's to keep (step-stamp.ts): a walk before it is owed again.
+  const doc = stampChangedSteps(current.doc, settleReview(current.doc, sent, { actor: a.actor }), new Date().toISOString())
   const lines = describeChanges(current.doc, doc)
   if (!lines.length) return { doc: current.doc, version: current.version, lines }
   const next = current.version + 1, json = JSON.stringify(doc)

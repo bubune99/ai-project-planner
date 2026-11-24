@@ -91,7 +91,10 @@ function flowGaps(flow: UseCase, input: GapInput): Gap[] {
     const main = cov.steps.filter((x) => x.way === null)
     // A commit shipped to staging and production is one change.
     const shas = [...new Set(cov.steps.flatMap((x) => x.changes))]
-    if (shas.length) out.push({ ...at, kind: "changed-since-walk", who: "agent", what: `${flow.name}: ${shas.length} ${shas.length === 1 ? "change has" : "changes have"} shipped to its pages since it was last walked (${shas.slice(0, 3).join(", ")}${shas.length > 3 ? ` and ${shas.length - 3} more` : ""}); walk it again and update its steps.` })
+    const reworded = cov.steps.filter((x) => x.reworded)
+    const shipped = shas.length ? `${shas.length} ${shas.length === 1 ? "change has" : "changes have"} shipped to its pages since it was last walked (${shas.slice(0, 3).join(", ")}${shas.length > 3 ? ` and ${shas.length - 3} more` : ""})` : ""
+    const rewrote = reworded.length ? `${reworded.length === 1 ? `the step "${reworded[0].does}" was` : `${reworded.length} steps were`} changed after their last walk` : ""
+    if (shipped || rewrote) out.push({ ...at, kind: "changed-since-walk", who: "agent", what: `${flow.name}: ${[shipped, rewrote].filter(Boolean).join("; ")}; walk ${shipped ? "it" : reworded.length === 1 ? "that step" : "those steps"} again${shipped ? " and update its steps" : ""}.` })
     else if (main.some((x) => x.state === "stopped")) out.push({ ...at, kind: "stopped-short", who: "agent", what: `${flow.name}: its last walk stopped short and nothing has fixed it since.` })
     const never = main.filter((x) => x.state === "never")
     if (never.length) out.push({ ...at, kind: "steps-unwalked", who: "agent", what: `${flow.name}: ${never.length} of ${main.length} steps never walked (${never.slice(0, 3).map((x) => `"${x.does}"`).join(", ")}${never.length > 3 ? " and more" : ""}).` })

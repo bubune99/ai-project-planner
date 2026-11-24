@@ -54,6 +54,13 @@ t("a ship to a step's page after its walk changes that step only", () => {
   assert.equal(all.steps.filter((s) => s.state === "never").length, 3, "a step never walked stays never, not changed")
 })
 
+t("a step reworded after its walk is owed again; one reworded before is not", () => {
+  const f = { ...flow, steps: flow.steps.map((x) => (x.id === "c" ? { ...x, changedAt: "2026-11-24T11:00:00Z" } : x.id === "d" ? { ...x, changedAt: "2026-11-24T09:00:00Z" } : x)) }
+  const c = flowCoverage(f, [walk()], [])
+  assert.deepEqual(c.steps.filter((s) => s.state === "changed").map((s) => [s.id, s.reworded, s.changes]), [["c", true, []]])
+  assert.equal(flowCoverage(f, [walk(), walk({ covers: ["c"], at: "2026-11-24T11:30:00Z" })], []).steps.find((s) => s.id === "c")!.state, "walked", "walking just that step settles it")
+})
+
 t("reading what a partial walk names", () => {
   assert.deepEqual(readCovers(flow, { steps: "c, d" }), { ok: true, covers: ["c", "d"] })
   assert.deepEqual(readCovers(flow, { from: "b", to: "c" }), { ok: true, covers: ["b", "c"] })
