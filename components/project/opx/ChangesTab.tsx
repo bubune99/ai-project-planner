@@ -14,6 +14,7 @@ import { readableWidth } from "@/lib/gates/picture-fit"
 import { ThumbsDown, ThumbsUp } from "lucide-react"
 import { STAGE_WORD, type Lessons, type StoredChange } from "@/lib/gates/change-model"
 import { Failed, Loading, Seg, ago, useJson } from "./shared"
+import { CHANGES_JUDGED_EVENT } from "@/lib/project/needs-you"
 
 type Shown = StoredChange & { before: string | null; after: string | null }
 interface Data { changes: Shown[]; lessons: Lessons; line: string; canJudge: boolean }
@@ -78,6 +79,8 @@ export function ChangesTab({ projectId }: { projectId: string }) {
     const j = await res.json().catch(() => null)
     if (!res.ok) { setFailed(j?.error || "Could not save"); return }
     reload()
+    // "Waiting on you" at the top of the project reads the same list: tell it, so it stops counting a change already judged.
+    window.dispatchEvent(new Event(CHANGES_JUDGED_EVENT))
   }
 
   const l = data.lessons
@@ -108,7 +111,12 @@ export function ChangesTab({ projectId }: { projectId: string }) {
           </div>
           <ChangePair projectId={projectId} id={c.id} title={c.title} before={c.before} after={c.after} onPictureLoad={onPictureLoad} onPictureError={onPictureError} />
           {c.verdict ? (
-            <p className="opx-ch-said"><span className={`opx-pf-dot ${c.verdict === "good" ? "ok" : "bad"}`} /><b>You said: {c.verdict === "good" ? "a good change" : "not a good change"}.</b> {c.note}{data.canJudge && <button type="button" className="opx-pf-add" onClick={() => judge(c.id, c.verdict === "good" ? "bad" : "good")} disabled={c.verdict === "good" && !(notes[c.id] ?? "").trim()} title={c.verdict === "good" ? "Write what was wrong below first" : undefined}>Change my answer</button>}</p>
+            <p className="opx-ch-said"><span className={`opx-pf-dot ${c.verdict === "good" ? "ok" : "bad"}`} /><b>You said: {c.verdict === "good" ? "a good change" : "not a good change"}.</b> {c.note}{data.canJudge && <button type="button" className="opx-pf-add" onClick={(e) => {
+              // Never disabled (walk 2026-11-24: a dimmed button with a hover tip did nothing a person could see). Turning a
+              // good change into not good needs the words first: pressed without them, it asks and puts the cursor there.
+              if (c.verdict === "good" && !(notes[c.id] ?? "").trim()) { setNeedWords(c.id); (e.currentTarget.closest("section")?.querySelector(".opx-ch-judge input") as HTMLInputElement | null)?.focus(); return }
+              setNeedWords(null); judge(c.id, c.verdict === "good" ? "bad" : "good")
+            }}>Change my answer</button>}</p>
           ) : null}
           {data.canJudge && (
             <div className="opx-ch-judge">
@@ -122,7 +130,7 @@ export function ChangesTab({ projectId }: { projectId: string }) {
                   ;(e.currentTarget.parentElement?.querySelector("input") as HTMLInputElement | null)?.focus()
                 }}><ThumbsDown size={14} /> Not good</button>
               </>}
-              {needWords === c.id && !(notes[c.id] ?? "").trim() && <p role="alert" className="opx-ch-need">Say what was wrong first, then press Not good.</p>}
+              {needWords === c.id && !(notes[c.id] ?? "").trim() && <p role="alert" className="opx-ch-need">{c.verdict ? "Say what was wrong first, then press Change my answer." : "Say what was wrong first, then press Not good."}</p>}
             </div>
           )}
         </section>

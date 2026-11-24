@@ -7,12 +7,12 @@
  * listed too, as theirs. Rules: lib/project/needs-you.ts.
  */
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import type { InboxItem } from "@/lib/inbox"
 import { useInbox } from "@/lib/inbox/live"
 import { KIND_WORD, findingKey, type StoredWalk } from "@/lib/walks/walk-model"
-import { needsYou, needsYouLine, type CardRow, type WaitingChange } from "@/lib/project/needs-you"
+import { CHANGES_JUDGED_EVENT, needsYou, needsYouLine, type CardRow, type WaitingChange } from "@/lib/project/needs-you"
 import Link from "next/link"
 import { QuestionCard } from "@/components/inbox/QuestionCard"
 import { useJson } from "./shared"
@@ -26,6 +26,13 @@ export function useNeedsYou(projectId: string, steps?: unknown) {
   const changes = useJson<{ changes: WaitingChange[] }>(`/api/projects/${projectId}/gates/changes`)
   const walks = useJson<{ walks: StoredWalk[] }>(`/api/projects/${projectId}/gates/walks`)
   const [answered, setAnswered] = useState<string[]>([])
+  // A change judged in the Changes tab leaves this count at once, not on the next page load (walk 2026-11-24).
+  const reloadChanges = changes.reload
+  useEffect(() => {
+    const on = () => reloadChanges()
+    window.addEventListener(CHANGES_JUDGED_EVENT, on)
+    return () => window.removeEventListener(CHANGES_JUDGED_EVENT, on)
+  }, [reloadChanges])
   const value = useMemo(() => {
     const items: InboxItem[] = (Array.isArray(inbox.data) ? inbox.data : inbox.data?.data ?? []).filter((q: InboxItem) => !answered.includes(q.id))
     const s: any = steps

@@ -13,6 +13,9 @@
 import type { InboxItem } from "@/lib/inbox"
 import { openFindings, type Finding, type StoredWalk } from "@/lib/walks/walk-model"
 
+/** Sent in the page when the owner judges a change, so "Waiting on you" reloads its count (walk 2026-11-24). */
+export const CHANGES_JUDGED_EVENT = "opx:changes-judged"
+
 export interface WaitingChange { id: string; title: string; stage: string; at: string; verdict?: string }
 export type OpenFinding = Finding & { walk: string; goal: string; who: "agents" | "owner" }
 
