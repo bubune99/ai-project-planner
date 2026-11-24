@@ -595,8 +595,13 @@ export function comparePlan(expected: Expected[], list: Checklist, waitingRemova
     else if (waitingRemoval.includes(e.id)) out.waiting.push(e)
     else out.missing.push(e)
   }
+  // A row repeated for each item in a list (a bag's "Remove" on every line) is one planned control: the plan takes a
+  // name once, so the copies of a matched control, same view, kind and name, are covered by it (BYB /checkout/cancel
+  // 2026-11-24: three identical bag lines left six controls "not in the plan" that the plan refused to add again).
+  const sameAs = (a: { view: string; label: string; kind: string }, b: { view: string; label: string; kind: string }) => a.view === b.view && norm(a.kind) === norm(b.kind) && norm(a.label) === norm(b.label)
+  const matchedControls = controls.filter((c) => used.has(c.n))
   // Words, cards and charts are the page's content, checked in their own right, not controls someone forgot to plan.
-  out.unplanned = controls.filter((c) => !used.has(c.n) && !CONTENT_KINDS.has(c.kind))
+  out.unplanned = controls.filter((c) => !used.has(c.n) && !CONTENT_KINDS.has(c.kind) && !matchedControls.some((m) => sameAs(m, c)))
   return out
 }
 

@@ -220,6 +220,11 @@ ok("plan: a scan is split into matched, missing, waiting on the owner, and unpla
   const withContent = structuredClone(list)
   withContent.views[0].controls.push({ n: 9, label: "Net worth", kind: "Text", x: 1, y: 1, w: 50, h: 12, states: ["Dark"], workflows: [{ name: "Read it", steps: [step] }] }, { n: 10, label: "Budget targets", kind: "Card", x: 1, y: 100, w: 300, h: 200, states: ["Dark"], workflows: [{ name: "Look at its layout", steps: [step] }] })
   assert.equal(planClear(comparePlan(plan.slice(0, 3), withContent)), true)
+  // A row repeated once per list item is covered by its one planned entry; a same-named control of another kind is not.
+  const repeated = structuredClone(list)
+  const first = repeated.views[0].controls[0]
+  repeated.views[0].controls.push({ ...first, n: 11 }, { ...first, n: 12 }, { ...first, n: 13, kind: "Link" })
+  assert.deepEqual(comparePlan(plan.slice(0, 3), repeated).unplanned.map((u) => u.n), [13])
 })
 
 ok("plan: the hook says what is missing and what nobody planned, and is silent when clear", () => {
