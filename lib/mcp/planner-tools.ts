@@ -4900,8 +4900,9 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         outcome: z.enum(["failed", "abandoned", "superseded", "inconclusive"]).optional().describe("Filter by outcome"),
         search: z.string().optional().describe("Search against approach text"),
         limit: z.number().optional().describe("Max results (default 20)"),
+        statementId: z.string().uuid().optional().describe("Only attempts recorded under this statement (record_attempt's statementId)"),
       },
-      async ({ entity_type, entity_id, outcome, search, limit }) => {
+      async ({ entity_type, entity_id, outcome, search, limit, statementId }) => {
         try {
           const userId = getMcpUserId()
           const actualLimit = Math.min(limit ?? DEFAULT_LIMIT, MAX_LIMIT)
@@ -4909,7 +4910,8 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
 
           const rows = await sql`
             SELECT id, entity_type, entity_id, approach, outcome, failure_mode,
-                   root_cause, lessons_learned, prevention_strategy, tried_at, created_at
+                   root_cause, lessons_learned, prevention_strategy, tried_at, created_at,
+                   metadata->>'statement_id' AS statement_id
             FROM attempted_solutions
             WHERE deleted_at IS NULL
               AND user_id = ${userId}
@@ -4917,6 +4919,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
               AND (${entity_id}::text IS NULL OR entity_id = ${entity_id}::uuid)
               AND (${outcome}::text IS NULL OR outcome = ${outcome})
               AND (${searchPattern}::text IS NULL OR approach ILIKE ${searchPattern})
+              AND (${statementId ?? null}::text IS NULL OR metadata->>'statement_id' = ${statementId ?? null})
             ORDER BY tried_at DESC
             LIMIT ${actualLimit}
           `
@@ -5354,8 +5357,9 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         prevention_strategy: z.string().optional().describe("How to avoid this in future"),
         rationale: z.string().describe("Context for why this attempt was made — required for 5W+H envelope"),
         projectId: z.string().optional().describe("Optional project scope"),
+        statementId: z.string().uuid().optional().describe("The statement (gate guide) this was tried under, so find_attempts({ statementId }) lists what was tried under it"),
       },
-      async ({ entity_type, entity_id, approach, outcome, lessons_learned, failure_mode, root_cause, prevention_strategy, rationale, projectId }) => {
+      async ({ entity_type, entity_id, approach, outcome, lessons_learned, failure_mode, root_cause, prevention_strategy, rationale, projectId, statementId }) => {
         try {
           requireMcpScope("write")
           const userId = getMcpUserId()
@@ -5374,8 +5378,15 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           )
           if (!envelopeResult.ok) return mcpError("Failed to build 5W+H envelope")
 
+          // A statement named here must be one of the caller's own (card 586b4e83, part 4).
+          if (statementId) {
+            const [guide] = await sql`SELECT id FROM gate_guides WHERE id = ${statementId}::uuid AND user_id = ${userId}`
+            if (!guide) return mcpError(`No statement ${statementId} of yours. List them with gate_guides.`)
+          }
+
           const metadata = stampEnvelopeOrigin({}, envelopeResult.origin)
           metadata.envelope_origin = "mcp_record_attempt"
+          if (statementId) metadata.statement_id = statementId
 
           const [row] = await sql`
             INSERT INTO attempted_solutions (
