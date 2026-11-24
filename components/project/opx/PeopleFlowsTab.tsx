@@ -112,6 +112,8 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
   /** The document as it was before each change made on this visit, newest last: what Undo goes back to. */
   const past = useRef<FlowDoc[]>([])
   const [undoable, setUndoable] = useState(0)
+  /** The version last saved on this visit: "What is missing" reloads on it (walk 2026-11-24: it kept the gaps from page load). */
+  const [savedVersion, setSavedVersion] = useState(0)
   // Take the server's copy when it is first loaded, and again whenever it is a different version from ours.
   useEffect(() => {
     const d = flows.data
@@ -133,6 +135,7 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
         if (!res.ok) throw Object.assign(new Error(j?.error || `Could not save (${res.status})`), { status: res.status })
         if (j.version !== versionRef.current) setLog((l) => [{ version: j.version, actor: j.actor === "agent" ? "agent" as const : "owner" as const, lines: j.lines, at: new Date().toISOString() }, ...l].slice(0, 40))
         versionRef.current = j.version
+        setSavedVersion(j.version)
         setSaving("saved")
       } catch (e) {
         setSaving("")
@@ -207,7 +210,10 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
     )
   }
 
-  const addPerson = () => edit((d) => { const id = freshId("p", allIds(), seed); d.people.push({ id, name: "New person", background: "", wants: "", context: "", frustrations: "", may: "", mayNot: "", basis: "Added by you." }); setPersonId(id); setFlowId(null); setPersonaId(null) })
+  const addPerson = () => edit((d) => { const id = freshId("p", allIds(), seed); d.people.push({ id, name: "New person", background: "", wants: "", context: "", frustrations: "", may: "", mayNot: "", basis: "Added by you." }); setPersonId(id); setFlowId(null); setPersonaId(null)
+    // The new person's name is ready to type over (walk 2026-11-24: nothing was focused and "New person" had to be found).
+    setTimeout(() => { const el = document.querySelector<HTMLElement>('.opx-pf-head [aria-label="Person"]'); if (!el) return; el.focus(); const r = document.createRange(); r.selectNodeContents(el); const sel = window.getSelection(); sel?.removeAllRanges(); sel?.addRange(r) }, 50)
+  })
   const addFlow = () => person && edit((d) => { const id = freshId("f", allIds(), seed); d.flows.push({ id, who: person.id, name: "New use case", lens: "", steps: [{ id: freshId("s", allIds(), seed + 1), does: "First step", expects: "", data: "", ref: null }] }); setFlowId(id) })
   const addWay = () => person && edit((d) => { const id = freshId("q", allIds(), seed); d.personas.push({ id, who: person.id, name: "New way of using it", habit: "", cares: "", at: {} }); setPersonaId(id) })
   const removePerson = (id: string) => edit((d) => {
@@ -460,7 +466,7 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
         <span className="opx-muted opx-pf-save" role="status">{error ? error : saving === "saving" ? "Saving" : saving === "saved" ? "Saved" : ""}</span>
         {can && undoable > 0 && <button type="button" className="opx-btn sm" data-testid="people-undo" onClick={undo}>Undo the last change</button>}
       </section>
-      <PeopleGaps projectId={projectId} version={flows.data?.version ?? 0} />
+      <PeopleGaps projectId={projectId} version={Math.max(savedVersion, flows.data?.version ?? 0)} />
 
       <>
           <section className="opx-sec">
