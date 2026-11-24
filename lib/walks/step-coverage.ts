@@ -15,7 +15,11 @@
 import { routeCovers, type Ship } from "@/lib/gates/fresh-model"
 import type { Step, UseCase } from "@/lib/people/people-model"
 
-export interface CoverWalk { useCase?: string; covers?: string[]; way?: string; at: string; outcome: string }
+/** `build`: the commit the walk ran on, when it said. A ship of that same commit recorded later is not a change since the walk. */
+export interface CoverWalk { useCase?: string; covers?: string[]; way?: string; at: string; outcome: string; build?: string }
+
+/** Two shas name the same commit when one starts with the other (short and long forms). */
+const sameCommit = (a: string, b: string) => !!a && !!b && (a.startsWith(b) || b.startsWith(a))
 export type StepState = "never" | "walked" | "changed" | "stopped"
 export interface StepCover { id: string; does: string; way: string | null; at: string | null; state: StepState; changes: string[]; reworded: boolean }
 export interface WayCover { id: string; label: string; walked: boolean }
@@ -55,7 +59,8 @@ export function flowCoverage(flow: Pick<UseCase, "id" | "steps">, walks: CoverWa
     const last = covered.find((c) => c.ids.has(step.id))?.w
     const route = step.ref?.route
     const t = last ? new Date(last.at).getTime() : 0
-    const changes = !last ? [] : [...new Set(ships.filter((s) => new Date(s.at).getTime() > t && s.env !== "report" && (s.everywhere || (!!route && s.routes.some((r) => routeCovers(r, route))))).map((s) => s.sha.slice(0, 7)))]
+    const walkedOn = last?.build?.trim().toLowerCase() ?? ""
+    const changes = !last ? [] : [...new Set(ships.filter((s) => new Date(s.at).getTime() > t && s.env !== "report" && !sameCommit(walkedOn, s.sha.toLowerCase()) && (s.everywhere || (!!route && s.routes.some((r) => routeCovers(r, route))))).map((s) => s.sha.slice(0, 7)))]
     // Its words or control changed after its last walk (People and flows keeps when: lib/people/step-stamp.ts).
     const reworded = !!last && !!step.changedAt && new Date(step.changedAt).getTime() > t
     const state: StepState = !last ? "never" : changes.length || reworded ? "changed" : last.outcome !== "reached" ? "stopped" : "walked"

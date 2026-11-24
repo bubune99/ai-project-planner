@@ -38,7 +38,7 @@ export interface GapInput {
   /** The routes of the project's scanned pages. */
   pages: string[]
   /** Walks, newest or oldest first: only the latest per use case counts. */
-  walks: { useCase?: string; at: string; outcome: string; covers?: string[]; way?: string }[]
+  walks: { useCase?: string; at: string; outcome: string; covers?: string[]; way?: string; build?: string }[]
   ships: Ship[]
   /** Open feature requests (proposals) and the use case each names, if any. */
   requests: { id: string; title: string; useCase?: string | null }[]

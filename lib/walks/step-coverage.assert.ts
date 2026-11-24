@@ -54,6 +54,18 @@ t("a ship to a step's page after its walk changes that step only", () => {
   assert.equal(all.steps.filter((s) => s.state === "never").length, 3, "a step never walked stays never, not changed")
 })
 
+t("a ship of the very build a walk ran on does not make its steps changed", () => {
+  // Card e62773e6: walked on staging build 2710e1b, then 2710e1b was recorded as shipped to production afterwards.
+  const same = flowCoverage(flow, [walk({ build: "aaaaaaa" })], [ship("aaaaaaa1", ["/pay"])])
+  assert.equal(same.steps.filter((s) => s.state === "changed").length, 0, "short or long sha, same commit")
+  const longWalk = flowCoverage(flow, [walk({ build: "aaaaaaa1ffff" })], [ship("aaaaaaa", ["/pay"])])
+  assert.equal(longWalk.steps.filter((s) => s.state === "changed").length, 0, "the walk's sha may be the longer one")
+  const other = flowCoverage(flow, [walk({ build: "aaaaaaa" })], [ship("aaaaaaa1", ["/pay"]), ship("eeeeeee5", ["/pay"])])
+  assert.deepEqual(other.steps.filter((s) => s.state === "changed").map((s) => [s.id, s.changes]), [["c", ["eeeeeee"]]], "a different build after the walk still counts")
+  const noBuild = flowCoverage(flow, [walk()], [ship("aaaaaaa1", ["/pay"])])
+  assert.equal(noBuild.steps.filter((s) => s.state === "changed").length, 1, "a walk that names no build keeps the old rule")
+})
+
 t("a step reworded after its walk is owed again; one reworded before is not", () => {
   const f = { ...flow, steps: flow.steps.map((x) => (x.id === "c" ? { ...x, changedAt: "2026-11-24T11:00:00Z" } : x.id === "d" ? { ...x, changedAt: "2026-11-24T09:00:00Z" } : x)) }
   const c = flowCoverage(f, [walk()], [])
