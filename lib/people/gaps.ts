@@ -93,7 +93,7 @@ function flowGaps(flow: UseCase, input: GapInput): Gap[] {
     const shas = [...new Set(cov.steps.flatMap((x) => x.changes))]
     const reworded = cov.steps.filter((x) => x.reworded)
     const shipped = shas.length ? `${shas.length} ${shas.length === 1 ? "change has" : "changes have"} shipped to its pages since it was last walked (${shas.slice(0, 3).join(", ")}${shas.length > 3 ? ` and ${shas.length - 3} more` : ""})` : ""
-    const rewrote = reworded.length ? `${reworded.length === 1 ? `the step "${reworded[0].does}" was` : `${reworded.length} steps were`} changed after their last walk` : ""
+    const rewrote = reworded.length ? (reworded.length === 1 ? `the step "${reworded[0].does}" was changed after its last walk` : `${reworded.length} steps were changed after their last walk`) : ""
     if (shipped || rewrote) out.push({ ...at, kind: "changed-since-walk", who: "agent", what: `${flow.name}: ${[shipped, rewrote].filter(Boolean).join("; ")}; walk ${shipped ? "it" : reworded.length === 1 ? "that step" : "those steps"} again${shipped ? " and update its steps" : ""}.` })
     else if (main.some((x) => x.state === "stopped")) out.push({ ...at, kind: "stopped-short", who: "agent", what: `${flow.name}: its last walk stopped short and nothing has fixed it since.` })
     const never = main.filter((x) => x.state === "never")

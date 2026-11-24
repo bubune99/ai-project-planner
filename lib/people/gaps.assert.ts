@@ -77,6 +77,13 @@ t("partial walks and other ways through (owner, 2026-11-23)", () => {
   assert.deepEqual(kinds(input({ ships, walks: [{ useCase: "u1", at: "2026-11-23T10:00:00Z", outcome: "reached" }, { useCase: "u1", at: "2026-11-23T11:00:00Z", outcome: "reached", covers: ["a"] }] })), [], "a later partial walk of the changed step settles the change")
 })
 
+t("a step changed after its walk is owed again, in words", () => {
+  const d = doc(); d.flows[0].steps[1] = { ...d.flows[0].steps[1], changedAt: "2026-11-23T12:00:00Z" }
+  const g = peopleGaps(input({ doc: d }))
+  assert.deepEqual(g.map((x) => x.kind), ["changed-since-walk"])
+  assert.match(g[0].what, /the step "Press it" was changed after its last walk; walk that step again\./)
+})
+
 t("a use case agents proposed waits on the owner", () => {
   const d = doc(); d.flows[0] = { ...d.flows[0], proposedBy: "ai-project-planner", reviewed: false }
   const g = peopleGaps(input({ doc: d }))
