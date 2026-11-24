@@ -14,12 +14,13 @@
  */
 import { everyStep, isReviewed, type FlowDoc, type Person, type UseCase } from "./people-model"
 import { routeCovers, type Ship } from "@/lib/gates/fresh-model"
+import { flowCoverage } from "@/lib/walks/step-coverage"
 
 export type GapKind =
   | "no-people" | "person-field" | "person-no-use-case" | "person-no-habit"
   | "use-case-short" | "step-blank" | "step-no-control"
   | "page-unreached" | "request-no-use-case"
-  | "never-walked" | "changed-since-walk" | "stopped-short"
+  | "never-walked" | "changed-since-walk" | "stopped-short" | "steps-unwalked" | "way-unwalked"
   | "not-reviewed"
 
 export interface Gap {
@@ -37,7 +38,7 @@ export interface GapInput {
   /** The routes of the project's scanned pages. */
   pages: string[]
   /** Walks, newest or oldest first: only the latest per use case counts. */
-  walks: { useCase?: string; at: string; outcome: string }[]
+  walks: { useCase?: string; at: string; outcome: string; covers?: string[]; way?: string }[]
   ships: Ship[]
   /** Open feature requests (proposals) and the use case each names, if any. */
   requests: { id: string; title: string; useCase?: string | null }[]
@@ -85,10 +86,16 @@ function flowGaps(flow: UseCase, input: GapInput): Gap[] {
   const last = input.walks.filter((w) => w.useCase === flow.id).sort((a, b) => b.at.localeCompare(a.at))[0]
   if (!last) out.push({ ...at, kind: "never-walked", who: "agent", what: `${flow.name} has never been walked.` })
   else {
+    // Step by step (owner, 2026-11-23: partial walks and other ways through): what each step's own last walk left.
+    const cov = flowCoverage(flow, input.walks, input.ships)
+    const main = cov.steps.filter((x) => x.way === null)
     // A commit shipped to staging and production is one change.
-    const shas = [...new Set(changesSinceWalk(flow, last.at, input.ships).map((s) => s.sha.slice(0, 7)))]
+    const shas = [...new Set(cov.steps.flatMap((x) => x.changes))]
     if (shas.length) out.push({ ...at, kind: "changed-since-walk", who: "agent", what: `${flow.name}: ${shas.length} ${shas.length === 1 ? "change has" : "changes have"} shipped to its pages since it was last walked (${shas.slice(0, 3).join(", ")}${shas.length > 3 ? ` and ${shas.length - 3} more` : ""}); walk it again and update its steps.` })
-    else if (last.outcome !== "reached") out.push({ ...at, kind: "stopped-short", who: "agent", what: `${flow.name}: its last walk stopped short and nothing has fixed it since.` })
+    else if (main.some((x) => x.state === "stopped")) out.push({ ...at, kind: "stopped-short", who: "agent", what: `${flow.name}: its last walk stopped short and nothing has fixed it since.` })
+    const never = main.filter((x) => x.state === "never")
+    if (never.length) out.push({ ...at, kind: "steps-unwalked", who: "agent", what: `${flow.name}: ${never.length} of ${main.length} steps never walked (${never.slice(0, 3).map((x) => `"${x.does}"`).join(", ")}${never.length > 3 ? " and more" : ""}).` })
+    for (const w of cov.ways.filter((x) => !x.walked)) out.push({ ...at, kind: "way-unwalked", who: "agent", what: `${flow.name}: the way "${w.label}" has never been walked.` })
   }
   if (!isReviewed(flow)) out.push({ ...at, kind: "not-reviewed", who: "owner", what: `${flow.name} was proposed by ${flow.proposedBy ?? "an agent"} and waits for the owner's review.` })
   return out

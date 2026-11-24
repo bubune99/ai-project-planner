@@ -65,6 +65,18 @@ t("walks: never walked, stopped short, and changed since", () => {
   assert.equal(peopleGaps(input({ ships, walks: [{ useCase: "u1", at: "2026-11-20T00:00:00Z", outcome: "blocked" }, { useCase: "u1", at: "2026-11-24T10:00:00Z", outcome: "reached" }] })).length, 0, "the latest walk counts, after the ships")
 })
 
+t("partial walks and other ways through (owner, 2026-11-23)", () => {
+  const partial = input({ walks: [{ useCase: "u1", at: "2026-11-23T10:00:00Z", outcome: "reached", covers: ["b", "c"] }] })
+  const g = peopleGaps(partial)
+  assert.deepEqual(g.map((x) => x.kind), ["steps-unwalked"], "a walk of two steps leaves the first owed")
+  assert.match(g[0].what, /1 of 3 steps never walked \("Press it"\)/)
+  const d = doc(); d.flows[0].steps[1] = { ...d.flows[0].steps[1], ways: [{ id: "w1", label: "Refused", ends: true, steps: [step("r", "/contact")] }] }
+  assert.deepEqual(kinds(input({ doc: d })), ["way-unwalked"], "a way nobody has walked is owed")
+  assert.deepEqual(kinds(input({ doc: d, walks: [...input().walks, { useCase: "u1", at: "2026-11-23T11:00:00Z", outcome: "reached", way: "w1" }] })), [], "walked along it, nothing is owed")
+  const ships = [{ sha: "aaaaaaa1", env: "production", routes: ["/"], everywhere: false, at: "2026-11-23T10:30:00Z" }]
+  assert.deepEqual(kinds(input({ ships, walks: [{ useCase: "u1", at: "2026-11-23T10:00:00Z", outcome: "reached" }, { useCase: "u1", at: "2026-11-23T11:00:00Z", outcome: "reached", covers: ["a"] }] })), [], "a later partial walk of the changed step settles the change")
+})
+
 t("a use case agents proposed waits on the owner", () => {
   const d = doc(); d.flows[0] = { ...d.flows[0], proposedBy: "ai-project-planner", reviewed: false }
   const g = peopleGaps(input({ doc: d }))

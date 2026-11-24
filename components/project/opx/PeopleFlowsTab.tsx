@@ -21,6 +21,7 @@ import { UseCaseFlow } from "./UseCaseFlow"
 import { pathsOf } from "@/lib/people/branches"
 import { Failed, Loading, Seg, ago, useJson } from "./shared"
 import { PeopleGaps } from "./PeopleGaps"
+import type { FlowCover } from "@/lib/walks/step-coverage"
 
 interface LogEntry { version: number; actor: "owner" | "agent"; lines: string[]; at: string }
 interface FlowsData { doc: FlowDoc; version: number; log: LogEntry[]; pages: { id: string; route: string; title: string | null }[]; canEdit: boolean }
@@ -91,7 +92,7 @@ const PERSON_FIELDS: [keyof Person, string][] = [
 export function PeopleFlowsTab({ projectId }: { projectId: string }) {
   const flows = useJson<FlowsData>(`/api/projects/${projectId}/people`)
   const fresh = useFresh(projectId)
-  const walked = useJson<{ walks: (StoredWalk & { line: string })[]; coverage: Coverage[] }>(`/api/projects/${projectId}/gates/walks`)
+  const walked = useJson<{ walks: (StoredWalk & { line: string })[]; coverage: (Coverage & { steps: (FlowCover & { line: string }) | null })[] }>(`/api/projects/${projectId}/gates/walks`)
   const [walkOpen, setWalkOpen] = useState<string | null>(null)
   const [doc, setDoc] = useState<FlowDoc | null>(null)
   const [log, setLog] = useState<LogEntry[]>([])
@@ -243,6 +244,8 @@ export function PeopleFlowsTab({ projectId }: { projectId: string }) {
         <h4>{useCase ? "Walked as a user" : "Goals walked outside any use case"}</h4>
         {mine.length === 0 && <span className="opx-muted">Nobody has tried to do "{name}" from start to finish yet. Until an agent walks it as a person would, the steps above are checked one by one but the journey is not.</span>}
         {cov?.state === "stale" && <span className="opx-muted">The last walk was on an older build; what it showed may no longer hold.</span>}
+        {/* Step by step (owner, 2026-11-23: partial walks and other ways through): which steps and ways are still owed a walk. */}
+        {mine.length > 0 && cov?.steps && <span className="opx-muted" data-testid="walk-coverage">{cov.steps.line}</span>}
         <ul>
           {mine.slice(0, 6).map((w) => (
             <li key={w.id}>

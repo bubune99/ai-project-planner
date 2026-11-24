@@ -7,6 +7,8 @@ import { walkErrorCard } from "@/lib/intake/check-card"
 import { upsertFixCard } from "@/lib/intake/check-card-store"
 import { latestChecklists, recordResults } from "@/lib/gates/store"
 import { walkVerdicts } from "./walk-checks"
+import { coverageLine, flowCoverage } from "./step-coverage"
+import { listShips } from "@/lib/gates/ship-store"
 
 export class WalkError extends Error {}
 
@@ -16,10 +18,12 @@ export async function listWalks(projectId: string, build?: string) {
   `) as { id: string; doc: Walk; actor: "agent" | "owner"; created_at: string }[]
   // Read through the parser, so an older row never reaches the page in a shape it cannot draw.
   const walks: StoredWalk[] = rows.map((r) => ({ ...parseWalk(r.doc).walk, id: r.id, actor: r.actor, at: new Date(r.created_at).toISOString() }))
-  const people = await loadFlows(projectId)
+  const [people, ships] = await Promise.all([loadFlows(projectId), listShips(projectId, 400)])
+  // Step by step: how much of each use case has been walked, on which ways, and what shipped since (step-coverage.ts).
+  const steps = new Map(people.doc.flows.map((f) => { const c = flowCoverage(f, walks, ships.ships); return [f.id, { ...c, line: coverageLine(c) }] as const }))
   return {
     walks: walks.map((w) => ({ ...w, line: walkLine(w) })),
-    coverage: coverage(people.doc.flows.map((f) => ({ id: f.id, name: f.name })), walks, build),
+    coverage: coverage(people.doc.flows.map((f) => ({ id: f.id, name: f.name })), walks, build).map((c) => ({ ...c, steps: steps.get(c.useCase) ?? null })),
     open: openFindings(walks),
   }
 }

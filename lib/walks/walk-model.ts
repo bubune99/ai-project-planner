@@ -103,6 +103,10 @@ export interface Walk {
   /** How the screens walked through did on each of the six. Not every walk scores all of them. */
   scores?: Partial<Record<Lens, LensScore>>
   env?: string; build?: string
+  /** A partial walk: the ids of the use case's steps it walked. Without it, the whole main line (or the way below). */
+  covers?: string[]
+  /** The way through it took (a step's way in People and flows). Rules in step-coverage.ts. */
+  way?: string
 }
 
 export const KIND_WORD: Record<FindingKind, string> = {
@@ -191,8 +195,10 @@ export function parseWalk(raw: unknown): { walk: Walk; errors: string[] } {
   // Stopping short without a finding means the reason was never written down where anyone will act on it.
   if (outcome !== "reached" && !findings.some((f) => f.kind === "error" || f.kind === "gap" || f.kind === "friction")) errors.push("A walk that did not reach its goal records what stopped it as a finding")
   if (outcome === "reached" && steps.length && !steps[steps.length - 1].ok) errors.push("The last step did not go as expected, so the goal was not reached")
-  const opt = (k: "useCase" | "persona" | "route" | "env" | "build") => { const v = text(o[k]); return v ? { [k]: v } : {} }
-  return { walk: { goal, ...opt("useCase"), ...opt("persona"), ...opt("route"), cold: o.cold === true, outcome, ...(why ? { why } : {}), steps, findings, ...(Object.keys(scores).length ? { scores } : {}), ...opt("env"), ...opt("build") }, errors }
+  const opt = (k: "useCase" | "persona" | "route" | "env" | "build" | "way") => { const v = text(o[k]); return v ? { [k]: v } : {} }
+  const covers = [...new Set(list(o.covers, 80).filter((x): x is string => typeof x === "string" && /^[\w-]{1,80}$/.test(x)))]
+  if (covers.length && !text(o.useCase)) errors.push("A walk of some steps names the use case they belong to")
+  return { walk: { goal, ...opt("useCase"), ...opt("persona"), ...opt("route"), cold: o.cold === true, outcome, ...(why ? { why } : {}), steps, findings, ...(Object.keys(scores).length ? { scores } : {}), ...opt("env"), ...opt("build"), ...(covers.length ? { covers } : {}), ...opt("way") }, errors }
 }
 
 /** A walk in one line. */
