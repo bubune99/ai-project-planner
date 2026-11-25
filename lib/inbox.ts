@@ -144,3 +144,20 @@ export function resolveAnswer(item: InboxItem, body: { option?: unknown; reply?:
 export function statusAfterAnswer(kind: InboxKind): "completed" | "queued" {
   return kind === "question" ? "completed" : "queued"
 }
+
+/**
+ * The use cases a question holds up: the one named when it was asked (useCase) and any named later with
+ * question_about (useCases), without repeats. One question can hold up several (owner, 2026-11-25: a mail domain
+ * waiting on him stops five FAR CNCPT use cases at once). Pure; checked in inbox.assert.ts.
+ */
+export function questionUseCases(input: unknown): string[] {
+  const i = (input && typeof input === "object" ? input : {}) as { useCase?: unknown; useCases?: unknown }
+  const all = [i.useCase, ...(Array.isArray(i.useCases) ? i.useCases : [])]
+  return [...new Set(all.filter((u): u is string => typeof u === "string" && !!u.trim()).map((u) => u.trim()))]
+}
+
+/** The list to store after naming more use cases on a question. */
+export function addQuestionUseCases(input: unknown, more: string[]): string[] {
+  const had = questionUseCases(input)
+  return [...new Set([...had, ...more.map((u) => u.trim()).filter(Boolean)])]
+}

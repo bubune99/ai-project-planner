@@ -3,6 +3,7 @@ import { sql } from "@/lib/db/client"
 import { loadFlows } from "./store"
 import { listShips } from "@/lib/gates/ship-store"
 import { peopleGaps, gapSummary } from "./gaps"
+import { questionUseCases } from "@/lib/inbox"
 
 export async function projectGaps(projectId: string) {
   const [flows, pages, walks, ships, requests, waiting] = await Promise.all([
@@ -17,10 +18,10 @@ export async function projectGaps(projectId: string) {
     ` as unknown as Promise<{ id: string; title: string; use_case: string | null }[]>,
     // Open owner questions that name a use case: its gaps are his while they are open (question 537b3283).
     sql`
-      SELECT id, input->>'useCase' AS use_case FROM agent_jobs
+      SELECT id, input FROM agent_jobs
       WHERE input->>'kind' = 'question' AND input->>'projectId' = ${projectId}
-        AND status = 'awaiting-unlock' AND COALESCE(input->>'useCase', '') <> ''
-    ` as unknown as Promise<{ id: string; use_case: string }[]>,
+        AND status = 'awaiting-unlock' AND (COALESCE(input->>'useCase', '') <> '' OR input ? 'useCases')
+    ` as unknown as Promise<{ id: string; input: unknown }[]>,
   ])
   const gaps = peopleGaps({
     doc: flows.doc,
@@ -28,7 +29,7 @@ export async function projectGaps(projectId: string) {
     walks: walks.map((w) => ({ useCase: w.use_case ?? undefined, outcome: w.outcome ?? "", at: new Date(w.created_at).toISOString(), ...(Array.isArray(w.covers) ? { covers: w.covers.filter((x): x is string => typeof x === "string") } : {}), ...(w.way ? { way: w.way } : {}), ...(w.build ? { build: w.build } : {}) })),
     ships: ships.ships,
     requests: requests.map((r) => ({ id: r.id, title: r.title, useCase: r.use_case })),
-    waiting: waiting.map((w) => ({ useCase: w.use_case, questionId: String(w.id) })),
+    waiting: waiting.flatMap((w) => questionUseCases(w.input).map((useCase) => ({ useCase, questionId: String(w.id) }))),
   })
   return { gaps, summary: gapSummary(gaps), version: flows.version }
 }
