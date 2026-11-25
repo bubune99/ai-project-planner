@@ -2,7 +2,7 @@
  * Assertions for lib/inbox.ts. Run: npx -y tsx@4.23.15 lib/inbox.assert.ts
  * (not the pinned tsx 4.21.0 — see CLAUDE.md).
  */
-import { buildQuestionInput, toInboxItem, resolveAnswer, statusAfterAnswer, cardOfQuestion, MAX_OPTIONS } from "./inbox"
+import { questionUseCases, addQuestionUseCases, buildQuestionInput, toInboxItem, resolveAnswer, statusAfterAnswer, cardOfQuestion, MAX_OPTIONS } from "./inbox"
 
 let pass = 0, fail = 0
 function eq(name: string, got: unknown, want: unknown) {
@@ -82,6 +82,12 @@ eq("an empty id is no card", cardOfQuestion("  ", undefined), null)
   const none = buildQuestionInput({ question: "Q?", useCase: "  " })
   eq("a blank useCase is left out", none.ok && "useCase" in none.value.input, false)
 }
+
+// One question can hold up several use cases (owner, 2026-11-25).
+eq("useCase and useCases together, no repeats", questionUseCases({ useCase: "a", useCases: ["b", "a", " c ", 3, ""] }), ["a", "b", "c"])
+eq("nothing named", questionUseCases({ kind: "question" }), [])
+eq("not an object", questionUseCases(null), [])
+eq("naming more keeps the earlier ones", addQuestionUseCases({ useCase: "a", useCases: ["b"] }, ["c", "b"]), ["a", "b", "c"])
 
 console.log(`${pass} passed, ${fail} failed`)
 if (fail) process.exit(1)

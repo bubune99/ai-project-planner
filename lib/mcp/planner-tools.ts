@@ -51,7 +51,7 @@ import {
   listSourcesForStep,
   listSourcesForJob,
 } from "@/lib/db/backbone"
-import { buildQuestionInput } from "@/lib/inbox"
+import { addQuestionUseCases, buildQuestionInput } from "@/lib/inbox"
 import { notifyOwner } from "@/lib/notify/owner"
 import { holdCardForQuestion } from "@/lib/work/question-hold"
 import { visibleStepPredicate } from "@/lib/db/agent-task-access"
@@ -4411,12 +4411,13 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
     )
     server.tool(
       "question_about",
-      "Say which People and flows use case an open question of yours holds up (for one asked without useCase). While it is open, that use case's gaps are listed as the owner's, naming the question.",
+      "Say which People and flows use cases an open question of yours holds up. Adds to any already named. While it is open, their gaps are listed as the owner's, naming the question.",
       {
         questionId: z.string().uuid().describe("The questionId from ask_owner"),
-        useCase: z.string().min(1).max(120).describe("The use case's id in the project's People and flows"),
+        useCase: z.string().min(1).max(120).optional().describe("One use case's id in the project's People and flows"),
+        useCases: z.array(z.string().min(1).max(120)).max(20).optional().describe("Several use case ids, when one question holds up more than one"),
       },
-      async ({ questionId, useCase }) => {
+      async ({ questionId, useCase, useCases }) => {
         try {
           const userId = getMcpUserId()
           const [job] = (await sql`
@@ -4428,10 +4429,15 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
           if (!job.project_id) return mcpError("That question names no project, so it cannot hold up a use case.")
           const { loadFlows } = await import("@/lib/people/store")
           const flows = await loadFlows(job.project_id)
-          const flow = flows.doc.flows.find((f) => f.id === useCase)
-          if (!flow) return mcpError(`No use case "${useCase}" in that project's People and flows. Its ids: ${flows.doc.flows.map((f) => f.id).join(", ")}`)
-          await sql`UPDATE agent_jobs SET input = input || jsonb_build_object('useCase', ${useCase}::text), updated_at = NOW() WHERE id = ${questionId}`
-          return mcpResponse({ questionId, useCase, name: flow.name, next_actions: ["Its gaps are now listed under the owner while the question is open."] })
+          const asked = [...(useCase ? [useCase] : []), ...(useCases ?? [])]
+          if (!asked.length) return mcpError("Name the use case: useCase, or useCases for several.")
+          const missing = asked.filter((u) => !flows.doc.flows.some((f) => f.id === u))
+          if (missing.length) return mcpError(`No use case ${missing.map((m) => `"${m}"`).join(", ")} in that project's People and flows. Its ids: ${flows.doc.flows.map((f) => f.id).join(", ")}`)
+          const [row] = (await sql`SELECT input FROM agent_jobs WHERE id = ${questionId}`) as { input: unknown }[]
+          const list = addQuestionUseCases(row?.input, asked)
+          await sql`UPDATE agent_jobs SET input = input || jsonb_build_object('useCases', ${JSON.stringify(list)}::jsonb), updated_at = NOW() WHERE id = ${questionId}`
+          const names = list.map((u) => flows.doc.flows.find((f) => f.id === u)?.name ?? u)
+          return mcpResponse({ questionId, useCases: list, names, next_actions: ["Their gaps are now listed under the owner while the question is open."] })
         } catch (error: unknown) {
           return mcpError(error instanceof Error ? error.message : "Unknown error")
         }
