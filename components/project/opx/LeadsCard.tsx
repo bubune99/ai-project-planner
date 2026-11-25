@@ -51,7 +51,7 @@ export function LeadsCard({ projectId }: { projectId: string }) {
               </div>
               <p style={{ margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{l.message}</p>
               <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
-                <a className="opx-btn sm" href={`mailto:${encodeURIComponent(l.email)}?subject=${encodeURIComponent("Re: your note to FAR CNCPT")}`}>Reply by email</a>
+                <a className="opx-btn sm" style={{ whiteSpace: "nowrap" }} href={`mailto:${encodeURIComponent(l.email)}?subject=${encodeURIComponent("Re: your note to FAR CNCPT")}`}>Reply by email</a>
                 <Seg label={`Status of the note from ${l.name}`} value={status} options={STATUS_OPTIONS} onChange={(s) => mark(l, s)} />
               </div>
             </article>
