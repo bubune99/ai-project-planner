@@ -12,6 +12,7 @@ import { Check } from "lucide-react"
 import { ActivityFeed } from "@/components/project/activity-feed"
 import { Figure, Seg, unwrap, useJson } from "@/components/project/opx/shared"
 import { RisksCard } from "@/components/project/opx/RisksCard"
+import { LeadsCard } from "@/components/project/opx/LeadsCard"
 import { TaskList, TaskTimeline, TaskCalendar } from "@/components/project/opx/TaskViews"
 import { DocsTab } from "@/components/project/opx/DocsTab"
 import { ChecksTab } from "@/components/project/opx/ChecksTab"
@@ -117,6 +118,7 @@ function OverviewFacet({ project, projectId, steps, phases, progress, onProjectC
         </div>
       )}
 
+      <LeadsCard projectId={projectId} />
       <RisksCard projectId={projectId} project={project} onChange={onProjectChange} />
       <ActivityFeed projectId={projectId} />
     </div>
