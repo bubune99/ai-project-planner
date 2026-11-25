@@ -100,7 +100,7 @@ t("a use case agents proposed waits on the owner", () => {
   const d = doc(); d.flows[0] = { ...d.flows[0], proposedBy: "ai-project-planner", reviewed: false }
   const g = peopleGaps(input({ doc: d }))
   assert.deepEqual(g.map((x) => [x.kind, x.who]), [["not-reviewed", "owner"]])
-  assert.equal(gapSummary(g).line, "1 waiting on the owner's review.")
+  assert.equal(gapSummary(g).line, "1 waiting on the owner.")
 })
 
 t("pages no use case reaches and no area describes", () => {
@@ -118,7 +118,20 @@ t("requests with no use case behind them", () => {
 
 t("the summary counts each side", () => {
   const d = doc(); d.flows[0] = { ...d.flows[0], reviewed: false }
-  assert.equal(gapSummary(peopleGaps(input({ doc: d, walks: [] }))).line, "1 for agents to fill, 1 waiting on the owner's review.")
+  assert.equal(gapSummary(peopleGaps(input({ doc: d, walks: [] }))).line, "1 for agents to fill, 1 waiting on the owner.")
+})
+
+t("a use case whose owner question is open: its gaps are his, naming the question (537b3283)", () => {
+  const stopped = { walks: [{ useCase: "u1", at: "2026-11-23T10:00:00Z", outcome: "blocked" }] }
+  const g = peopleGaps(input({ ...stopped, waiting: [{ useCase: "u1", questionId: "20031408-aaaa-bbbb-cccc-000000000000" }] }))
+  const s = g.find((x) => x.kind === "stopped-short")!
+  assert.equal(s.who, "owner")
+  assert.equal(s.questionId, "20031408-aaaa-bbbb-cccc-000000000000")
+  assert.ok(s.what.endsWith("Waits on the owner's answer (question 20031408)."), s.what)
+  assert.equal(gapSummary(g).agent, 0)
+  // A question about another use case changes nothing here; no question, still the agents'.
+  assert.equal(peopleGaps(input({ ...stopped, waiting: [{ useCase: "other", questionId: "q2" }] })).find((x) => x.kind === "stopped-short")!.who, "agent")
+  assert.equal(peopleGaps(input(stopped)).find((x) => x.kind === "stopped-short")!.who, "agent")
 })
 
 console.log(`people gaps: ${n} groups of checks passed`)

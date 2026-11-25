@@ -75,5 +75,13 @@ eq("asked about no card, but a blocked card names it as what it waits on", cardO
 eq("a question with no card has none", cardOfQuestion(null, null), null)
 eq("an empty id is no card", cardOfQuestion("  ", undefined), null)
 
+// A question about a use case keeps its id (owner, 2026-11-25, question 537b3283): its gaps are his while it is open.
+{
+  const r = buildQuestionInput({ question: "Pay one test balance?", options: ["Yes", "No"], useCase: " lead-pay " })
+  eq("useCase kept, trimmed", r.ok && r.value.input.useCase, "lead-pay")
+  const none = buildQuestionInput({ question: "Q?", useCase: "  " })
+  eq("a blank useCase is left out", none.ok && "useCase" in none.value.input, false)
+}
+
 console.log(`${pass} passed, ${fail} failed`)
 if (fail) process.exit(1)

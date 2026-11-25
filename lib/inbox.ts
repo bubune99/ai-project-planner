@@ -24,6 +24,8 @@ export interface QuestionJobInput {
   context: string | null
   projectId: string | null
   stepId: string | null
+  /** The People and flows use case (its id) this question holds up: its gaps are the owner's while it is open. */
+  useCase?: string | null
 }
 
 export interface InboxItem {
@@ -61,6 +63,7 @@ export function buildQuestionInput(raw: {
   context?: unknown
   projectId?: unknown
   stepId?: unknown
+  useCase?: unknown
 }): Result<{ question: string; input: QuestionJobInput }> {
   const question = str(raw.question)
   if (!question) return { ok: false, error: "question is required" }
@@ -90,7 +93,7 @@ export function buildQuestionInput(raw: {
     ok: true,
     value: {
       question,
-      input: { kind: "question", options, context, projectId: str(raw.projectId), stepId: str(raw.stepId) },
+      input: { kind: "question", options, context, projectId: str(raw.projectId), stepId: str(raw.stepId), ...(str(raw.useCase) ? { useCase: str(raw.useCase) } : {}) },
     },
   }
 }

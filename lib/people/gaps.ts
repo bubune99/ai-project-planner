@@ -31,6 +31,8 @@ export interface Gap {
   what: string
   who: "agent" | "owner"
   personId?: string; flowId?: string; route?: string; cardId?: string
+  /** The owner's open question this gap waits on. */
+  questionId?: string
 }
 
 export interface GapInput {
@@ -42,6 +44,9 @@ export interface GapInput {
   ships: Ship[]
   /** Open feature requests (proposals) and the use case each names, if any. */
   requests: { id: string; title: string; useCase?: string | null }[]
+  /** Open owner questions that name a use case (by id). While one is open, that use case's gaps are the owner's
+   *  (owner, 2026-11-25, question 537b3283: "Yes: count it as mine while my question is open"). */
+  waiting?: { useCase: string; questionId: string }[]
 }
 
 const PERSON_FIELDS: [keyof Person, string][] = [
@@ -126,15 +131,21 @@ export function peopleGaps(input: GapInput): Gap[] {
   const names = new Set(doc.flows.map((f) => norm(f.name)))
   return [
     ...personGaps(doc),
-    ...doc.flows.flatMap((f) => flowGaps(f, input)),
+    ...doc.flows.flatMap((f) => heldByOwner(flowGaps(f, input), input.waiting?.find((w) => w.useCase === f.id))),
     ...unreachedPages(doc, input.pages).map((route): Gap => ({ kind: "page-unreached", where: route, route, who: "agent", what: `${route}: no use case goes through it and no area says what it is for.` })),
     ...input.requests.filter((r) => !r.useCase || !names.has(norm(r.useCase))).map((r): Gap => ({ kind: "request-no-use-case", where: r.title, cardId: r.id, who: "agent", what: `The request "${r.title}" names no use case in People and flows: propose the person and goal it serves.` })),
   ]
 }
 
+/** A use case's gaps while the owner's question about it is open: his, saying which question they wait on. */
+function heldByOwner(gaps: Gap[], q: { questionId: string } | undefined): Gap[] {
+  if (!q) return gaps
+  return gaps.map((x) => ({ ...x, who: "owner", questionId: q.questionId, what: `${x.what} Waits on the owner's answer (question ${q.questionId.slice(0, 8)}).` }))
+}
+
 /** Counts for a one-line summary. */
 export function gapSummary(gaps: Gap[]): { agent: number; owner: number; line: string } {
   const agent = gaps.filter((g) => g.who === "agent").length, owner = gaps.length - agent
-  const line = !gaps.length ? "Nothing is missing." : [agent ? `${agent} for agents to fill` : "", owner ? `${owner} waiting on the owner's review` : ""].filter(Boolean).join(", ") + "."
+  const line = !gaps.length ? "Nothing is missing." : [agent ? `${agent} for agents to fill` : "", owner ? `${owner} waiting on the owner` : ""].filter(Boolean).join(", ") + "."
   return { agent, owner, line }
 }

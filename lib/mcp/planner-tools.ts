@@ -4330,11 +4330,12 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
         context: z.string().optional().describe("What the owner needs to know to answer — what you found, what each option implies"),
         projectId: z.string().optional().describe("Project this is about (defaults to the active project, if any)"),
         stepId: z.string().optional().describe("The card this question holds up. The card moves to Blocked, naming the question, and returns to Up next when the owner answers. Leave out when no card waits on the answer."),
+        useCase: z.string().max(120).optional().describe("The People and flows use case (its id) this question holds up. While it is open, that use case's gaps are listed as the owner's, naming this question, not as agents' work."),
         askedBy: z.string().optional().describe("Your stable agent name, shown on the card and used to route the answer back (e.g. claude-code@planner)"),
         askedFrom: z.string().optional().describe("Where you are working: the folder or machine. Lets the answer find you, or your project, later"),
         images: z.array(z.object({ base64: z.string(), caption: z.string().optional(), option: z.string().optional().describe("The exact words of the option this picture shows: the card then shows that option as its picture, and pressing the picture chooses it. For a matter of taste, mock each option on the live page in your own tab and send one picture per option."), current: z.boolean().optional().describe("This picture shows how it is now; shown first, marked as the current one") })).optional().describe("Up to 4 pictures that show what you are asking about (PNG, JPEG or WebP as base64, each under 1.5 MB, 3 MB together). Crop to the part that matters; give each a short caption."),
       },
-      async ({ question, options, context, projectId, stepId, askedBy, askedFrom, images }) => {
+      async ({ question, options, context, projectId, stepId, useCase, askedBy, askedFrom, images }) => {
         try {
           requireMcpScope("write")
           const userId = getMcpUserId()
@@ -4344,7 +4345,7 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
             const stepError = await stepWriteError(stepId, pid)
             if (stepError) return mcpError(stepError)
           }
-          const built = buildQuestionInput({ question, options, context, projectId: pid, stepId })
+          const built = buildQuestionInput({ question, options, context, projectId: pid, stepId, useCase })
           if (!built.ok) return mcpError(built.error)
           // Pictures for context (owner, 2026-11-16). Checked first, stored before the question exists, so a
           // question never points at a picture that is not there.
@@ -4403,6 +4404,34 @@ export async function registerPlannerTools(server: McpServer): Promise<void> {
               ...(card?.moved === "blocked" ? [`Card "${card.title}" is now Blocked, waiting on this question, and nobody holds it. His answer returns it to Up next; take it again from there.`] : []),
             ],
           })
+        } catch (error: unknown) {
+          return mcpError(error instanceof Error ? error.message : "Unknown error")
+        }
+      }
+    )
+    server.tool(
+      "question_about",
+      "Say which People and flows use case an open question of yours holds up (for one asked without useCase). While it is open, that use case's gaps are listed as the owner's, naming the question.",
+      {
+        questionId: z.string().uuid().describe("The questionId from ask_owner"),
+        useCase: z.string().min(1).max(120).describe("The use case's id in the project's People and flows"),
+      },
+      async ({ questionId, useCase }) => {
+        try {
+          const userId = getMcpUserId()
+          const [job] = (await sql`
+            SELECT id, status, input->>'projectId' AS project_id FROM agent_jobs
+            WHERE id = ${questionId} AND created_by = ${userId} AND input->>'kind' = 'question'
+          `) as { id: string; status: string; project_id: string | null }[]
+          if (!job) return mcpError("Question not found")
+          if (job.status !== "awaiting-unlock") return mcpError("That question is already answered; nothing waits on it.")
+          if (!job.project_id) return mcpError("That question names no project, so it cannot hold up a use case.")
+          const { loadFlows } = await import("@/lib/people/store")
+          const flows = await loadFlows(job.project_id)
+          const flow = flows.doc.flows.find((f) => f.id === useCase)
+          if (!flow) return mcpError(`No use case "${useCase}" in that project's People and flows. Its ids: ${flows.doc.flows.map((f) => f.id).join(", ")}`)
+          await sql`UPDATE agent_jobs SET input = input || jsonb_build_object('useCase', ${useCase}::text), updated_at = NOW() WHERE id = ${questionId}`
+          return mcpResponse({ questionId, useCase, name: flow.name, next_actions: ["Its gaps are now listed under the owner while the question is open."] })
         } catch (error: unknown) {
           return mcpError(error instanceof Error ? error.message : "Unknown error")
         }
